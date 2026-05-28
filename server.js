@@ -8,10 +8,10 @@ const app = express();
 
 const DASH_CONFIG = {
   TIMEZONE: "America/Sao_Paulo",
-  LOGO_AGSUS_FILE_ID: "1pMNoCZllAuU_Ohx2FNVLg5JKXXKuejBp",
-  BACKGROUND_FILE_ID: "1WLHYjJsj37JQkem9Pu5_fmOoKbwZzlib",
-  LOGO_COORDENACAO_FILE_ID: "1qELKLfmNxI2wKs5MAyLgYJ5-EQXrfWBZ",
-  IMAGEM_INDIGENA_PAINEL_FILE_ID: "1lVx44iQgzHrhLuGTSiG1bS8Q0kcapEJT",
+  LOGO_AGSUS_FILE: "/assets/images/Logo%20AgSUS%20sem%20fundo.png",
+  BACKGROUND_FILE: "/assets/images/planodefundo.png",
+  LOGO_COORDENACAO_FILE: "/assets/images/Logo%20COGIP.png",
+  IMAGEM_INDIGENA_PAINEL_FILE: "/assets/images/upscalemedia-transformed.png",
   DASHBOARD_SAUDE_INDIGENA_URL: "https://datastudio.google.com/embed/reporting/19d10a18-1ed1-4e5f-87bf-6bb87c21b234/page/p_d9w2owdmfd",
   DB_SCHEMA: process.env.DB_SCHEMA || "u226895969_ugp",
   MONITORAMENTO_VIEW: process.env.MONITORAMENTO_VIEW || "vw_monitoramento_vagas_painel",
@@ -728,19 +728,19 @@ async function fecharJdbc(resource) {
 }
 
 function getBackgroundPainelUrl() {
-  return `https://drive.google.com/thumbnail?id=${DASH_CONFIG.BACKGROUND_FILE_ID}&sz=w2400`;
+  return DASH_CONFIG.BACKGROUND_FILE;
 }
 
 function getImagemIndigenaPainelUrl() {
-  return `https://drive.google.com/thumbnail?id=${DASH_CONFIG.IMAGEM_INDIGENA_PAINEL_FILE_ID}&sz=w1200`;
+  return DASH_CONFIG.IMAGEM_INDIGENA_PAINEL_FILE;
 }
 
 function getLogoCoordenacaoUrl() {
-  return `https://drive.google.com/thumbnail?id=${DASH_CONFIG.LOGO_COORDENACAO_FILE_ID}&sz=w700`;
+  return DASH_CONFIG.LOGO_COORDENACAO_FILE;
 }
 
 function getLogoAgsusUrl() {
-  return `https://drive.google.com/thumbnail?id=${DASH_CONFIG.LOGO_AGSUS_FILE_ID}&sz=w400`;
+  return DASH_CONFIG.LOGO_AGSUS_FILE;
 }
 
 async function getMysqlConnection() {
