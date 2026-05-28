@@ -1,0 +1,37 @@
+name: "Nova Funcionalidade"
+description: "Sugira uma ideia ou melhoria para este projeto."
+title: "[FEATURE]: <titulo>"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Qual problema você está tentando resolver?"
+      description: Uma descrição clara e concisa de qual é o problema ou necessidade.
+      placeholder: "Ex: Preciso que o sistema faça tal ação de forma automática pois..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Solução Desejada"
+      description: Uma descrição clara e concisa do que você quer que aconteça.
+      placeholder: "Ex: Eu gostaria que houvesse um botão para exportar o estado do painel..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternativas Consideradas"
+      description: Uma descrição clara e concisa de quaisquer soluções ou recursos alternativos que você considerou.
+      placeholder: "Ex: Atualmente estamos extraindo os dados via API e montando no Excel, mas o ideal seria..."
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: "Contexto Adicional / Prints"
+      description: Adicione qualquer outro contexto, mockups ou prints sobre a sugestão de recurso aqui.
+    validations:
+      required: false
+
