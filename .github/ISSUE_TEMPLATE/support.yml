@@ -1,0 +1,21 @@
+name: "Dúvida ou Suporte"
+description: "Precisa de ajuda para usar o projeto ou tem alguma dúvida técnica?"
+title: "[SUPPORT]: <titulo>"
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: "Qual é a sua dúvida?"
+      description: Descreva detalhadamente o que você está tentando fazer e onde encontrou dificuldades.
+      placeholder: "Ex: Estou tentando integrar o componente X com o banco de dados Y, mas não entendi como..."
+    validations:
+      required: true
+  - type: textarea
+    id: attempts
+    attributes:
+      label: "O que você já tentou?"
+      description: Se aplicável, descreva quais soluções ou abordagens você já testou antes de abrir esta issue.
+    validations:
+      required: false
+
