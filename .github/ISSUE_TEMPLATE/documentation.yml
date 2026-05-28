@@ -1,0 +1,22 @@
+name: "Melhoria de Documentação"
+description: "Proponha correções ou melhorias nos arquivos de ajuda, README ou guias."
+title: "[DOC]: <titulo>"
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: doc_problem
+    attributes:
+      label: "Onde está o problema na documentação?"
+      description: Link para o arquivo/página ou descrição de onde a informação está incorreta, desatualizada ou confusa.
+      placeholder: "Ex: No arquivo README.md, a seção de instalação está com o comando quebrado..."
+    validations:
+      required: true
+  - type: textarea
+    id: doc_suggestion
+    attributes:
+      label: "O que deve ser alterado/adicionado?"
+      description: Descreva a melhoria que você sugere para o texto.
+      placeholder: "Ex: Substituir o comando 'npm run text' por 'npm run test'..."
+    validations:
+      required: true
+
