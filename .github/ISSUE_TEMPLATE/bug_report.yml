@@ -1,0 +1,71 @@
+name: "Relato de Bug"
+description: "Crie um relatório para nos ajudar a identificar e corrigir um problema."
+title: "[BUG]: <titulo>"
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descrição"
+      description: Uma descrição clara e concisa do que é o problema.
+      placeholder: Descrição breve e explícita do seu incidente...
+    validations:
+      required: true
+  - type: textarea
+    id: reprod
+    attributes:
+      label: "Passos de reprodução"
+      description: Passos para reproduzir o comportamento
+      value: |
+        1. Vá para '...'
+        2. Clique em '....'
+        3. Role a página até '...'
+        4. Veja o erro
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: "Screenshots"
+      description: Se aplicável, adicione prints de tela ou cole os logs do erro aqui.
+      value: |
+        ![DESCRIÇÃO](LINK.png)
+      render: bash
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs"
+      description: Por favor copie e cole qualquer log relevante. O log vai ser automaticamente formatado em código, então não precisa usar crases.
+      render: bash
+    validations:
+      required: false
+  - type: dropdown
+    id: navegadores
+    attributes:
+      label: "Navegadores"
+      description: Qual navegador você está vendo o problema?
+      multiple: true
+      options:
+        - Firefox
+        - Chrome
+        - Safari
+        - Microsoft Edge
+        - Opera
+    validations:
+      required: false
+  - type: dropdown
+    id: os
+    attributes:
+      label: "Sistema Operacional"
+      description: Qual é o seu sistema operacional ?
+      multiple: true
+      options:
+        - Windows
+        - Linux
+        - Mac
+    validations:
+      required: false
+
