@@ -1,0 +1,8 @@
+#windows
+desktop.ini
+
+# Dependências
+node_modules/
+
+# Variáveis de ambiente
+.env
