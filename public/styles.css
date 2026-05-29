@@ -2837,11 +2837,342 @@
       padding-top: 2px;
     }
 
+    .distribuicaoSection {
+      display: grid;
+      gap: 12px;
+    }
+
+    .distribuicaoHeader {
+      margin-bottom: 0;
+    }
+
+    .distribuicaoWrap {
+      max-height: 420px;
+      overflow: auto !important;
+    }
+
+    #view-vagas .fullTableWrap::-webkit-scrollbar,
+    .distribuicaoWrap::-webkit-scrollbar,
+    .remHistoryWrap::-webkit-scrollbar,
+    .remTableWrap::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+
+    #view-vagas .fullTableWrap::-webkit-scrollbar-thumb,
+    .distribuicaoWrap::-webkit-scrollbar-thumb,
+    .remHistoryWrap::-webkit-scrollbar-thumb,
+    .remTableWrap::-webkit-scrollbar-thumb {
+      background: rgba(0, 83, 166, .42);
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, .68);
+    }
+
+    #view-vagas .fullTableWrap::-webkit-scrollbar-track,
+    .distribuicaoWrap::-webkit-scrollbar-track,
+    .remHistoryWrap::-webkit-scrollbar-track,
+    .remTableWrap::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, .55);
+      border-radius: 999px;
+    }
+
+    .remKpiGrid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .remKpiCard {
+      border-radius: 18px;
+      padding: 16px 18px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, .98), rgba(232, 247, 255, .94));
+      border: 1px solid rgba(0, 83, 166, .14);
+      box-shadow: 0 16px 28px rgba(0, 50, 113, .10);
+      display: grid;
+      gap: 5px;
+      color: #07346b;
+    }
+
+    .remKpiCard strong {
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .remKpiCard small,
+    .remKpiLabel {
+      color: #5c7190;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .remKpiHighlight {
+      background: linear-gradient(145deg, rgba(0, 109, 204, .10), rgba(255, 255, 255, .98));
+    }
+
+    .remHistoricoToolbar {
+      display: grid;
+      gap: 10px;
+    }
+
+    .remHistoryWrap {
+      max-height: 520px;
+      overflow: auto;
+    }
+
+    .remTwinGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .remBottomGrid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, .9fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .remBox {
+      border-radius: 18px;
+      padding: 18px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, .98), rgba(232, 247, 255, .94));
+      border: 1px solid rgba(0, 83, 166, .12);
+      box-shadow: 0 12px 24px rgba(0, 43, 93, .08);
+      display: grid;
+      gap: 14px;
+    }
+
+    .remBox h3,
+    .remIntroBox h3 {
+      margin: 0;
+      color: #07346b;
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .remBox p,
+    .remIntroBox p {
+      margin: 0;
+      color: #315c8e;
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 800;
+    }
+
+    .remIntroBox {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .remStep,
+    .remIntroBadge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .remStep {
+      margin-bottom: 8px;
+      background: rgba(0, 109, 204, .08);
+      color: #005aa9;
+    }
+
+    .remIntroBadge {
+      background: linear-gradient(135deg, #007de0, #0055a7);
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    .remBoxHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .remAddBtn,
+    .remSecondaryBtn,
+    .remSaveBtn,
+    .remDeleteBtn {
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .remAddBtn,
+    .remSaveBtn {
+      background: linear-gradient(135deg, #007de0, #0055a7);
+      color: #fff;
+      box-shadow: 0 10px 18px rgba(0, 63, 143, .18);
+    }
+
+    .remSecondaryBtn {
+      background: rgba(0, 83, 166, .08);
+      color: #07346b;
+      border: 1px solid rgba(0, 83, 166, .18);
+    }
+
+    .remDeleteBtn {
+      background: rgba(185, 28, 28, .08);
+      color: #a61b1b;
+      border: 1px solid rgba(185, 28, 28, .16);
+      padding: 8px 10px;
+    }
+
+    .remTableWrap {
+      overflow: auto;
+      border-radius: 16px;
+      border: 1px solid rgba(0, 83, 166, .12);
+      background: rgba(255, 255, 255, .86);
+    }
+
+    .remTable {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 11px;
+    }
+
+    .remTable th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: linear-gradient(135deg, #005aa9, #006dcc);
+      color: #fff;
+      padding: 11px 10px;
+      text-align: left;
+    }
+
+    .remTable td {
+      padding: 10px;
+      color: #07346b;
+      font-weight: 800;
+      border-bottom: 1px solid rgba(0, 86, 167, .10);
+    }
+
+    .remTable td input,
+    .remDocBox input,
+    .remDocBox textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid rgba(0, 83, 166, .16);
+      border-radius: 10px;
+      padding: 9px 11px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #07346b;
+      background: rgba(255, 255, 255, .96);
+    }
+
+    .remDocBox textarea {
+      min-height: 88px;
+      resize: vertical;
+    }
+
+    .remImpactoGrid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .remImpactoCards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .remImpactoCards div {
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, .9);
+      border: 1px solid rgba(0, 83, 166, .10);
+      display: grid;
+      gap: 5px;
+    }
+
+    .remImpactoCards span,
+    .remResumoTable th {
+      color: #5c7190;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .remImpactoCards strong {
+      color: #07346b;
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .remResumoTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: rgba(255, 255, 255, .9);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .remResumoTable th,
+    .remResumoTable td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0, 86, 167, .10);
+      text-align: left;
+      color: #07346b;
+      font-weight: 800;
+    }
+
+    .remResumoTotal td {
+      font-weight: 900;
+      background: rgba(0, 83, 166, .06);
+    }
+
+    .remLegend {
+      color: #5c7190;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .remDocActions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .remNegativo {
+      color: #b91c1c !important;
+    }
+
+    .remPositivo {
+      color: #047857 !important;
+    }
+
     @media (max-width: 1280px) {
 
       .remanejamentoFormGrid,
       .remanejamentoResumoGrid,
       .remanejamentoCalculoBox {
+        grid-template-columns: 1fr;
+      }
+
+      .remKpiGrid,
+      .remTwinGrid,
+      .remBottomGrid,
+      .remImpactoCards {
+        grid-template-columns: 1fr;
+      }
+
+      .remIntroBox {
         grid-template-columns: 1fr;
       }
     }
@@ -3799,6 +4130,15 @@
       .rankingTrack {
         grid-area: bar;
       }
+    }
+
+    #view-vagas .fullTableWrap {
+      overflow: auto !important;
+      max-height: 520px !important;
+    }
+
+    #view-remanejamento .fullTableWrap {
+      overflow: auto !important;
     }
 
 
