@@ -475,147 +475,71 @@
         </section>
 
 
-        <section id="view-remanejamento" class="viewPanel remanejamentoView">
-          <div class="pageHeader">
+        <section id="view-remanejamento" class="viewPanel remanejamentoView remanejamentoPageFull">
+          <div class="remPageTitleBar">
             <div>
-              <h2 class="pageTitle">Remanejamento</h2>
-              <div class="pageSub">Histórico operacional dos remanejamentos registrados no banco, com leitura voltada a processo, impacto e documentação.</div>
-            </div>
-            <div class="remanejamentoActions">
-              <button type="button" class="exportBtn" onclick="carregarRemanejamentoListaEmSegundoPlano(true)">Atualizar lista</button>
-              <button type="button" class="exportBtn" onclick="abrirFormularioRemanejamento()">Cadastrar remanejamento</button>
+              <h2>REMANEJAMENTO DE VAGAS</h2>
+              <p>Reduza e acrescente cargos de forma estratégica, com transparência, controle e histórico.</p>
             </div>
           </div>
 
-          <section class="remKpiGrid">
-            <article class="remKpiCard">
-              <span class="remKpiLabel">Registros carregados</span>
-              <strong id="remKpiTotalRegistros">0</strong>
-              <small>Linhas vindas da view de histórico.</small>
-            </article>
-            <article class="remKpiCard">
-              <span class="remKpiLabel">Processos com anexo</span>
-              <strong id="remKpiAnexos">0</strong>
-              <small>Indicativo do que já está documentado.</small>
-            </article>
-            <article class="remKpiCard">
-              <span class="remKpiLabel">Origens distintas</span>
-              <strong id="remKpiOrigens">0</strong>
-              <small>Quantidade de DSEIs/CASAIs de origem.</small>
-            </article>
-            <article class="remKpiCard remKpiHighlight">
-              <span class="remKpiLabel">Modo operacional</span>
-              <strong>Leitura da view</strong>
-              <small>Sem recalcular vagas localmente após carregar.</small>
-            </article>
-          </section>
-
-          <div class="remHistoricoToolbar">
-            <input id="remanejamentoSearch" class="searchBox" type="search" placeholder="Buscar por data, origem, destino, processo ou responsável" oninput="renderRemanejamentoLista()">
-          </div>
-
-          <div class="fullTableWrap remHistoryWrap">
-            <table class="fullTable remHistoryTable">
-              <colgroup>
-                <col style="width: 11%;">
-                <col style="width: 12%;">
-                <col style="width: 12%;">
-                <col style="width: 14%;">
-                <col style="width: 14%;">
-                <col style="width: 8%;">
-                <col style="width: 10%;">
-                <col style="width: 7%;">
-                <col style="width: 12%;">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Origem</th>
-                  <th>Destino</th>
-                  <th>Vaga remanejada</th>
-                  <th>Vaga adicionada</th>
-                  <th>Qtd.</th>
-                  <th>Processo SEI</th>
-                  <th>Anexo</th>
-                  <th>Responsável</th>
-                </tr>
-              </thead>
-              <tbody id="remanejamentoBody">
-                <tr>
-                  <td class="remanejamentoEmpty" colspan="9">Carregando dados de remanejamento...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section id="view-remanejamentoFormulario" class="viewPanel remanejamentoFormView">
-          <div class="pageHeader">
-            <div>
-              <h2 class="pageTitle">Planejamento de Remanejamento</h2>
-              <div class="pageSub">Experiência inspirada na versão Apps Script, mantendo o banco como fonte de verdade. A gravação ficará conectada quando a nova estrutura de tabelas estiver pronta.</div>
-            </div>
-            <div class="remanejamentoActions">
-              <button type="button" class="exportBtn" onclick="voltarListaRemanejamento()">Voltar</button>
-            </div>
-          </div>
-
-          <div class="remanejamentoFormCard">
-            <section class="remBox remIntroBox">
-              <div>
-                <div class="remStep">1. Contexto</div>
-                <h3>Origem, destino e parâmetros do remanejamento</h3>
-                <p>Os efeitos nas vagas continuarão vindo da própria view de monitoramento. Este formulário organiza o processo e a documentação da solicitação.</p>
-              </div>
-              <div class="remIntroBadge">Persistência em preparação</div>
-            </section>
-
-            <div class="remanejamentoFormGrid">
-              <div class="remanejamentoField">
-                <label for="remanejamentoDsei">Origem da vaga</label>
+          <div class="remPageShell">
+            <div class="remTopGrid">
+              <section class="remBox remDseiBox">
+                <h3>1. SELECIONE O DSEI</h3>
+                <label for="remanejamentoDsei">DSEI</label>
                 <select id="remanejamentoDsei" onchange="atualizarVagasOrigemPorDsei()"></select>
-              </div>
-              <div class="remanejamentoField">
-                <label for="remanejamentoVagaOrigem">Vaga remanejada</label>
-                <select id="remanejamentoVagaOrigem" onchange="atualizarResumoRemanejamento()"></select>
-              </div>
-              <div class="remanejamentoField">
-                <label for="remanejamentoDseiDestino">Destino da vaga</label>
-                <select id="remanejamentoDseiDestino" onchange="atualizarVagasDestinoPorDsei()"></select>
-              </div>
-              <div class="remanejamentoField">
-                <label for="remanejamentoVagaDestino">Vaga adicionada</label>
-                <select id="remanejamentoVagaDestino" onchange="atualizarResumoRemanejamento()"></select>
-              </div>
-              <div class="remanejamentoField">
-                <label for="remanejamentoQuantidade">Quantidade</label>
-                <input id="remanejamentoQuantidade" type="number" min="1" step="1" value="1" oninput="atualizarResumoRemanejamento()">
-              </div>
+              </section>
+
+              <section class="remBox remResumoTopoBox">
+                <h3>RESUMO DO REMANEJAMENTO ⓘ</h3>
+                <div class="remResumoTopoGrid">
+                  <div>
+                    <span>Total Reduzido</span>
+                    <strong id="remTotalReduzidoTopo" class="remRed">R$ 0,00</strong>
+                  </div>
+                  <div>
+                    <span>Total Acrescentado</span>
+                    <strong id="remTotalAcrescentadoTopo" class="remGreen">R$ 0,00</strong>
+                  </div>
+                  <div>
+                    <span>Impacto Mensal</span>
+                    <strong id="remImpactoMensalTopo">R$ 0,00</strong>
+                  </div>
+                  <div>
+                    <span>Impacto do Período</span>
+                    <strong id="remImpactoPeriodoTopo">R$ 0,00</strong>
+                  </div>
+                </div>
+              </section>
             </div>
 
-            <div class="remTwinGrid">
+            <div class="remTwinGrid remTwinGridWide">
               <section class="remBox">
                 <div class="remBoxHeader">
-                  <h3>2. O que está sendo reduzido</h3>
-                  <button type="button" class="remAddBtn" onclick="adicionarLinhaRemanejamento('reduzido')">+ Adicionar cargo</button>
+                  <h3>2. O QUE ESTÁ SENDO REDUZIDO</h3>
+                  <button type="button" class="remAddBtn" onclick="adicionarLinhaRemanejamento('reduzido')">+ Adicionar Cargo</button>
                 </div>
                 <div class="remTableWrap">
-                  <table class="remTable">
+                  <table class="remTable remTableFinanceira">
                     <thead>
                       <tr>
                         <th>Cargo</th>
                         <th>Quantidade</th>
-                        <th>Meses</th>
+                        <th>Nº de Meses</th>
                         <th>Salário</th>
-                        <th>Benefícios</th>
+                        <th>Insal./Peric.</th>
+                        <th>Grat. RT</th>
+                        <th>Ad. Noturno</th>
                         <th>Encargos</th>
+                        <th>Provisões</th>
                         <th>Total</th>
                         <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody id="remReduzidoBody"></tbody>
                     <tfoot>
-                      <tr><td colspan="6">Total reduzido</td><td id="remTotalReduzidoTabela">R$ 0,00</td><td></td></tr>
+                      <tr><td colspan="9">TOTAL REDUZIDO</td><td id="remTotalReduzidoTabela">R$ 0,00</td><td></td></tr>
                     </tfoot>
                   </table>
                 </div>
@@ -623,35 +547,38 @@
 
               <section class="remBox">
                 <div class="remBoxHeader">
-                  <h3>3. O que está sendo acrescentado</h3>
-                  <button type="button" class="remAddBtn" onclick="adicionarLinhaRemanejamento('acrescentado')">+ Adicionar cargo</button>
+                  <h3>3. O QUE ESTÁ SENDO ACRESCENTADO</h3>
+                  <button type="button" class="remAddBtn" onclick="adicionarLinhaRemanejamento('acrescentado')">+ Adicionar Cargo</button>
                 </div>
                 <div class="remTableWrap">
-                  <table class="remTable">
+                  <table class="remTable remTableFinanceira">
                     <thead>
                       <tr>
                         <th>Cargo</th>
                         <th>Quantidade</th>
-                        <th>Meses</th>
+                        <th>Nº de Meses</th>
                         <th>Salário</th>
-                        <th>Benefícios</th>
+                        <th>Insal./Peric.</th>
+                        <th>Grat. RT</th>
+                        <th>Ad. Noturno</th>
                         <th>Encargos</th>
+                        <th>Provisões</th>
                         <th>Total</th>
                         <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody id="remAcrescentadoBody"></tbody>
                     <tfoot>
-                      <tr><td colspan="6">Total acrescentado</td><td id="remTotalAcrescentadoTabela">R$ 0,00</td><td></td></tr>
+                      <tr><td colspan="9">TOTAL ACRESCENTADO</td><td id="remTotalAcrescentadoTabela">R$ 0,00</td><td></td></tr>
                     </tfoot>
                   </table>
                 </div>
               </section>
             </div>
 
-            <div class="remBottomGrid">
+            <div class="remBottomGrid remBottomGridWide">
               <section class="remBox">
-                <h3>4. Impacto do Remanejamento</h3>
+                <h3>4. IMPACTO DO REMANEJAMENTO ⓘ</h3>
                 <div class="remImpactoGrid">
                   <div class="remImpactoCards">
                     <div><span>Total Reduzido (Mensal)</span><strong id="remTotalReduzidoMensal" class="remRed">R$ 0,00</strong></div>
@@ -660,30 +587,33 @@
                     <div><span>Impacto do Período</span><strong id="remImpactoPeriodo2">R$ 0,00</strong></div>
                   </div>
                   <table class="remResumoTable">
-                    <thead><tr><th>Resumo mensal</th><th>Reduzido</th><th>Acrescentado</th><th>Impacto</th></tr></thead>
+                    <thead><tr><th>Resumo dos Valores (Mensal)</th><th>Reduzido</th><th>Acrescentado</th><th>Impacto</th></tr></thead>
                     <tbody>
                       <tr><td>Salários</td><td id="remSalarioRed">R$ 0,00</td><td id="remSalarioAdd">R$ 0,00</td><td id="remSalarioImpacto">R$ 0,00</td></tr>
-                      <tr><td>Benefícios</td><td id="remBeneficioRed">R$ 0,00</td><td id="remBeneficioAdd">R$ 0,00</td><td id="remBeneficioImpacto">R$ 0,00</td></tr>
+                      <tr><td>Insalubridade/Periculosidade</td><td id="remInsalRed">R$ 0,00</td><td id="remInsalAdd">R$ 0,00</td><td id="remInsalImpacto">R$ 0,00</td></tr>
+                      <tr><td>Gratificação RT</td><td id="remRtRed">R$ 0,00</td><td id="remRtAdd">R$ 0,00</td><td id="remRtImpacto">R$ 0,00</td></tr>
+                      <tr><td>Adicional Noturno</td><td id="remNoturnoRed">R$ 0,00</td><td id="remNoturnoAdd">R$ 0,00</td><td id="remNoturnoImpacto">R$ 0,00</td></tr>
                       <tr><td>Encargos</td><td id="remEncargoRed">R$ 0,00</td><td id="remEncargoAdd">R$ 0,00</td><td id="remEncargoImpacto">R$ 0,00</td></tr>
+                      <tr><td>Provisões</td><td id="remProvisaoRed">R$ 0,00</td><td id="remProvisaoAdd">R$ 0,00</td><td id="remProvisaoImpacto">R$ 0,00</td></tr>
                       <tr class="remResumoTotal"><td>Total</td><td id="remResumoTotalRed">R$ 0,00</td><td id="remResumoTotalAdd">R$ 0,00</td><td id="remResumoTotalImpacto">R$ 0,00</td></tr>
                     </tbody>
                   </table>
                 </div>
-                <div class="remLegend"><span>Os campos financeiros ficam somente na interface até a nova tabela de benefícios e encargos estar pronta.</span></div>
+                <div class="remLegend"><span>Valores negativos indicam economia. Valores positivos indicam acréscimo.</span></div>
               </section>
 
               <section class="remBox remDocBox">
-                <h3>5. Documentação</h3>
+                <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
                 <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
                 <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: 00000.000000/2024-00" oninput="atualizarResumoRemanejamento()">
                 <label for="remObservacao">Observação</label>
-                <textarea id="remObservacao" rows="3" placeholder="Descreva o racional do remanejamento."></textarea>
-                <label for="remAnexoArquivo">Anexo</label>
-                <input id="remAnexoArquivo" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" onchange="atualizarResumoRemanejamento()">
-                <div id="remanejamentoAnexoPreview" class="remanejamentoHint">A gravação em BLOB será conectada quando a nova tabela estiver disponível.</div>
+                <textarea id="remObservacao" rows="3" placeholder="Informe a justificativa do remanejamento."></textarea>
+                <label for="remAnexoArquivo">Anexar Ofício ou Documento (PDF)</label>
+                <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf" onchange="atualizarResumoRemanejamento()">
+                <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar. PDF até 10MB.</div>
                 <div class="remDocActions">
                   <button type="button" class="remSecondaryBtn" onclick="limparFormularioRemanejamento()">Limpar</button>
-                  <button type="button" class="remSaveBtn" onclick="salvarRemanejamentoPainel()">Salvar remanejamento</button>
+                  <button type="button" class="remSaveBtn" onclick="salvarRemanejamentoPainel()">Salvar Remanejamento</button>
                 </div>
               </section>
             </div>
@@ -691,15 +621,61 @@
             <div class="remanejamentoCalculoBox">
               <div>
                 <div class="remanejamentoCalculoLabel">Resumo operacional</div>
-                <div id="remanejamentoCalculoTexto" class="remanejamentoCalculoFormula">Selecione origem, destino e vagas para montar o resumo do remanejamento.</div>
+                <div id="remanejamentoCalculoTexto" class="remanejamentoCalculoFormula">Selecione o DSEI e os cargos para montar o resumo do remanejamento.</div>
               </div>
               <div class="remanejamentoCalculoTotal">
                 <div class="remanejamentoResumoLabel">Quantidade movimentada</div>
                 <div id="remanejamentoResultadoTotal" class="remanejamentoResumoValor">0</div>
               </div>
             </div>
+
+            <section class="remBox remHistoricoBox">
+              <div class="remHistoricoHead">
+                <h3>HISTÓRICO DE REMANEJAMENTOS</h3>
+                <div class="remHistoricoToolbar">
+                  <select id="remanejamentoStatusFiltro" onchange="renderRemanejamentoLista()">
+                    <option value="">Todos os Status</option>
+                    <option value="Registrado">Registrado</option>
+                  </select>
+                  <input id="remanejamentoSearch" class="searchBox" type="search" placeholder="Buscar remanejamento" oninput="renderRemanejamentoLista()">
+                </div>
+              </div>
+              <div class="fullTableWrap remHistoryWrap">
+                <table class="fullTable remHistoryTable">
+                  <colgroup>
+                    <col style="width: 10%;">
+                    <col style="width: 13%;">
+                    <col style="width: 8%;">
+                    <col style="width: 13%;">
+                    <col style="width: 13%;">
+                    <col style="width: 12%;">
+                    <col style="width: 10%;">
+                    <col style="width: 9%;">
+                    <col style="width: 12%;">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>DSEI</th>
+                      <th>Competência</th>
+                      <th>Total Reduzido</th>
+                      <th>Total Acrescentado</th>
+                      <th>Impacto Mensal</th>
+                      <th>Responsável</th>
+                      <th>Situação</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="remanejamentoBody">
+                    <tr><td class="remanejamentoEmpty" colspan="9">Carregando dados de remanejamento...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </div>
         </section>
+
+        <section id="view-remanejamentoFormulario" class="viewPanel remanejamentoFormView"></section>
 
       </section>
 </main>

@@ -3,8 +3,10 @@ require("dotenv").config();
 const path = require("path");
 const express = require("express");
 const mysql = require("mysql2/promise");
+const multer = require("multer");
 
 const app = express();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const DASH_CONFIG = {
   TIMEZONE: "America/Sao_Paulo",
@@ -54,36 +56,216 @@ const DASH_SQL = {
     FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MONITORAMENTO_VIEW}\`
   `,
   REMANEJAMENTO_LISTA: `
+    WITH
+    dsei_dim AS (
+      SELECT
+        UNIDADE_ORCAMENTARIA_ID AS id_dsei_casai,
+        MAX(UNIDADE_ORCAMENTARIA_DESC) AS dsei_casai
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VW_SAUDE_INDIGENA\`
+      GROUP BY UNIDADE_ORCAMENTARIA_ID
+    ),
+    cargo_dim AS (
+      SELECT
+        CAST(CARGO_ATUAL_ID AS UNSIGNED) AS id_cargo_funcao,
+        MAX(CARGO_ATUAL_DESC) AS cargo
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VW_SAUDE_INDIGENA\`
+      GROUP BY CAST(CARGO_ATUAL_ID AS UNSIGNED)
+    ),
+    itens AS (
+      SELECT
+        p.ID_VAGAS_REMANEJADAS_PROCESSO AS id_processo,
+        p.DATA_INCLUSAO AS data_inclusao,
+        DATE_FORMAT(p.DATA_INCLUSAO, '%d/%m/%Y %H:%i:%s') AS data_inclusao_formatada,
+        DATE_FORMAT(p.DATA_INCLUSAO, '%m/%Y') AS competencia,
+        p.N_PROCESSO AS numero_processo_sei,
+        p.OBSERVACAO AS observacao,
+        p.CRIADO_POR AS criado_por,
+        p.ANEXO_NOME_ARQUIVO AS anexo_nome_arquivo,
+        p.ANEXO_MIME_TYPE AS anexo_mime_type,
+        p.ANEXO_TAMANHO_BYTES AS anexo_tamanho_bytes,
+        CASE WHEN p.ANEXO_PROCESSO IS NULL THEN 0 ELSE 1 END AS tem_anexo,
+
+        r.ID_DSEI_CASAI AS id_dsei_casai,
+        COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', r.ID_DSEI_CASAI)) AS dsei_casai,
+
+        r.ID_CARGO_ORIGEM AS id_cargo_origem,
+        COALESCE(
+          CASE r.ID_CARGO_ORIGEM
+            WHEN 9999 THEN 'ANALISTA TECNICO'
+            WHEN 9998 THEN 'ASSESSOR REGIONAL INDIGENA'
+            WHEN 9997 THEN 'AUXILIAR SI'
+            WHEN 9996 THEN 'ENFERMEIRO (ART)'
+            WHEN 9995 THEN 'FARMACEUTICO (ART)'
+            WHEN 9994 THEN 'ANALISTA SI'
+            WHEN 104 THEN 'ANALISTA ADMINISTRATIVO'
+            WHEN 81 THEN 'MEDICO ESPECIALIDADES'
+            WHEN 45 THEN 'ASSISTENTE ADMINISTRATIVO'
+            WHEN 46 THEN 'ASSISTENTE DE COMUNICACAO'
+            WHEN 50 THEN 'AUXILIAR DE PROTESE DENTARIA'
+            WHEN 54 THEN 'BIOQUIMICO'
+            ELSE NULL
+          END,
+          co.cargo,
+          CONCAT('CARGO ID ', r.ID_CARGO_ORIGEM)
+        ) AS cargo_origem,
+
+        r.QTD_CARGO_ORIGEM AS qtd_cargo_origem,
+        r.ID_CARGO_DESTINO AS id_cargo_destino,
+        COALESCE(
+          CASE r.ID_CARGO_DESTINO
+            WHEN 9999 THEN 'ANALISTA TECNICO'
+            WHEN 9998 THEN 'ASSESSOR REGIONAL INDIGENA'
+            WHEN 9997 THEN 'AUXILIAR SI'
+            WHEN 9996 THEN 'ENFERMEIRO (ART)'
+            WHEN 9995 THEN 'FARMACEUTICO (ART)'
+            WHEN 9994 THEN 'ANALISTA SI'
+            WHEN 104 THEN 'ANALISTA ADMINISTRATIVO'
+            WHEN 81 THEN 'MEDICO ESPECIALIDADES'
+            WHEN 45 THEN 'ASSISTENTE ADMINISTRATIVO'
+            WHEN 46 THEN 'ASSISTENTE DE COMUNICACAO'
+            WHEN 50 THEN 'AUXILIAR DE PROTESE DENTARIA'
+            WHEN 54 THEN 'BIOQUIMICO'
+            ELSE NULL
+          END,
+          cd.cargo,
+          CONCAT('CARGO ID ', r.ID_CARGO_DESTINO)
+        ) AS cargo_destino,
+        r.QTD_CARGO_DESTINO AS qtd_cargo_destino,
+        r.N_MESES AS n_meses,
+
+        (
+          COALESCE(vo.SALARIO_BASE, 0) +
+          COALESCE(vo.INSALUBRIDADE_PERICULOSIDADE, 0) +
+          COALESCE(vo.GRATIFICACAO_RT, 0) +
+          COALESCE(vo.ADICIONAL_NOTURNO, 0) +
+          COALESCE(vo.ENCARGOS, 0) +
+          COALESCE(vo.PROVISOES, 0)
+        ) * COALESCE(r.QTD_CARGO_ORIGEM, 0) AS total_reduzido_mensal,
+
+        (
+          COALESCE(vd.SALARIO_BASE, 0) +
+          COALESCE(vd.INSALUBRIDADE_PERICULOSIDADE, 0) +
+          COALESCE(vd.GRATIFICACAO_RT, 0) +
+          COALESCE(vd.ADICIONAL_NOTURNO, 0) +
+          COALESCE(vd.ENCARGOS, 0) +
+          COALESCE(vd.PROVISOES, 0)
+        ) * COALESCE(r.QTD_CARGO_DESTINO, 0) AS total_acrescentado_mensal
+
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS_PROCESSO\` p
+      JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS\` r
+        ON r.ID_VAGAS_REMANEJADAS_PROCESSO = p.ID_VAGAS_REMANEJADAS_PROCESSO
+      LEFT JOIN dsei_dim dd
+        ON dd.id_dsei_casai = r.ID_DSEI_CASAI
+      LEFT JOIN cargo_dim co
+        ON co.id_cargo_funcao = r.ID_CARGO_ORIGEM
+      LEFT JOIN cargo_dim cd
+        ON cd.id_cargo_funcao = r.ID_CARGO_DESTINO
+      LEFT JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VALOR_VAGA_MENSAL\` vo
+        ON vo.ID_VAGA = r.ID_CARGO_ORIGEM
+      LEFT JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VALOR_VAGA_MENSAL\` vd
+        ON vd.ID_VAGA = r.ID_CARGO_DESTINO
+    )
     SELECT
-      \`id_remanejamento\`,
-      DATE_FORMAT(\`criado_em\`, '%d/%m/%Y %H:%i:%s') AS \`data_criacao_formatada\`,
-      \`origem_vaga\`,
-      \`vaga_remanejada\`,
-      \`destino_vaga\`,
-      \`vaga_adicionada\`,
-      \`quantidade_vaga_adicionada\`,
-      \`numero_processo_sei\`,
-      \`anexo_oficio_url\`,
-      \`anexo_oficio_nome\`,
-      \`inserido_por_email\`,
-      \`atualizado_em_formatado\`
-    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_CADASTRO_VIEW}\`
-    ORDER BY \`criado_em\` DESC
+      id_processo,
+      data_inclusao,
+      data_inclusao_formatada,
+      competencia,
+      numero_processo_sei,
+      observacao,
+      criado_por,
+      anexo_nome_arquivo,
+      anexo_mime_type,
+      anexo_tamanho_bytes,
+      tem_anexo,
+      MAX(id_dsei_casai) AS id_dsei_casai,
+      MAX(dsei_casai) AS dsei_casai,
+      GROUP_CONCAT(DISTINCT CONCAT(cargo_origem, ' x', qtd_cargo_origem) ORDER BY cargo_origem SEPARATOR ' | ') AS cargos_reduzidos,
+      GROUP_CONCAT(DISTINCT CONCAT(cargo_destino, ' x', qtd_cargo_destino) ORDER BY cargo_destino SEPARATOR ' | ') AS cargos_acrescentados,
+      SUM(total_reduzido_mensal) AS total_reduzido_mensal,
+      SUM(total_acrescentado_mensal) AS total_acrescentado_mensal,
+      SUM(total_acrescentado_mensal) - SUM(total_reduzido_mensal) AS impacto_mensal,
+      SUM(total_reduzido_mensal * COALESCE(n_meses, 1)) AS total_reduzido_periodo,
+      SUM(total_acrescentado_mensal * COALESCE(n_meses, 1)) AS total_acrescentado_periodo,
+      SUM((total_acrescentado_mensal - total_reduzido_mensal) * COALESCE(n_meses, 1)) AS impacto_periodo,
+      'Registrado' AS situacao
+    FROM itens
+    GROUP BY
+      id_processo,
+      data_inclusao,
+      data_inclusao_formatada,
+      competencia,
+      numero_processo_sei,
+      observacao,
+      criado_por,
+      anexo_nome_arquivo,
+      anexo_mime_type,
+      anexo_tamanho_bytes,
+      tem_anexo
+    ORDER BY data_inclusao DESC
   `,
   REMANEJAMENTO_CADASTRO: `
+    WITH
+    dsei_dim AS (
+      SELECT
+        UNIDADE_ORCAMENTARIA_ID AS id_dsei_casai,
+        MAX(UNIDADE_ORCAMENTARIA_DESC) AS dsei_casai
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VW_SAUDE_INDIGENA\`
+      GROUP BY UNIDADE_ORCAMENTARIA_ID
+    ),
+    cargo_dim AS (
+      SELECT
+        CAST(CARGO_ATUAL_ID AS UNSIGNED) AS id_cargo_funcao,
+        MAX(CARGO_ATUAL_DESC) AS cargo
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VW_SAUDE_INDIGENA\`
+      GROUP BY CAST(CARGO_ATUAL_ID AS UNSIGNED)
+    )
     SELECT
-      \`origem_vaga\`,
-      \`vaga_remanejada\`,
-      \`destino_vaga\`,
-      \`vaga_adicionada\`,
-      \`quantidade_vaga_adicionada\`,
-      \`numero_processo_sei\`,
-      \`anexo_oficio_url\`,
-      \`anexo_oficio_nome\`,
-      \`anexo_oficio_tipo\`,
-      \`inserido_por_email\`
-    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_CADASTRO_VIEW}\`
-    ORDER BY \`origem_vaga\`, \`vaga_remanejada\`, \`destino_vaga\`, \`vaga_adicionada\`
+      vp.id_dsei_casai,
+      COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', vp.id_dsei_casai)) AS dsei_casai,
+      vp.id_cargo_funcao,
+      COALESCE(
+        CASE vp.id_cargo_funcao
+          WHEN 9999 THEN 'ANALISTA TECNICO'
+          WHEN 9998 THEN 'ASSESSOR REGIONAL INDIGENA'
+          WHEN 9997 THEN 'AUXILIAR SI'
+          WHEN 9996 THEN 'ENFERMEIRO (ART)'
+          WHEN 9995 THEN 'FARMACEUTICO (ART)'
+          WHEN 9994 THEN 'ANALISTA SI'
+          WHEN 104 THEN 'ANALISTA ADMINISTRATIVO'
+          WHEN 81 THEN 'MEDICO ESPECIALIDADES'
+          WHEN 45 THEN 'ASSISTENTE ADMINISTRATIVO'
+          WHEN 46 THEN 'ASSISTENTE DE COMUNICACAO'
+          WHEN 50 THEN 'AUXILIAR DE PROTESE DENTARIA'
+          WHEN 54 THEN 'BIOQUIMICO'
+          ELSE NULL
+        END,
+        cd.cargo,
+        CONCAT('CARGO ID ', vp.id_cargo_funcao)
+      ) AS cargo,
+      COALESCE(vp.QTD, 0) AS quantitativo_plano_trabalho,
+      COALESCE(vp.CARGA_HORARIA, '') AS carga_horaria,
+      COALESCE(vvm.SALARIO_BASE, 0) AS salario_base,
+      COALESCE(vvm.INSALUBRIDADE_PERICULOSIDADE, 0) AS insalubridade_periculosidade,
+      COALESCE(vvm.GRATIFICACAO_RT, 0) AS gratificacao_rt,
+      COALESCE(vvm.ADICIONAL_NOTURNO, 0) AS adicional_noturno,
+      COALESCE(vvm.ENCARGOS, 0) AS encargos,
+      COALESCE(vvm.PROVISOES, 0) AS provisoes,
+      (
+        COALESCE(vvm.SALARIO_BASE, 0) +
+        COALESCE(vvm.INSALUBRIDADE_PERICULOSIDADE, 0) +
+        COALESCE(vvm.GRATIFICACAO_RT, 0) +
+        COALESCE(vvm.ADICIONAL_NOTURNO, 0) +
+        COALESCE(vvm.ENCARGOS, 0) +
+        COALESCE(vvm.PROVISOES, 0)
+      ) AS valor_mensal
+    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_PREVISTAS\` vp
+    LEFT JOIN dsei_dim dd
+      ON dd.id_dsei_casai = vp.id_dsei_casai
+    LEFT JOIN cargo_dim cd
+      ON cd.id_cargo_funcao = vp.id_cargo_funcao
+    LEFT JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VALOR_VAGA_MENSAL\` vvm
+      ON vvm.ID_VAGA = vp.id_cargo_funcao
+    ORDER BY dsei_casai, cargo
   `
 };
 
@@ -129,6 +311,39 @@ app.get("/api/remanejamento/lista", asyncHandler(async (req, res) => {
 
 app.get("/api/remanejamento/cadastro", asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoCadastroData());
+}));
+
+app.get("/api/remanejamento/anexo/:id", asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const [rows] = await conn.query(
+      `SELECT ANEXO_PROCESSO, ANEXO_NOME_ARQUIVO, ANEXO_MIME_TYPE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS_PROCESSO\` WHERE ID_VAGAS_REMANEJADAS_PROCESSO = ? LIMIT 1`,
+      [req.params.id]
+    );
+
+    const row = rows && rows[0] ? rows[0] : null;
+    if (!row || !row.ANEXO_PROCESSO) {
+      res.status(404).json({ error: "Anexo não encontrado." });
+      return;
+    }
+
+    res.setHeader("Content-Type", row.ANEXO_MIME_TYPE || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(row.ANEXO_NOME_ARQUIVO || "anexo_remanejamento")}"`);
+    res.send(row.ANEXO_PROCESSO);
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+app.post("/api/remanejamento/salvar", upload.single("anexo"), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const resultado = await salvarRemanejamentoComConn(conn, req.body || {}, req.file || null);
+    limparCacheDashboard();
+    res.json({ ok: true, ...resultado });
+  } finally {
+    await fecharJdbc(conn);
+  }
 }));
 
 app.post("/api/cache/clear", asyncHandler(async (req, res) => {
@@ -455,41 +670,160 @@ function montarDetalheAlertasMonitoramento(alertas) {
 }
 
 function mapRemanejamentoListaRow(row) {
-  const dataCriacaoFormatada = limparValorDash(row.data_criacao_formatada ?? row[1]);
-  const atualizadoEmFormatado = limparValorDash(row.atualizado_em_formatado ?? row[10]);
+  const idProcesso = limparValorDash(row.id_processo ?? row[0]);
+  const temAnexo = Number(row.tem_anexo || 0) > 0;
 
   return {
-    idRemanejamento: limparValorDash(row.id_remanejamento ?? row[0]),
-    dataCriacao: dataCriacaoFormatada,
-    dataCriacaoFormatada,
-    origemVaga: limparValorDash(row.origem_vaga ?? row[2]),
-    vagaRemanejada: limparValorDash(row.vaga_remanejada ?? row[3]),
-    destinoVaga: limparValorDash(row.destino_vaga ?? row[4]),
-    vagaAdicionada: limparValorDash(row.vaga_adicionada ?? row[5]),
-    quantidadeVagaAdicionada: converterNumeroDash(row.quantidade_vaga_adicionada ?? row[6]),
-    numeroProcessoSei: limparValorDash(row.numero_processo_sei ?? row[7]),
-    anexoOficioUrl: limparValorDash(row.anexo_oficio_url ?? row[8]),
-    anexoOficioNome: limparValorDash(row.anexo_oficio_nome ?? row[9]),
-    anexoOficioTipo: "",
-    inseridoPorEmail: limparValorDash(row.inserido_por_email ?? row[10]),
-    atualizadoEm: atualizadoEmFormatado,
-    atualizadoEmFormatado
+    idProcesso,
+    idRemanejamento: idProcesso,
+    dataCriacao: limparValorDash(row.data_inclusao_formatada),
+    dataCriacaoFormatada: limparValorDash(row.data_inclusao_formatada),
+    competencia: limparValorDash(row.competencia),
+    idDseiCasai: limparValorDash(row.id_dsei_casai),
+    dseiCasai: limparValorDash(row.dsei_casai),
+    cargosReduzidos: limparValorDash(row.cargos_reduzidos),
+    cargosAcrescentados: limparValorDash(row.cargos_acrescentados),
+    totalReduzidoMensal: converterNumeroDash(row.total_reduzido_mensal),
+    totalAcrescentadoMensal: converterNumeroDash(row.total_acrescentado_mensal),
+    impactoMensal: converterNumeroDash(row.impacto_mensal),
+    totalReduzidoPeriodo: converterNumeroDash(row.total_reduzido_periodo),
+    totalAcrescentadoPeriodo: converterNumeroDash(row.total_acrescentado_periodo),
+    impactoPeriodo: converterNumeroDash(row.impacto_periodo),
+    numeroProcessoSei: limparValorDash(row.numero_processo_sei),
+    observacao: limparValorDash(row.observacao),
+    inseridoPorEmail: limparValorDash(row.criado_por),
+    criadoPor: limparValorDash(row.criado_por),
+    situacao: limparValorDash(row.situacao || "Registrado"),
+    temAnexo,
+    anexoOficioUrl: temAnexo ? `/api/remanejamento/anexo/${encodeURIComponent(idProcesso)}` : "",
+    anexoOficioNome: limparValorDash(row.anexo_nome_arquivo),
+    anexoOficioTipo: limparValorDash(row.anexo_mime_type),
+    atualizadoEm: limparValorDash(row.data_inclusao_formatada),
+    atualizadoEmFormatado: limparValorDash(row.data_inclusao_formatada)
   };
 }
 
 function mapRemanejamentoCadastroRow(row) {
+  const salarioBase = converterNumeroDash(row.salario_base);
+  const insalubridadePericulosidade = converterNumeroDash(row.insalubridade_periculosidade);
+  const gratificacaoRt = converterNumeroDash(row.gratificacao_rt);
+  const adicionalNoturno = converterNumeroDash(row.adicional_noturno);
+  const encargos = converterNumeroDash(row.encargos);
+  const provisoes = converterNumeroDash(row.provisoes);
+  const valorMensal = converterNumeroDash(row.valor_mensal)
+    || salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes;
+
   return {
-    origemVaga: limparValorDash(row.origem_vaga ?? row[0]),
-    vagaRemanejada: limparValorDash(row.vaga_remanejada ?? row[1]),
-    destinoVaga: limparValorDash(row.destino_vaga ?? row[2]),
-    vagaAdicionada: limparValorDash(row.vaga_adicionada ?? row[3]),
-    quantidadeVagaAdicionada: converterNumeroDash(row.quantidade_vaga_adicionada ?? row[4]),
-    numeroProcessoSei: limparValorDash(row.numero_processo_sei ?? row[5]),
-    anexoOficioUrl: limparValorDash(row.anexo_oficio_url ?? row[6]),
-    anexoOficioNome: limparValorDash(row.anexo_oficio_nome ?? row[7]),
-    anexoOficioTipo: limparValorDash(row.anexo_oficio_tipo ?? row[8]),
-    inseridoPorEmail: limparValorDash(row.inserido_por_email ?? row[9])
+    idDseiCasai: converterNumeroDash(row.id_dsei_casai),
+    dseiCasai: limparValorDash(row.dsei_casai),
+    idCargoFuncao: converterNumeroDash(row.id_cargo_funcao),
+    cargo: limparValorDash(row.cargo),
+    quantitativoPlano: converterNumeroDash(row.quantitativo_plano_trabalho),
+    cargaHoraria: limparValorDash(row.carga_horaria),
+    salarioBase,
+    insalubridadePericulosidade,
+    gratificacaoRt,
+    adicionalNoturno,
+    encargos,
+    provisoes,
+    valorMensal
   };
+}
+
+async function salvarRemanejamentoComConn(conn, body, file) {
+  const idDseiCasai = converterNumeroDash(body.idDseiCasai);
+  const processoSei = limparValorDash(body.processoSei);
+  const observacao = limparValorDash(body.observacao);
+  const criadoPor = limparValorDash(body.criadoPor || body.usuario || "painel");
+
+  let linhasReduzido = [];
+  let linhasAcrescentado = [];
+
+  try {
+    linhasReduzido = JSON.parse(body.linhasReduzido || "[]");
+    linhasAcrescentado = JSON.parse(body.linhasAcrescentado || "[]");
+  } catch (err) {
+    throw new Error("Linhas de remanejamento inválidas.");
+  }
+
+  linhasReduzido = normalizarLinhasRemanejamentoServidor(linhasReduzido);
+  linhasAcrescentado = normalizarLinhasRemanejamentoServidor(linhasAcrescentado);
+
+  if (!idDseiCasai) throw new Error("Selecione o DSEI/CASAI.");
+  if (!processoSei) throw new Error("Informe o número do Processo SEI.");
+  if (!linhasReduzido.length) throw new Error("Informe ao menos um cargo reduzido.");
+  if (!linhasAcrescentado.length) throw new Error("Informe ao menos um cargo acrescentado.");
+
+  await conn.beginTransaction();
+
+  try {
+    const [procResult] = await conn.execute(
+      `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS_PROCESSO\` (
+        OBSERVACAO,
+        N_PROCESSO,
+        ANEXO_PROCESSO,
+        ANEXO_NOME_ARQUIVO,
+        ANEXO_MIME_TYPE,
+        ANEXO_TAMANHO_BYTES,
+        CRIADO_POR
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        observacao || null,
+        processoSei,
+        file ? file.buffer : null,
+        file ? file.originalname : null,
+        file ? file.mimetype : null,
+        file ? file.size : null,
+        criadoPor || null
+      ]
+    );
+
+    const idProcesso = procResult.insertId;
+    const totalPares = Math.max(linhasReduzido.length, linhasAcrescentado.length);
+
+    for (let i = 0; i < totalPares; i += 1) {
+      const origem = linhasReduzido[i] || linhasReduzido[linhasReduzido.length - 1];
+      const destino = linhasAcrescentado[i] || linhasAcrescentado[linhasAcrescentado.length - 1];
+      const meses = Math.max(1, Number(origem.meses || destino.meses || 1));
+
+      await conn.execute(
+        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS\` (
+          ID_VAGAS_REMANEJADAS_PROCESSO,
+          ID_DSEI_CASAI,
+          ID_CARGO_ORIGEM,
+          N_MESES,
+          QTD_CARGO_ORIGEM,
+          ID_CARGO_DESTINO,
+          QTD_CARGO_DESTINO
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          idProcesso,
+          idDseiCasai,
+          origem.idCargoFuncao,
+          meses,
+          origem.quantidade,
+          destino.idCargoFuncao,
+          destino.quantidade
+        ]
+      );
+    }
+
+    await conn.commit();
+    return { idProcesso };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  }
+}
+
+function normalizarLinhasRemanejamentoServidor(linhas) {
+  return (Array.isArray(linhas) ? linhas : [])
+    .map(item => ({
+      idCargoFuncao: converterNumeroDash(item.idCargoFuncao),
+      quantidade: Math.max(0, converterNumeroDash(item.quantidade)),
+      meses: Math.max(1, converterNumeroDash(item.meses) || 1)
+    }))
+    .filter(item => item.idCargoFuncao && item.quantidade > 0);
 }
 
 function montarResumoDashboard(rows, totaisMonitoramento) {
