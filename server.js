@@ -14,9 +14,10 @@ const DASH_CONFIG = {
   IMAGEM_INDIGENA_PAINEL_FILE: "/assets/images/upscalemedia-transformed.png",
   DASHBOARD_SAUDE_INDIGENA_URL: "https://datastudio.google.com/embed/reporting/19d10a18-1ed1-4e5f-87bf-6bb87c21b234/page/p_d9w2owdmfd",
   DB_SCHEMA: process.env.DB_SCHEMA || "u226895969_ugp",
-  MONITORAMENTO_VIEW: process.env.MONITORAMENTO_VIEW || "vw_monitoramento_vagas_painel",
+  MONITORAMENTO_VIEW: process.env.MONITORAMENTO_VIEW || "VW_MONITORAMENTO_VAGAS_SAUDE_INDIGENA",
   REMANEJAMENTO_CADASTRO_VIEW: process.env.REMANEJAMENTO_CADASTRO_VIEW || "vw_remanejamento_vagas_cadastro",
   CACHE_MONITORAMENTO_KEY: "DASH_MONITORAMENTO_V1_MYSQL",
+  CACHE_MONITORAMENTO_TOTAIS_KEY: "DASH_MONITORAMENTO_TOTAIS_V1_MYSQL",
   CACHE_REMANEJAMENTO_LISTA_KEY: "DASH_REMANEJAMENTO_LISTA_V1_MYSQL",
   CACHE_REMANEJAMENTO_CADASTRO_KEY: "DASH_REMANEJAMENTO_CADASTRO_V1_MYSQL",
   CACHE_SECONDS: Number(process.env.CACHE_SECONDS || 300)
@@ -25,7 +26,6 @@ const DASH_CONFIG = {
 const DASH_SQL = {
   MONITORAMENTO: `
     SELECT
-      \`id\`,
       \`dsei_casai\`,
       \`cargo\`,
       \`quantitativo_plano_trabalho\`,
@@ -36,25 +36,22 @@ const DASH_SQL = {
       \`afastados\`,
       \`trabalhadores_situacao_normal\`,
       \`vagas_ociosas\`,
-      \`vaga_remanejada\`,
-      \`tem_alerta\`,
       \`alerta_afastamento_sem_substituto\`,
       \`qtd_afastamento_sem_substituto\`,
       \`alerta_temporario_ativo\`,
       \`qtd_temporario_ativo\`,
-      \`detalhe_alertas\`,
-      \`atualizacao_dados\`,
-      \`contratados_indigenas\`,
-      \`quantitativo_plano_trabalho_original\`,
-      \`vagas_ociosas_original\`,
-      \`vagas_remanejadas_saida\`,
-      \`vagas_remanejadas_entrada\`,
-      \`qtd_remanejamentos\`,
-      \`processos_sei\`,
-      \`ultimo_remanejamento_em\`,
-      \`linha_sintetica_remanejamento\`
+      \`alerta_vagas_excedentes\`,
+      \`qtd_vagas_excedentes\`,
+      \`alerta_vagas_art_excedentes\`,
+      \`qtd_vagas_art_excedentes\`,
+      \`contratados_indigenas\`
     FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MONITORAMENTO_VIEW}\`
     ORDER BY \`dsei_casai\`, \`cargo\`
+  `,
+  MONITORAMENTO_TOTAIS: `
+    SELECT
+      SUM(\`total_contratados_geral\`) AS \`total_contratados_geral\`
+    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MONITORAMENTO_VIEW}\`
   `,
   REMANEJAMENTO_LISTA: `
     SELECT
@@ -150,7 +147,7 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-  const port = Number(process.env.PORT || 3000);
+  const port = resolverPortaAplicacao();
   app.listen(port, () => {
     console.log(`Painel disponível em http://localhost:${port}`);
   });
@@ -160,6 +157,7 @@ module.exports = app;
 
 async function getDashboardData() {
   const rows = await obterMonitoramentoRowsComCache();
+  const totaisMonitoramento = await obterMonitoramentoTotaisComCache();
   const remanejamentos = await obterRemanejamentoListaComCache();
   const remanejamentoCadastro = await obterRemanejamentoCadastroComCache();
 
@@ -167,6 +165,7 @@ async function getDashboardData() {
     modo: "completo",
     completo: true,
     rows,
+    indicadores: calcularIndicadoresServidor(rows, totaisMonitoramento),
     filtros: montarFiltrosAPartirDasRows(rows),
     remanejamentos,
     remanejamentoLista: remanejamentos,
@@ -178,7 +177,8 @@ async function getDashboardData() {
 
 async function getDashboardResumoData() {
   const rows = await obterMonitoramentoRowsComCache();
-  const resumo = montarResumoDashboard(rows);
+  const totaisMonitoramento = await obterMonitoramentoTotaisComCache();
+  const resumo = montarResumoDashboard(rows, totaisMonitoramento);
 
   return {
     modo: "resumo",
@@ -206,9 +206,11 @@ async function getDashboardApoioData() {
 
 async function getVagasData() {
   const rows = await obterMonitoramentoRowsComCache();
+  const totaisMonitoramento = await obterMonitoramentoTotaisComCache();
 
   return {
     rows,
+    indicadores: calcularIndicadoresServidor(rows, totaisMonitoramento),
     filtros: montarFiltrosAPartirDasRows(rows),
     atualizadoEm: obterUltimaAtualizacaoDash(rows)
   };
@@ -246,6 +248,17 @@ async function obterMonitoramentoRowsComCache() {
     const conn = await getMysqlConnection();
     try {
       return await buscarMonitoramentoVagasComConn(conn);
+    } finally {
+      await fecharJdbc(conn);
+    }
+  });
+}
+
+async function obterMonitoramentoTotaisComCache() {
+  return obterOuCarregarJsonCache(DASH_CONFIG.CACHE_MONITORAMENTO_TOTAIS_KEY, DASH_CONFIG.CACHE_SECONDS, async () => {
+    const conn = await getMysqlConnection();
+    try {
+      return await buscarMonitoramentoTotaisComConn(conn);
     } finally {
       await fecharJdbc(conn);
     }
@@ -302,6 +315,7 @@ async function obterOuCarregarJsonCache(baseKey, seconds, loaderFn) {
 function limparCacheDashboard() {
   [
     DASH_CONFIG.CACHE_MONITORAMENTO_KEY,
+    DASH_CONFIG.CACHE_MONITORAMENTO_TOTAIS_KEY,
     DASH_CONFIG.CACHE_REMANEJAMENTO_LISTA_KEY,
     DASH_CONFIG.CACHE_REMANEJAMENTO_CADASTRO_KEY
   ].forEach(key => cacheStore.delete(key));
@@ -309,6 +323,18 @@ function limparCacheDashboard() {
 
 async function buscarMonitoramentoVagasComConn(conn) {
   return executarConsultaComConn(conn, DASH_SQL.MONITORAMENTO, mapMonitoramentoRow);
+}
+
+async function buscarMonitoramentoTotaisComConn(conn) {
+  try {
+    const [rows] = await conn.query(DASH_SQL.MONITORAMENTO_TOTAIS);
+    const row = rows && rows[0] ? rows[0] : {};
+    return {
+      totalContratadosGeral: converterNumeroDash(row.total_contratados_geral)
+    };
+  } catch (err) {
+    throw new Error(`Erro ao consultar MySQL: ${err && err.message ? err.message : err}`);
+  }
 }
 
 async function buscarRemanejamentosComConn(conn) {
@@ -329,49 +355,103 @@ async function executarConsultaComConn(conn, sql, mapper) {
 }
 
 function mapMonitoramentoRow(row) {
-  const dsei = limparValorDash(row.id !== undefined ? row.dsei_casai : row[1]);
-  const cargo = limparValorDash(row.id !== undefined ? row.cargo : row[2]);
-  const atualizacao = formatarDataBancoDash(row.atualizacao_dados ?? row[18]);
-  const contratadosIndigenas = converterNumeroDash(row.contratados_indigenas ?? row[19]);
+  const dsei = limparValorDash(row.dsei_casai);
+  const cargo = limparValorDash(row.cargo);
+  const quantitativoPlano = converterNumeroDash(row.quantitativo_plano_trabalho);
+  const totalContratados = converterNumeroDash(row.total_contratados_geral);
+  const contratadosSubstituicao = converterNumeroDash(row.contratados_substituicao);
+  const contratadosTemporario = converterNumeroDash(row.contratados_temporario);
+  const contratadosNormal = converterNumeroDash(row.contratados_normal);
+  const afastados = converterNumeroDash(row.afastados);
+  const trabalhadoresSituacaoNormal = converterNumeroDash(row.trabalhadores_situacao_normal);
+  const vagasOciosas = converterNumeroDash(row.vagas_ociosas);
+  const qtdAfastamentoSemSubstituto = converterNumeroDash(row.qtd_afastamento_sem_substituto);
+  const qtdTemporarioAtivo = converterNumeroDash(row.qtd_temporario_ativo);
+  const qtdVagasExcedentes = converterNumeroDash(row.qtd_vagas_excedentes);
+  const qtdVagasArtExcedentes = converterNumeroDash(row.qtd_vagas_art_excedentes);
+  const contratadosIndigenas = converterNumeroDash(row.contratados_indigenas);
+  const alertaAfastamentoSemSubstituto = limparValorDash(row.alerta_afastamento_sem_substituto);
+  const alertaTemporarioAtivo = limparValorDash(row.alerta_temporario_ativo);
+  const alertaVagasExcedentes = limparValorDash(row.alerta_vagas_excedentes);
+  const alertaVagasArtExcedentes = limparValorDash(row.alerta_vagas_art_excedentes);
+  const detalheAlertas = montarDetalheAlertasMonitoramento({
+    qtdAfastamentoSemSubstituto,
+    qtdTemporarioAtivo,
+    qtdVagasExcedentes,
+    qtdVagasArtExcedentes
+  });
+  const temAlerta = [
+    qtdAfastamentoSemSubstituto,
+    qtdTemporarioAtivo,
+    qtdVagasExcedentes,
+    qtdVagasArtExcedentes
+  ].some(valor => Number(valor || 0) > 0) ? "SIM" : "NÃO";
+  const atualizacao = formatDateInTimeZone(new Date(), DASH_CONFIG.TIMEZONE);
 
   return {
-    id: limparValorDash(row.id ?? row[0]),
+    id: `${normalizarChaveDash(dsei)}::${normalizarChaveDash(cargo)}`,
     dseiCasai: dsei,
     dseiKey: normalizarChaveDash(dsei),
     unidade: dsei,
     cargo,
-    quantitativoPlano: converterNumeroDash(row.quantitativo_plano_trabalho ?? row[3]),
-    totalContratados: converterNumeroDash(row.total_contratados_geral ?? row[4]),
-    contratadosSubstituicao: converterNumeroDash(row.contratados_substituicao ?? row[5]),
-    contratadosTemporario: converterNumeroDash(row.contratados_temporario ?? row[6]),
-    contratadosNormal: converterNumeroDash(row.contratados_normal ?? row[7]),
-    afastados: converterNumeroDash(row.afastados ?? row[8]),
-    trabalhadoresSituacaoNormal: converterNumeroDash(row.trabalhadores_situacao_normal ?? row[9]),
-    vagasOciosasOriginal: converterNumeroDash(row.vagas_ociosas ?? row[10]),
-    vagasOciosas: converterNumeroDash(row.vagas_ociosas ?? row[10]),
-    vagaRemanejada: converterNumeroDash(row.vaga_remanejada ?? row[11]),
+    quantitativoPlano,
+    totalContratados,
+    contratadosSubstituicao,
+    contratadosTemporario,
+    contratadosNormal,
+    afastados,
+    trabalhadoresSituacaoNormal,
+    vagasOciosasOriginal: vagasOciosas,
+    vagasOciosas,
+    vagaRemanejada: "",
     profissionaisIndigenasCargo: contratadosIndigenas,
     contratadosIndigenas,
     profissionaisIndigenas: contratadosIndigenas,
-    totalProfissionaisRaca: converterNumeroDash(row.total_contratados_geral ?? row[4]),
+    totalProfissionaisRaca: totalContratados,
     emProcessoSeletivo: 0,
-    temAlerta: limparValorDash(row.tem_alerta ?? row[12]),
-    alertaAfastamentoSemSubstituto: limparValorDash(row.alerta_afastamento_sem_substituto ?? row[13]),
-    qtdAfastamentoSemSubstituto: converterNumeroDash(row.qtd_afastamento_sem_substituto ?? row[14]),
-    alertaTemporarioAtivo: limparValorDash(row.alerta_temporario_ativo ?? row[15]),
-    qtdTemporarioAtivo: converterNumeroDash(row.qtd_temporario_ativo ?? row[16]),
-    detalheAlertas: limparValorDash(row.detalhe_alertas ?? row[17]),
-    quantitativoPlanoOriginal: converterNumeroDash(row.quantitativo_plano_trabalho_original ?? row[20]),
-    vagasOciosasOriginalAntesRemanejamento: converterNumeroDash(row.vagas_ociosas_original ?? row[21]),
-    vagasRemanejadasSaida: converterNumeroDash(row.vagas_remanejadas_saida ?? row[22]),
-    vagasRemanejadasEntrada: converterNumeroDash(row.vagas_remanejadas_entrada ?? row[23]),
-    qtdRemanejamentos: converterNumeroDash(row.qtd_remanejamentos ?? row[24]),
-    processosSei: limparValorDash(row.processos_sei ?? row[25]),
-    ultimoRemanejamentoEm: formatarDataBancoDash(row.ultimo_remanejamento_em ?? row[26]),
-    linhaSinteticaRemanejamento: limparValorDash(row.linha_sintetica_remanejamento ?? row[27]),
+    temAlerta,
+    alertaAfastamentoSemSubstituto,
+    qtdAfastamentoSemSubstituto,
+    alertaTemporarioAtivo,
+    qtdTemporarioAtivo,
+    alertaVagasExcedentes,
+    qtdVagasExcedentes,
+    alertaVagasArtExcedentes,
+    qtdVagasArtExcedentes,
+    detalheAlertas,
+    quantitativoPlanoOriginal: quantitativoPlano,
+    vagasOciosasOriginalAntesRemanejamento: vagasOciosas,
+    vagasRemanejadasSaida: 0,
+    vagasRemanejadasEntrada: 0,
+    qtdRemanejamentos: 0,
+    processosSei: "",
+    ultimoRemanejamentoEm: "",
+    linhaSinteticaRemanejamento: "",
     atualizacaoDados: atualizacao,
     competencia: extrairCompetenciaDash(atualizacao)
   };
+}
+
+function montarDetalheAlertasMonitoramento(alertas) {
+  const detalhes = [];
+
+  if (Number(alertas.qtdAfastamentoSemSubstituto || 0) > 0) {
+    detalhes.push(`${alertas.qtdAfastamentoSemSubstituto} afastamento(s) sem substituto`);
+  }
+
+  if (Number(alertas.qtdTemporarioAtivo || 0) > 0) {
+    detalhes.push(`${alertas.qtdTemporarioAtivo} temporário(s) ativo(s)`);
+  }
+
+  if (Number(alertas.qtdVagasExcedentes || 0) > 0) {
+    detalhes.push(`${alertas.qtdVagasExcedentes} vaga(s) excedente(s)`);
+  }
+
+  if (Number(alertas.qtdVagasArtExcedentes || 0) > 0) {
+    detalhes.push(`${alertas.qtdVagasArtExcedentes} RT(s) excedente(s)`);
+  }
+
+  return detalhes.join(" | ");
 }
 
 function mapRemanejamentoListaRow(row) {
@@ -412,10 +492,10 @@ function mapRemanejamentoCadastroRow(row) {
   };
 }
 
-function montarResumoDashboard(rows) {
+function montarResumoDashboard(rows, totaisMonitoramento) {
   rows = rows || [];
 
-  const indicadores = calcularIndicadoresServidor(rows);
+  const indicadores = calcularIndicadoresServidor(rows, totaisMonitoramento);
   const topCargos = topAgrupadoServidor(rows, row => row.cargo, row => Number(row.quantitativoPlano || 0), 5);
   const topDseiVagas = topAgrupadoServidor(rows, row => row.dseiCasai, row => Number(row.quantitativoPlano || 0), 5);
   const topDseiOciosas = topAgrupadoServidor(rows, row => row.dseiCasai, row => Math.max(0, calcularOciosasServidor(row)), 5);
@@ -442,15 +522,17 @@ function montarResumoDashboard(rows) {
   };
 }
 
-function calcularIndicadoresServidor(rows) {
+function calcularIndicadoresServidor(rows, totaisMonitoramento) {
   const vagasPrevistas = somaServidor(rows, "quantitativoPlano");
-  const contratados = somaServidor(rows, "totalContratados");
+  const contratados = totaisMonitoramento && totaisMonitoramento.totalContratadosGeral !== undefined
+    ? Number(totaisMonitoramento.totalContratadosGeral || 0)
+    : somaServidor(rows, "totalContratados");
   const afastados = somaServidor(rows, "afastados");
   const substituicoes = somaServidor(rows, "contratadosSubstituicao");
   const temporarios = somaServidor(rows, "contratadosTemporario");
   const indigenas = somaServidor(rows, "contratadosIndigenas");
   const contratadosNormal = somaServidor(rows, "contratadosNormal");
-  const vagasOciosas = rows.reduce((acc, row) => acc + calcularOciosasServidor(row), 0);
+  const vagasOciosas = vagasPrevistas - contratados + afastados;
   const vagasPreenchidas = vagasPrevistas - vagasOciosas;
   const vagasPreenchidasPerc = vagasPrevistas > 0 ? (vagasPreenchidas / vagasPrevistas) * 100 : 0;
   const coberturaAfastamentos = afastados > 0 ? (substituicoes / afastados) * 100 : 0;
@@ -782,6 +864,20 @@ function getMysqlConfig() {
     charset: "utf8mb4",
     dateStrings: true
   };
+}
+
+function resolverPortaAplicacao() {
+  const appPort = Number(process.env.APP_PORT || 0);
+  if (appPort > 0) return appPort;
+
+  const port = Number(process.env.PORT || 3000);
+  const mysqlPort = Number(process.env.MYSQL_PORT || 3306);
+
+  if (port === mysqlPort) {
+    return 3000;
+  }
+
+  return port > 0 ? port : 3000;
 }
 
 function parseJdbcUrl(jdbcUrl) {

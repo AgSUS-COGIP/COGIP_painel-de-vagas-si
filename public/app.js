@@ -1,12 +1,18 @@
 
     let allRows = [];
     let filteredRows = [];
+    let indicadoresResumoBase = null;
     let vagasRows = [];
     let alertasRows = [];
     let vagasBaseRows = [];
     let alertasBaseRows = [];
     let remanejamentoListaRows = [];
     let remanejamentoCadastroRows = [];
+    let remanejamentoDetalhePage = 1;
+    let remanejamentoLinhas = {
+      reduzido: [],
+      acrescentado: []
+    };
     let vagasViewAtual = "dsei";
     let vagasSearchTerm = "";
     let vagasSortState = { key: "label", direction: "asc" };
@@ -170,6 +176,7 @@
 
     function onResumoDataLoaded(payload) {
       payload = payload || {};
+      indicadoresResumoBase = payload.indicadores || null;
 
       document.getElementById("updatedAt").innerText = payload.atualizadoEm || "-";
 
@@ -401,6 +408,9 @@
           pageLoadingState.vagas = false;
           vagasBaseRows = payload.rows || [];
           allRows = vagasBaseRows;
+          if (payload.indicadores) {
+            indicadoresResumoBase = payload.indicadores;
+          }
           pageLoadState.vagas = true;
           if (payload.atualizadoEm) document.getElementById("updatedAt").innerText = payload.atualizadoEm;
           aplicarFiltros();
@@ -484,15 +494,18 @@
     function renderVagasDaPagina() {
       const tbody = document.getElementById("vagasBody");
       const pagination = document.getElementById("vagasPagination");
+      const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
 
       if (!pageLoadState.vagas) {
         if (tbody) tbody.innerHTML = '<tr><td colspan="9">Carregando dados da aba Vagas...</td></tr>';
+        if (distribuicaoBody) distribuicaoBody.innerHTML = '<tr><td colspan="4">Carregando distribuição de vagas ociosas...</td></tr>';
         if (pagination) pagination.innerHTML = "";
         return;
       }
 
       vagasRows = montarVagas(filtrarRowsBase(vagasBaseRows));
       renderVagasTable(vagasRows);
+      renderDistribuicaoVagasOciosas(vagasRows);
     }
 
     function renderAlertasDaPagina() {
@@ -517,6 +530,8 @@
     function renderVagasErro(error) {
       const tbody = document.getElementById("vagasBody");
       if (tbody) tbody.innerHTML = `<tr><td colspan="9">Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+      const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
+      if (distribuicaoBody) distribuicaoBody.innerHTML = `<tr><td colspan="4">Erro ao carregar distribuição: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
     }
 
     function renderAlertasErro(error) {
@@ -917,14 +932,25 @@
       }
     }
 
+    function haFiltrosAtivos() {
+      return Object.values(filterConfigs).some(cfg => cfg && cfg.selected && cfg.selected.size > 0);
+    }
+
+    function deveUsarIndicadoresResumoBase() {
+      return !activeChartFilter && !haFiltrosAtivos();
+    }
+
     function calcularIndicadores(data) {
       const vagasPrevistas = soma(data, "quantitativoPlano");
-      const contratados = soma(data, "totalContratados");
+      const contratadosCalculados = soma(data, "totalContratados");
       const afastados = soma(data, "afastados");
       const substituicoes = soma(data, "contratadosSubstituicao");
       const temporarios = soma(data, "contratadosTemporario");
 
-      const vagasOciosas = data.reduce((acc, row) => acc + calcularOciosas(row), 0);
+      const contratados = deveUsarIndicadoresResumoBase() && indicadoresResumoBase
+        ? Number(indicadoresResumoBase.contratados || 0)
+        : contratadosCalculados;
+      const vagasOciosas = vagasPrevistas - contratados + afastados;
       const vagasPreenchidas = vagasPrevistas - vagasOciosas;
       const vagasPreenchidasPerc = vagasPrevistas > 0
         ? (vagasPreenchidas / vagasPrevistas) * 100
@@ -1525,11 +1551,13 @@
     function alterarVisualizacaoVagas(view) {
       vagasViewAtual = view || "dsei";
       vagasSortState = { key: vagasViewAtual === "detalhado" ? "dseiCasai" : "label", direction: "asc" };
+      vagasCurrentPage = 1;
       renderVagasDaPagina();
     }
 
     function atualizarPesquisaVagas(valor) {
       vagasSearchTerm = String(valor || "").trim().toUpperCase();
+      vagasCurrentPage = 1;
       renderVagasDaPagina();
     }
 
@@ -1680,10 +1708,11 @@
         return;
       }
 
-      const totalRow = calcularTotalVagasTabela(linhas);
+      const { linhasPagina, resumoPaginacao } = obterPaginaVagas(linhas);
+      const totalRow = calcularTotalVagasTabela(linhasPagina);
 
       if (vagasViewAtual === "detalhado") {
-        tbody.innerHTML = linhas.map(row => `
+        tbody.innerHTML = linhasPagina.map(row => `
           <tr>
             <td>${escapeHtml(row.dseiCasai)}</td>
             <td>${escapeHtml(row.cargo)}</td>
@@ -1698,7 +1727,7 @@
         `).join("") + `
           <tr class="totalRow">
             <td>TOTAL</td>
-            <td>${formatNumber(linhas.length)} registro(s)</td>
+            <td>${formatNumber(linhasPagina.length)} registro(s)</td>
             <td>${formatNumber(totalRow.quantitativoPlano)}</td>
             <td>${formatNumber(totalRow.totalContratados)}</td>
             <td>${formatNumber(totalRow.afastados)}</td>
@@ -1709,7 +1738,7 @@
           </tr>
         `;
       } else {
-        tbody.innerHTML = linhas.map(row => `
+        tbody.innerHTML = linhasPagina.map(row => `
           <tr>
             <td>${escapeHtml(row.label)}</td>
             <td>${formatNumber(row.quantitativoPlano)}</td>
@@ -1735,7 +1764,7 @@
       }
 
       if (pagination) {
-        pagination.innerHTML = `<span>Exibindo ${formatNumber(linhas.length)} registro(s) com rolagem.</span>`;
+        pagination.innerHTML = resumoPaginacao;
       }
     }
 
@@ -1762,8 +1791,176 @@
       return total;
     }
 
+    function atualizarCabecalhoDistribuicaoVagasOciosas() {
+      const header = document.getElementById("distribuicaoHeaderRow");
+      const colgroup = document.getElementById("distribuicaoColGroup");
+      const descricao = document.getElementById("distribuicaoDescricao");
+      if (!header || !colgroup) return;
+
+      if (vagasViewAtual === "detalhado") {
+        colgroup.innerHTML = `
+          <col style="width: 24%;">
+          <col style="width: 28%;">
+          <col style="width: 16%;">
+          <col style="width: 16%;">
+          <col style="width: 16%;">
+        `;
+        header.innerHTML = `
+          <th>DSEI/CASAI</th>
+          <th>Cargo</th>
+          <th>Vagas Ociosas</th>
+          <th>Substituição</th>
+          <th>Normal/Temporário</th>
+        `;
+        if (descricao) descricao.textContent = "Composição das vagas ociosas por DSEI/CASAI e cargo nos filtros selecionados.";
+        return;
+      }
+
+      const primeiraColuna = vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
+      colgroup.innerHTML = `
+        <col style="width: 40%;">
+        <col style="width: 20%;">
+        <col style="width: 20%;">
+        <col style="width: 20%;">
+      `;
+      header.innerHTML = `
+        <th>${primeiraColuna}</th>
+        <th>Vagas Ociosas</th>
+        <th>Substituição</th>
+        <th>Normal/Temporário</th>
+      `;
+      if (descricao) {
+        descricao.textContent = vagasViewAtual === "cargo"
+          ? "Composição das vagas ociosas por cargo nos filtros selecionados."
+          : "Composição das vagas ociosas por DSEI/CASAI nos filtros selecionados.";
+      }
+    }
+
+    function montarLinhaDistribuicaoBase(row) {
+      const vagasOciosas = Number(row.ociosas ?? calcularOciosas(row) ?? 0);
+      const substituicoesContratadas = Number(row.contratadosSubstituicao || 0);
+      const substituicaoTabela = Number(row.afastados || 0) - substituicoesContratadas;
+      let normalTemporario = 0;
+      if ((vagasOciosas - substituicaoTabela) > vagasOciosas) {
+        normalTemporario = vagasOciosas;
+      }
+      else {
+        normalTemporario = vagasOciosas - substituicaoTabela;
+      }
+
+      return {
+        vagasOciosas,
+        substituicaoTabela,
+        normalTemporario
+      };
+    }
+
+    function montarDistribuicaoVagasOciosas(rows) {
+      const linhasBase = obterRowsVagasPorVisualizacao(rows);
+      const { linhasPagina } = obterPaginaVagas(linhasBase);
+
+      if (vagasViewAtual === "detalhado") {
+        return linhasPagina.map(row => ({
+          dseiCasai: row.dseiCasai || "Não informado",
+          cargo: row.cargo || "Não informado",
+          ...montarLinhaDistribuicaoBase(row)
+        }));
+      }
+
+      return linhasPagina.map(row => ({
+        label: row.label || "Não informado",
+        ...montarLinhaDistribuicaoBase(row)
+      }));
+    }
+
+    function renderDistribuicaoVagasOciosas(rows) {
+      const tbody = document.getElementById("distribuicaoOciosasBody");
+      if (!tbody) return;
+
+      atualizarCabecalhoDistribuicaoVagasOciosas();
+      const linhas = montarDistribuicaoVagasOciosas(rows).filter(item => {
+        return Number(item.vagasOciosas || 0) !== 0 ||
+          Number(item.substituicaoTabela || 0) !== 0 ||
+          Number(item.normalTemporario || 0) !== 0;
+      });
+
+      const totalColunas = vagasViewAtual === "detalhado" ? 5 : 4;
+      if (!linhas.length) {
+        tbody.innerHTML = `<tr><td colspan="${totalColunas}" class="remanejamentoEmpty">Sem dados para os filtros selecionados.</td></tr>`;
+        return;
+      }
+
+      const total = linhas.reduce((acc, row) => {
+        acc.vagasOciosas += Number(row.vagasOciosas || 0);
+        acc.substituicaoTabela += Number(row.substituicaoTabela || 0);
+        acc.normalTemporario += Number(row.normalTemporario || 0);
+        return acc;
+      }, { vagasOciosas: 0, substituicaoTabela: 0, normalTemporario: 0 });
+
+      if (vagasViewAtual === "detalhado") {
+        tbody.innerHTML = linhas.map(row => `
+          <tr>
+            <td>${escapeHtml(row.dseiCasai)}</td>
+            <td>${escapeHtml(row.cargo)}</td>
+            <td>${formatNumber(row.vagasOciosas)}</td>
+            <td>${formatNumber(row.substituicaoTabela)}</td>
+            <td>${formatNumber(row.normalTemporario)}</td>
+          </tr>
+        `).join("") + `
+          <tr class="totalRow">
+            <td colspan="2">TOTAL</td>
+            <td>${formatNumber(total.vagasOciosas)}</td>
+            <td>${formatNumber(total.substituicaoTabela)}</td>
+            <td>${formatNumber(total.normalTemporario)}</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = linhas.map(row => `
+        <tr>
+          <td>${escapeHtml(row.label)}</td>
+          <td>${formatNumber(row.vagasOciosas)}</td>
+          <td>${formatNumber(row.substituicaoTabela)}</td>
+          <td>${formatNumber(row.normalTemporario)}</td>
+        </tr>
+      `).join("") + `
+        <tr class="totalRow">
+          <td>TOTAL</td>
+          <td>${formatNumber(total.vagasOciosas)}</td>
+          <td>${formatNumber(total.substituicaoTabela)}</td>
+          <td>${formatNumber(total.normalTemporario)}</td>
+        </tr>
+      `;
+    }
+
     function mudarPaginaVagas(delta) {
+      vagasCurrentPage = Math.max(1, vagasCurrentPage + Number(delta || 0));
       renderVagasTable(vagasRows);
+    }
+
+    function obterPaginaVagas(linhas) {
+      if (vagasViewAtual !== "detalhado") {
+        return {
+          linhasPagina: linhas,
+          resumoPaginacao: `<span>Exibindo ${formatNumber(linhas.length)} registro(s) com rolagem.</span>`
+        };
+      }
+
+      const grupos = [...new Set(linhas.map(row => row.dseiCasai).filter(Boolean))];
+      const totalPaginas = Math.max(1, grupos.length);
+      vagasCurrentPage = Math.min(Math.max(1, vagasCurrentPage), totalPaginas);
+      const grupoAtual = grupos[vagasCurrentPage - 1] || "";
+      const linhasPagina = linhas.filter(row => String(row.dseiCasai || "") === String(grupoAtual || ""));
+
+      return {
+        linhasPagina,
+        resumoPaginacao: `
+          <button type="button" onclick="mudarPaginaVagas(-1)" ${vagasCurrentPage <= 1 ? "disabled" : ""}>Anterior</button>
+          <span>Página ${formatNumber(vagasCurrentPage)} de ${formatNumber(totalPaginas)}${grupoAtual ? ` · ${escapeHtml(grupoAtual)}` : ""}</span>
+          <button type="button" onclick="mudarPaginaVagas(1)" ${vagasCurrentPage >= totalPaginas ? "disabled" : ""}>Próxima</button>
+        `
+      };
     }
 
     function montarAlertas(data) {
@@ -1984,6 +2181,14 @@
     }
 
     function calcularOciosas(row) {
+      if (row && row.vagasOciosas !== null && row.vagasOciosas !== undefined && row.vagasOciosas !== "") {
+        return Number(row.vagasOciosas || 0);
+      }
+
+      if (row && row.ociosas !== null && row.ociosas !== undefined && row.ociosas !== "") {
+        return Number(row.ociosas || 0);
+      }
+
       const vagas = Number(row.quantitativoPlano || 0);
       const contratados = Number(row.totalContratados || 0);
       const afastados = Number(row.afastados || 0);
@@ -2137,11 +2342,14 @@
 
 
     function configurarRemanejamento() {
+      remanejamentoDetalhePage = 1;
+
       if (!pageLoadState.remanejamentoCadastro) {
         preencherSelectRemanejamento("remanejamentoDsei", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
         preencherSelectRemanejamento("remanejamentoVagaOrigem", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
         preencherSelectRemanejamento("remanejamentoDseiDestino", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
         preencherSelectRemanejamento("remanejamentoVagaDestino", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
+        inicializarFormularioRemanejamento();
         atualizarResumoRemanejamento();
         return;
       }
@@ -2154,6 +2362,7 @@
 
       atualizarVagasOrigemPorDsei();
       atualizarVagasDestinoPorDsei();
+      inicializarFormularioRemanejamento();
       atualizarResumoRemanejamento();
     }
 
@@ -2180,6 +2389,7 @@
     function abrirFormularioRemanejamento() {
       garantirCarregamentoPagina("remanejamentoFormulario");
       exibirViewRemanejamento("remanejamentoFormulario");
+      inicializarFormularioRemanejamento();
       atualizarResumoRemanejamento();
     }
 
@@ -2208,6 +2418,7 @@
 
     function renderRemanejamentoLista() {
       const tbody = document.getElementById("remanejamentoBody");
+      atualizarIndicadoresRemanejamento();
       if (!tbody) return;
 
       if (!pageLoadState.remanejamentoLista) {
@@ -2220,7 +2431,27 @@
         return;
       }
 
-      tbody.innerHTML = remanejamentoListaRows.map(row => {
+      const termo = normalizarTextoPainel(document.getElementById("remanejamentoSearch")?.value || "");
+      const rows = (remanejamentoListaRows || []).filter(row => {
+        if (!termo) return true;
+        const texto = normalizarTextoPainel([
+          row.dataCriacaoFormatada || row.dataCriacao,
+          row.origemVaga,
+          row.vagaRemanejada,
+          row.destinoVaga,
+          row.vagaAdicionada,
+          row.numeroProcessoSei,
+          row.inseridoPorEmail
+        ].join(" "));
+        return texto.includes(termo);
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="9">Nenhum remanejamento encontrado para a busca informada.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(row => {
         const anexo = row.anexoOficioUrl
           ? `<a href="${escapeAttr(row.anexoOficioUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.anexoOficioNome || "Abrir")}</a>`
           : "-";
@@ -2281,7 +2512,7 @@
       const vagaDestino = document.getElementById("remanejamentoVagaDestino")?.value || "";
       const quantidadeInput = document.getElementById("remanejamentoQuantidade");
       const processoInput = document.getElementById("remanejamentoProcessoSei");
-      const anexoInput = document.getElementById("remanejamentoAnexoUrl");
+      const anexoInput = document.getElementById("remAnexoArquivo");
       const anexoPreview = document.getElementById("remanejamentoAnexoPreview");
 
       const rowSelecionada = obterRemanejamentoCadastroSelecionado(origem, vagaOrigem, destino, vagaDestino);
@@ -2295,26 +2526,22 @@
         processoInput.value = rowSelecionada.numeroProcessoSei;
       }
 
-      if (anexoInput && rowSelecionada?.anexoOficioUrl && !anexoInput.value) {
-        anexoInput.value = rowSelecionada.anexoOficioUrl;
-      }
-
       const quantidade = Math.max(1, Number(quantidadeInput?.value || 1));
       const processo = processoInput?.value || "";
-      const anexoUrl = anexoInput?.value || "";
-      const anexoNome = rowSelecionada?.anexoOficioNome || (anexoUrl ? "Abrir anexo" : "Nenhum anexo selecionado.");
+      const anexoNome = anexoInput?.files?.[0]?.name || rowSelecionada?.anexoOficioNome || "";
+      const resumoFinanceiro = atualizarResumoRemanejamentoPainel();
 
       setText(
         "remanejamentoCalculoTexto",
-        `${origem || "Origem não selecionada"} / ${vagaOrigem || "vaga não selecionada"} → ${destino || "destino não selecionado"} / ${vagaDestino || "vaga não selecionada"}. Processo SEI: ${processo || "não informado"}.`
+        `${origem || "Origem não selecionada"} / ${vagaOrigem || "vaga não selecionada"} → ${destino || "destino não selecionado"} / ${vagaDestino || "vaga não selecionada"}. Processo SEI: ${processo || "não informado"}. Impacto mensal previsto: ${formatCurrency(resumoFinanceiro.impactoMensal)}.`
       );
 
       setText("remanejamentoResultadoTotal", formatNumber(quantidade));
 
       if (anexoPreview) {
-        anexoPreview.innerHTML = anexoUrl
-          ? `Anexo: <a href="${escapeAttr(anexoUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(anexoNome)}</a>`
-          : "Nenhum anexo selecionado.";
+        anexoPreview.innerHTML = anexoNome
+          ? `Anexo selecionado: <strong>${escapeHtml(anexoNome)}</strong>. O envio para BLOB será ativado depois.`
+          : "A gravação em BLOB será conectada quando a nova tabela estiver disponível.";
       }
     }
 
@@ -2326,6 +2553,193 @@
           && String(item.destinoVaga || "") === String(destino || "")
           && String(item.vagaAdicionada || "") === String(vagaDestino || "");
       }) || null;
+    }
+
+    function atualizarIndicadoresRemanejamento() {
+      setText("remKpiTotalRegistros", formatNumber(remanejamentoListaRows.length));
+      setText("remKpiAnexos", formatNumber(remanejamentoListaRows.filter(row => row.anexoOficioUrl).length));
+      setText("remKpiOrigens", formatNumber(new Set(remanejamentoListaRows.map(row => row.origemVaga).filter(Boolean)).size));
+    }
+
+    function inicializarFormularioRemanejamento() {
+      if (!remanejamentoLinhas.reduzido.length) {
+        remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
+      }
+
+      if (!remanejamentoLinhas.acrescentado.length) {
+        remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })];
+      }
+
+      renderLinhasRemanejamento("reduzido");
+      renderLinhasRemanejamento("acrescentado");
+      atualizarResumoRemanejamentoPainel();
+    }
+
+    function criarLinhaRemanejamento(tipo, valores) {
+      return {
+        id: `${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        cargo: valores?.cargo || "",
+        quantidade: Number(valores?.quantidade || 1),
+        meses: Number(valores?.meses || 6),
+        salario: Number(valores?.salario || 0),
+        beneficios: Number(valores?.beneficios || 0),
+        encargos: Number(valores?.encargos || 0)
+      };
+    }
+
+    function adicionarLinhaRemanejamento(tipo) {
+      remanejamentoLinhas[tipo] = remanejamentoLinhas[tipo] || [];
+      remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: 6 }));
+      renderLinhasRemanejamento(tipo);
+      atualizarResumoRemanejamento();
+    }
+
+    function removerLinhaRemanejamento(tipo, id) {
+      remanejamentoLinhas[tipo] = (remanejamentoLinhas[tipo] || []).filter(item => item.id !== id);
+      if (!remanejamentoLinhas[tipo].length) {
+        remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: 6 }));
+      }
+      renderLinhasRemanejamento(tipo);
+      atualizarResumoRemanejamento();
+    }
+
+    function atualizarCampoLinhaRemanejamento(tipo, id, campo, valor) {
+      const linha = (remanejamentoLinhas[tipo] || []).find(item => item.id === id);
+      if (!linha) return;
+
+      if (["quantidade", "meses", "salario", "beneficios", "encargos"].includes(campo)) {
+        linha[campo] = Number(valor || 0);
+      } else {
+        linha[campo] = valor;
+      }
+
+      atualizarResumoRemanejamento();
+      renderLinhasRemanejamento(tipo);
+    }
+
+    function renderLinhasRemanejamento(tipo) {
+      const body = document.getElementById(tipo === "reduzido" ? "remReduzidoBody" : "remAcrescentadoBody");
+      if (!body) return;
+
+      const rows = remanejamentoLinhas[tipo] || [];
+      body.innerHTML = rows.map(row => {
+        const total = calcularTotalLinhaRemanejamento(row);
+        return `
+          <tr>
+            <td><input type="text" value="${escapeAttr(row.cargo || "")}" placeholder="Cargo" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','cargo',this.value)"></td>
+            <td><input type="number" min="1" step="1" value="${escapeAttr(row.quantidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','quantidade',this.value)"></td>
+            <td><input type="number" min="1" step="1" value="${escapeAttr(row.meses)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','meses',this.value)"></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.salario)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','salario',this.value)"></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.beneficios)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','beneficios',this.value)"></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.encargos)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','encargos',this.value)"></td>
+            <td>${formatCurrency(total.total)}</td>
+            <td><button type="button" class="remDeleteBtn" onclick="removerLinhaRemanejamento('${tipo}','${row.id}')">Remover</button></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function calcularTotalLinhaRemanejamento(row) {
+      const quantidade = Math.max(0, Number(row.quantidade || 0));
+      const meses = Math.max(1, Number(row.meses || 1));
+      const salario = Number(row.salario || 0) * quantidade;
+      const beneficios = Number(row.beneficios || 0) * quantidade;
+      const encargos = Number(row.encargos || 0) * quantidade;
+      const mensal = salario + beneficios + encargos;
+      return {
+        mensal,
+        total: mensal * meses
+      };
+    }
+
+    function coletarLinhasRemanejamento(tipo) {
+      return (remanejamentoLinhas[tipo] || [])
+        .map(item => ({
+          ...item,
+          quantidade: Number(item.quantidade || 0),
+          meses: Math.max(1, Number(item.meses || 1)),
+          salario: Number(item.salario || 0),
+          beneficios: Number(item.beneficios || 0),
+          encargos: Number(item.encargos || 0)
+        }))
+        .filter(item => item.cargo || item.quantidade || item.salario || item.beneficios || item.encargos);
+    }
+
+    function calcularResumoLinhasRemanejamento(items) {
+      return (items || []).reduce((acc, item) => {
+        const quantidade = Number(item.quantidade || 0);
+        const meses = Math.max(1, Number(item.meses || 1));
+        const salario = Number(item.salario || 0) * quantidade;
+        const beneficios = Number(item.beneficios || 0) * quantidade;
+        const encargos = Number(item.encargos || 0) * quantidade;
+        const mensal = salario + beneficios + encargos;
+        acc.salario += salario;
+        acc.beneficios += beneficios;
+        acc.encargos += encargos;
+        acc.mensal += mensal;
+        acc.total += mensal * meses;
+        return acc;
+      }, { salario: 0, beneficios: 0, encargos: 0, mensal: 0, total: 0 });
+    }
+
+    function atualizarResumoRemanejamentoPainel() {
+      const reduzidos = coletarLinhasRemanejamento("reduzido");
+      const acrescentados = coletarLinhasRemanejamento("acrescentado");
+      const red = calcularResumoLinhasRemanejamento(reduzidos);
+      const add = calcularResumoLinhasRemanejamento(acrescentados);
+      const impactoMensal = add.mensal - red.mensal;
+      const impactoPeriodo = add.total - red.total;
+
+      setText("remTotalReduzidoTabela", formatCurrency(red.total));
+      setText("remTotalAcrescentadoTabela", formatCurrency(add.total));
+      setText("remTotalReduzidoMensal", formatCurrency(red.mensal));
+      setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
+      setText("remImpactoMensal2", formatCurrency(impactoMensal));
+      setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
+      setText("remSalarioRed", formatCurrency(red.salario));
+      setText("remSalarioAdd", formatCurrency(add.salario));
+      setText("remSalarioImpacto", formatCurrency(add.salario - red.salario));
+      setText("remBeneficioRed", formatCurrency(red.beneficios));
+      setText("remBeneficioAdd", formatCurrency(add.beneficios));
+      setText("remBeneficioImpacto", formatCurrency(add.beneficios - red.beneficios));
+      setText("remEncargoRed", formatCurrency(red.encargos));
+      setText("remEncargoAdd", formatCurrency(add.encargos));
+      setText("remEncargoImpacto", formatCurrency(add.encargos - red.encargos));
+      setText("remResumoTotalRed", formatCurrency(red.mensal));
+      setText("remResumoTotalAdd", formatCurrency(add.mensal));
+      setText("remResumoTotalImpacto", formatCurrency(impactoMensal));
+
+      ["remImpactoMensal2", "remImpactoPeriodo2", "remResumoTotalImpacto"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const value = id === "remImpactoPeriodo2" ? impactoPeriodo : impactoMensal;
+        el.classList.toggle("remNegativo", value < 0);
+        el.classList.toggle("remPositivo", value > 0);
+      });
+
+      return { red, add, impactoMensal, impactoPeriodo };
+    }
+
+    function limparFormularioRemanejamento() {
+      remanejamentoLinhas = {
+        reduzido: [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })],
+        acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })]
+      };
+
+      setValue("remanejamentoQuantidade", "1");
+      setValue("remanejamentoProcessoSei", "");
+      setValue("remObservacao", "");
+
+      const anexo = document.getElementById("remAnexoArquivo");
+      if (anexo) anexo.value = "";
+
+      renderLinhasRemanejamento("reduzido");
+      renderLinhasRemanejamento("acrescentado");
+      atualizarResumoRemanejamento();
+    }
+
+    function salvarRemanejamentoPainel() {
+      alert("A persistência do novo remanejamento ficará disponível quando a nova tabela com anexo BLOB e valores auxiliares estiver pronta.");
     }
 
 
@@ -2343,6 +2757,11 @@
         style: "currency",
         currency: "BRL"
       });
+    }
+
+    function setValue(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.value = value;
     }
 
     function valorCsv(value) {
