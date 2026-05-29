@@ -5292,3 +5292,194 @@
         grid-template-columns: 1fr !important;
       }
     }
+
+
+/* =========================================================
+   Remanejamento de Vagas - layout compacto no modelo da tela enviada
+========================================================= */
+.remanejamentoPageFull {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.remPageTitleBar {
+  background: rgba(255,255,255,.94);
+  border-radius: 18px;
+  padding: 14px 18px;
+  box-shadow: 0 12px 24px rgba(0, 43, 93, .16);
+}
+
+.remPageTitleBar h2 {
+  margin: 0;
+  color: #07346b;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+
+.remPageTitleBar p {
+  margin: 3px 0 0;
+  color: #315c8e;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.remPageShell {
+  display: grid;
+  gap: 12px;
+}
+
+.remTopGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, .33fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.remDseiBox label,
+.remDocBox label {
+  color: #07346b;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.remDseiBox select,
+.remTable select,
+.remTable input,
+.remDocBox input,
+.remDocBox textarea,
+.remHistoricoToolbar select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid rgba(0, 83, 166, .18);
+  border-radius: 9px;
+  background: #fff;
+  color: #07346b;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 9px;
+  outline: none;
+}
+
+.remResumoTopoBox h3,
+.remBox h3,
+.remHistoricoHead h3 {
+  margin: 0 0 10px;
+  color: #07346b;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.remResumoTopoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.remResumoTopoGrid div {
+  border-left: 1px solid rgba(0,83,166,.16);
+  padding-left: 14px;
+}
+
+.remResumoTopoGrid div:first-child { border-left: 0; padding-left: 0; }
+
+.remResumoTopoGrid span {
+  display: block;
+  color: #315c8e;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.remResumoTopoGrid strong {
+  display: block;
+  margin-top: 5px;
+  color: #07346b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.remTwinGridWide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.remBottomGridWide {
+  grid-template-columns: minmax(0, 1.55fr) minmax(360px, .75fr);
+}
+
+.remTableFinanceira {
+  min-width: 1180px;
+  table-layout: fixed;
+}
+
+.remTableFinanceira th {
+  font-size: 9px;
+  padding: 9px 7px;
+}
+
+.remTableFinanceira td {
+  padding: 7px;
+  font-size: 10px;
+}
+
+.remTableFinanceira td:nth-child(2),
+.remTableFinanceira td:nth-child(3),
+.remTableFinanceira td:nth-child(10) {
+  text-align: center;
+}
+
+.remTableFinanceira tfoot td {
+  background: rgba(0,83,166,.07);
+  color: #07346b;
+  font-weight: 900;
+}
+
+.remDeleteBtn {
+  border: none;
+  border-radius: 8px;
+  background: #e8f4ff;
+  color: #0055a7;
+  font-weight: 900;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+
+.remHistoricoBox {
+  margin-top: -2px;
+}
+
+.remHistoricoHead {
+  display: grid;
+  grid-template-columns: 1fr minmax(360px, .55fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.remHistoricoToolbar {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 8px;
+}
+
+.remHistoryTable td {
+  color: #07346b !important;
+  font-weight: 800;
+}
+
+.remGreen { color: #047857 !important; }
+.remRed { color: #b91c1c !important; }
+
+@media (max-width: 1280px) {
+  .remTopGrid,
+  .remTwinGridWide,
+  .remBottomGridWide,
+  .remHistoricoHead {
+    grid-template-columns: 1fr;
+  }
+
+  .remHistoricoToolbar {
+    grid-template-columns: 1fr;
+  }
+}

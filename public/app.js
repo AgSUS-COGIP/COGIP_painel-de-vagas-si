@@ -2346,35 +2346,51 @@
 
       if (!pageLoadState.remanejamentoCadastro) {
         preencherSelectRemanejamento("remanejamentoDsei", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
-        preencherSelectRemanejamento("remanejamentoVagaOrigem", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
-        preencherSelectRemanejamento("remanejamentoDseiDestino", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
-        preencherSelectRemanejamento("remanejamentoVagaDestino", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
         inicializarFormularioRemanejamento();
         atualizarResumoRemanejamento();
         return;
       }
 
-      const origens = montarOpcoesUnicasRemanejamento(remanejamentoCadastroRows, "origemVaga");
-      const destinos = montarOpcoesUnicasRemanejamento(remanejamentoCadastroRows, "destinoVaga");
-
-      preencherSelectRemanejamento("remanejamentoDsei", origens, item => item.label);
-      preencherSelectRemanejamento("remanejamentoDseiDestino", destinos, item => item.label);
-
-      atualizarVagasOrigemPorDsei();
-      atualizarVagasDestinoPorDsei();
-      inicializarFormularioRemanejamento();
+      const dseis = montarOpcoesDseiRemanejamento();
+      preencherSelectRemanejamento("remanejamentoDsei", dseis, item => item.label);
+      inicializarFormularioRemanejamento(true);
       atualizarResumoRemanejamento();
     }
 
+    function montarOpcoesDseiRemanejamento() {
+      const mapa = new Map();
 
-    function montarOpcoesUnicasRemanejamento(rows, field) {
-      const valores = [...new Set((rows || []).map(row => row[field]).filter(Boolean))]
-        .sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+      (remanejamentoCadastroRows || []).forEach(row => {
+        if (!row.idDseiCasai || !row.dseiCasai) return;
+        mapa.set(String(row.idDseiCasai), {
+          value: String(row.idDseiCasai),
+          label: row.dseiCasai
+        });
+      });
 
-      if (!valores.length) return [REMANEJAMENTO_EMPTY_OPTION];
-      return valores.map(valor => ({ value: valor, label: valor }));
+      const lista = [...mapa.values()].sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+      return lista.length ? lista : [REMANEJAMENTO_EMPTY_OPTION];
     }
 
+    function montarOpcoesCargosRemanejamento() {
+      const idDsei = String(document.getElementById("remanejamentoDsei")?.value || "");
+      return (remanejamentoCadastroRows || [])
+        .filter(row => !idDsei || String(row.idDseiCasai || "") === idDsei)
+        .map(row => ({
+          value: String(row.idCargoFuncao || ""),
+          label: row.cargo || `Cargo ID ${row.idCargoFuncao}`,
+          row
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+    }
+
+    function obterCadastroCargoRemanejamento(idCargoFuncao) {
+      const idDsei = String(document.getElementById("remanejamentoDsei")?.value || "");
+      return (remanejamentoCadastroRows || []).find(row => {
+        return String(row.idDseiCasai || "") === idDsei
+          && String(row.idCargoFuncao || "") === String(idCargoFuncao || "");
+      }) || null;
+    }
 
     function preencherSelectRemanejamento(id, items, labelFn) {
       const select = document.getElementById(id);
@@ -2385,36 +2401,30 @@
       `).join("");
     }
 
-
     function abrirFormularioRemanejamento() {
-      garantirCarregamentoPagina("remanejamentoFormulario");
-      exibirViewRemanejamento("remanejamentoFormulario");
+      exibirViewRemanejamento("remanejamento");
       inicializarFormularioRemanejamento();
       atualizarResumoRemanejamento();
     }
-
 
     function voltarListaRemanejamento() {
       exibirViewRemanejamento("remanejamento");
     }
 
-
     function exibirViewRemanejamento(view) {
       activeView = view;
 
       document.querySelectorAll(".viewPanel").forEach(panel => panel.classList.remove("active"));
-
-      const panel = document.getElementById(`view-${view}`);
+      const panel = document.getElementById("view-remanejamento");
       if (panel) panel.classList.add("active");
 
       document.querySelectorAll(".navItem").forEach(item => {
         item.classList.toggle("active", item.dataset.view === "remanejamento");
       });
 
-      atualizarModoRolagem(view);
-      garantirCarregamentoPagina(view);
+      atualizarModoRolagem("remanejamento");
+      garantirCarregamentoPagina("remanejamento");
     }
-
 
     function renderRemanejamentoLista() {
       const tbody = document.getElementById("remanejamentoBody");
@@ -2427,21 +2437,25 @@
       }
 
       if (!remanejamentoListaRows.length) {
-        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="9">Sem dados</td></tr>';
+        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="9">Nenhum remanejamento registrado.</td></tr>';
         return;
       }
 
       const termo = normalizarTextoPainel(document.getElementById("remanejamentoSearch")?.value || "");
+      const status = String(document.getElementById("remanejamentoStatusFiltro")?.value || "");
+
       const rows = (remanejamentoListaRows || []).filter(row => {
+        if (status && String(row.situacao || "") !== status) return false;
         if (!termo) return true;
         const texto = normalizarTextoPainel([
           row.dataCriacaoFormatada || row.dataCriacao,
-          row.origemVaga,
-          row.vagaRemanejada,
-          row.destinoVaga,
-          row.vagaAdicionada,
+          row.dseiCasai,
+          row.competencia,
+          row.cargosReduzidos,
+          row.cargosAcrescentados,
           row.numeroProcessoSei,
-          row.inseridoPorEmail
+          row.inseridoPorEmail,
+          row.situacao
         ].join(" "));
         return texto.includes(termo);
       });
@@ -2453,25 +2467,27 @@
 
       tbody.innerHTML = rows.map(row => {
         const anexo = row.anexoOficioUrl
-          ? `<a href="${escapeAttr(row.anexoOficioUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.anexoOficioNome || "Abrir")}</a>`
+          ? `<a href="${escapeAttr(row.anexoOficioUrl)}" target="_blank" rel="noopener noreferrer">Anexo</a>`
           : "-";
 
+        const impacto = Number(row.impactoMensal || 0);
+        const impactoClass = impacto < 0 ? "remNegativo" : impacto > 0 ? "remPositivo" : "";
+
         return `
-          <tr>
+          <tr title="Reduzido: ${escapeAttr(row.cargosReduzidos || "")} | Acrescentado: ${escapeAttr(row.cargosAcrescentados || "")}">
             <td>${escapeHtml(row.dataCriacaoFormatada || row.dataCriacao)}</td>
-            <td>${escapeHtml(row.origemVaga)}</td>
-            <td>${escapeHtml(row.vagaRemanejada)}</td>
-            <td>${escapeHtml(row.destinoVaga)}</td>
-            <td>${escapeHtml(row.vagaAdicionada)}</td>
-            <td>${formatNumber(row.quantidadeVagaAdicionada)}</td>
-            <td>${escapeHtml(row.numeroProcessoSei || "-")}</td>
+            <td>${escapeHtml(row.dseiCasai || "-")}</td>
+            <td>${escapeHtml(row.competencia || "-")}</td>
+            <td>${formatCurrency(row.totalReduzidoMensal)}</td>
+            <td>${formatCurrency(row.totalAcrescentadoMensal)}</td>
+            <td class="${impactoClass}">${formatCurrency(row.impactoMensal)}</td>
+            <td>${escapeHtml(row.inseridoPorEmail || row.criadoPor || "-")}</td>
+            <td>${escapeHtml(row.situacao || "Registrado")}</td>
             <td>${anexo}</td>
-            <td>${escapeHtml(row.inseridoPorEmail || "-")}</td>
           </tr>
         `;
       }).join("");
     }
-
 
     function renderRemanejamentoListaErro(error) {
       const tbody = document.getElementById("remanejamentoBody");
@@ -2480,93 +2496,59 @@
       tbody.innerHTML = `<tr><td class="remanejamentoEmpty" colspan="9">Erro ao carregar remanejamentos: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
     }
 
-
     function atualizarVagasOrigemPorDsei() {
-      const origem = document.getElementById("remanejamentoDsei")?.value || "";
-      const vagasOrigem = montarOpcoesUnicasRemanejamento(
-        remanejamentoCadastroRows.filter(item => !origem || String(item.origemVaga || "") === String(origem)),
-        "vagaRemanejada"
-      );
-
-      preencherSelectRemanejamento("remanejamentoVagaOrigem", vagasOrigem, item => item.label);
+      remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
+      remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })];
+      renderLinhasRemanejamento("reduzido");
+      renderLinhasRemanejamento("acrescentado");
       atualizarResumoRemanejamento();
     }
-
 
     function atualizarVagasDestinoPorDsei() {
-      const destino = document.getElementById("remanejamentoDseiDestino")?.value || "";
-      const vagasDestino = montarOpcoesUnicasRemanejamento(
-        remanejamentoCadastroRows.filter(item => !destino || String(item.destinoVaga || "") === String(destino)),
-        "vagaAdicionada"
-      );
-
-      preencherSelectRemanejamento("remanejamentoVagaDestino", vagasDestino, item => item.label);
-      atualizarResumoRemanejamento();
+      atualizarVagasOrigemPorDsei();
     }
 
-
     function atualizarResumoRemanejamento() {
-      const origem = document.getElementById("remanejamentoDsei")?.value || "";
-      const vagaOrigem = document.getElementById("remanejamentoVagaOrigem")?.value || "";
-      const destino = document.getElementById("remanejamentoDseiDestino")?.value || "";
-      const vagaDestino = document.getElementById("remanejamentoVagaDestino")?.value || "";
-      const quantidadeInput = document.getElementById("remanejamentoQuantidade");
+      const dseiSelect = document.getElementById("remanejamentoDsei");
+      const dseiLabel = dseiSelect?.options?.[dseiSelect.selectedIndex]?.text || "DSEI não selecionado";
       const processoInput = document.getElementById("remanejamentoProcessoSei");
       const anexoInput = document.getElementById("remAnexoArquivo");
       const anexoPreview = document.getElementById("remanejamentoAnexoPreview");
-
-      const rowSelecionada = obterRemanejamentoCadastroSelecionado(origem, vagaOrigem, destino, vagaDestino);
-      const quantidadeSugerida = Number(rowSelecionada?.quantidadeVagaAdicionada || 0);
-
-      if (quantidadeInput && quantidadeSugerida > 0 && (!quantidadeInput.value || Number(quantidadeInput.value) <= 1)) {
-        quantidadeInput.value = quantidadeSugerida;
-      }
-
-      if (processoInput && rowSelecionada?.numeroProcessoSei && !processoInput.value) {
-        processoInput.value = rowSelecionada.numeroProcessoSei;
-      }
-
-      const quantidade = Math.max(1, Number(quantidadeInput?.value || 1));
       const processo = processoInput?.value || "";
-      const anexoNome = anexoInput?.files?.[0]?.name || rowSelecionada?.anexoOficioNome || "";
+      const anexoNome = anexoInput?.files?.[0]?.name || "";
       const resumoFinanceiro = atualizarResumoRemanejamentoPainel();
+      const qtdMovimentada = soma(coletarLinhasRemanejamento("reduzido"), "quantidade") + soma(coletarLinhasRemanejamento("acrescentado"), "quantidade");
 
       setText(
         "remanejamentoCalculoTexto",
-        `${origem || "Origem não selecionada"} / ${vagaOrigem || "vaga não selecionada"} → ${destino || "destino não selecionado"} / ${vagaDestino || "vaga não selecionada"}. Processo SEI: ${processo || "não informado"}. Impacto mensal previsto: ${formatCurrency(resumoFinanceiro.impactoMensal)}.`
+        `${dseiLabel}. Processo SEI: ${processo || "não informado"}. Impacto mensal previsto: ${formatCurrency(resumoFinanceiro.impactoMensal)}.`
       );
 
-      setText("remanejamentoResultadoTotal", formatNumber(quantidade));
+      setText("remanejamentoResultadoTotal", formatNumber(qtdMovimentada));
 
       if (anexoPreview) {
         anexoPreview.innerHTML = anexoNome
-          ? `Anexo selecionado: <strong>${escapeHtml(anexoNome)}</strong>. O envio para BLOB será ativado depois.`
-          : "A gravação em BLOB será conectada quando a nova tabela estiver disponível.";
+          ? `Anexo selecionado: <strong>${escapeHtml(anexoNome)}</strong>.`
+          : "Clique ou arraste o arquivo para enviar. PDF até 10MB.";
       }
     }
 
-
-    function obterRemanejamentoCadastroSelecionado(origem, vagaOrigem, destino, vagaDestino) {
-      return (remanejamentoCadastroRows || []).find(item => {
-        return String(item.origemVaga || "") === String(origem || "")
-          && String(item.vagaRemanejada || "") === String(vagaOrigem || "")
-          && String(item.destinoVaga || "") === String(destino || "")
-          && String(item.vagaAdicionada || "") === String(vagaDestino || "");
-      }) || null;
+    function obterRemanejamentoCadastroSelecionado() {
+      return null;
     }
 
     function atualizarIndicadoresRemanejamento() {
       setText("remKpiTotalRegistros", formatNumber(remanejamentoListaRows.length));
-      setText("remKpiAnexos", formatNumber(remanejamentoListaRows.filter(row => row.anexoOficioUrl).length));
-      setText("remKpiOrigens", formatNumber(new Set(remanejamentoListaRows.map(row => row.origemVaga).filter(Boolean)).size));
+      setText("remKpiAnexos", formatNumber(remanejamentoListaRows.filter(row => row.temAnexo || row.anexoOficioUrl).length));
+      setText("remKpiOrigens", formatNumber(new Set(remanejamentoListaRows.map(row => row.dseiCasai).filter(Boolean)).size));
     }
 
-    function inicializarFormularioRemanejamento() {
-      if (!remanejamentoLinhas.reduzido.length) {
+    function inicializarFormularioRemanejamento(resetar) {
+      if (resetar || !remanejamentoLinhas.reduzido.length) {
         remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
       }
 
-      if (!remanejamentoLinhas.acrescentado.length) {
+      if (resetar || !remanejamentoLinhas.acrescentado.length) {
         remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })];
       }
 
@@ -2578,12 +2560,16 @@
     function criarLinhaRemanejamento(tipo, valores) {
       return {
         id: `${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        idCargoFuncao: valores?.idCargoFuncao || "",
         cargo: valores?.cargo || "",
         quantidade: Number(valores?.quantidade || 1),
         meses: Number(valores?.meses || 6),
-        salario: Number(valores?.salario || 0),
-        beneficios: Number(valores?.beneficios || 0),
-        encargos: Number(valores?.encargos || 0)
+        salarioBase: Number(valores?.salarioBase || 0),
+        insalubridadePericulosidade: Number(valores?.insalubridadePericulosidade || 0),
+        gratificacaoRt: Number(valores?.gratificacaoRt || 0),
+        adicionalNoturno: Number(valores?.adicionalNoturno || 0),
+        encargos: Number(valores?.encargos || 0),
+        provisoes: Number(valores?.provisoes || 0)
       };
     }
 
@@ -2607,7 +2593,17 @@
       const linha = (remanejamentoLinhas[tipo] || []).find(item => item.id === id);
       if (!linha) return;
 
-      if (["quantidade", "meses", "salario", "beneficios", "encargos"].includes(campo)) {
+      if (campo === "idCargoFuncao") {
+        const cadastro = obterCadastroCargoRemanejamento(valor);
+        linha.idCargoFuncao = valor;
+        linha.cargo = cadastro?.cargo || "";
+        linha.salarioBase = Number(cadastro?.salarioBase || 0);
+        linha.insalubridadePericulosidade = Number(cadastro?.insalubridadePericulosidade || 0);
+        linha.gratificacaoRt = Number(cadastro?.gratificacaoRt || 0);
+        linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
+        linha.encargos = Number(cadastro?.encargos || 0);
+        linha.provisoes = Number(cadastro?.provisoes || 0);
+      } else if (["quantidade", "meses", "salarioBase", "insalubridadePericulosidade", "gratificacaoRt", "adicionalNoturno", "encargos", "provisoes"].includes(campo)) {
         linha[campo] = Number(valor || 0);
       } else {
         linha[campo] = valor;
@@ -2622,18 +2618,24 @@
       if (!body) return;
 
       const rows = remanejamentoLinhas[tipo] || [];
+      const opcoesCargo = montarOpcoesCargosRemanejamento();
+      const optionsHtml = ['<option value="">Selecione</option>'].concat(opcoesCargo.map(opt => `<option value="${escapeAttr(opt.value)}">${escapeHtml(opt.label)}</option>`)).join("");
+
       body.innerHTML = rows.map(row => {
         const total = calcularTotalLinhaRemanejamento(row);
         return `
           <tr>
-            <td><input type="text" value="${escapeAttr(row.cargo || "")}" placeholder="Cargo" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','cargo',this.value)"></td>
-            <td><input type="number" min="1" step="1" value="${escapeAttr(row.quantidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','quantidade',this.value)"></td>
+            <td><select onchange="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','idCargoFuncao',this.value)">${optionsHtml.replace(`value="${escapeAttr(row.idCargoFuncao)}"`, `value="${escapeAttr(row.idCargoFuncao)}" selected`)}</select></td>
+            <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','quantidade',this.value)"></td>
             <td><input type="number" min="1" step="1" value="${escapeAttr(row.meses)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','meses',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.salario)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','salario',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.beneficios)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','beneficios',this.value)"></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.salarioBase)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','salarioBase',this.value)"></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.insalubridadePericulosidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','insalubridadePericulosidade',this.value)"></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.gratificacaoRt)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','gratificacaoRt',this.value)"></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.adicionalNoturno)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','adicionalNoturno',this.value)"></td>
             <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.encargos)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','encargos',this.value)"></td>
-            <td>${formatCurrency(total.total)}</td>
-            <td><button type="button" class="remDeleteBtn" onclick="removerLinhaRemanejamento('${tipo}','${row.id}')">Remover</button></td>
+            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.provisoes)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','provisoes',this.value)"></td>
+            <td><strong>${formatCurrency(total.total)}</strong></td>
+            <td><button type="button" class="remDeleteBtn" onclick="removerLinhaRemanejamento('${tipo}','${row.id}')">🗑</button></td>
           </tr>
         `;
       }).join("");
@@ -2642,44 +2644,54 @@
     function calcularTotalLinhaRemanejamento(row) {
       const quantidade = Math.max(0, Number(row.quantidade || 0));
       const meses = Math.max(1, Number(row.meses || 1));
-      const salario = Number(row.salario || 0) * quantidade;
-      const beneficios = Number(row.beneficios || 0) * quantidade;
+      const salarioBase = Number(row.salarioBase || 0) * quantidade;
+      const insalubridadePericulosidade = Number(row.insalubridadePericulosidade || 0) * quantidade;
+      const gratificacaoRt = Number(row.gratificacaoRt || 0) * quantidade;
+      const adicionalNoturno = Number(row.adicionalNoturno || 0) * quantidade;
       const encargos = Number(row.encargos || 0) * quantidade;
-      const mensal = salario + beneficios + encargos;
-      return {
-        mensal,
-        total: mensal * meses
-      };
+      const provisoes = Number(row.provisoes || 0) * quantidade;
+      const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes;
+      return { mensal, total: mensal * meses };
     }
 
     function coletarLinhasRemanejamento(tipo) {
       return (remanejamentoLinhas[tipo] || [])
         .map(item => ({
           ...item,
+          idCargoFuncao: Number(item.idCargoFuncao || 0),
           quantidade: Number(item.quantidade || 0),
           meses: Math.max(1, Number(item.meses || 1)),
-          salario: Number(item.salario || 0),
-          beneficios: Number(item.beneficios || 0),
-          encargos: Number(item.encargos || 0)
+          salarioBase: Number(item.salarioBase || 0),
+          insalubridadePericulosidade: Number(item.insalubridadePericulosidade || 0),
+          gratificacaoRt: Number(item.gratificacaoRt || 0),
+          adicionalNoturno: Number(item.adicionalNoturno || 0),
+          encargos: Number(item.encargos || 0),
+          provisoes: Number(item.provisoes || 0)
         }))
-        .filter(item => item.cargo || item.quantidade || item.salario || item.beneficios || item.encargos);
+        .filter(item => item.idCargoFuncao || item.quantidade || item.salarioBase || item.encargos || item.provisoes);
     }
 
     function calcularResumoLinhasRemanejamento(items) {
       return (items || []).reduce((acc, item) => {
         const quantidade = Number(item.quantidade || 0);
         const meses = Math.max(1, Number(item.meses || 1));
-        const salario = Number(item.salario || 0) * quantidade;
-        const beneficios = Number(item.beneficios || 0) * quantidade;
+        const salarioBase = Number(item.salarioBase || 0) * quantidade;
+        const insalubridadePericulosidade = Number(item.insalubridadePericulosidade || 0) * quantidade;
+        const gratificacaoRt = Number(item.gratificacaoRt || 0) * quantidade;
+        const adicionalNoturno = Number(item.adicionalNoturno || 0) * quantidade;
         const encargos = Number(item.encargos || 0) * quantidade;
-        const mensal = salario + beneficios + encargos;
-        acc.salario += salario;
-        acc.beneficios += beneficios;
+        const provisoes = Number(item.provisoes || 0) * quantidade;
+        const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes;
+        acc.salarioBase += salarioBase;
+        acc.insalubridadePericulosidade += insalubridadePericulosidade;
+        acc.gratificacaoRt += gratificacaoRt;
+        acc.adicionalNoturno += adicionalNoturno;
         acc.encargos += encargos;
+        acc.provisoes += provisoes;
         acc.mensal += mensal;
         acc.total += mensal * meses;
         return acc;
-      }, { salario: 0, beneficios: 0, encargos: 0, mensal: 0, total: 0 });
+      }, { salarioBase: 0, insalubridadePericulosidade: 0, gratificacaoRt: 0, adicionalNoturno: 0, encargos: 0, provisoes: 0, mensal: 0, total: 0 });
     }
 
     function atualizarResumoRemanejamentoPainel() {
@@ -2690,29 +2702,43 @@
       const impactoMensal = add.mensal - red.mensal;
       const impactoPeriodo = add.total - red.total;
 
+      setText("remTotalReduzidoTopo", formatCurrency(red.mensal));
+      setText("remTotalAcrescentadoTopo", formatCurrency(add.mensal));
+      setText("remImpactoMensalTopo", formatCurrency(impactoMensal));
+      setText("remImpactoPeriodoTopo", formatCurrency(impactoPeriodo));
       setText("remTotalReduzidoTabela", formatCurrency(red.total));
       setText("remTotalAcrescentadoTabela", formatCurrency(add.total));
       setText("remTotalReduzidoMensal", formatCurrency(red.mensal));
       setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
       setText("remImpactoMensal2", formatCurrency(impactoMensal));
       setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
-      setText("remSalarioRed", formatCurrency(red.salario));
-      setText("remSalarioAdd", formatCurrency(add.salario));
-      setText("remSalarioImpacto", formatCurrency(add.salario - red.salario));
-      setText("remBeneficioRed", formatCurrency(red.beneficios));
-      setText("remBeneficioAdd", formatCurrency(add.beneficios));
-      setText("remBeneficioImpacto", formatCurrency(add.beneficios - red.beneficios));
+
+      setText("remSalarioRed", formatCurrency(red.salarioBase));
+      setText("remSalarioAdd", formatCurrency(add.salarioBase));
+      setText("remSalarioImpacto", formatCurrency(add.salarioBase - red.salarioBase));
+      setText("remInsalRed", formatCurrency(red.insalubridadePericulosidade));
+      setText("remInsalAdd", formatCurrency(add.insalubridadePericulosidade));
+      setText("remInsalImpacto", formatCurrency(add.insalubridadePericulosidade - red.insalubridadePericulosidade));
+      setText("remRtRed", formatCurrency(red.gratificacaoRt));
+      setText("remRtAdd", formatCurrency(add.gratificacaoRt));
+      setText("remRtImpacto", formatCurrency(add.gratificacaoRt - red.gratificacaoRt));
+      setText("remNoturnoRed", formatCurrency(red.adicionalNoturno));
+      setText("remNoturnoAdd", formatCurrency(add.adicionalNoturno));
+      setText("remNoturnoImpacto", formatCurrency(add.adicionalNoturno - red.adicionalNoturno));
       setText("remEncargoRed", formatCurrency(red.encargos));
       setText("remEncargoAdd", formatCurrency(add.encargos));
       setText("remEncargoImpacto", formatCurrency(add.encargos - red.encargos));
+      setText("remProvisaoRed", formatCurrency(red.provisoes));
+      setText("remProvisaoAdd", formatCurrency(add.provisoes));
+      setText("remProvisaoImpacto", formatCurrency(add.provisoes - red.provisoes));
       setText("remResumoTotalRed", formatCurrency(red.mensal));
       setText("remResumoTotalAdd", formatCurrency(add.mensal));
       setText("remResumoTotalImpacto", formatCurrency(impactoMensal));
 
-      ["remImpactoMensal2", "remImpactoPeriodo2", "remResumoTotalImpacto"].forEach(id => {
+      ["remImpactoMensalTopo", "remImpactoPeriodoTopo", "remImpactoMensal2", "remImpactoPeriodo2", "remResumoTotalImpacto"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        const value = id === "remImpactoPeriodo2" ? impactoPeriodo : impactoMensal;
+        const value = id.includes("Periodo") ? impactoPeriodo : impactoMensal;
         el.classList.toggle("remNegativo", value < 0);
         el.classList.toggle("remPositivo", value > 0);
       });
@@ -2726,7 +2752,6 @@
         acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })]
       };
 
-      setValue("remanejamentoQuantidade", "1");
       setValue("remanejamentoProcessoSei", "");
       setValue("remObservacao", "");
 
@@ -2738,8 +2763,48 @@
       atualizarResumoRemanejamento();
     }
 
-    function salvarRemanejamentoPainel() {
-      alert("A persistência do novo remanejamento ficará disponível quando a nova tabela com anexo BLOB e valores auxiliares estiver pronta.");
+    async function salvarRemanejamentoPainel() {
+      const idDseiCasai = document.getElementById("remanejamentoDsei")?.value || "";
+      const processoSei = document.getElementById("remanejamentoProcessoSei")?.value || "";
+      const observacao = document.getElementById("remObservacao")?.value || "";
+      const anexo = document.getElementById("remAnexoArquivo")?.files?.[0] || null;
+      const linhasReduzido = coletarLinhasRemanejamento("reduzido").filter(item => item.idCargoFuncao && item.quantidade > 0);
+      const linhasAcrescentado = coletarLinhasRemanejamento("acrescentado").filter(item => item.idCargoFuncao && item.quantidade > 0);
+
+      if (!idDseiCasai) {
+        alert("Selecione o DSEI.");
+        return;
+      }
+      if (!processoSei.trim()) {
+        alert("Informe o número do Processo SEI.");
+        return;
+      }
+      if (!linhasReduzido.length || !linhasAcrescentado.length) {
+        alert("Informe ao menos um cargo reduzido e um cargo acrescentado.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("idDseiCasai", idDseiCasai);
+      formData.append("processoSei", processoSei);
+      formData.append("observacao", observacao);
+      formData.append("criadoPor", "painel");
+      formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
+      formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
+      if (anexo) formData.append("anexo", anexo);
+
+      try {
+        const response = await fetch("/api/remanejamento/salvar", { method: "POST", body: formData });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
+
+        alert("Remanejamento salvo com sucesso.");
+        limparFormularioRemanejamento();
+        pageLoadState.remanejamentoLista = false;
+        carregarRemanejamentoListaEmSegundoPlano(true);
+      } catch (error) {
+        alert(`Erro ao salvar remanejamento: ${error && error.message ? error.message : error}`);
+      }
     }
 
 
