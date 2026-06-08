@@ -2822,11 +2822,11 @@
     }
 
     .remanejamentoResumoValor.negativo {
-      color: #b91c1c;
+      color: #047857;
     }
 
     .remanejamentoResumoValor.positivo {
-      color: #047857;
+      color: #b91c1c;
     }
 
     .remanejamentoFormFooter {
@@ -3081,13 +3081,19 @@
 
     .remImpactoGrid {
       display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
       gap: 14px;
+      align-items: start;
     }
 
     .remImpactoCards {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(0, 83, 166, .05);
+      border: 1px solid rgba(0, 83, 166, .12);
     }
 
     .remImpactoCards div {
@@ -3136,6 +3142,14 @@
       background: rgba(0, 83, 166, .06);
     }
 
+    .remMesesValor {
+      display: inline-block;
+      min-width: 28px;
+      text-align: center;
+      color: #07346b;
+      font-weight: 900;
+    }
+
     .remLegend {
       color: #5c7190;
       font-size: 11px;
@@ -3149,12 +3163,90 @@
       flex-wrap: wrap;
     }
 
+    /* Cores invertidas: valor negativo (economia) em verde; positivo (acréscimo) em vermelho. */
     .remNegativo {
-      color: #b91c1c !important;
+      color: #047857 !important;
     }
 
     .remPositivo {
-      color: #047857 !important;
+      color: #b91c1c !important;
+    }
+
+    /* Ações do histórico de remanejamento */
+    .remAcoesCell {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .remAcaoBtn {
+      border: 1px solid rgba(0, 83, 166, .18);
+      background: rgba(255, 255, 255, .9);
+      border-radius: 9px;
+      padding: 5px 9px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .remAcaoBtn:hover {
+      filter: brightness(1.05);
+      border-color: rgba(0, 125, 224, .5);
+    }
+
+    .remAcaoExcluir {
+      border-color: rgba(185, 28, 28, .35);
+    }
+
+    /* Detalhe expandido do remanejamento */
+    .remDetalheRow > .remDetalheCell {
+      background: rgba(232, 247, 255, .5);
+      padding: 14px 16px;
+    }
+
+    .remDetalheBox {
+      display: grid;
+      gap: 12px;
+    }
+
+    .remDetalheTitulo {
+      color: #07346b;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+
+    .remDetalheTableWrap {
+      overflow-x: auto;
+    }
+
+    .remDetalheTable {
+      width: 100%;
+      font-size: 11px;
+    }
+
+    .remDetalheImpacto {
+      font-size: 14px;
+      font-weight: 900;
+      text-align: right;
+    }
+
+    .remDetalheMeta {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .85);
+      border: 1px solid rgba(0, 83, 166, .12);
+      color: #07346b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .remAnexoLink {
+      color: #0055a7;
+      font-weight: 900;
     }
 
     @media (max-width: 1280px) {
@@ -3168,7 +3260,7 @@
       .remKpiGrid,
       .remTwinGrid,
       .remBottomGrid,
-      .remImpactoCards {
+      .remImpactoGrid {
         grid-template-columns: 1fr;
       }
 
@@ -5482,4 +5574,225 @@
   .remHistoricoToolbar {
     grid-template-columns: 1fr;
   }
+}
+
+/* Observações de alertas (coluna editável na aba Alertas) */
+#view-alertas .alertaObservacaoCell {
+  padding: 8px 8px;
+  vertical-align: top;
+}
+
+.alertaObservacaoWrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: start;
+  min-width: 0;
+}
+
+.alertaObservacaoInput {
+  width: 100%;
+  min-width: 0;
+  min-height: 76px;
+  max-height: 160px;
+  resize: vertical;
+  border: 1px solid rgba(0, 83, 166, .20);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .96);
+  color: #07346b;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  padding: 9px 10px;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0, 43, 93, .06);
+}
+
+.alertaObservacaoInput:focus {
+  border-color: rgba(0, 125, 224, .65);
+  box-shadow: 0 0 0 3px rgba(0, 125, 224, .12);
+}
+
+.alertaObservacaoTexto {
+  min-height: 58px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .72);
+  border: 1px solid rgba(0, 83, 166, .14);
+  color: #07346b;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1.32;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.alertaObservacaoMeta {
+  grid-column: 1 / -1;
+  color: #5c7190;
+  font-size: 8.8px;
+  font-weight: 900;
+  line-height: 1.2;
+  margin-top: -2px;
+}
+
+.alertaObservacaoActions {
+  display: grid;
+  gap: 6px;
+}
+
+.alertaObservacaoBtn {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 900;
+  padding: 8px 9px;
+  cursor: pointer;
+  box-shadow: 0 8px 14px rgba(0, 43, 93, .16);
+  white-space: nowrap;
+}
+
+.alertaObservacaoBtn.secundario {
+  background: linear-gradient(135deg, #eff7ff, #d8ecff);
+  color: #07346b;
+  border: 1px solid rgba(0, 83, 166, .14);
+  box-shadow: 0 6px 12px rgba(0, 43, 93, .10);
+}
+
+.alertaObservacaoBtn:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+  box-shadow: none;
+}
+
+.alertaObservacaoStatus {
+  grid-column: 1 / -1;
+  min-height: 12px;
+  color: #315c8e;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+/* Tela de login */
+.loginScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #00305f, #004b93 55%, #006dcc);
+  overflow: hidden;
+}
+
+.loginCard {
+  position: relative;
+  z-index: 2;
+  width: min(92vw, 360px);
+  display: grid;
+  gap: 10px;
+  padding: 26px 26px 22px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 24px 60px rgba(0, 30, 70, .35);
+}
+
+.loginCard .loadingBrand {
+  margin-bottom: 8px;
+}
+
+.loginTitle {
+  text-align: center;
+  color: #07346b;
+  font-size: 15px;
+  font-weight: 900;
+  margin-bottom: 4px;
+}
+
+.loginLabel {
+  color: #07346b;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.loginInput {
+  height: 42px;
+  border: 1px solid rgba(0, 83, 166, .20);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #07346b;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 12px;
+  outline: none;
+}
+
+.loginInput:focus {
+  border-color: rgba(0, 125, 224, .65);
+  box-shadow: 0 0 0 3px rgba(0, 125, 224, .12);
+}
+
+.loginBtn {
+  margin-top: 8px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 18px rgba(0, 43, 93, .22);
+}
+
+.loginBtn:disabled {
+  opacity: .72;
+  cursor: not-allowed;
+}
+
+.loginErro {
+  min-height: 16px;
+  text-align: center;
+  color: #c0392b;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+/* Bloco de usuário/sair na sidebar */
+.sidebarUsuario {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  margin: 6px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .10);
+}
+
+.sidebarUsuarioNome {
+  color: #eaf4ff;
+  font-size: 11px;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebarLogoutBtn {
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .12);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.sidebarLogoutBtn:hover {
+  background: rgba(255, 255, 255, .22);
 }

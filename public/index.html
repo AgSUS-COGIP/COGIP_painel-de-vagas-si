@@ -26,6 +26,25 @@
     </div>
   </div>
 
+  <div id="loginScreen" class="loginScreen" style="display:none;">
+    <div class="loadingDecorLeft" aria-hidden="true"></div>
+    <div class="loadingDecorRight" aria-hidden="true"></div>
+    <form id="loginForm" class="loginCard" autocomplete="on">
+      <div class="loadingBrand">
+        <img class="loadingBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+        <div class="loadingBrandTitle">AgSUS</div>
+        <div class="loadingBrandSubtitle">SAÚDE INDÍGENA</div>
+      </div>
+      <div class="loginTitle">Acesso ao painel</div>
+      <label class="loginLabel" for="loginUsuario">Usuário</label>
+      <input id="loginUsuario" class="loginInput" type="text" name="username" autocomplete="username" required>
+      <label class="loginLabel" for="loginSenha">Senha</label>
+      <input id="loginSenha" class="loginInput" type="password" name="password" autocomplete="current-password" required>
+      <button type="submit" class="loginBtn" id="loginBtn">Entrar</button>
+      <div id="loginErro" class="loginErro"></div>
+    </form>
+  </div>
+
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
@@ -61,6 +80,11 @@
           <span>Dashboard SI</span>
         </div>
 
+        <div class="navItem" data-view="ferias">
+          <span class="navIcon">&#9788;</span>
+          <span>Férias</span>
+        </div>
+
         <div class="navItem" data-view="remanejamento">
           <span class="navIcon">R</span>
           <span>Remanejamento</span>
@@ -68,6 +92,11 @@
       </nav>
 
       <div class="sidebarSpacer"></div>
+
+      <div id="sidebarUsuario" class="sidebarUsuario" style="display:none;">
+        <div class="sidebarUsuarioNome" id="sidebarUsuarioNome"></div>
+        <button type="button" class="sidebarLogoutBtn" onclick="logoutPainel()">Sair</button>
+      </div>
 
       <div class="sidebarCoord">
         <div class="sidebarCoordImgWrap">
@@ -349,6 +378,7 @@
                 <h3 class="pageTitle">Distribuição das Vagas Ociosas</h3>
                 <div id="distribuicaoDescricao" class="pageSub">Composição entre substituição e normal/temporário conforme a visualização atual.</div>
               </div>
+              <div class="exportActions"><button type="button" class="exportBtn" onclick="exportarDistribuicaoVagasOciosas()">Exportar distribuição</button></div>
             </div>
 
             <div class="fullTableWrap distribuicaoWrap">
@@ -420,8 +450,9 @@
           <div class="fullTableWrap">
             <table class="fullTable alertasTable">
               <colgroup>
-                <col style="width: 22%;">
-                <col style="width: 34%;">
+                <col style="width: 16%;">
+                <col style="width: 24%;">
+                <col style="width: 16%;">
                 <col style="width: 20%;">
                 <col style="width: 24%;">
               </colgroup>
@@ -431,6 +462,7 @@
                   <th>Cargo</th>
                   <th>Tipo de Alerta</th>
                   <th>Detalhe</th>
+                  <th>Observação</th>
                 </tr>
               </thead>
               <tbody id="alertasBody"></tbody>
@@ -467,6 +499,41 @@
               id="iframeDashboardSaudeIndigena"
               class="externalDashboardIframe"
               title="Dashboard Saúde Indígena"
+              loading="lazy"
+              allowfullscreen
+              referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+          </div>
+        </section>
+
+
+        <section id="view-ferias" class="viewPanel panelIframeView">
+          <div class="pageHeader">
+            <div>
+              <h2 class="pageTitle">Férias - Saúde Indígena</h2>
+              <div class="pageSub">Área reservada para incorporar o painel de férias específico desta página.</div>
+            </div>
+            <button id="btnAbrirPainelFerias" type="button" class="exportBtn" onclick="abrirPainelFerias()">
+              Abrir painel em nova aba
+            </button>
+          </div>
+
+          <div class="externalDashboardCard">
+            <div id="dashboardFeriasPlaceholder" class="externalDashboardPlaceholder">
+              <div class="externalDashboardPlaceholderBox">
+                <h3 class="externalDashboardPlaceholderTitle">Painel ainda não configurado</h3>
+                <p class="externalDashboardPlaceholderText">
+                  Esta categoria já está pronta. Para exibir o dashboard, informe o link de incorporação na
+                  configuração abaixo:
+                </p>
+                <span class="externalDashboardPlaceholderCode">DASHBOARD_FERIAS_URL</span>
+              </div>
+            </div>
+
+            <iframe
+              id="iframeDashboardFerias"
+              class="externalDashboardIframe"
+              title="Dashboard Férias"
               loading="lazy"
               allowfullscreen
               referrerpolicy="no-referrer-when-downgrade">
@@ -527,19 +594,13 @@
                         <th>Cargo</th>
                         <th>Quantidade</th>
                         <th>Nº de Meses</th>
-                        <th>Salário</th>
-                        <th>Insal./Peric.</th>
-                        <th>Grat. RT</th>
-                        <th>Ad. Noturno</th>
-                        <th>Encargos</th>
-                        <th>Provisões</th>
                         <th>Total</th>
                         <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody id="remReduzidoBody"></tbody>
                     <tfoot>
-                      <tr><td colspan="9">TOTAL REDUZIDO</td><td id="remTotalReduzidoTabela">R$ 0,00</td><td></td></tr>
+                      <tr><td colspan="3">TOTAL REDUZIDO</td><td id="remTotalReduzidoTabela">R$ 0,00</td><td></td></tr>
                     </tfoot>
                   </table>
                 </div>
@@ -557,19 +618,13 @@
                         <th>Cargo</th>
                         <th>Quantidade</th>
                         <th>Nº de Meses</th>
-                        <th>Salário</th>
-                        <th>Insal./Peric.</th>
-                        <th>Grat. RT</th>
-                        <th>Ad. Noturno</th>
-                        <th>Encargos</th>
-                        <th>Provisões</th>
                         <th>Total</th>
                         <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody id="remAcrescentadoBody"></tbody>
                     <tfoot>
-                      <tr><td colspan="9">TOTAL ACRESCENTADO</td><td id="remTotalAcrescentadoTabela">R$ 0,00</td><td></td></tr>
+                      <tr><td colspan="3">TOTAL ACRESCENTADO</td><td id="remTotalAcrescentadoTabela">R$ 0,00</td><td></td></tr>
                     </tfoot>
                   </table>
                 </div>
@@ -584,7 +639,7 @@
                     <div><span>Total Reduzido (Mensal)</span><strong id="remTotalReduzidoMensal" class="remRed">R$ 0,00</strong></div>
                     <div><span>Total Acrescentado (Mensal)</span><strong id="remTotalAcrescentadoMensal" class="remGreen">R$ 0,00</strong></div>
                     <div><span>Impacto Mensal</span><strong id="remImpactoMensal2">R$ 0,00</strong></div>
-                    <div><span>Impacto do Período</span><strong id="remImpactoPeriodo2">R$ 0,00</strong></div>
+                    <div><span>Impacto do Período (<span id="remImpactoPeriodoMeses">0</span> meses)</span><strong id="remImpactoPeriodo2">R$ 0,00</strong></div>
                   </div>
                   <table class="remResumoTable">
                     <thead><tr><th>Resumo dos Valores (Mensal)</th><th>Reduzido</th><th>Acrescentado</th><th>Impacto</th></tr></thead>
@@ -613,7 +668,7 @@
                 <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar. PDF até 10MB.</div>
                 <div class="remDocActions">
                   <button type="button" class="remSecondaryBtn" onclick="limparFormularioRemanejamento()">Limpar</button>
-                  <button type="button" class="remSaveBtn" onclick="salvarRemanejamentoPainel()">Salvar Remanejamento</button>
+                  <button type="button" class="remSaveBtn" id="remSaveBtn" onclick="salvarRemanejamentoPainel()">Salvar Remanejamento</button>
                 </div>
               </section>
             </div>
@@ -643,31 +698,33 @@
               <div class="fullTableWrap remHistoryWrap">
                 <table class="fullTable remHistoryTable">
                   <colgroup>
-                    <col style="width: 10%;">
-                    <col style="width: 13%;">
-                    <col style="width: 8%;">
-                    <col style="width: 13%;">
-                    <col style="width: 13%;">
-                    <col style="width: 12%;">
-                    <col style="width: 10%;">
                     <col style="width: 9%;">
-                    <col style="width: 12%;">
+                    <col style="width: 8%;">
+                    <col style="width: 7%;">
+                    <col style="width: 16%;">
+                    <col style="width: 9%;">
+                    <col style="width: 16%;">
+                    <col style="width: 9%;">
+                    <col style="width: 9%;">
+                    <col style="width: 10%;">
+                    <col style="width: 7%;">
                   </colgroup>
                   <thead>
                     <tr>
                       <th>Data</th>
                       <th>DSEI</th>
                       <th>Competência</th>
-                      <th>Total Reduzido</th>
-                      <th>Total Acrescentado</th>
+                      <th>Vaga Reduzida</th>
+                      <th>Valor Reduzido</th>
+                      <th>Vaga Acrescentada</th>
+                      <th>Valor Acrescentado</th>
                       <th>Impacto Mensal</th>
                       <th>Responsável</th>
-                      <th>Situação</th>
                       <th>Ações</th>
                     </tr>
                   </thead>
                   <tbody id="remanejamentoBody">
-                    <tr><td class="remanejamentoEmpty" colspan="9">Carregando dados de remanejamento...</td></tr>
+                    <tr><td class="remanejamentoEmpty" colspan="10">Carregando dados de remanejamento...</td></tr>
                   </tbody>
                 </table>
               </div>
