@@ -6,6 +6,8 @@
     let alertasRows = [];
     let vagasBaseRows = [];
     let alertasBaseRows = [];
+    let observacoesAlertas = {};
+    let alertaObservacaoEditando = null;
     let remanejamentoListaRows = [];
     let remanejamentoCadastroRows = [];
     let remanejamentoDetalhePage = 1;
@@ -27,6 +29,7 @@
     let isAutoRefreshing = false;
     let backgroundLoadStarted = false;
     let painelExternoCarregado = false;
+    let painelFeriasCarregado = false;
     const pageLoadState = {
       vagas: false,
       alertas: false,
@@ -73,6 +76,8 @@
     // URL opcional do Dashboard SI.
     // Usa a função do Código.gs quando ela existir; se não existir, mantém vazio para não quebrar o painel.
     let DASHBOARD_SAUDE_INDIGENA_URL = "";
+    // URL opcional do Dashboard de Férias.
+    let DASHBOARD_FERIAS_URL = "";
     
 
 
@@ -93,10 +98,137 @@
       configurarMultiSelectEstaticos();
       configurarFechamentoDeMenus();
       configurarPainelExterno();
+      configurarPainelFerias();
       configurarRemanejamento();
-      configurarAutoAtualizacao();
       configurarResponsividadePainel();
+      configurarLogin();
+      await verificarSessaoInicial();
+    }
+
+    let painelLoginToken = "";
+    let painelLoginUsuario = null;
+    let painelIniciado = false;
+
+    function configurarLogin() {
+      const form = document.getElementById("loginForm");
+      if (form && !form.dataset.bound) {
+        form.dataset.bound = "1";
+        form.addEventListener("submit", (ev) => {
+          ev.preventDefault();
+          realizarLoginPainel();
+        });
+      }
+    }
+
+    async function verificarSessaoInicial() {
+      try {
+        painelLoginToken = localStorage.getItem("painelLoginToken") || "";
+      } catch (e) {
+        painelLoginToken = "";
+      }
+
+      if (painelLoginToken) {
+        try {
+          const payload = await apiGet("/api/sessao");
+          painelLoginUsuario = payload.usuario || null;
+          iniciarPainelAutenticado();
+          return;
+        } catch (e) {
+          painelLoginToken = "";
+          painelLoginUsuario = null;
+        }
+      }
+
+      mostrarLoginOverlay();
+    }
+
+    function mostrarLoginOverlay() {
+      const loading = document.getElementById("loading");
+      if (loading) loading.style.display = "none";
+      const login = document.getElementById("loginScreen");
+      if (login) login.style.display = "grid";
+      const usuarioInput = document.getElementById("loginUsuario");
+      if (usuarioInput) setTimeout(() => usuarioInput.focus(), 0);
+    }
+
+    async function realizarLoginPainel() {
+      const usuario = document.getElementById("loginUsuario")?.value || "";
+      const senha = document.getElementById("loginSenha")?.value || "";
+      const btn = document.getElementById("loginBtn");
+      const erro = document.getElementById("loginErro");
+
+      if (erro) erro.innerText = "";
+      if (!usuario.trim() || !senha) {
+        if (erro) erro.innerText = "Informe usuário e senha.";
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+
+      try {
+        const payload = await apiPost("/api/login", { login: usuario, senha });
+        painelLoginToken = payload.token || "";
+        painelLoginUsuario = payload.usuario || null;
+        try { localStorage.setItem("painelLoginToken", painelLoginToken); } catch (e) {}
+
+        const senhaInput = document.getElementById("loginSenha");
+        if (senhaInput) senhaInput.value = "";
+
+        const login = document.getElementById("loginScreen");
+        if (login) login.style.display = "none";
+
+        iniciarPainelAutenticado();
+      } catch (error) {
+        if (erro) erro.innerText = error && error.message ? error.message : "Falha ao entrar.";
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function iniciarPainelAutenticado() {
+      aplicarPermissoesUsuario();
+
+      if (painelIniciado) return;
+      painelIniciado = true;
+
+      configurarAutoAtualizacao();
       carregarDadosInicial();
+    }
+
+    function aplicarPermissoesUsuario() {
+      const nivel = painelLoginUsuario ? Number(painelLoginUsuario.nivelAutorizacao || 0) : 0;
+
+      // Nível 0: sem acesso à página de Remanejamento (oculta o menu).
+      const navRemanejamento = document.querySelector('.navItem[data-view="remanejamento"]');
+      if (navRemanejamento) navRemanejamento.style.display = nivel >= 1 ? "" : "none";
+
+      // Nível 1: pode visualizar, mas o botão salvar fica desabilitado. Nível 2: libera tudo.
+      const btnSalvar = document.getElementById("remSaveBtn");
+      if (btnSalvar) {
+        const podeSalvar = nivel >= 2;
+        btnSalvar.disabled = !podeSalvar;
+        btnSalvar.title = podeSalvar ? "" : "Você não tem permissão para salvar remanejamentos.";
+      }
+
+      // Se o usuário sem acesso estiver na aba de remanejamento, volta para a Visão Geral.
+      if (nivel < 1 && activeView === "remanejamento") {
+        const navVisao = document.querySelector('.navItem[data-view="visaoGeral"]');
+        if (navVisao) navVisao.click();
+      }
+
+      const wrap = document.getElementById("sidebarUsuario");
+      const nome = document.getElementById("sidebarUsuarioNome");
+      if (wrap) wrap.style.display = painelLoginUsuario ? "" : "none";
+      if (nome && painelLoginUsuario) {
+        nome.innerText = painelLoginUsuario.nome || painelLoginUsuario.login || "";
+      }
+    }
+
+    function logoutPainel() {
+      painelLoginToken = "";
+      painelLoginUsuario = null;
+      try { localStorage.removeItem("painelLoginToken"); } catch (e) {}
+      window.location.reload();
     }
 
 
@@ -104,6 +236,7 @@
     async function carregarConfiguracaoApp_() {
       const config = await apiGet("/api/config");
       DASHBOARD_SAUDE_INDIGENA_URL = String(config.dashboardSaudeIndigenaUrl || "").trim();
+      DASHBOARD_FERIAS_URL = String(config.dashboardFeriasUrl || "").trim();
 
       const root = document.documentElement;
       root.style.setProperty("--background-painel-image", config.backgroundPainelUrl ? `url("${config.backgroundPainelUrl}")` : "none");
@@ -119,11 +252,36 @@
       });
     }
 
+    function authHeaders(extra) {
+      const headers = Object.assign({ Accept: "application/json" }, extra || {});
+      if (painelLoginToken) headers.Authorization = `Bearer ${painelLoginToken}`;
+      return headers;
+    }
+
     async function apiGet(path) {
       const response = await fetch(path, {
-        headers: {
-          Accept: "application/json"
-        }
+        headers: authHeaders()
+      });
+
+      if (!response.ok) {
+        let message = `Erro ${response.status}`;
+
+        try {
+          const payload = await response.json();
+          if (payload && payload.error) message = payload.error;
+        } catch (err) {}
+
+        throw new Error(message);
+      }
+
+      return response.json();
+    }
+
+    async function apiPost(path, body) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body || {})
       });
 
       if (!response.ok) {
@@ -168,10 +326,10 @@
       if (vagasBody) vagasBody.innerHTML = '<tr><td colspan="9">Aguardando carregamento sob demanda...</td></tr>';
 
       const alertasBody = document.getElementById("alertasBody");
-      if (alertasBody) alertasBody.innerHTML = '<tr><td colspan="4">Aguardando carregamento em segundo plano...</td></tr>';
+      if (alertasBody) alertasBody.innerHTML = '<tr><td colspan="5">Aguardando carregamento em segundo plano...</td></tr>';
 
       const remanejamentoBody = document.getElementById("remanejamentoBody");
-      if (remanejamentoBody) remanejamentoBody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="9">Aguardando carregamento em segundo plano...</td></tr>';
+      if (remanejamentoBody) remanejamentoBody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="10">Aguardando carregamento em segundo plano...</td></tr>';
     }
 
     function onResumoDataLoaded(payload) {
@@ -431,6 +589,7 @@
         .then(payload => {
           pageLoadingState.alertas = false;
           alertasBaseRows = payload.rows || [];
+          observacoesAlertas = payload.observacoes || {};
           pageLoadState.alertas = true;
           renderAlertasKpis(filtrarRowsBase(alertasBaseRows));
           renderAlertasDaPagina();
@@ -513,7 +672,7 @@
       const pagination = document.getElementById("alertasPagination");
 
       if (!pageLoadState.alertas) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="4">Carregando dados da aba Alertas...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5">Carregando dados da aba Alertas...</td></tr>';
         if (pagination) pagination.innerHTML = "";
         return;
       }
@@ -536,7 +695,7 @@
 
     function renderAlertasErro(error) {
       const tbody = document.getElementById("alertasBody");
-      if (tbody) tbody.innerHTML = `<tr><td colspan="4">Erro ao carregar Alertas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="5">Erro ao carregar Alertas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
     }
 
     function atualizarModoRolagem(view) {
@@ -547,7 +706,7 @@
       // As demais abas podem rolar verticalmente para acomodar tabelas e conteúdos maiores.
       main.classList.toggle("view-scroll", view !== "visaoGeral");
       main.classList.toggle("view-alertas-active", view === "alertas");
-      main.classList.toggle("view-iframe-active", view === "painelSaudeIndigena");
+      main.classList.toggle("view-iframe-active", view === "painelSaudeIndigena" || view === "ferias");
       main.classList.toggle("view-remanejamento-active", view === "remanejamento" || view === "remanejamentoFormulario");
     }
 
@@ -608,6 +767,10 @@
 
           if (view === "painelSaudeIndigena") {
             carregarPainelExternoSobDemanda();
+          }
+
+          if (view === "ferias") {
+            carregarPainelFeriasSobDemanda();
           }
 
           setTimeout(() => {
@@ -1050,7 +1213,7 @@
         ["Temporário", temporario, COLORS.green, part(temporario, totalContratacao)]
       ]);
 
-      const topDseiOciosas = topAgrupadoCalculado(data, "dseiCasai", row => Math.max(0, calcularOciosas(row)), 5);
+      const topDseiOciosas = topAgrupadoCalculado(data, "dseiCasai", row => calcularOciosas(row), 5);
       renderTreemap("chartTopDseiOciosas", {
         items: topDseiOciosas.map(i => ({
           label: i.label,
@@ -1060,7 +1223,7 @@
         filterType: "dsei"
       });
 
-      const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => Math.max(0, calcularOciosas(row)), 5);
+      const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => calcularOciosas(row), 5);
       renderBar("chartTopCargoOciosas", {
         labels: topCargoOciosas.map(i => i.label),
         values: topCargoOciosas.map(i => i.value),
@@ -1966,11 +2129,14 @@
     function montarAlertas(data) {
       const rows = [];
 
+      // A regra de excedente (incluindo a consolidação ENFERMEIRO/FARMACÊUTICO + ART
+      // e a separação RT) é calculada na própria view e exposta nas colunas
+      // qtdVagasExcedentes (cargos comuns) e qtdVagasArtExcedentes (cargos ART).
       data.forEach(row => {
         const afastamento = Number(row.qtdAfastamentoSemSubstituto || 0);
         const temporario = Number(row.qtdTemporarioAtivo || 0);
-        const excedente = calcularExcedente(row);
-        const cargoRT = isCargoRT(row.cargo);
+        const excedente = Number(row.qtdVagasExcedentes || 0);
+        const excedenteRt = Number(row.qtdVagasArtExcedentes || 0);
 
         if (afastamento > 0) {
           rows.push({
@@ -1994,27 +2160,32 @@
           });
         }
 
-        if (excedente > 0 && cargoRT) {
+        if (excedenteRt > 0) {
           rows.push({
             tipoValor: "RT_EXCEDENTE",
             tipo: "RT excedente",
             dsei: row.dseiCasai,
             cargo: row.cargo,
-            qtd: formatNumber(excedente),
-            detalhe: `${formatNumber(excedente)} RT(s) acima das vagas previstas`
+            qtd: formatNumber(excedenteRt),
+            detalhe: `${formatNumber(excedenteRt)} vaga(s) excedente(s) de RT pela coluna Vagas Ociosas`
           });
         }
 
-        if (excedente > 0 && !cargoRT) {
+        if (excedente > 0) {
           rows.push({
             tipoValor: "VAGA_EXCEDENTE",
             tipo: "Vaga excedente",
             dsei: row.dseiCasai,
             cargo: row.cargo,
             qtd: formatNumber(excedente),
-            detalhe: `${formatNumber(excedente)} contratado(s) acima das vagas previstas`
+            detalhe: `${formatNumber(excedente)} contratado(s) acima da necessidade operacional após considerar afastados`
           });
         }
+      });
+
+      rows.forEach(row => {
+        row.chave = gerarChaveAlerta(row);
+        row.observacao = observacoesAlertas[row.chave]?.observacao || "";
       });
 
       return rows.sort((a, b) => {
@@ -2030,23 +2201,155 @@
       if (!tbody) return;
 
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="4">Sem alertas para os filtros selecionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">Sem alertas para os filtros selecionados.</td></tr>`;
         if (pagination) pagination.innerHTML = "";
         return;
       }
 
-      tbody.innerHTML = rows.map(row => `
-        <tr>
-          <td>${escapeHtml(row.dsei)}</td>
-          <td>${escapeHtml(row.cargo)}</td>
-          <td>${escapeHtml(row.tipo)}</td>
-          <td>${escapeHtml(row.detalhe)}</td>
-        </tr>
-      `).join("");
+      tbody.innerHTML = rows.map(row => {
+        const chave = row.chave || gerarChaveAlerta(row);
+        const infoObs = observacoesAlertas[chave] || {};
+        const obs = infoObs.observacao || row.observacao || "";
+
+        return `
+          <tr>
+            <td>${escapeHtml(row.dsei)}</td>
+            <td>${escapeHtml(row.cargo)}</td>
+            <td>${escapeHtml(row.tipo)}</td>
+            <td>${escapeHtml(row.detalhe)}</td>
+            <td class="alertaObservacaoCell">${renderObservacaoAlertaHtml(chave, obs, infoObs)}</td>
+          </tr>
+        `;
+      }).join("");
 
       if (pagination) {
         pagination.innerHTML = `<span>Exibindo ${formatNumber(rows.length)} alerta(s) com rolagem.</span>`;
       }
+    }
+
+    function renderObservacaoAlertaHtml(chave, obs, infoObs) {
+      const emEdicao = alertaObservacaoEditando === chave || !obs;
+      const atualizadoEm = infoObs?.atualizadoEm || "";
+      const usuarioEdicao = infoObs?.usuario || "";
+      const metaPartes = [];
+
+      if (atualizadoEm) metaPartes.push(`Última edição: ${escapeHtml(atualizadoEm)}`);
+      if (usuarioEdicao) metaPartes.push(`Editado por: ${escapeHtml(usuarioEdicao)}`);
+
+      const meta = metaPartes.length
+        ? `<div class="alertaObservacaoMeta">${metaPartes.join("<br>")}</div>`
+        : "";
+
+      if (!emEdicao) {
+        return `
+          <div class="alertaObservacaoWrap">
+            <div class="alertaObservacaoTexto">${escapeHtml(obs)}</div>
+            <div class="alertaObservacaoActions">
+              <button type="button" class="alertaObservacaoBtn secundario" onclick="editarObservacaoAlertaPainel('${escapeJs(chave)}')">Editar</button>
+            </div>
+            ${meta}
+            <div class="alertaObservacaoStatus" id="${idStatusObservacaoAlerta(chave)}"></div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="alertaObservacaoWrap">
+          <textarea class="alertaObservacaoInput" id="${idObservacaoAlerta(chave)}" placeholder="Digite uma justificativa ou observação">${escapeHtml(obs)}</textarea>
+          <div class="alertaObservacaoActions">
+            <button type="button" class="alertaObservacaoBtn" id="${idBotaoObservacaoAlerta(chave)}" onclick="salvarObservacaoAlertaPainel('${escapeJs(chave)}')">Salvar</button>
+            ${obs ? `<button type="button" class="alertaObservacaoBtn secundario" onclick="cancelarEdicaoObservacaoAlertaPainel()">Cancelar</button>` : ""}
+          </div>
+          ${meta}
+          <div class="alertaObservacaoStatus" id="${idStatusObservacaoAlerta(chave)}"></div>
+        </div>
+      `;
+    }
+
+    function idSeguroAlerta(chave) {
+      return String(chave || "").replace(/[^A-Za-z0-9_-]/g, "_");
+    }
+
+    function idObservacaoAlerta(chave) {
+      return "obsAlerta_" + idSeguroAlerta(chave);
+    }
+
+    function idBotaoObservacaoAlerta(chave) {
+      return "btnObsAlerta_" + idSeguroAlerta(chave);
+    }
+
+    function idStatusObservacaoAlerta(chave) {
+      return "statusObsAlerta_" + idSeguroAlerta(chave);
+    }
+
+    function gerarChaveAlerta(row) {
+      return [
+        row?.dsei || "",
+        row?.cargo || "",
+        row?.tipoValor || ""
+      ].map(normalizarTextoPainel).join("|");
+    }
+
+    function editarObservacaoAlertaPainel(chave) {
+      alertaObservacaoEditando = chave;
+      renderAlertasTable(alertasRows);
+
+      setTimeout(() => {
+        const campo = document.getElementById(idObservacaoAlerta(chave));
+        if (campo) {
+          campo.focus();
+          campo.selectionStart = campo.value.length;
+          campo.selectionEnd = campo.value.length;
+        }
+      }, 0);
+    }
+
+    function cancelarEdicaoObservacaoAlertaPainel() {
+      alertaObservacaoEditando = null;
+      renderAlertasTable(alertasRows);
+    }
+
+    function salvarObservacaoAlertaPainel(chave) {
+      const row = alertasRows.find(item => (item.chave || gerarChaveAlerta(item)) === chave);
+      const campo = document.getElementById(idObservacaoAlerta(chave));
+      const botao = document.getElementById(idBotaoObservacaoAlerta(chave));
+      const status = document.getElementById(idStatusObservacaoAlerta(chave));
+
+      if (!row || !campo) {
+        alert("Não foi possível identificar o alerta para salvar a observação.");
+        return;
+      }
+
+      const observacao = campo.value || "";
+
+      if (botao) botao.disabled = true;
+      if (status) status.innerText = "Salvando...";
+
+      apiPost("/api/alertas/observacao", {
+        chave,
+        dsei: row.dsei,
+        cargo: row.cargo,
+        tipoValor: row.tipoValor,
+        tipo: row.tipo,
+        detalhe: row.detalhe,
+        observacao
+      })
+        .then(payload => {
+          observacoesAlertas[chave] = {
+            ...(observacoesAlertas[chave] || {}),
+            observacao: payload?.observacao ?? observacao,
+            usuario: payload?.usuario || "",
+            atualizadoEm: payload?.atualizadoEm || ""
+          };
+
+          alertaObservacaoEditando = null;
+          renderAlertasTable(alertasRows);
+        })
+        .catch(error => {
+          if (botao) botao.disabled = false;
+          if (status) status.innerText = "";
+          alert(error && error.message ? error.message : String(error));
+        });
     }
 
     function mudarPaginaAlertas(delta) {
@@ -2114,15 +2417,6 @@
       `;
     }
 
-    function calcularExcedente(row) {
-      return Math.max(0, Number(row.totalContratados || 0) - Number(row.quantitativoPlano || 0));
-    }
-
-    function isCargoRT(cargo) {
-      const chave = normalizarTextoPainel(cargo);
-      return chave === "ENFERMEIRO ART" || chave === "FARMACEUTICO ART";
-    }
-
     function normalizarTextoPainel(valor) {
       return String(valor || "")
         .normalize("NFD")
@@ -2136,8 +2430,9 @@
     function renderAlertasKpis(data) {
       const temporarios = soma(data, "qtdTemporarioAtivo");
       const afastamentos = soma(data, "afastados");
-      const rtExcedente = data.reduce((acc, row) => acc + (isCargoRT(row.cargo) ? calcularExcedente(row) : 0), 0);
-      const excedentes = data.reduce((acc, row) => acc + (!isCargoRT(row.cargo) ? calcularExcedente(row) : 0), 0);
+      // Fonte de verdade: colunas já calculadas na view (consolidação RT incluída).
+      const rtExcedente = soma(data, "qtdVagasArtExcedentes");
+      const excedentes = soma(data, "qtdVagasExcedentes");
 
       setText("alertaKpiTemporarios", formatNumber(temporarios));
       setText("alertaKpiAfastamentos", formatNumber(afastamentos));
@@ -2232,12 +2527,52 @@
       baixarCsv("base_vagas_saude_indigena", rows, false);
     }
 
+    function exportarDistribuicaoVagasOciosas() {
+      // Exporta a tabela "Distribuição das Vagas Ociosas" conforme a visualização
+      // ativa da aba Vagas e respeitando os filtros superiores DSEI/CASAI e Cargo.
+      const linhasBase = obterRowsVagasPorVisualizacao(vagasRows);
+      let rows;
+
+      if (vagasViewAtual === "detalhado") {
+        rows = linhasBase.map(row => {
+          const base = montarLinhaDistribuicaoBase(row);
+          return {
+            "DSEI/CASAI": row.dseiCasai || "Não informado",
+            "Cargo": row.cargo || "Não informado",
+            "Vagas Ociosas": base.vagasOciosas,
+            "Substituição": base.substituicaoTabela,
+            "Normal/Temporário": base.normalTemporario
+          };
+        });
+      } else {
+        const primeiraColuna = vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
+        rows = linhasBase.map(row => {
+          const base = montarLinhaDistribuicaoBase(row);
+          return {
+            [primeiraColuna]: row.label || "Não informado",
+            "Vagas Ociosas": base.vagasOciosas,
+            "Substituição": base.substituicaoTabela,
+            "Normal/Temporário": base.normalTemporario
+          };
+        });
+      }
+
+      rows = rows.filter(item =>
+        Number(item["Vagas Ociosas"] || 0) !== 0 ||
+        Number(item["Substituição"] || 0) !== 0 ||
+        Number(item["Normal/Temporário"] || 0) !== 0
+      );
+
+      baixarCsv("distribuicao_vagas_ociosas", rows, false);
+    }
+
     function exportarAlertas() {
       const rows = alertasRows.map(row => ({
         "DSEI/CASAI": row.dsei,
         "Cargo": row.cargo,
         "Tipo de Alerta": row.tipo,
-        "Detalhe": row.detalhe
+        "Detalhe": row.detalhe,
+        "Observação": row.observacao || observacoesAlertas[row.chave || gerarChaveAlerta(row)]?.observacao || ""
       }));
 
       baixarCsv("alertas_saude_indigena", rows, true);
@@ -2341,6 +2676,48 @@
     }
 
 
+    function configurarPainelFerias() {
+      const iframe = document.getElementById("iframeDashboardFerias");
+      const placeholder = document.getElementById("dashboardFeriasPlaceholder");
+      const btn = document.getElementById("btnAbrirPainelFerias");
+      const url = String(DASHBOARD_FERIAS_URL || "").trim();
+
+      if (!iframe || !placeholder) return;
+
+      iframe.removeAttribute("src");
+      iframe.style.display = "none";
+
+      placeholder.style.display = "grid";
+      if (btn) btn.disabled = !url;
+    }
+
+    function carregarPainelFeriasSobDemanda() {
+      if (painelFeriasCarregado) return;
+
+      const iframe = document.getElementById("iframeDashboardFerias");
+      const placeholder = document.getElementById("dashboardFeriasPlaceholder");
+      const url = String(DASHBOARD_FERIAS_URL || "").trim();
+
+      if (!iframe || !placeholder || !url) return;
+
+      iframe.src = url;
+      iframe.style.display = "block";
+      placeholder.style.display = "none";
+      painelFeriasCarregado = true;
+    }
+
+    function abrirPainelFerias() {
+      const url = String(DASHBOARD_FERIAS_URL || "").trim();
+
+      if (!url) {
+        alert("O link do painel ainda não foi configurado em DASHBOARD_FERIAS_URL.");
+        return;
+      }
+
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+
     function configurarRemanejamento() {
       remanejamentoDetalhePage = 1;
 
@@ -2432,12 +2809,12 @@
       if (!tbody) return;
 
       if (!pageLoadState.remanejamentoLista) {
-        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="9">Carregando dados de remanejamento...</td></tr>';
+        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="10">Carregando dados de remanejamento...</td></tr>';
         return;
       }
 
       if (!remanejamentoListaRows.length) {
-        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="9">Nenhum remanejamento registrado.</td></tr>';
+        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="10">Nenhum remanejamento registrado.</td></tr>';
         return;
       }
 
@@ -2461,39 +2838,170 @@
       });
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="9">Nenhum remanejamento encontrado para a busca informada.</td></tr>';
+        tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="10">Nenhum remanejamento encontrado para a busca informada.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = rows.map(row => {
-        const anexo = row.anexoOficioUrl
-          ? `<a href="${escapeAttr(row.anexoOficioUrl)}" target="_blank" rel="noopener noreferrer">Anexo</a>`
-          : "-";
+      const podeExcluir = painelLoginUsuario && Number(painelLoginUsuario.nivelAutorizacao || 0) >= 2;
 
+      tbody.innerHTML = rows.map(row => {
         const impacto = Number(row.impactoMensal || 0);
-        const impactoClass = impacto < 0 ? "remNegativo" : impacto > 0 ? "remPositivo" : "";
+        const impactoClass = classeValorImpacto(impacto);
+        const idAttr = escapeAttr(row.idProcesso);
+
+        const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" onclick="alternarDetalheRemanejamento('${escapeJs(row.idProcesso)}')">👁</button>`;
+        const btnExcluir = podeExcluir
+          ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" onclick="excluirRemanejamentoPainel('${escapeJs(row.idProcesso)}')">🗑</button>`
+          : "";
 
         return `
-          <tr title="Reduzido: ${escapeAttr(row.cargosReduzidos || "")} | Acrescentado: ${escapeAttr(row.cargosAcrescentados || "")}">
+          <tr data-rem-id="${idAttr}">
             <td>${escapeHtml(row.dataCriacaoFormatada || row.dataCriacao)}</td>
             <td>${escapeHtml(row.dseiCasai || "-")}</td>
             <td>${escapeHtml(row.competencia || "-")}</td>
-            <td>${formatCurrency(row.totalReduzidoMensal)}</td>
-            <td>${formatCurrency(row.totalAcrescentadoMensal)}</td>
+            <td>${escapeHtml(row.cargosReduzidos || "-")}</td>
+            <td>${formatCurrency(row.totalReduzidoPeriodo)}</td>
+            <td>${escapeHtml(row.cargosAcrescentados || "-")}</td>
+            <td>${formatCurrency(row.totalAcrescentadoPeriodo)}</td>
             <td class="${impactoClass}">${formatCurrency(row.impactoMensal)}</td>
             <td>${escapeHtml(row.inseridoPorEmail || row.criadoPor || "-")}</td>
-            <td>${escapeHtml(row.situacao || "Registrado")}</td>
-            <td>${anexo}</td>
+            <td class="remAcoesCell">${btnDetalhe}${btnExcluir}</td>
           </tr>
         `;
       }).join("");
+    }
+
+    // Classe de cor invertida: negativo (economia) em verde, positivo (acréscimo) em vermelho.
+    function classeValorImpacto(valor) {
+      const n = Number(valor || 0);
+      return n < 0 ? "remNegativo" : n > 0 ? "remPositivo" : "";
+    }
+
+    const detalhesRemanejamentoCache = {};
+
+    async function alternarDetalheRemanejamento(idProcesso) {
+      const tbody = document.getElementById("remanejamentoBody");
+      if (!tbody) return;
+
+      const existente = document.getElementById(`remDetalhe-${idSeguroAlerta(idProcesso)}`);
+      if (existente) {
+        existente.remove();
+        return;
+      }
+
+      const linhaPrincipal = tbody.querySelector(`tr[data-rem-id="${cssEscapeAttr(idProcesso)}"]`);
+      if (!linhaPrincipal) return;
+
+      const detalheTr = document.createElement("tr");
+      detalheTr.id = `remDetalhe-${idSeguroAlerta(idProcesso)}`;
+      detalheTr.className = "remDetalheRow";
+      detalheTr.innerHTML = `<td colspan="10" class="remDetalheCell">Carregando detalhes...</td>`;
+      linhaPrincipal.after(detalheTr);
+
+      try {
+        let detalhe = detalhesRemanejamentoCache[idProcesso];
+        if (!detalhe) {
+          detalhe = await apiGet(`/api/remanejamento/detalhe/${encodeURIComponent(idProcesso)}`);
+          detalhesRemanejamentoCache[idProcesso] = detalhe;
+        }
+        const rowLista = (remanejamentoListaRows || []).find(r => String(r.idProcesso) === String(idProcesso)) || {};
+        detalheTr.querySelector("td").innerHTML = renderDetalheRemanejamentoHtml(detalhe, rowLista);
+      } catch (error) {
+        detalheTr.querySelector("td").innerHTML = `Erro ao carregar detalhes: ${escapeHtml(error && error.message ? error.message : String(error))}`;
+      }
+    }
+
+    function cssEscapeAttr(valor) {
+      return String(valor ?? "").replace(/"/g, '\\"');
+    }
+
+    function renderTabelaDetalheRemanejamento(titulo, itens) {
+      const linhas = (itens || []).map(item => `
+        <tr>
+          <td>${escapeHtml(item.cargo || "-")}</td>
+          <td>${formatNumber(item.quantidade)}</td>
+          <td>${formatNumber(item.meses)}</td>
+          <td>${formatCurrency(item.salario)}</td>
+          <td>${formatCurrency(item.insalubridade)}</td>
+          <td>${formatCurrency(item.gratificacaoRt)}</td>
+          <td>${formatCurrency(item.noturno)}</td>
+          <td>${formatCurrency(item.encargos)}</td>
+          <td>${formatCurrency(item.provisoes)}</td>
+          <td>${formatCurrency(item.mensal)}</td>
+          <td>${formatCurrency(item.periodo)}</td>
+        </tr>
+      `).join("");
+
+      const totalMensal = (itens || []).reduce((s, i) => s + Number(i.mensal || 0), 0);
+      const totalPeriodo = (itens || []).reduce((s, i) => s + Number(i.periodo || 0), 0);
+
+      return `
+        <div class="remDetalheTitulo">${escapeHtml(titulo)}</div>
+        <div class="remDetalheTableWrap">
+          <table class="remTable remDetalheTable">
+            <thead>
+              <tr>
+                <th>Cargo</th><th>Qtd.</th><th>Meses</th><th>Salário</th><th>Insal./Peric.</th>
+                <th>Grat. RT</th><th>Noturno</th><th>Encargos</th><th>Provisões</th><th>Mensal</th><th>Período</th>
+              </tr>
+            </thead>
+            <tbody>${linhas || '<tr><td colspan="11">Sem itens.</td></tr>'}</tbody>
+            <tfoot>
+              <tr><td colspan="9">TOTAL</td><td>${formatCurrency(totalMensal)}</td><td>${formatCurrency(totalPeriodo)}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderDetalheRemanejamentoHtml(detalhe, rowLista) {
+      const impacto = Number(detalhe.impactoMensal || 0);
+      const anexo = rowLista.anexoOficioUrl
+        ? `<a class="remAnexoLink" href="${escapeAttr(rowLista.anexoOficioUrl)}" target="_blank" rel="noopener noreferrer">Abrir PDF</a>`
+        : "—";
+
+      return `
+        <div class="remDetalheBox">
+          ${renderTabelaDetalheRemanejamento("VAGAS REDUZIDAS", detalhe.reduzidos)}
+          ${renderTabelaDetalheRemanejamento("VAGAS ACRESCENTADAS", detalhe.acrescentados)}
+          <div class="remDetalheImpacto ${classeValorImpacto(impacto)}">Impacto Mensal: ${formatCurrency(impacto)}</div>
+          <div class="remDetalheMeta">
+            <div><strong>Usuário:</strong> ${escapeHtml(rowLista.inseridoPorEmail || rowLista.criadoPor || "-")}</div>
+            <div><strong>Processo SEI:</strong> ${escapeHtml(rowLista.numeroProcessoSei || "-")}</div>
+            <div><strong>Documento PDF:</strong> ${anexo}</div>
+            <div><strong>Observação:</strong> ${escapeHtml(rowLista.observacao || "-")}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function excluirRemanejamentoPainel(idProcesso) {
+      if (!confirm("Tem certeza que deseja excluir este remanejamento? Esta ação remove o registro nas três tabelas e não pode ser desfeita.")) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/remanejamento/${encodeURIComponent(idProcesso)}`, {
+          method: "DELETE",
+          headers: painelLoginToken ? { Authorization: `Bearer ${painelLoginToken}` } : {}
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
+
+        delete detalhesRemanejamentoCache[idProcesso];
+        alert("Remanejamento excluído com sucesso.");
+        pageLoadState.remanejamentoLista = false;
+        carregarRemanejamentoListaEmSegundoPlano(true);
+      } catch (error) {
+        alert(`Erro ao excluir remanejamento: ${error && error.message ? error.message : error}`);
+      }
     }
 
     function renderRemanejamentoListaErro(error) {
       const tbody = document.getElementById("remanejamentoBody");
       if (!tbody) return;
 
-      tbody.innerHTML = `<tr><td class="remanejamentoEmpty" colspan="9">Erro ao carregar remanejamentos: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+      tbody.innerHTML = `<tr><td class="remanejamentoEmpty" colspan="10">Erro ao carregar remanejamentos: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
     }
 
     function atualizarVagasOrigemPorDsei() {
@@ -2557,13 +3065,20 @@
       atualizarResumoRemanejamentoPainel();
     }
 
+    // Meses derivados: do mês atual até dezembro (ex.: junho => 7). É um valor de sistema,
+    // não editável pelo usuário, alinhado à regra usada no servidor.
+    function mesesAteFimDoAno() {
+      const mes = new Date().getMonth() + 1; // 1..12
+      return Math.max(1, 13 - mes);
+    }
+
     function criarLinhaRemanejamento(tipo, valores) {
       return {
         id: `${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         idCargoFuncao: valores?.idCargoFuncao || "",
         cargo: valores?.cargo || "",
         quantidade: Number(valores?.quantidade || 1),
-        meses: Number(valores?.meses || 6),
+        meses: mesesAteFimDoAno(),
         salarioBase: Number(valores?.salarioBase || 0),
         insalubridadePericulosidade: Number(valores?.insalubridadePericulosidade || 0),
         gratificacaoRt: Number(valores?.gratificacaoRt || 0),
@@ -2627,13 +3142,7 @@
           <tr>
             <td><select onchange="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','idCargoFuncao',this.value)">${optionsHtml.replace(`value="${escapeAttr(row.idCargoFuncao)}"`, `value="${escapeAttr(row.idCargoFuncao)}" selected`)}</select></td>
             <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','quantidade',this.value)"></td>
-            <td><input type="number" min="1" step="1" value="${escapeAttr(row.meses)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','meses',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.salarioBase)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','salarioBase',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.insalubridadePericulosidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','insalubridadePericulosidade',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.gratificacaoRt)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','gratificacaoRt',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.adicionalNoturno)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','adicionalNoturno',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.encargos)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','encargos',this.value)"></td>
-            <td><input type="number" min="0" step="0.01" value="${escapeAttr(row.provisoes)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','provisoes',this.value)"></td>
+            <td><span class="remMesesValor" title="Meses do mês atual até dezembro (calculado automaticamente).">${escapeHtml(row.meses)}</span></td>
             <td><strong>${formatCurrency(total.total)}</strong></td>
             <td><button type="button" class="remDeleteBtn" onclick="removerLinhaRemanejamento('${tipo}','${row.id}')">🗑</button></td>
           </tr>
@@ -2712,6 +3221,7 @@
       setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
       setText("remImpactoMensal2", formatCurrency(impactoMensal));
       setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
+      setText("remImpactoPeriodoMeses", String(mesesAteFimDoAno()));
 
       setText("remSalarioRed", formatCurrency(red.salarioBase));
       setText("remSalarioAdd", formatCurrency(add.salarioBase));
@@ -2784,6 +3294,12 @@
         return;
       }
 
+      const resumo = atualizarResumoRemanejamentoPainel();
+      if (resumo && (Number(resumo.impactoMensal || 0) > 0 || Number(resumo.impactoPeriodo || 0) > 0)) {
+        alert("Remanejamento bloqueado: o impacto financeiro está positivo (aumento de custo). Ajuste os cargos para que o impacto fique zerado ou negativo.");
+        return;
+      }
+
       const formData = new FormData();
       formData.append("idDseiCasai", idDseiCasai);
       formData.append("processoSei", processoSei);
@@ -2794,7 +3310,11 @@
       if (anexo) formData.append("anexo", anexo);
 
       try {
-        const response = await fetch("/api/remanejamento/salvar", { method: "POST", body: formData });
+        const response = await fetch("/api/remanejamento/salvar", {
+          method: "POST",
+          headers: painelLoginToken ? { Authorization: `Bearer ${painelLoginToken}` } : {},
+          body: formData
+        });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
@@ -2856,5 +3376,14 @@
 
     function escapeAttr(value) {
       return escapeHtml(value).replace(/`/g, "&#096;");
+    }
+
+    function escapeJs(value) {
+      return String(value ?? "")
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"')
+        .replace(/\r/g, "\\r")
+        .replace(/\n/g, "\\n");
     }
   

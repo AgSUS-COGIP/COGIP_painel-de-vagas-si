@@ -4,9 +4,15 @@ const path = require("path");
 const express = require("express");
 const mysql = require("mysql2/promise");
 const multer = require("multer");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Pool de conexões MySQL (inicializado sob demanda). Declarado no topo para evitar TDZ,
+// já que a criação de tabelas no startup pode acessá-lo antes da posição original.
+let mysqlPool = null;
 
 const DASH_CONFIG = {
   TIMEZONE: "America/Sao_Paulo",
@@ -15,8 +21,22 @@ const DASH_CONFIG = {
   LOGO_COORDENACAO_FILE: "/assets/images/Logo%20COGIP.png",
   IMAGEM_INDIGENA_PAINEL_FILE: "/assets/images/upscalemedia-transformed.png",
   DASHBOARD_SAUDE_INDIGENA_URL: "https://datastudio.google.com/embed/reporting/19d10a18-1ed1-4e5f-87bf-6bb87c21b234/page/p_d9w2owdmfd",
+  DASHBOARD_FERIAS_URL: "",
   DB_SCHEMA: process.env.DB_SCHEMA || "u226895969_ugp",
   MONITORAMENTO_VIEW: process.env.MONITORAMENTO_VIEW || "VW_MONITORAMENTO_VAGAS_SAUDE_INDIGENA",
+  ALERTAS_OBSERVACOES_TABLE: process.env.ALERTAS_OBSERVACOES_TABLE || "ALERTAS_OBSERVACOES",
+  CUSTO_GERAL_VAGA_TABLE: process.env.CUSTO_GERAL_VAGA_TABLE || "CUSTO_GERAL_VAGA",
+  // Modelo normalizado de remanejamento (1 processo SEI -> N vagas reduzidas e N acrescidas).
+  PROCESSO_REMANEJAMENTO_TABLE: process.env.PROCESSO_REMANEJAMENTO_TABLE || "PROCESSO_REMANEJAMENTO",
+  VAGA_REMANEJADA_TABLE: process.env.VAGA_REMANEJADA_TABLE || "VAGA_REMANEJADA",
+  REMANEJAMENTO_ACRESCIDO_TABLE: process.env.REMANEJAMENTO_ACRESCIDO_TABLE || "REMANEJAMENTO_ACRESCIDO",
+  REL_REMANEJAMENTO_TABLE: process.env.REL_REMANEJAMENTO_TABLE || "REL_REMANEJAMENTO",
+  USUARIOS_TABLE: process.env.USUARIOS_TABLE || "USUARIOS_PAINEL",
+  JWT_SECRET: process.env.JWT_SECRET || "painel-vagas-si-dev-secret-trocar",
+  JWT_EXPIRES: process.env.JWT_EXPIRES || "8h",
+  // Nível mínimo de autorização exigido por ação. Centraliza a regra de acesso;
+  // novos níveis/páginas podem ser definidos futuramente.
+  NIVEL_REMANEJAMENTO_SALVAR: Number(process.env.NIVEL_REMANEJAMENTO_SALVAR || 2),
   REMANEJAMENTO_CADASTRO_VIEW: process.env.REMANEJAMENTO_CADASTRO_VIEW || "vw_remanejamento_vagas_cadastro",
   CACHE_MONITORAMENTO_KEY: "DASH_MONITORAMENTO_V1_MYSQL",
   CACHE_MONITORAMENTO_TOTAIS_KEY: "DASH_MONITORAMENTO_TOTAIS_V1_MYSQL",
@@ -71,137 +91,77 @@ const DASH_SQL = {
       FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VW_SAUDE_INDIGENA\`
       GROUP BY CAST(CARGO_ATUAL_ID AS UNSIGNED)
     ),
-    itens AS (
+    custo_dim AS (
       SELECT
-        p.ID_VAGAS_REMANEJADAS_PROCESSO AS id_processo,
-        p.DATA_INCLUSAO AS data_inclusao,
-        DATE_FORMAT(p.DATA_INCLUSAO, '%d/%m/%Y %H:%i:%s') AS data_inclusao_formatada,
-        DATE_FORMAT(p.DATA_INCLUSAO, '%m/%Y') AS competencia,
-        p.N_PROCESSO AS numero_processo_sei,
-        p.OBSERVACAO AS observacao,
-        p.CRIADO_POR AS criado_por,
-        p.ANEXO_NOME_ARQUIVO AS anexo_nome_arquivo,
-        p.ANEXO_MIME_TYPE AS anexo_mime_type,
-        p.ANEXO_TAMANHO_BYTES AS anexo_tamanho_bytes,
-        CASE WHEN p.ANEXO_PROCESSO IS NULL THEN 0 ELSE 1 END AS tem_anexo,
-
-        r.ID_DSEI_CASAI AS id_dsei_casai,
-        COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', r.ID_DSEI_CASAI)) AS dsei_casai,
-
-        r.ID_CARGO_ORIGEM AS id_cargo_origem,
-        COALESCE(
-          CASE r.ID_CARGO_ORIGEM
-            WHEN 9999 THEN 'ANALISTA TECNICO'
-            WHEN 9998 THEN 'ASSESSOR REGIONAL INDIGENA'
-            WHEN 9997 THEN 'AUXILIAR SI'
-            WHEN 9996 THEN 'ENFERMEIRO (ART)'
-            WHEN 9995 THEN 'FARMACEUTICO (ART)'
-            WHEN 9994 THEN 'ANALISTA SI'
-            WHEN 104 THEN 'ANALISTA ADMINISTRATIVO'
-            WHEN 81 THEN 'MEDICO ESPECIALIDADES'
-            WHEN 45 THEN 'ASSISTENTE ADMINISTRATIVO'
-            WHEN 46 THEN 'ASSISTENTE DE COMUNICACAO'
-            WHEN 50 THEN 'AUXILIAR DE PROTESE DENTARIA'
-            WHEN 54 THEN 'BIOQUIMICO'
-            ELSE NULL
-          END,
-          co.cargo,
-          CONCAT('CARGO ID ', r.ID_CARGO_ORIGEM)
-        ) AS cargo_origem,
-
-        r.QTD_CARGO_ORIGEM AS qtd_cargo_origem,
-        r.ID_CARGO_DESTINO AS id_cargo_destino,
-        COALESCE(
-          CASE r.ID_CARGO_DESTINO
-            WHEN 9999 THEN 'ANALISTA TECNICO'
-            WHEN 9998 THEN 'ASSESSOR REGIONAL INDIGENA'
-            WHEN 9997 THEN 'AUXILIAR SI'
-            WHEN 9996 THEN 'ENFERMEIRO (ART)'
-            WHEN 9995 THEN 'FARMACEUTICO (ART)'
-            WHEN 9994 THEN 'ANALISTA SI'
-            WHEN 104 THEN 'ANALISTA ADMINISTRATIVO'
-            WHEN 81 THEN 'MEDICO ESPECIALIDADES'
-            WHEN 45 THEN 'ASSISTENTE ADMINISTRATIVO'
-            WHEN 46 THEN 'ASSISTENTE DE COMUNICACAO'
-            WHEN 50 THEN 'AUXILIAR DE PROTESE DENTARIA'
-            WHEN 54 THEN 'BIOQUIMICO'
-            ELSE NULL
-          END,
-          cd.cargo,
-          CONCAT('CARGO ID ', r.ID_CARGO_DESTINO)
-        ) AS cargo_destino,
-        r.QTD_CARGO_DESTINO AS qtd_cargo_destino,
-        r.N_MESES AS n_meses,
-
-        (
-          COALESCE(vo.SALARIO_BASE, 0) +
-          COALESCE(vo.INSALUBRIDADE_PERICULOSIDADE, 0) +
-          COALESCE(vo.GRATIFICACAO_RT, 0) +
-          COALESCE(vo.ADICIONAL_NOTURNO, 0) +
-          COALESCE(vo.ENCARGOS, 0) +
-          COALESCE(vo.PROVISOES, 0)
-        ) * COALESCE(r.QTD_CARGO_ORIGEM, 0) AS total_reduzido_mensal,
-
-        (
-          COALESCE(vd.SALARIO_BASE, 0) +
-          COALESCE(vd.INSALUBRIDADE_PERICULOSIDADE, 0) +
-          COALESCE(vd.GRATIFICACAO_RT, 0) +
-          COALESCE(vd.ADICIONAL_NOTURNO, 0) +
-          COALESCE(vd.ENCARGOS, 0) +
-          COALESCE(vd.PROVISOES, 0)
-        ) * COALESCE(r.QTD_CARGO_DESTINO, 0) AS total_acrescentado_mensal
-
-      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS_PROCESSO\` p
-      JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS\` r
-        ON r.ID_VAGAS_REMANEJADAS_PROCESSO = p.ID_VAGAS_REMANEJADAS_PROCESSO
-      LEFT JOIN dsei_dim dd
-        ON dd.id_dsei_casai = r.ID_DSEI_CASAI
-      LEFT JOIN cargo_dim co
-        ON co.id_cargo_funcao = r.ID_CARGO_ORIGEM
-      LEFT JOIN cargo_dim cd
-        ON cd.id_cargo_funcao = r.ID_CARGO_DESTINO
-      LEFT JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VALOR_VAGA_MENSAL\` vo
-        ON vo.ID_VAGA = r.ID_CARGO_ORIGEM
-      LEFT JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VALOR_VAGA_MENSAL\` vd
-        ON vd.ID_VAGA = r.ID_CARGO_DESTINO
+        c.ID_DSEI_CASAI,
+        c.ID_VAGA,
+        (COALESCE(c.SALARIO_BASE,0) + COALESCE(c.INSALUBRIDADE_PERICULOSIDADE,0) + COALESCE(c.GRATIFICACAO_RT,0)
+          + COALESCE(c.NOTURNO,0) + COALESCE(c.ENCARGOS,0) + COALESCE(c.PROVISOES,0)) AS mensal_unitario
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\` c
+      JOIN (
+        SELECT ID_DSEI_CASAI, ID_VAGA, MAX(ID_CUSTO_GERAL_VAGA) AS max_id
+        FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\`
+        GROUP BY ID_DSEI_CASAI, ID_VAGA
+      ) ult ON ult.max_id = c.ID_CUSTO_GERAL_VAGA
+    ),
+    -- Reduzidos agregados por processo (cada vaga reduzida contada uma vez).
+    red AS (
+      SELECT
+        rel.ID_PROCESSO_REMANEJAMENTO AS id_processo,
+        MAX(vr.ID_DSEI_CASAI) AS id_dsei_casai,
+        SUM(COALESCE(custo.mensal_unitario, 0) * vr.QTD) AS total_mensal,
+        GROUP_CONCAT(CONCAT(${montarCaseCargoSql("vr.ID_VAGA", "cd")}, ' x', vr.QTD) ORDER BY cd.cargo SEPARATOR ' | ') AS cargos
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` rel
+      JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.VAGA_REMANEJADA_TABLE}\` vr
+        ON vr.ID_VAGA_REMANEJADA = rel.ID_VAGA_REMANEJADA
+      LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = vr.ID_VAGA
+      LEFT JOIN custo_dim custo ON custo.ID_DSEI_CASAI = vr.ID_DSEI_CASAI AND custo.ID_VAGA = vr.ID_VAGA
+      WHERE rel.ID_VAGA_REMANEJADA IS NOT NULL
+      GROUP BY rel.ID_PROCESSO_REMANEJAMENTO
+    ),
+    -- Acrescidos agregados por processo (cada vaga acrescida contada uma vez).
+    acr AS (
+      SELECT
+        rel.ID_PROCESSO_REMANEJAMENTO AS id_processo,
+        MAX(ra.ID_DSEI_CASAI) AS id_dsei_casai,
+        SUM(COALESCE(custo.mensal_unitario, 0) * ra.QTD) AS total_mensal,
+        GROUP_CONCAT(CONCAT(${montarCaseCargoSql("ra.ID_VAGA", "cd")}, ' x', ra.QTD) ORDER BY cd.cargo SEPARATOR ' | ') AS cargos
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` rel
+      JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE}\` ra
+        ON ra.ID_REMANEJAMENTO_ACRESCIDO = rel.ID_REMANEJAMENTO_ACRESCIDO
+      LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = ra.ID_VAGA
+      LEFT JOIN custo_dim custo ON custo.ID_DSEI_CASAI = ra.ID_DSEI_CASAI AND custo.ID_VAGA = ra.ID_VAGA
+      WHERE rel.ID_REMANEJAMENTO_ACRESCIDO IS NOT NULL
+      GROUP BY rel.ID_PROCESSO_REMANEJAMENTO
     )
     SELECT
-      id_processo,
-      data_inclusao,
-      data_inclusao_formatada,
-      competencia,
-      numero_processo_sei,
-      observacao,
-      criado_por,
-      anexo_nome_arquivo,
-      anexo_mime_type,
-      anexo_tamanho_bytes,
-      tem_anexo,
-      MAX(id_dsei_casai) AS id_dsei_casai,
-      MAX(dsei_casai) AS dsei_casai,
-      GROUP_CONCAT(DISTINCT CONCAT(cargo_origem, ' x', qtd_cargo_origem) ORDER BY cargo_origem SEPARATOR ' | ') AS cargos_reduzidos,
-      GROUP_CONCAT(DISTINCT CONCAT(cargo_destino, ' x', qtd_cargo_destino) ORDER BY cargo_destino SEPARATOR ' | ') AS cargos_acrescentados,
-      SUM(total_reduzido_mensal) AS total_reduzido_mensal,
-      SUM(total_acrescentado_mensal) AS total_acrescentado_mensal,
-      SUM(total_acrescentado_mensal) - SUM(total_reduzido_mensal) AS impacto_mensal,
-      SUM(total_reduzido_mensal * COALESCE(n_meses, 1)) AS total_reduzido_periodo,
-      SUM(total_acrescentado_mensal * COALESCE(n_meses, 1)) AS total_acrescentado_periodo,
-      SUM((total_acrescentado_mensal - total_reduzido_mensal) * COALESCE(n_meses, 1)) AS impacto_periodo,
+      p.ID_PROCESSO_REMANEJAMENTO AS id_processo,
+      p.DATA_INSERCAO AS data_inclusao,
+      DATE_FORMAT(p.DATA_INSERCAO, '%d/%m/%Y %H:%i:%s') AS data_inclusao_formatada,
+      DATE_FORMAT(p.DATA_INSERCAO, '%m/%Y') AS competencia,
+      p.N_PROCESSO AS numero_processo_sei,
+      p.OBSERVACAO AS observacao,
+      p.CRIADO_POR AS criado_por,
+      p.ANEXO_NOME_ARQUIVO AS anexo_nome_arquivo,
+      p.ANEXO_MIME_TYPE AS anexo_mime_type,
+      p.ANEXO_TAMANHO_BYTES AS anexo_tamanho_bytes,
+      CASE WHEN p.ANEXO_PROCESSO IS NULL THEN 0 ELSE 1 END AS tem_anexo,
+      COALESCE(red.id_dsei_casai, acr.id_dsei_casai) AS id_dsei_casai,
+      COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', COALESCE(red.id_dsei_casai, acr.id_dsei_casai))) AS dsei_casai,
+      red.cargos AS cargos_reduzidos,
+      acr.cargos AS cargos_acrescentados,
+      COALESCE(red.total_mensal, 0) AS total_reduzido_mensal,
+      COALESCE(acr.total_mensal, 0) AS total_acrescentado_mensal,
+      (COALESCE(acr.total_mensal, 0) - COALESCE(red.total_mensal, 0)) AS impacto_mensal,
+      (COALESCE(red.total_mensal, 0) * (13 - MONTH(p.DATA_INSERCAO))) AS total_reduzido_periodo,
+      (COALESCE(acr.total_mensal, 0) * (13 - MONTH(p.DATA_INSERCAO))) AS total_acrescentado_periodo,
+      ((COALESCE(acr.total_mensal, 0) - COALESCE(red.total_mensal, 0)) * (13 - MONTH(p.DATA_INSERCAO))) AS impacto_periodo,
       'Registrado' AS situacao
-    FROM itens
-    GROUP BY
-      id_processo,
-      data_inclusao,
-      data_inclusao_formatada,
-      competencia,
-      numero_processo_sei,
-      observacao,
-      criado_por,
-      anexo_nome_arquivo,
-      anexo_mime_type,
-      anexo_tamanho_bytes,
-      tem_anexo
-    ORDER BY data_inclusao DESC
+    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.PROCESSO_REMANEJAMENTO_TABLE}\` p
+    LEFT JOIN red ON red.id_processo = p.ID_PROCESSO_REMANEJAMENTO
+    LEFT JOIN acr ON acr.id_processo = p.ID_PROCESSO_REMANEJAMENTO
+    LEFT JOIN dsei_dim dd ON dd.id_dsei_casai = COALESCE(red.id_dsei_casai, acr.id_dsei_casai)
+    ORDER BY p.DATA_INSERCAO DESC
   `,
   REMANEJAMENTO_CADASTRO: `
     WITH
@@ -218,6 +178,23 @@ const DASH_SQL = {
         MAX(CARGO_ATUAL_DESC) AS cargo
       FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VW_SAUDE_INDIGENA\`
       GROUP BY CAST(CARGO_ATUAL_ID AS UNSIGNED)
+    ),
+    custo_dim AS (
+      SELECT
+        c.ID_DSEI_CASAI,
+        c.ID_VAGA,
+        c.SALARIO_BASE,
+        c.INSALUBRIDADE_PERICULOSIDADE,
+        c.GRATIFICACAO_RT,
+        c.NOTURNO,
+        c.ENCARGOS,
+        c.PROVISOES
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\` c
+      JOIN (
+        SELECT ID_DSEI_CASAI, ID_VAGA, MAX(ID_CUSTO_GERAL_VAGA) AS max_id
+        FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\`
+        GROUP BY ID_DSEI_CASAI, ID_VAGA
+      ) ult ON ult.max_id = c.ID_CUSTO_GERAL_VAGA
     )
     SELECT
       vp.id_dsei_casai,
@@ -244,27 +221,27 @@ const DASH_SQL = {
       ) AS cargo,
       COALESCE(vp.QTD, 0) AS quantitativo_plano_trabalho,
       COALESCE(vp.CARGA_HORARIA, '') AS carga_horaria,
-      COALESCE(vvm.SALARIO_BASE, 0) AS salario_base,
-      COALESCE(vvm.INSALUBRIDADE_PERICULOSIDADE, 0) AS insalubridade_periculosidade,
-      COALESCE(vvm.GRATIFICACAO_RT, 0) AS gratificacao_rt,
-      COALESCE(vvm.ADICIONAL_NOTURNO, 0) AS adicional_noturno,
-      COALESCE(vvm.ENCARGOS, 0) AS encargos,
-      COALESCE(vvm.PROVISOES, 0) AS provisoes,
+      COALESCE(cgv.SALARIO_BASE, 0) AS salario_base,
+      COALESCE(cgv.INSALUBRIDADE_PERICULOSIDADE, 0) AS insalubridade_periculosidade,
+      COALESCE(cgv.GRATIFICACAO_RT, 0) AS gratificacao_rt,
+      COALESCE(cgv.NOTURNO, 0) AS adicional_noturno,
+      COALESCE(cgv.ENCARGOS, 0) AS encargos,
+      COALESCE(cgv.PROVISOES, 0) AS provisoes,
       (
-        COALESCE(vvm.SALARIO_BASE, 0) +
-        COALESCE(vvm.INSALUBRIDADE_PERICULOSIDADE, 0) +
-        COALESCE(vvm.GRATIFICACAO_RT, 0) +
-        COALESCE(vvm.ADICIONAL_NOTURNO, 0) +
-        COALESCE(vvm.ENCARGOS, 0) +
-        COALESCE(vvm.PROVISOES, 0)
+        COALESCE(cgv.SALARIO_BASE, 0) +
+        COALESCE(cgv.INSALUBRIDADE_PERICULOSIDADE, 0) +
+        COALESCE(cgv.GRATIFICACAO_RT, 0) +
+        COALESCE(cgv.NOTURNO, 0) +
+        COALESCE(cgv.ENCARGOS, 0) +
+        COALESCE(cgv.PROVISOES, 0)
       ) AS valor_mensal
     FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_PREVISTAS\` vp
     LEFT JOIN dsei_dim dd
       ON dd.id_dsei_casai = vp.id_dsei_casai
     LEFT JOIN cargo_dim cd
       ON cd.id_cargo_funcao = vp.id_cargo_funcao
-    LEFT JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`VALOR_VAGA_MENSAL\` vvm
-      ON vvm.ID_VAGA = vp.id_cargo_funcao
+    LEFT JOIN custo_dim cgv
+      ON cgv.ID_DSEI_CASAI = vp.id_dsei_casai AND cgv.ID_VAGA = vp.id_cargo_funcao
     ORDER BY dsei_casai, cargo
   `
 };
@@ -281,7 +258,8 @@ app.get("/api/config", (req, res) => {
     backgroundPainelUrl: getBackgroundPainelUrl(),
     logoCoordenacaoUrl: getLogoCoordenacaoUrl(),
     imagemIndigenaPainelUrl: getImagemIndigenaPainelUrl(),
-    dashboardSaudeIndigenaUrl: process.env.DASHBOARD_SAUDE_INDIGENA_URL || DASH_CONFIG.DASHBOARD_SAUDE_INDIGENA_URL
+    dashboardSaudeIndigenaUrl: process.env.DASHBOARD_SAUDE_INDIGENA_URL || DASH_CONFIG.DASHBOARD_SAUDE_INDIGENA_URL,
+    dashboardFeriasUrl: process.env.DASHBOARD_FERIAS_URL || DASH_CONFIG.DASHBOARD_FERIAS_URL
   });
 });
 
@@ -305,6 +283,22 @@ app.get("/api/alertas", asyncHandler(async (req, res) => {
   res.json(await getAlertasData());
 }));
 
+app.get("/api/alertas/observacoes", asyncHandler(async (req, res) => {
+  res.json({ observacoes: await getAlertasObservacoesMap() });
+}));
+
+app.post("/api/alertas/observacao", express.json(), autenticarOpcionalMiddleware, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = { ...(req.body || {}) };
+    if (req.usuario) body.usuario = req.usuario.email || req.usuario.login || body.usuario;
+    const resultado = await salvarObservacaoAlertaComConn(conn, body);
+    res.json({ ok: true, ...resultado });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
 app.get("/api/remanejamento/lista", asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoListaData());
 }));
@@ -317,7 +311,7 @@ app.get("/api/remanejamento/anexo/:id", asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const [rows] = await conn.query(
-      `SELECT ANEXO_PROCESSO, ANEXO_NOME_ARQUIVO, ANEXO_MIME_TYPE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS_PROCESSO\` WHERE ID_VAGAS_REMANEJADAS_PROCESSO = ? LIMIT 1`,
+      `SELECT ANEXO_PROCESSO, ANEXO_NOME_ARQUIVO, ANEXO_MIME_TYPE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`PROCESSO_REMANEJAMENTO\` WHERE ID_PROCESSO_REMANEJAMENTO = ? LIMIT 1`,
       [req.params.id]
     );
 
@@ -335,16 +329,61 @@ app.get("/api/remanejamento/anexo/:id", asyncHandler(async (req, res) => {
   }
 }));
 
-app.post("/api/remanejamento/salvar", upload.single("anexo"), asyncHandler(async (req, res) => {
-  const conn = await getMysqlConnection();
+app.get("/api/remanejamento/detalhe/:id", asyncHandler(async (req, res) => {
+  res.json(await getRemanejamentoDetalheData(req.params.id));
+}));
+
+app.delete(
+  "/api/remanejamento/:id",
+  autenticarMiddleware,
+  exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
+  asyncHandler(async (req, res) => {
+    const conn = await getMysqlConnection();
+    try {
+      await excluirRemanejamentoComConn(conn, req.params.id);
+      limparCacheDashboard();
+      res.json({ ok: true });
+    } finally {
+      await fecharJdbc(conn);
+    }
+  })
+);
+
+app.post("/api/login", express.json(), asyncHandler(async (req, res) => {
   try {
-    const resultado = await salvarRemanejamentoComConn(conn, req.body || {}, req.file || null);
-    limparCacheDashboard();
-    res.json({ ok: true, ...resultado });
-  } finally {
-    await fecharJdbc(conn);
+    const resultado = await autenticarUsuario(req.body || {});
+    res.json(resultado);
+  } catch (err) {
+    res.status(401).json({ error: err && err.message ? err.message : "Falha na autenticação." });
   }
 }));
+
+app.post("/api/logout", (req, res) => {
+  // Autenticação é stateless (JWT). O cliente apenas descarta o token.
+  res.json({ ok: true });
+});
+
+app.get("/api/sessao", autenticarMiddleware, (req, res) => {
+  res.json({ usuario: req.usuario });
+});
+
+app.post(
+  "/api/remanejamento/salvar",
+  autenticarMiddleware,
+  exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
+  upload.single("anexo"),
+  asyncHandler(async (req, res) => {
+    const conn = await getMysqlConnection();
+    try {
+      const body = { ...(req.body || {}), criadoPor: (req.usuario && (req.usuario.email || req.usuario.login)) || "painel" };
+      const resultado = await salvarRemanejamentoComConn(conn, body, req.file || null);
+      limparCacheDashboard();
+      res.json({ ok: true, ...resultado });
+    } finally {
+      await fecharJdbc(conn);
+    }
+  })
+);
 
 app.post("/api/cache/clear", asyncHandler(async (req, res) => {
   limparCacheDashboard();
@@ -365,6 +404,14 @@ if (require.main === module) {
   const port = resolverPortaAplicacao();
   app.listen(port, () => {
     console.log(`Painel disponível em http://localhost:${port}`);
+  });
+
+  garantirTabelaAlertasObservacoes().catch(err => {
+    console.error("Não foi possível garantir a tabela de observações de alertas:", err && err.message ? err.message : err);
+  });
+
+  garantirTabelaUsuarios().catch(err => {
+    console.error("Não foi possível garantir a tabela de usuários do painel:", err && err.message ? err.message : err);
   });
 }
 
@@ -433,10 +480,252 @@ async function getVagasData() {
 
 async function getAlertasData() {
   const rows = await obterMonitoramentoRowsComCache();
+  const observacoes = await getAlertasObservacoesMap();
 
   return {
     rows,
+    observacoes,
     atualizadoEm: obterUltimaAtualizacaoDash(rows)
+  };
+}
+
+async function garantirTabelaAlertasObservacoes() {
+  const conn = await getMysqlConnection();
+  try {
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.ALERTAS_OBSERVACOES_TABLE}\` (
+        \`ID_ALERTA_OBSERVACAO\` BIGINT NOT NULL AUTO_INCREMENT,
+        \`CHAVE_ALERTA\`         VARCHAR(255) NOT NULL,
+        \`DSEI_CASAI\`           VARCHAR(255) NULL,
+        \`CARGO\`                VARCHAR(255) NULL,
+        \`TIPO_ALERTA\`          VARCHAR(64)  NULL,
+        \`DETALHE\`              VARCHAR(500) NULL,
+        \`OBSERVACAO\`           TEXT         NULL,
+        \`USUARIO\`              VARCHAR(255) NULL,
+        \`ATUALIZADO_EM\`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`ID_ALERTA_OBSERVACAO\`),
+        UNIQUE KEY \`UQ_ALERTAS_OBSERVACOES_CHAVE\` (\`CHAVE_ALERTA\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+async function getAlertasObservacoesMap() {
+  let conn = null;
+  try {
+    conn = await getMysqlConnection();
+    const [rows] = await conn.query(
+      `SELECT
+         \`CHAVE_ALERTA\`,
+         \`OBSERVACAO\`,
+         \`USUARIO\`,
+         DATE_FORMAT(\`ATUALIZADO_EM\`, '%d/%m/%Y %H:%i:%s') AS \`ATUALIZADO_EM\`
+       FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.ALERTAS_OBSERVACOES_TABLE}\``
+    );
+
+    const mapa = {};
+    (rows || []).forEach(row => {
+      const chave = limparValorDash(row.CHAVE_ALERTA);
+      if (!chave) return;
+      mapa[chave] = {
+        observacao: limparValorDash(row.OBSERVACAO),
+        usuario: limparValorDash(row.USUARIO),
+        atualizadoEm: limparValorDash(row.ATUALIZADO_EM)
+      };
+    });
+
+    return mapa;
+  } catch (err) {
+    // Se a tabela ainda não existir ou houver soluço de conexão, retorna mapa vazio
+    // para não quebrar a aba Alertas (os dados de monitoramento continuam sendo exibidos).
+    console.error("Falha ao carregar observações de alertas:", err && err.message ? err.message : err);
+    return {};
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+async function salvarObservacaoAlertaComConn(conn, body) {
+  const chave = limparValorDash(body.chave);
+  if (!chave) throw new Error("Não foi possível identificar o alerta.");
+
+  const dsei = limparValorDash(body.dsei);
+  const cargo = limparValorDash(body.cargo);
+  const tipoValor = limparValorDash(body.tipoValor);
+  const detalhe = limparValorDash(body.detalhe);
+  const observacao = limparValorDash(body.observacao);
+  const usuario = limparValorDash(body.usuario || body.criadoPor || "painel");
+
+  await conn.execute(
+    `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.ALERTAS_OBSERVACOES_TABLE}\`
+       (\`CHAVE_ALERTA\`, \`DSEI_CASAI\`, \`CARGO\`, \`TIPO_ALERTA\`, \`DETALHE\`, \`OBSERVACAO\`, \`USUARIO\`)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       \`DSEI_CASAI\` = VALUES(\`DSEI_CASAI\`),
+       \`CARGO\` = VALUES(\`CARGO\`),
+       \`TIPO_ALERTA\` = VALUES(\`TIPO_ALERTA\`),
+       \`DETALHE\` = VALUES(\`DETALHE\`),
+       \`OBSERVACAO\` = VALUES(\`OBSERVACAO\`),
+       \`USUARIO\` = VALUES(\`USUARIO\`)`,
+    [chave, dsei || null, cargo || null, tipoValor || null, detalhe || null, observacao || null, usuario || null]
+  );
+
+  const [rows] = await conn.query(
+    `SELECT \`USUARIO\`, DATE_FORMAT(\`ATUALIZADO_EM\`, '%d/%m/%Y %H:%i:%s') AS \`ATUALIZADO_EM\`
+       FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.ALERTAS_OBSERVACOES_TABLE}\`
+      WHERE \`CHAVE_ALERTA\` = ? LIMIT 1`,
+    [chave]
+  );
+
+  const salvo = rows && rows[0] ? rows[0] : {};
+  return {
+    chave,
+    observacao,
+    usuario: limparValorDash(salvo.USUARIO) || usuario,
+    atualizadoEm: limparValorDash(salvo.ATUALIZADO_EM)
+  };
+}
+
+// ===================== Autenticação e níveis de acesso =====================
+
+async function garantirTabelaUsuarios() {
+  const conn = await getMysqlConnection();
+  try {
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\` (
+        \`ID_USUARIO\`         BIGINT NOT NULL AUTO_INCREMENT,
+        \`LOGIN\`              VARCHAR(120) NOT NULL,
+        \`SENHA_HASH\`         VARCHAR(255) NOT NULL,
+        \`NOME\`               VARCHAR(255) NULL,
+        \`EMAIL\`              VARCHAR(255) NULL,
+        \`NIVEL_AUTORIZACAO\`  INT NOT NULL DEFAULT 0,
+        \`ATIVO\`              TINYINT NOT NULL DEFAULT 1,
+        \`CRIADO_EM\`          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`ATUALIZADO_EM\`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`ID_USUARIO\`),
+        UNIQUE KEY \`UQ_${DASH_CONFIG.USUARIOS_TABLE}_LOGIN\` (\`LOGIN\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // Seed de um usuário administrador inicial somente quando a tabela está vazia.
+    const [rows] = await conn.query(
+      `SELECT COUNT(*) AS total FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``
+    );
+    const total = rows && rows[0] ? Number(rows[0].total) : 0;
+
+    if (total === 0) {
+      const login = process.env.SEED_ADMIN_LOGIN || "admin";
+      const senha = process.env.SEED_ADMIN_SENHA || "AgSUS@2026";
+      const nome = process.env.SEED_ADMIN_NOME || "Administrador";
+      const email = process.env.SEED_ADMIN_EMAIL || "";
+      const hash = await bcrypt.hash(senha, 10);
+
+      await conn.execute(
+        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\`
+           (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
+         VALUES (?, ?, ?, ?, 2, 1)`,
+        [login, hash, nome, email || null]
+      );
+
+      console.warn(
+        `[ATENÇÃO] Usuário administrador inicial criado (login: "${login}"). ` +
+        "Defina SEED_ADMIN_LOGIN/SEED_ADMIN_SENHA no .env e troque a senha padrão assim que possível."
+      );
+    }
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+async function autenticarUsuario(body) {
+  const login = limparValorDash(body.login || body.usuario);
+  const senha = String(body.senha || "");
+
+  if (!login || !senha) throw new Error("Informe usuário e senha.");
+
+  const conn = await getMysqlConnection();
+  try {
+    const [rows] = await conn.query(
+      `SELECT \`ID_USUARIO\`, \`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`
+         FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\`
+        WHERE \`LOGIN\` = ? LIMIT 1`,
+      [login]
+    );
+
+    const registro = rows && rows[0] ? rows[0] : null;
+    if (!registro || Number(registro.ATIVO) !== 1) {
+      throw new Error("Usuário ou senha inválidos.");
+    }
+
+    const senhaConfere = await bcrypt.compare(senha, String(registro.SENHA_HASH || ""));
+    if (!senhaConfere) {
+      throw new Error("Usuário ou senha inválidos.");
+    }
+
+    const usuario = {
+      id: Number(registro.ID_USUARIO),
+      login: limparValorDash(registro.LOGIN),
+      nome: limparValorDash(registro.NOME),
+      email: limparValorDash(registro.EMAIL),
+      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0)
+    };
+
+    const token = jwt.sign(usuario, DASH_CONFIG.JWT_SECRET, { expiresIn: DASH_CONFIG.JWT_EXPIRES });
+    return { token, usuario };
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+function lerTokenDaRequisicao(req) {
+  const header = String(req.headers.authorization || req.headers.Authorization || "");
+  if (header.toLowerCase().startsWith("bearer ")) {
+    return header.slice(7).trim();
+  }
+  return "";
+}
+
+function verificarToken(token) {
+  try {
+    const payload = jwt.verify(token, DASH_CONFIG.JWT_SECRET);
+    return {
+      id: payload.id,
+      login: payload.login,
+      nome: payload.nome,
+      email: payload.email,
+      nivelAutorizacao: Number(payload.nivelAutorizacao || 0)
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+function autenticarMiddleware(req, res, next) {
+  const usuario = verificarToken(lerTokenDaRequisicao(req));
+  if (!usuario) {
+    res.status(401).json({ error: "Sessão expirada ou inválida. Faça login novamente." });
+    return;
+  }
+  req.usuario = usuario;
+  next();
+}
+
+function autenticarOpcionalMiddleware(req, res, next) {
+  const usuario = verificarToken(lerTokenDaRequisicao(req));
+  if (usuario) req.usuario = usuario;
+  next();
+}
+
+function exigirNivelMiddleware(nivelMinimo) {
+  return function (req, res, next) {
+    const nivel = req.usuario ? Number(req.usuario.nivelAutorizacao || 0) : 0;
+    if (nivel < nivelMinimo) {
+      res.status(403).json({ error: "Você não tem permissão para esta ação." });
+      return;
+    }
+    next();
   };
 }
 
@@ -754,66 +1043,202 @@ async function salvarRemanejamentoComConn(conn, body, file) {
   if (!linhasReduzido.length) throw new Error("Informe ao menos um cargo reduzido.");
   if (!linhasAcrescentado.length) throw new Error("Informe ao menos um cargo acrescentado.");
 
+  // N_MESES derivado: do mês atual (criação) até o fim do ano (dezembro).
+  const meses = mesesAteFimDoAno();
+
+  // Custos sempre recalculados no servidor a partir de CUSTO_GERAL_VAGA (por DSEI + vaga),
+  // ignorando os valores enviados pelo cliente, que servem apenas para visualização.
+  const custos = await buscarCustosVagaPorDseiComConn(conn, idDseiCasai);
+  const resumoReduzido = calcularResumoLinhasServidor(linhasReduzido, custos, meses);
+  const resumoAcrescentado = calcularResumoLinhasServidor(linhasAcrescentado, custos, meses);
+  const impactoMensal = resumoAcrescentado.mensal - resumoReduzido.mensal;
+  const impactoPeriodo = resumoAcrescentado.periodo - resumoReduzido.periodo;
+
+  // Espelha a regra do Apps Script: o remanejamento não pode aumentar o custo.
+  if (impactoMensal > 0 || impactoPeriodo > 0) {
+    throw new Error(
+      "Remanejamento bloqueado: o impacto financeiro está positivo, indicando aumento de custo. " +
+      "Ajuste os cargos para que o impacto mensal e do período fiquem zerados ou negativos."
+    );
+  }
+
+  // Só é possível reduzir cargos que possuem vagas ociosas suficientes no DSEI/CASAI.
+  await validarVagasOciosasReduzidoComConn(conn, idDseiCasai, linhasReduzido);
+
   await conn.beginTransaction();
 
   try {
+    // 1) Processo (PROCESSO_REMANEJAMENTO, com anexo em BLOB).
     const [procResult] = await conn.execute(
-      `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS_PROCESSO\` (
-        OBSERVACAO,
+      `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.PROCESSO_REMANEJAMENTO_TABLE}\` (
         N_PROCESSO,
+        OBSERVACAO,
+        CRIADO_POR,
         ANEXO_PROCESSO,
         ANEXO_NOME_ARQUIVO,
         ANEXO_MIME_TYPE,
-        ANEXO_TAMANHO_BYTES,
-        CRIADO_POR
+        ANEXO_TAMANHO_BYTES
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
-        observacao || null,
         processoSei,
+        observacao || null,
+        criadoPor || null,
         file ? file.buffer : null,
         file ? file.originalname : null,
         file ? file.mimetype : null,
-        file ? file.size : null,
-        criadoPor || null
+        file ? file.size : null
       ]
     );
 
     const idProcesso = procResult.insertId;
-    const totalPares = Math.max(linhasReduzido.length, linhasAcrescentado.length);
 
-    for (let i = 0; i < totalPares; i += 1) {
-      const origem = linhasReduzido[i] || linhasReduzido[linhasReduzido.length - 1];
-      const destino = linhasAcrescentado[i] || linhasAcrescentado[linhasAcrescentado.length - 1];
-      const meses = Math.max(1, Number(origem.meses || destino.meses || 1));
-
+    // 2) Modelo 1 processo -> N vagas. Cada cargo (reduzido OU acrescido) é uma linha própria,
+    // ligada ao processo pela REL_REMANEJAMENTO. Sem pares forçados nem quantidade 0.
+    for (const linha of linhasReduzido) {
+      const [vagaResult] = await conn.execute(
+        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.VAGA_REMANEJADA_TABLE}\` (
+          ID_DSEI_CASAI, ID_VAGA, QTD
+        ) VALUES (?, ?, ?)`,
+        [idDseiCasai, linha.idCargoFuncao, linha.quantidade]
+      );
       await conn.execute(
-        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_REMANEJADAS\` (
-          ID_VAGAS_REMANEJADAS_PROCESSO,
-          ID_DSEI_CASAI,
-          ID_CARGO_ORIGEM,
-          N_MESES,
-          QTD_CARGO_ORIGEM,
-          ID_CARGO_DESTINO,
-          QTD_CARGO_DESTINO
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          idProcesso,
-          idDseiCasai,
-          origem.idCargoFuncao,
-          meses,
-          origem.quantidade,
-          destino.idCargoFuncao,
-          destino.quantidade
-        ]
+        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` (
+          ID_PROCESSO_REMANEJAMENTO, ID_VAGA_REMANEJADA, ID_REMANEJAMENTO_ACRESCIDO
+        ) VALUES (?, ?, NULL)`,
+        [idProcesso, vagaResult.insertId]
+      );
+    }
+
+    for (const linha of linhasAcrescentado) {
+      const [acrResult] = await conn.execute(
+        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE}\` (
+          ID_DSEI_CASAI, ID_VAGA, QTD
+        ) VALUES (?, ?, ?)`,
+        [idDseiCasai, linha.idCargoFuncao, linha.quantidade]
+      );
+      await conn.execute(
+        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` (
+          ID_PROCESSO_REMANEJAMENTO, ID_VAGA_REMANEJADA, ID_REMANEJAMENTO_ACRESCIDO
+        ) VALUES (?, NULL, ?)`,
+        [idProcesso, acrResult.insertId]
       );
     }
 
     await conn.commit();
-    return { idProcesso };
+    return { idProcesso, impactoMensal, impactoPeriodo };
   } catch (err) {
     await conn.rollback();
     throw err;
   }
+}
+
+// Mapeia o ID_VAGA (cargo) para o mesmo agrupamento usado em vagas_previstas_agg da view,
+// para casar a redução solicitada com a linha consolidada de vagas ociosas.
+function mapearCargoParaPrevistas(idCargo) {
+  const id = Number(idCargo);
+  if ([28, 29, 30, 104].includes(id)) return 104;
+  if ([77, 78, 79, 80, 81].includes(id)) return 81;
+  if ([102, 45].includes(id)) return 45;
+  return id;
+}
+
+// Valida, contra a view de monitoramento, se cada cargo a ser reduzido possui vagas
+// ociosas suficientes no DSEI/CASAI. A view já desconta os remanejamentos anteriores,
+// portanto a verificação é cumulativa. Lança erro (bloqueando o salvamento) se faltar.
+async function validarVagasOciosasReduzidoComConn(conn, idDseiCasai, linhasReduzido) {
+  const [rows] = await conn.query(
+    `SELECT \`id_cargo_funcao\`, \`cargo\`, COALESCE(\`vagas_ociosas\`, 0) AS vagas_ociosas
+     FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MONITORAMENTO_VIEW}\`
+     WHERE \`id_dsei_casai\` = ?`,
+    [idDseiCasai]
+  );
+
+  const ociosasPorCargo = {};
+  (rows || []).forEach(r => {
+    ociosasPorCargo[Number(r.id_cargo_funcao)] = {
+      cargo: r.cargo,
+      ociosas: Number(r.vagas_ociosas) || 0
+    };
+  });
+
+  // Agrega a redução solicitada por cargo consolidado (vários ID_VAGA podem cair na mesma linha).
+  const reducaoPorCargo = {};
+  linhasReduzido.forEach(linha => {
+    const idMapeado = mapearCargoParaPrevistas(linha.idCargoFuncao);
+    reducaoPorCargo[idMapeado] = (reducaoPorCargo[idMapeado] || 0) + (Number(linha.quantidade) || 0);
+  });
+
+  const erros = [];
+  Object.keys(reducaoPorCargo).forEach(idCargo => {
+    const solicitado = reducaoPorCargo[idCargo];
+    const info = ociosasPorCargo[Number(idCargo)] || { cargo: `cargo ${idCargo}`, ociosas: 0 };
+    const disponivel = Math.max(0, Math.floor(info.ociosas));
+    if (solicitado > disponivel) {
+      erros.push(
+        `${info.cargo}: ${disponivel} vaga(s) ociosa(s) disponível(is), mas foram solicitadas ${solicitado} para redução`
+      );
+    }
+  });
+
+  if (erros.length) {
+    throw new Error(
+      "Remanejamento bloqueado: não há vagas ociosas suficientes para reduzir os seguintes cargos neste DSEI/CASAI — " +
+      erros.join("; ") + "."
+    );
+  }
+}
+
+// Número de meses do mês atual até dezembro do ano corrente (ex.: junho => 7, dezembro => 1).
+function mesesAteFimDoAno() {
+  const mes = new Date().getMonth() + 1; // 1..12
+  return Math.max(1, 13 - mes);
+}
+
+async function buscarCustosVagaPorDseiComConn(conn, idDseiCasai) {
+  const [rows] = await conn.query(
+    `SELECT
+       c.ID_VAGA,
+       c.SALARIO_BASE,
+       c.INSALUBRIDADE_PERICULOSIDADE,
+       c.GRATIFICACAO_RT,
+       c.NOTURNO,
+       c.ENCARGOS,
+       c.PROVISOES
+     FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\` c
+     JOIN (
+       SELECT ID_VAGA, MAX(ID_CUSTO_GERAL_VAGA) AS max_id
+       FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\`
+       WHERE ID_DSEI_CASAI = ?
+       GROUP BY ID_VAGA
+     ) ult ON ult.max_id = c.ID_CUSTO_GERAL_VAGA
+     WHERE c.ID_DSEI_CASAI = ?`,
+    [idDseiCasai, idDseiCasai]
+  );
+
+  const mapa = {};
+  (rows || []).forEach(row => {
+    const mensal =
+      converterNumeroDash(row.SALARIO_BASE) +
+      converterNumeroDash(row.INSALUBRIDADE_PERICULOSIDADE) +
+      converterNumeroDash(row.GRATIFICACAO_RT) +
+      converterNumeroDash(row.NOTURNO) +
+      converterNumeroDash(row.ENCARGOS) +
+      converterNumeroDash(row.PROVISOES);
+    mapa[String(converterNumeroDash(row.ID_VAGA))] = mensal;
+  });
+
+  return mapa;
+}
+
+function calcularResumoLinhasServidor(linhas, custos, meses) {
+  const mesesEfetivo = Math.max(1, Number(meses || 1));
+  return (linhas || []).reduce((acc, linha) => {
+    const mensalUnitario = Number(custos[String(linha.idCargoFuncao)] || 0);
+    const mensal = mensalUnitario * Number(linha.quantidade || 0);
+    acc.mensal += mensal;
+    acc.periodo += mensal * mesesEfetivo;
+    return acc;
+  }, { mensal: 0, periodo: 0 });
 }
 
 function normalizarLinhasRemanejamentoServidor(linhas) {
@@ -826,14 +1251,193 @@ function normalizarLinhasRemanejamentoServidor(linhas) {
     .filter(item => item.idCargoFuncao && item.quantidade > 0);
 }
 
+// Exclui um remanejamento no modelo normalizado (PROCESSO_REMANEJAMENTO, VAGA_REMANEJADA,
+// REMANEJAMENTO_ACRESCIDO e REL_REMANEJAMENTO), em transação.
+async function excluirRemanejamentoComConn(conn, idProcesso) {
+  const id = converterNumeroDash(idProcesso);
+  if (!id) throw new Error("Remanejamento inválido.");
+
+  await conn.beginTransaction();
+  try {
+    // Coleta as vagas (reduzidas e acrescidas) ligadas ao processo antes de remover.
+    const [vinculos] = await conn.query(
+      `SELECT ID_VAGA_REMANEJADA, ID_REMANEJAMENTO_ACRESCIDO
+         FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\`
+        WHERE ID_PROCESSO_REMANEJAMENTO = ?`,
+      [id]
+    );
+    const idsReduzidas = (vinculos || []).map(v => converterNumeroDash(v.ID_VAGA_REMANEJADA)).filter(Boolean);
+    const idsAcrescidas = (vinculos || []).map(v => converterNumeroDash(v.ID_REMANEJAMENTO_ACRESCIDO)).filter(Boolean);
+
+    // 1) Remove os vínculos.
+    await conn.execute(
+      `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\`
+        WHERE ID_PROCESSO_REMANEJAMENTO = ?`,
+      [id]
+    );
+
+    // 2) Remove as vagas reduzidas e acrescidas.
+    if (idsReduzidas.length) {
+      const ph = idsReduzidas.map(() => "?").join(",");
+      await conn.execute(
+        `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.VAGA_REMANEJADA_TABLE}\` WHERE ID_VAGA_REMANEJADA IN (${ph})`,
+        idsReduzidas
+      );
+    }
+    if (idsAcrescidas.length) {
+      const ph = idsAcrescidas.map(() => "?").join(",");
+      await conn.execute(
+        `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE}\` WHERE ID_REMANEJAMENTO_ACRESCIDO IN (${ph})`,
+        idsAcrescidas
+      );
+    }
+
+    // 3) Remove o processo.
+    await conn.execute(
+      `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.PROCESSO_REMANEJAMENTO_TABLE}\` WHERE ID_PROCESSO_REMANEJAMENTO = ?`,
+      [id]
+    );
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  }
+}
+
+// CASE de nome de cargo (mesmo mapeamento usado nas demais consultas de remanejamento).
+function montarCaseCargoSql(coluna, cargoDimAlias) {
+  return `COALESCE(
+    CASE ${coluna}
+      WHEN 9999 THEN 'ANALISTA TECNICO'
+      WHEN 9998 THEN 'ASSESSOR REGIONAL INDIGENA'
+      WHEN 9997 THEN 'AUXILIAR SI'
+      WHEN 9996 THEN 'ENFERMEIRO (ART)'
+      WHEN 9995 THEN 'FARMACEUTICO (ART)'
+      WHEN 9994 THEN 'ANALISTA SI'
+      WHEN 104 THEN 'ANALISTA ADMINISTRATIVO'
+      WHEN 81 THEN 'MEDICO ESPECIALIDADES'
+      WHEN 45 THEN 'ASSISTENTE ADMINISTRATIVO'
+      WHEN 46 THEN 'ASSISTENTE DE COMUNICACAO'
+      WHEN 50 THEN 'AUXILIAR DE PROTESE DENTARIA'
+      WHEN 54 THEN 'BIOQUIMICO'
+      ELSE NULL
+    END,
+    ${cargoDimAlias}.cargo,
+    CONCAT('CARGO ID ', ${coluna})
+  )`;
+}
+
+// Monta a consulta de detalhe para um lado (reduzidas ou acrescidas) do remanejamento.
+function montarSqlDetalheLado(tabelaVaga, idColuna) {
+  return `
+    WITH
+    cargo_dim AS (
+      SELECT CAST(CARGO_ATUAL_ID AS UNSIGNED) AS id_cargo_funcao, MAX(CARGO_ATUAL_DESC) AS cargo
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VW_SAUDE_INDIGENA\`
+      GROUP BY CAST(CARGO_ATUAL_ID AS UNSIGNED)
+    ),
+    custo_dim AS (
+      SELECT c.ID_DSEI_CASAI, c.ID_VAGA, c.SALARIO_BASE, c.INSALUBRIDADE_PERICULOSIDADE,
+             c.GRATIFICACAO_RT, c.NOTURNO, c.ENCARGOS, c.PROVISOES
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\` c
+      JOIN (
+        SELECT ID_DSEI_CASAI, ID_VAGA, MAX(ID_CUSTO_GERAL_VAGA) AS max_id
+        FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.CUSTO_GERAL_VAGA_TABLE}\`
+        GROUP BY ID_DSEI_CASAI, ID_VAGA
+      ) ult ON ult.max_id = c.ID_CUSTO_GERAL_VAGA
+    )
+    SELECT
+      (13 - MONTH(p.DATA_INSERCAO)) AS n_meses,
+      ${montarCaseCargoSql("v.ID_VAGA", "cd")} AS cargo,
+      v.QTD AS qtd,
+      COALESCE(cu.SALARIO_BASE, 0) AS salario,
+      COALESCE(cu.INSALUBRIDADE_PERICULOSIDADE, 0) AS insal,
+      COALESCE(cu.GRATIFICACAO_RT, 0) AS grat,
+      COALESCE(cu.NOTURNO, 0) AS noturno,
+      COALESCE(cu.ENCARGOS, 0) AS encargos,
+      COALESCE(cu.PROVISOES, 0) AS provisoes
+    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` rel
+    JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.PROCESSO_REMANEJAMENTO_TABLE}\` p
+      ON p.ID_PROCESSO_REMANEJAMENTO = rel.ID_PROCESSO_REMANEJAMENTO
+    JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${tabelaVaga}\` v
+      ON v.${idColuna} = rel.${idColuna}
+    LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = v.ID_VAGA
+    LEFT JOIN custo_dim cu ON cu.ID_DSEI_CASAI = v.ID_DSEI_CASAI AND cu.ID_VAGA = v.ID_VAGA
+    WHERE rel.ID_PROCESSO_REMANEJAMENTO = ? AND rel.${idColuna} IS NOT NULL
+  `;
+}
+
+async function getRemanejamentoDetalheData(idProcesso) {
+  const id = converterNumeroDash(idProcesso);
+  if (!id) throw new Error("Remanejamento inválido.");
+
+  const sqlReduzidas = montarSqlDetalheLado(DASH_CONFIG.VAGA_REMANEJADA_TABLE, "ID_VAGA_REMANEJADA");
+  const sqlAcrescidas = montarSqlDetalheLado(DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE, "ID_REMANEJAMENTO_ACRESCIDO");
+
+  const conn = await getMysqlConnection();
+  try {
+    const [linhasRed] = await conn.query(sqlReduzidas, [id]);
+    const [linhasAcr] = await conn.query(sqlAcrescidas, [id]);
+
+    const meses = Math.max(1, Number((linhasRed[0] || linhasAcr[0] || {}).n_meses || mesesAteFimDoAno()));
+
+    const reduzidos = (linhasRed || []).map(l => montarItemDetalheRemanejamento(l, meses));
+    const acrescentados = (linhasAcr || []).map(l => montarItemDetalheRemanejamento(l, meses));
+
+    const totalReduzidoMensal = reduzidos.reduce((s, i) => s + i.mensal, 0);
+    const totalAcrescentadoMensal = acrescentados.reduce((s, i) => s + i.mensal, 0);
+
+    return {
+      idProcesso: id,
+      meses,
+      reduzidos,
+      acrescentados,
+      totalReduzidoMensal,
+      totalAcrescentadoMensal,
+      totalReduzidoPeriodo: totalReduzidoMensal * meses,
+      totalAcrescentadoPeriodo: totalAcrescentadoMensal * meses,
+      impactoMensal: totalAcrescentadoMensal - totalReduzidoMensal,
+      impactoPeriodo: (totalAcrescentadoMensal - totalReduzidoMensal) * meses
+    };
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+function montarItemDetalheRemanejamento(linha, meses) {
+  const quantidade = converterNumeroDash(linha.qtd);
+  const salario = converterNumeroDash(linha.salario) * quantidade;
+  const insalubridade = converterNumeroDash(linha.insal) * quantidade;
+  const gratificacaoRt = converterNumeroDash(linha.grat) * quantidade;
+  const noturno = converterNumeroDash(linha.noturno) * quantidade;
+  const encargos = converterNumeroDash(linha.encargos) * quantidade;
+  const provisoes = converterNumeroDash(linha.provisoes) * quantidade;
+  const mensal = salario + insalubridade + gratificacaoRt + noturno + encargos + provisoes;
+
+  return {
+    cargo: limparValorDash(linha.cargo),
+    quantidade,
+    meses,
+    salario,
+    insalubridade,
+    gratificacaoRt,
+    noturno,
+    encargos,
+    provisoes,
+    mensal,
+    periodo: mensal * meses
+  };
+}
+
 function montarResumoDashboard(rows, totaisMonitoramento) {
   rows = rows || [];
 
   const indicadores = calcularIndicadoresServidor(rows, totaisMonitoramento);
   const topCargos = topAgrupadoServidor(rows, row => row.cargo, row => Number(row.quantitativoPlano || 0), 5);
   const topDseiVagas = topAgrupadoServidor(rows, row => row.dseiCasai, row => Number(row.quantitativoPlano || 0), 5);
-  const topDseiOciosas = topAgrupadoServidor(rows, row => row.dseiCasai, row => Math.max(0, calcularOciosasServidor(row)), 5);
-  const topCargoOciosas = topAgrupadoServidor(rows, row => row.cargo, row => Math.max(0, calcularOciosasServidor(row)), 5);
+  const topDseiOciosas = topAgrupadoServidor(rows, row => row.dseiCasai, row => calcularOciosasServidor(row), 5);
+  const topCargoOciosas = topAgrupadoServidor(rows, row => row.cargo, row => calcularOciosasServidor(row), 5);
   const topIndigenasCargo = topAgrupadoServidor(rows, row => row.cargo, row => Number(row.profissionaisIndigenasCargo || row.contratadosIndigenas || 0), 8);
 
   return {
@@ -1139,8 +1743,15 @@ function obterUltimaAtualizacaoDash(rows) {
 }
 
 async function fecharJdbc(resource) {
-  if (!resource || typeof resource.end !== "function") return;
-  await resource.end();
+  if (!resource) return;
+  // Conexões obtidas do pool devem ser devolvidas (release), não encerradas (end).
+  if (typeof resource.release === "function") {
+    try { resource.release(); } catch (e) {}
+    return;
+  }
+  if (typeof resource.end === "function") {
+    await resource.end();
+  }
 }
 
 function getBackgroundPainelUrl() {
@@ -1159,9 +1770,56 @@ function getLogoAgsusUrl() {
   return DASH_CONFIG.LOGO_AGSUS_FILE;
 }
 
+function getMysqlPool() {
+  if (!mysqlPool) {
+    const config = getMysqlConfig();
+    mysqlPool = mysql.createPool({
+      ...config,
+      waitForConnections: true,
+      connectionLimit: Number(process.env.MYSQL_POOL_LIMIT || 5),
+      maxIdle: Number(process.env.MYSQL_POOL_LIMIT || 5),
+      idleTimeout: 60000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
+      connectTimeout: Number(process.env.MYSQL_CONNECT_TIMEOUT || 20000)
+    });
+  }
+  return mysqlPool;
+}
+
+const ERROS_CONEXAO_TRANSITORIOS = new Set([
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "PROTOCOL_CONNECTION_LOST",
+  "EPIPE"
+]);
+
+function aguardar(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Obtém uma conexão do pool, com novas tentativas em falhas transitórias de rede
+// (ex.: ETIMEDOUT no MySQL remoto), evitando que um soluço de conexão derrube a requisição.
 async function getMysqlConnection() {
-  const config = getMysqlConfig();
-  return mysql.createConnection(config);
+  const pool = getMysqlPool();
+  const tentativas = Number(process.env.MYSQL_CONNECT_RETRIES || 2);
+  let ultimoErro = null;
+
+  for (let i = 0; i <= tentativas; i += 1) {
+    try {
+      return await pool.getConnection();
+    } catch (err) {
+      ultimoErro = err;
+      const code = err && err.code ? err.code : "";
+      if (!ERROS_CONEXAO_TRANSITORIOS.has(code) || i === tentativas) {
+        throw err;
+      }
+      await aguardar(400 * (i + 1));
+    }
+  }
+
+  throw ultimoErro;
 }
 
 function getMysqlConfig() {
