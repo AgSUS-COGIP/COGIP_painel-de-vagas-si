@@ -2630,20 +2630,21 @@
     }
 
     function calcularOciosas(row) {
-      // Vagas ociosas nunca são negativas: um valor negativo significa excedente
-      // (tratado no card de excedentes), então é zerado aqui para não poluir os quadros.
+      // A coluna "Vagas Ociosas (Déficit Operacional)" da tabela de Vagas PODE ser
+      // negativa (excedente). Os demais quadros (distribuição/processo seletivo) zeram
+      // os negativos por conta própria em montarLinhaDistribuicaoBase.
       if (row && row.vagasOciosas !== null && row.vagasOciosas !== undefined && row.vagasOciosas !== "") {
-        return Math.max(0, Number(row.vagasOciosas || 0));
+        return Number(row.vagasOciosas || 0);
       }
 
       if (row && row.ociosas !== null && row.ociosas !== undefined && row.ociosas !== "") {
-        return Math.max(0, Number(row.ociosas || 0));
+        return Number(row.ociosas || 0);
       }
 
       const vagas = Number(row.quantitativoPlano || 0);
       const contratados = Number(row.totalContratados || 0);
       const afastados = Number(row.afastados || 0);
-      return Math.max(0, vagas - contratados + afastados);
+      return vagas - contratados + afastados;
     }
 
     function calcularPreenchimento(vagas, ociosas) {
