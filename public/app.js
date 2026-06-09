@@ -532,6 +532,37 @@
         });
     }
 
+    // Recarrega todos os dados do painel buscando do banco (limpa o cache do servidor antes).
+    // Usado pelo botão "Atualizar dados" e após salvar um remanejamento.
+    async function recarregarTodosOsDados(botao) {
+      const btn = botao || document.getElementById("refreshBtn");
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add("refreshBtnLoading");
+      }
+
+      try {
+        // Garante leitura fresca do banco (monitoramento, vagas ociosas, lista, etc.).
+        await apiPost("/api/cache/clear", {}).catch(() => {});
+
+        const resumo = await apiGet("/api/dashboard/resumo").catch(() => null);
+        if (resumo) renderResumoInicial(resumo);
+
+        // Força o recarregamento de todas as páginas (carregadas ou não).
+        carregarVagasEmSegundoPlano(true);
+        carregarAlertasEmSegundoPlano(true);
+        carregarRemanejamentoListaEmSegundoPlano(true);
+        carregarRemanejamentoCadastroEmSegundoPlano(true);
+      } catch (error) {
+        console.error("Falha ao atualizar os dados do painel:", error);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove("refreshBtnLoading");
+        }
+      }
+    }
+
     function iniciarCarregamentoPaginasEmSegundoPlano() {
       if (backgroundLoadStarted) return;
       backgroundLoadStarted = true;
@@ -539,6 +570,9 @@
     }
 
     function recarregarPaginasEmSegundoPlano() {
+      // Carrega a base completa de Vagas já no início para que a Visão Geral possa
+      // filtrar os dados desde a primeira tela (sem precisar abrir a aba Vagas antes).
+      carregarVagasEmSegundoPlano();
       carregarAlertasEmSegundoPlano();
       carregarRemanejamentoListaEmSegundoPlano();
       carregarRemanejamentoCadastroEmSegundoPlano();
@@ -654,10 +688,12 @@
       const tbody = document.getElementById("vagasBody");
       const pagination = document.getElementById("vagasPagination");
       const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
+      const processoSeletivoBody = document.getElementById("processoSeletivoBody");
 
       if (!pageLoadState.vagas) {
         if (tbody) tbody.innerHTML = '<tr><td colspan="9">Carregando dados da aba Vagas...</td></tr>';
         if (distribuicaoBody) distribuicaoBody.innerHTML = '<tr><td colspan="4">Carregando distribuição de vagas ociosas...</td></tr>';
+        if (processoSeletivoBody) processoSeletivoBody.innerHTML = '<tr><td colspan="4">Carregando vagas para processo seletivo...</td></tr>';
         if (pagination) pagination.innerHTML = "";
         return;
       }
@@ -665,6 +701,7 @@
       vagasRows = montarVagas(filtrarRowsBase(vagasBaseRows));
       renderVagasTable(vagasRows);
       renderDistribuicaoVagasOciosas(vagasRows);
+      renderProcessoSeletivo(vagasRows);
     }
 
     function renderAlertasDaPagina() {
@@ -691,6 +728,8 @@
       if (tbody) tbody.innerHTML = `<tr><td colspan="9">Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
       const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
       if (distribuicaoBody) distribuicaoBody.innerHTML = `<tr><td colspan="4">Erro ao carregar distribuição: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+      const processoSeletivoBody = document.getElementById("processoSeletivoBody");
+      if (processoSeletivoBody) processoSeletivoBody.innerHTML = `<tr><td colspan="4">Erro ao carregar processo seletivo: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
     }
 
     function renderAlertasErro(error) {
@@ -2000,21 +2039,30 @@
     }
 
     function montarLinhaDistribuicaoBase(row) {
-      const vagasOciosas = Number(row.ociosas ?? calcularOciosas(row) ?? 0);
-      const substituicoesContratadas = Number(row.contratadosSubstituicao || 0);
-      const substituicaoTabela = Number(row.afastados || 0) - substituicoesContratadas;
-      let normalTemporario = 0;
-      if ((vagasOciosas - substituicaoTabela) > vagasOciosas) {
-        normalTemporario = vagasOciosas;
-      }
-      else {
-        normalTemporario = vagasOciosas - substituicaoTabela;
-      }
+      // Zera negativos ANTES de qualquer cálculo, para que as subtrações não gerem
+      // valores negativos nem somas maiores que as vagas ociosas.
+      const vagasOciosas = Math.max(0, Number(row.ociosas ?? calcularOciosas(row) ?? 0));
+      const afastados = Math.max(0, Number(row.afastados || 0));
+      const substituicoesContratadas = Math.max(0, Number(row.contratadosSubstituicao || 0));
+      const contratadosTemporario = Math.max(0, Number(row.contratadosTemporario || 0));
+
+      // Vagas de substituição = afastados ainda não cobertos, limitadas às vagas ociosas
+      // (substituição + normal/temporário nunca pode superar as vagas ociosas).
+      let substituicaoTabela = Math.max(0, afastados - substituicoesContratadas);
+      substituicaoTabela = Math.min(substituicaoTabela, vagasOciosas);
+
+      // Normal/Temporário = o restante das vagas ociosas após a substituição.
+      const normalTemporario = Math.max(0, vagasOciosas - substituicaoTabela);
+
+      // Vagas para processo seletivo = normais/temporárias ociosas + temporárias do quadro geral.
+      const processoSeletivo = normalTemporario + contratadosTemporario;
 
       return {
         vagasOciosas,
         substituicaoTabela,
-        normalTemporario
+        normalTemporario,
+        contratadosTemporario,
+        processoSeletivo
       };
     }
 
@@ -2093,6 +2141,112 @@
           <td>${formatNumber(total.vagasOciosas)}</td>
           <td>${formatNumber(total.substituicaoTabela)}</td>
           <td>${formatNumber(total.normalTemporario)}</td>
+        </tr>
+      `;
+    }
+
+    function atualizarCabecalhoProcessoSeletivo() {
+      const header = document.getElementById("processoSeletivoHeaderRow");
+      const colgroup = document.getElementById("processoSeletivoColGroup");
+      const descricao = document.getElementById("processoSeletivoDescricao");
+      if (!header || !colgroup) return;
+
+      if (vagasViewAtual === "detalhado") {
+        colgroup.innerHTML = `
+          <col style="width: 24%;">
+          <col style="width: 28%;">
+          <col style="width: 16%;">
+          <col style="width: 16%;">
+          <col style="width: 16%;">
+        `;
+        header.innerHTML = `
+          <th>DSEI/CASAI</th>
+          <th>Cargo</th>
+          <th>Normal/Temporário (Ociosas)</th>
+          <th>Temporárias (Quadro Geral)</th>
+          <th>Total Processo Seletivo</th>
+        `;
+        if (descricao) descricao.textContent = "Vagas para processo seletivo por DSEI/CASAI e cargo nos filtros selecionados.";
+        return;
+      }
+
+      const primeiraColuna = vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
+      colgroup.innerHTML = `
+        <col style="width: 40%;">
+        <col style="width: 20%;">
+        <col style="width: 20%;">
+        <col style="width: 20%;">
+      `;
+      header.innerHTML = `
+        <th>${primeiraColuna}</th>
+        <th>Normal/Temporário (Ociosas)</th>
+        <th>Temporárias (Quadro Geral)</th>
+        <th>Total Processo Seletivo</th>
+      `;
+      if (descricao) {
+        descricao.textContent = vagasViewAtual === "cargo"
+          ? "Vagas para processo seletivo por cargo nos filtros selecionados."
+          : "Vagas para processo seletivo por DSEI/CASAI nos filtros selecionados.";
+      }
+    }
+
+    function renderProcessoSeletivo(rows) {
+      const tbody = document.getElementById("processoSeletivoBody");
+      if (!tbody) return;
+
+      atualizarCabecalhoProcessoSeletivo();
+      const linhas = montarDistribuicaoVagasOciosas(rows).filter(item => {
+        return Number(item.normalTemporario || 0) !== 0 ||
+          Number(item.contratadosTemporario || 0) !== 0 ||
+          Number(item.processoSeletivo || 0) !== 0;
+      });
+
+      const totalColunas = vagasViewAtual === "detalhado" ? 5 : 4;
+      if (!linhas.length) {
+        tbody.innerHTML = `<tr><td colspan="${totalColunas}" class="remanejamentoEmpty">Sem dados para os filtros selecionados.</td></tr>`;
+        return;
+      }
+
+      const total = linhas.reduce((acc, row) => {
+        acc.normalTemporario += Number(row.normalTemporario || 0);
+        acc.contratadosTemporario += Number(row.contratadosTemporario || 0);
+        acc.processoSeletivo += Number(row.processoSeletivo || 0);
+        return acc;
+      }, { normalTemporario: 0, contratadosTemporario: 0, processoSeletivo: 0 });
+
+      if (vagasViewAtual === "detalhado") {
+        tbody.innerHTML = linhas.map(row => `
+          <tr>
+            <td>${escapeHtml(row.dseiCasai)}</td>
+            <td>${escapeHtml(row.cargo)}</td>
+            <td>${formatNumber(row.normalTemporario)}</td>
+            <td>${formatNumber(row.contratadosTemporario)}</td>
+            <td>${formatNumber(row.processoSeletivo)}</td>
+          </tr>
+        `).join("") + `
+          <tr class="totalRow">
+            <td colspan="2">TOTAL</td>
+            <td>${formatNumber(total.normalTemporario)}</td>
+            <td>${formatNumber(total.contratadosTemporario)}</td>
+            <td>${formatNumber(total.processoSeletivo)}</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = linhas.map(row => `
+        <tr>
+          <td>${escapeHtml(row.label)}</td>
+          <td>${formatNumber(row.normalTemporario)}</td>
+          <td>${formatNumber(row.contratadosTemporario)}</td>
+          <td>${formatNumber(row.processoSeletivo)}</td>
+        </tr>
+      `).join("") + `
+        <tr class="totalRow">
+          <td>TOTAL</td>
+          <td>${formatNumber(total.normalTemporario)}</td>
+          <td>${formatNumber(total.contratadosTemporario)}</td>
+          <td>${formatNumber(total.processoSeletivo)}</td>
         </tr>
       `;
     }
@@ -2476,18 +2630,20 @@
     }
 
     function calcularOciosas(row) {
+      // Vagas ociosas nunca são negativas: um valor negativo significa excedente
+      // (tratado no card de excedentes), então é zerado aqui para não poluir os quadros.
       if (row && row.vagasOciosas !== null && row.vagasOciosas !== undefined && row.vagasOciosas !== "") {
-        return Number(row.vagasOciosas || 0);
+        return Math.max(0, Number(row.vagasOciosas || 0));
       }
 
       if (row && row.ociosas !== null && row.ociosas !== undefined && row.ociosas !== "") {
-        return Number(row.ociosas || 0);
+        return Math.max(0, Number(row.ociosas || 0));
       }
 
       const vagas = Number(row.quantitativoPlano || 0);
       const contratados = Number(row.totalContratados || 0);
       const afastados = Number(row.afastados || 0);
-      return vagas - contratados + afastados;
+      return Math.max(0, vagas - contratados + afastados);
     }
 
     function calcularPreenchimento(vagas, ociosas) {
@@ -2564,6 +2720,45 @@
       );
 
       baixarCsv("distribuicao_vagas_ociosas", rows, false);
+    }
+
+    function exportarProcessoSeletivo() {
+      // Exporta a tabela "Vagas para Processo Seletivo" conforme a visualização ativa
+      // e respeitando os filtros superiores DSEI/CASAI e Cargo.
+      const linhasBase = obterRowsVagasPorVisualizacao(vagasRows);
+      let rows;
+
+      if (vagasViewAtual === "detalhado") {
+        rows = linhasBase.map(row => {
+          const base = montarLinhaDistribuicaoBase(row);
+          return {
+            "DSEI/CASAI": row.dseiCasai || "Não informado",
+            "Cargo": row.cargo || "Não informado",
+            "Normal/Temporário (Ociosas)": base.normalTemporario,
+            "Temporárias (Quadro Geral)": base.contratadosTemporario,
+            "Total Processo Seletivo": base.processoSeletivo
+          };
+        });
+      } else {
+        const primeiraColuna = vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
+        rows = linhasBase.map(row => {
+          const base = montarLinhaDistribuicaoBase(row);
+          return {
+            [primeiraColuna]: row.label || "Não informado",
+            "Normal/Temporário (Ociosas)": base.normalTemporario,
+            "Temporárias (Quadro Geral)": base.contratadosTemporario,
+            "Total Processo Seletivo": base.processoSeletivo
+          };
+        });
+      }
+
+      rows = rows.filter(item =>
+        Number(item["Normal/Temporário (Ociosas)"] || 0) !== 0 ||
+        Number(item["Temporárias (Quadro Geral)"] || 0) !== 0 ||
+        Number(item["Total Processo Seletivo"] || 0) !== 0
+      );
+
+      baixarCsv("vagas_processo_seletivo", rows, false);
     }
 
     function exportarAlertas() {
@@ -2990,8 +3185,9 @@
 
         delete detalhesRemanejamentoCache[idProcesso];
         alert("Remanejamento excluído com sucesso.");
-        pageLoadState.remanejamentoLista = false;
-        carregarRemanejamentoListaEmSegundoPlano(true);
+        // Atualiza todos os dados afetados pela exclusão (vagas ociosas voltam ao saldo,
+        // monitoramento, alertas, visão geral e a própria lista).
+        recarregarTodosOsDados();
       } catch (error) {
         alert(`Erro ao excluir remanejamento: ${error && error.message ? error.message : error}`);
       }
@@ -3039,6 +3235,33 @@
           ? `Anexo selecionado: <strong>${escapeHtml(anexoNome)}</strong>.`
           : "Clique ou arraste o arquivo para enviar. PDF até 10MB.";
       }
+
+      atualizarAvisoOciosasRemanejamento();
+    }
+
+    // Mostra/oculta a notificação visual de vagas ociosas e habilita/desabilita o botão Salvar.
+    function atualizarAvisoOciosasRemanejamento() {
+      const erros = validarOciosasReduzidoCliente();
+      const aviso = document.getElementById("remOciosasAviso");
+      const botao = document.getElementById("remSaveBtn");
+
+      if (aviso) {
+        if (erros.length) {
+          aviso.hidden = false;
+          aviso.innerHTML = `⚠ <strong>Não é possível salvar:</strong> não há vagas ociosas suficientes para reduzir — ${erros.map(escapeHtml).join("; ")}.`;
+        } else {
+          aviso.hidden = true;
+          aviso.innerHTML = "";
+        }
+      }
+
+      if (botao) {
+        botao.disabled = erros.length > 0;
+        botao.classList.toggle("remSaveBtnBloqueado", erros.length > 0);
+        botao.title = erros.length ? "Ajuste as quantidades reduzidas: não há vagas ociosas suficientes." : "";
+      }
+
+      return erros;
     }
 
     function obterRemanejamentoCadastroSelecionado() {
@@ -3078,6 +3301,7 @@
         idCargoFuncao: valores?.idCargoFuncao || "",
         cargo: valores?.cargo || "",
         quantidade: Number(valores?.quantidade || 1),
+        vagasOciosas: Number(valores?.vagasOciosas || 0),
         meses: mesesAteFimDoAno(),
         salarioBase: Number(valores?.salarioBase || 0),
         insalubridadePericulosidade: Number(valores?.insalubridadePericulosidade || 0),
@@ -3112,6 +3336,7 @@
         const cadastro = obterCadastroCargoRemanejamento(valor);
         linha.idCargoFuncao = valor;
         linha.cargo = cadastro?.cargo || "";
+        linha.vagasOciosas = Number(cadastro?.vagasOciosas || 0);
         linha.salarioBase = Number(cadastro?.salarioBase || 0);
         linha.insalubridadePericulosidade = Number(cadastro?.insalubridadePericulosidade || 0);
         linha.gratificacaoRt = Number(cadastro?.gratificacaoRt || 0);
@@ -3138,9 +3363,26 @@
 
       body.innerHTML = rows.map(row => {
         const total = calcularTotalLinhaRemanejamento(row);
+        const selectHtml = `<select onchange="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','idCargoFuncao',this.value)">${optionsHtml.replace(`value="${escapeAttr(row.idCargoFuncao)}"`, `value="${escapeAttr(row.idCargoFuncao)}" selected`)}</select>`;
+
+        // Apenas para o lado reduzido: exibe vagas ociosas disponíveis e sinaliza quando falta.
+        let infoOciosas = "";
+        let classeLinha = "";
+        if (tipo === "reduzido" && row.idCargoFuncao) {
+          const ociosas = Math.max(0, Math.floor(Number(row.vagasOciosas || 0)));
+          const solicitado = Math.max(0, Number(row.quantidade || 0));
+          const excede = solicitado > ociosas;
+          classeLinha = excede ? ' class="remLinhaInvalida"' : "";
+          infoOciosas = `<div class="remOciosasInfo ${excede ? "remOciosasInfoErro" : ""}">${
+            excede
+              ? `⚠ Sem vaga ociosa suficiente: ${ociosas} disponível(is)`
+              : `Vagas ociosas disponíveis: ${ociosas}`
+          }</div>`;
+        }
+
         return `
-          <tr>
-            <td><select onchange="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','idCargoFuncao',this.value)">${optionsHtml.replace(`value="${escapeAttr(row.idCargoFuncao)}"`, `value="${escapeAttr(row.idCargoFuncao)}" selected`)}</select></td>
+          <tr${classeLinha}>
+            <td>${selectHtml}${infoOciosas}</td>
             <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','quantidade',this.value)"></td>
             <td><span class="remMesesValor" title="Meses do mês atual até dezembro (calculado automaticamente).">${escapeHtml(row.meses)}</span></td>
             <td><strong>${formatCurrency(total.total)}</strong></td>
@@ -3148,6 +3390,24 @@
           </tr>
         `;
       }).join("");
+    }
+
+    // Verifica, no cliente, se há vagas ociosas suficientes para os cargos reduzidos.
+    // Agrega por cargo (ID), pois várias linhas podem apontar para o mesmo cargo.
+    function validarOciosasReduzidoCliente() {
+      const porCargo = {};
+      (remanejamentoLinhas.reduzido || []).forEach(linha => {
+        if (!linha.idCargoFuncao) return;
+        const id = String(linha.idCargoFuncao);
+        if (!porCargo[id]) {
+          porCargo[id] = { cargo: linha.cargo || `Cargo ${id}`, ociosas: Math.max(0, Math.floor(Number(linha.vagasOciosas || 0))), solicitado: 0 };
+        }
+        porCargo[id].solicitado += Math.max(0, Number(linha.quantidade || 0));
+      });
+
+      return Object.values(porCargo)
+        .filter(item => item.solicitado > item.ociosas)
+        .map(item => `${item.cargo}: ${item.ociosas} vaga(s) ociosa(s), solicitado ${item.solicitado}`);
     }
 
     function calcularTotalLinhaRemanejamento(row) {
@@ -3294,6 +3554,12 @@
         return;
       }
 
+      const errosOciosas = atualizarAvisoOciosasRemanejamento();
+      if (errosOciosas.length) {
+        alert(`Não é possível salvar: não há vagas ociosas suficientes para reduzir — ${errosOciosas.join("; ")}.`);
+        return;
+      }
+
       const resumo = atualizarResumoRemanejamentoPainel();
       if (resumo && (Number(resumo.impactoMensal || 0) > 0 || Number(resumo.impactoPeriodo || 0) > 0)) {
         alert("Remanejamento bloqueado: o impacto financeiro está positivo (aumento de custo). Ajuste os cargos para que o impacto fique zerado ou negativo.");
@@ -3320,8 +3586,9 @@
 
         alert("Remanejamento salvo com sucesso.");
         limparFormularioRemanejamento();
-        pageLoadState.remanejamentoLista = false;
-        carregarRemanejamentoListaEmSegundoPlano(true);
+        // Atualiza todos os dados afetados: lista de remanejamentos, vagas ociosas do
+        // formulário, monitoramento, alertas e visão geral.
+        recarregarTodosOsDados();
       } catch (error) {
         alert(`Erro ao salvar remanejamento: ${error && error.message ? error.message : error}`);
       }

@@ -134,6 +134,11 @@
             <span>Limpar Filtros</span>
           </button>
 
+          <button type="button" class="refreshBtn" id="refreshBtn" onclick="recarregarTodosOsDados(this)" title="Buscar os dados mais recentes do banco">
+            <span class="refreshBtnIcon">&#8635;</span>
+            <span>Atualizar dados</span>
+          </button>
+
           <div class="updateLine">&#8635; Última atualização: <span id="updatedAt">-</span></div>
         </div>
       </header>
@@ -401,6 +406,36 @@
               </table>
             </div>
           </section>
+
+          <section class="distribuicaoSection">
+            <div class="pageHeader distribuicaoHeader">
+              <div>
+                <h3 class="pageTitle">Vagas para Processo Seletivo</h3>
+                <div id="processoSeletivoDescricao" class="pageSub">Consolidado das vagas normais/temporárias ociosas somadas às vagas temporárias do quadro geral, por DSEI/CASAI.</div>
+              </div>
+              <div class="exportActions"><button type="button" class="exportBtn" onclick="exportarProcessoSeletivo()">Exportar processo seletivo</button></div>
+            </div>
+
+            <div class="fullTableWrap distribuicaoWrap">
+              <table class="fullTable distribuicaoTable">
+                <colgroup id="processoSeletivoColGroup">
+                  <col style="width: 40%;">
+                  <col style="width: 20%;">
+                  <col style="width: 20%;">
+                  <col style="width: 20%;">
+                </colgroup>
+                <thead>
+                  <tr id="processoSeletivoHeaderRow">
+                    <th>DSEI/CASAI</th>
+                    <th>Normal/Temporário (Ociosas)</th>
+                    <th>Temporárias (Quadro Geral)</th>
+                    <th>Total Processo Seletivo</th>
+                  </tr>
+                </thead>
+                <tbody id="processoSeletivoBody"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <section id="view-alertas" class="viewPanel tableView">
@@ -587,6 +622,7 @@
                   <h3>2. O QUE ESTÁ SENDO REDUZIDO</h3>
                   <button type="button" class="remAddBtn" onclick="adicionarLinhaRemanejamento('reduzido')">+ Adicionar Cargo</button>
                 </div>
+                <div id="remOciosasAviso" class="remOciosasAviso" hidden></div>
                 <div class="remTableWrap">
                   <table class="remTable remTableFinanceira">
                     <thead>

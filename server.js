@@ -20,8 +20,8 @@ const DASH_CONFIG = {
   BACKGROUND_FILE: "/assets/images/planodefundo.png",
   LOGO_COORDENACAO_FILE: "/assets/images/Logo%20COGIP.png",
   IMAGEM_INDIGENA_PAINEL_FILE: "/assets/images/upscalemedia-transformed.png",
-  DASHBOARD_SAUDE_INDIGENA_URL: "https://datastudio.google.com/embed/reporting/19d10a18-1ed1-4e5f-87bf-6bb87c21b234/page/p_d9w2owdmfd",
-  DASHBOARD_FERIAS_URL: "",
+  DASHBOARD_SAUDE_INDIGENA_URL: process.env.DASHBOARD_SAUDE_INDIGENA_URL || "",
+  DASHBOARD_FERIAS_URL: process.env.DASHBOARD_FERIAS_URL || "",
   DB_SCHEMA: process.env.DB_SCHEMA || "u226895969_ugp",
   MONITORAMENTO_VIEW: process.env.MONITORAMENTO_VIEW || "VW_MONITORAMENTO_VAGAS_SAUDE_INDIGENA",
   ALERTAS_OBSERVACOES_TABLE: process.env.ALERTAS_OBSERVACOES_TABLE || "ALERTAS_OBSERVACOES",
@@ -234,7 +234,8 @@ const DASH_SQL = {
         COALESCE(cgv.NOTURNO, 0) +
         COALESCE(cgv.ENCARGOS, 0) +
         COALESCE(cgv.PROVISOES, 0)
-      ) AS valor_mensal
+      ) AS valor_mensal,
+      COALESCE(oci.vagas_ociosas, 0) AS vagas_ociosas
     FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`VAGAS_PREVISTAS\` vp
     LEFT JOIN dsei_dim dd
       ON dd.id_dsei_casai = vp.id_dsei_casai
@@ -242,6 +243,16 @@ const DASH_SQL = {
       ON cd.id_cargo_funcao = vp.id_cargo_funcao
     LEFT JOIN custo_dim cgv
       ON cgv.ID_DSEI_CASAI = vp.id_dsei_casai AND cgv.ID_VAGA = vp.id_cargo_funcao
+    LEFT JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MONITORAMENTO_VIEW}\` oci
+      ON oci.id_dsei_casai = vp.id_dsei_casai
+     AND oci.id_cargo_funcao = (
+       CASE
+         WHEN vp.id_cargo_funcao IN (28, 29, 30, 104) THEN 104
+         WHEN vp.id_cargo_funcao IN (77, 78, 79, 80, 81) THEN 81
+         WHEN vp.id_cargo_funcao IN (102, 45) THEN 45
+         ELSE vp.id_cargo_funcao
+       END
+     )
     ORDER BY dsei_casai, cargo
   `
 };
@@ -1015,7 +1026,8 @@ function mapRemanejamentoCadastroRow(row) {
     adicionalNoturno,
     encargos,
     provisoes,
-    valorMensal
+    valorMensal,
+    vagasOciosas: converterNumeroDash(row.vagas_ociosas)
   };
 }
 
