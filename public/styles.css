@@ -4902,11 +4902,11 @@
     }
 
     #view-visaoGeral .overviewChartsGrid {
-      grid-template-columns: minmax(420px, 1.12fr) minmax(300px, .78fr) minmax(420px, 1fr) !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
 
     #view-visaoGeral .overviewBottomGrid {
-      grid-template-columns: minmax(330px, .88fr) minmax(350px, .92fr) minmax(430px, 1.08fr) !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
 
     #view-visaoGeral .panel {
@@ -5502,7 +5502,8 @@
 }
 
 .remTableFinanceira {
-  min-width: 1180px;
+  min-width: 0;
+  width: 100%;
   table-layout: fixed;
 }
 
@@ -5795,4 +5796,178 @@
 
 .sidebarLogoutBtn:hover {
   background: rgba(255, 255, 255, .22);
+}
+
+/* Notificação visual de vagas ociosas (remanejamento) */
+.remOciosasAviso {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fdecea;
+  border: 1px solid #f5c2c0;
+  color: #a32019;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.remOciosasInfo {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #5b6b7b;
+}
+
+.remOciosasInfoErro {
+  color: #a32019;
+  font-weight: 600;
+}
+
+.remLinhaInvalida td {
+  background: #fdecea;
+}
+
+.remSaveBtnBloqueado,
+.remSaveBtn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: grayscale(.3);
+}
+
+/* Colunas mais estreitas nas tabelas de redução/acréscimo (Cargo ocupa o restante) */
+.remTableFinanceira { table-layout: fixed; width: 100%; }
+.remTableFinanceira th:nth-child(1),
+.remTableFinanceira td:nth-child(1) { width: auto; }
+.remTableFinanceira th:nth-child(2),
+.remTableFinanceira td:nth-child(2) { width: 90px; }   /* Quantidade */
+.remTableFinanceira th:nth-child(3),
+.remTableFinanceira td:nth-child(3) { width: 80px; text-align: center; }  /* Nº de Meses */
+.remTableFinanceira th:nth-child(4),
+.remTableFinanceira td:nth-child(4) { width: 110px; text-align: right; }  /* Total */
+.remTableFinanceira th:nth-child(5),
+.remTableFinanceira td:nth-child(5) { width: 56px; text-align: center; }  /* Ações */
+.remTableFinanceira td:nth-child(2) input { width: 100%; box-sizing: border-box; }
+
+/* Botão "Atualizar dados" no cabeçalho */
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #0053a6;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s ease, opacity .2s ease;
+}
+
+.refreshBtn:hover {
+  background: #00427f;
+}
+
+.refreshBtn:disabled,
+.refreshBtnLoading {
+  opacity: .65;
+  cursor: progress;
+}
+
+.refreshBtnIcon {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.refreshBtnLoading .refreshBtnIcon {
+  animation: refreshSpin .8s linear infinite;
+}
+
+@keyframes refreshSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* =========================================================
+   VISÃO GERAL EM PÁGINA ÚNICA (sem rolagem)
+   Distribui as duas faixas de gráficos no espaço vertical livre e
+   faz cada gráfico encolher/crescer junto com a tela. Aplica-se a
+   qualquer resolução de desktop/notebook (>= 1000px de largura);
+   abaixo disso o painel volta a rolar, pois caber tudo numa tela
+   muito pequena tornaria os gráficos ilegíveis.
+========================================================= */
+@media (min-width: 1000px) {
+  /* Visão Geral não rola: ocupa exatamente a altura disponível */
+  .main:not(.view-scroll) {
+    overflow: hidden !important;
+  }
+
+  .main:not(.view-scroll) .content {
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  #view-visaoGeral.viewPanel.active {
+    display: block !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Linhas: KPIs (auto), barra (auto), e as DUAS faixas de gráficos
+     dividindo o restante igualmente */
+  #view-visaoGeral .onePageDashboard {
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: clamp(6px, 1.1vh, 12px) !important;
+    align-content: stretch !important;
+  }
+
+  /* Sempre 3 colunas iguais em cada faixa, para que cada faixa seja
+     exatamente uma linha visual (condição para caber em uma tela) */
+  #view-visaoGeral .overviewChartsGrid,
+  #view-visaoGeral .overviewBottomGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    min-height: 0 !important;
+    align-items: stretch !important;
+  }
+
+  /* Cada cartão preenche a altura da sua linha */
+  #view-visaoGeral .panel {
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Cartões simples (título + gráfico): título no topo, gráfico ocupa o resto */
+  #view-visaoGeral .panel:not(.panelPreenchimento):not(.panelTipo) {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  /* Cartões com legenda lateral mantêm as colunas; a linha do gráfico encolhe */
+  #view-visaoGeral .panelPreenchimento,
+  #view-visaoGeral .panelTipo {
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  /* Gráficos preenchem o espaço disponível (substitui as alturas fixas) */
+  #view-visaoGeral .panelCategoria .chartBox.tall,
+  #view-visaoGeral .panelTipo .chartBox.tipoGrande,
+  #view-visaoGeral .chartBox.smallDonut,
+  #view-visaoGeral .chartBox.compactBar,
+  #view-visaoGeral .chartBox.coverageDonut,
+  #view-visaoGeral .chartBox {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  #view-visaoGeral .rankingBars {
+    min-height: 0 !important;
+  }
+
+  /* KPIs e barra de progresso ocupam só o necessário */
+  #view-visaoGeral .kpi {
+    min-height: 0 !important;
+  }
 }
