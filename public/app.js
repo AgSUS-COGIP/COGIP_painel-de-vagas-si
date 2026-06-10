@@ -2709,6 +2709,8 @@
     function renderAlertasKpis(data) {
       const temporarios = soma(data, "qtdTemporarioAtivo");
       const afastamentos = soma(data, "afastados");
+      const substituicoes = soma(data, "contratadosSubstituicao");
+      const afastamentosSemSubstituto = Math.max(0, afastamentos - substituicoes);
       // Fonte de verdade: colunas já calculadas na view (consolidação RT incluída).
       const rtExcedente = soma(data, "qtdVagasArtExcedentes");
       const excedentes = soma(data, "qtdVagasExcedentes");
@@ -2717,6 +2719,8 @@
       setText("alertaKpiAfastamentos", formatNumber(afastamentos));
       setText("alertaKpiRtExcedente", formatNumber(rtExcedente));
       setText("alertaKpiExcedentes", formatNumber(excedentes));
+      setText("alertaKpiAfastamentosSemSubstituto", formatNumber(afastamentosSemSubstituto));
+      setText(`alertaKpiAfastamentosSemSubstitutoSub`, `${formatNumber(afastamentosSemSubstituto)} de ${formatNumber(afastamentos)} afastamentos totais`);
     }
 
     function exportarPdf() {
