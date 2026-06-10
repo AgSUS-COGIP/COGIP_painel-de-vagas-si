@@ -158,6 +158,7 @@ import { escapeAttr, escapeHtml, formatNumber, normalizarTextoPainel } from "./u
 
       return `
         <div class="alertaObservacaoWrap">
+          <div class="alertaObservacaoTextoPrint">${escapeHtml(obs)}</div>
           <textarea class="alertaObservacaoInput" id="${idObservacaoAlerta(chave)}" placeholder="Digite uma justificativa ou observação">${escapeHtml(obs)}</textarea>
           <div class="alertaObservacaoActions">
             <button type="button" class="alertaObservacaoBtn" id="${idBotaoObservacaoAlerta(chave)}" data-click="salvar-obs" data-chave="${escapeAttr(chave)}">Salvar</button>
