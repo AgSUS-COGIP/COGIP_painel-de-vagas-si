@@ -63,7 +63,9 @@
     }
 
     export function cssEscapeAttr(valor) {
-      return String(valor ?? "").replace(/"/g, '\\"');
+      return String(valor ?? "")
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
     }
 
     export function mesesAteFimDoAno() {
