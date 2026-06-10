@@ -1,0 +1,374 @@
+    /* =========================================================
+       Ajusta somente encaixe, rolagem,
+       grids fluidos, filtros e legibilidade dos gráficos.
+    ========================================================= */
+
+    html,
+    body {
+      min-width: 0 !important;
+      overflow-x: hidden !important;
+    }
+
+    body {
+      overflow-y: auto !important;
+    }
+
+    .app,
+    .main,
+    .content,
+    .viewPanel,
+    .panel,
+    .kpi,
+    .fullTableWrap {
+      min-width: 0 !important;
+    }
+
+    .app {
+      width: 100% !important;
+      min-width: 0 !important;
+      min-height: 100vh !important;
+      grid-template-columns: clamp(208px, 13.8vw, 246px) minmax(0, 1fr) !important;
+    }
+
+    .main {
+      min-height: 0 !important;
+      overflow: hidden !important;
+    }
+
+    .content {
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 83, 166, .45) rgba(255, 255, 255, .45);
+    }
+
+    .content::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .content::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, .42);
+      border-radius: 999px;
+    }
+
+    .content::-webkit-scrollbar-thumb {
+      background: rgba(0, 83, 166, .42);
+      border-radius: 999px;
+    }
+
+    .top {
+      grid-template-columns: minmax(280px, 1fr) minmax(0, auto) !important;
+    }
+
+    .filtersBar {
+      max-width: 100% !important;
+      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) 112px !important;
+      justify-content: end !important;
+    }
+
+    .main.view-alertas-active .filtersBar {
+      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) minmax(170px, 220px) 112px !important;
+    }
+
+    #view-visaoGeral.viewPanel.active {
+      display: block !important;
+      min-height: 0 !important;
+    }
+
+    #view-visaoGeral .onePageDashboard {
+      height: auto !important;
+      min-height: 100% !important;
+      grid-template-rows: auto auto auto !important;
+      align-content: start !important;
+    }
+
+    #view-visaoGeral .kpiGrid {
+      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    }
+
+    #view-visaoGeral .kpi {
+      min-height: clamp(70px, 8.8vh, 92px) !important;
+    }
+
+    #view-visaoGeral .kpiLabel,
+    #view-visaoGeral .kpiSub {
+      overflow-wrap: anywhere !important;
+      word-break: normal !important;
+    }
+
+    #view-visaoGeral .overviewChartsGrid,
+    #view-visaoGeral .overviewBottomGrid {
+      width: 100% !important;
+      min-width: 0 !important;
+      align-items: stretch !important;
+    }
+
+    #view-visaoGeral .overviewChartsGrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    #view-visaoGeral .overviewBottomGrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    #view-visaoGeral .panel {
+      min-height: 0 !important;
+    }
+
+    .chartBox,
+    .chartBox canvas {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    #view-visaoGeral .panelCategoria .chartBox.tall {
+      height: clamp(255px, 31vh, 355px) !important;
+    }
+
+    #view-visaoGeral .chartBox.smallDonut,
+    #view-visaoGeral .panelTipo .chartBox.tipoGrande {
+      height: clamp(230px, 29vh, 330px) !important;
+    }
+
+    #view-visaoGeral .chartBox.compactBar {
+      height: clamp(210px, 25vh, 285px) !important;
+    }
+
+    #view-visaoGeral .rankingBars {
+      min-height: clamp(210px, 25vh, 285px) !important;
+    }
+
+    .panelPreenchimento {
+      grid-template-columns: minmax(0, 1fr) minmax(150px, .68fr) !important;
+    }
+
+    .panelTipo {
+      grid-template-columns: minmax(0, 1fr) minmax(175px, .72fr) !important;
+      padding-right: clamp(120px, 8.5vw, 185px) !important;
+    }
+
+    .imagemIndigenaPainel {
+      width: clamp(105px, 8.2vw, 170px) !important;
+    }
+
+    @media (max-width: 1700px) {
+      #view-visaoGeral .kpiGrid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+      }
+
+      #view-visaoGeral .overviewChartsGrid,
+      #view-visaoGeral .overviewBottomGrid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)) !important;
+      }
+
+      .panelTipo {
+        grid-template-columns: minmax(0, 1fr) minmax(160px, .70fr) !important;
+        padding-right: 14px !important;
+      }
+
+      .imagemIndigenaPainel {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 1366px) {
+      .app {
+        grid-template-columns: clamp(186px, 15vw, 218px) minmax(0, 1fr) !important;
+      }
+
+      .top {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+      }
+
+      .filtersBar,
+      .main.view-alertas-active .filtersBar {
+        width: 100% !important;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+        justify-content: stretch !important;
+      }
+
+      .clearBtn {
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+
+      .updateLine {
+        text-align: left !important;
+      }
+
+      .titleBig {
+        font-size: clamp(30px, 4vw, 38px) !important;
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .app {
+        grid-template-columns: 82px minmax(0, 1fr) !important;
+      }
+
+      .sidebar {
+        padding: 12px 10px !important;
+      }
+
+      .brandLogo {
+        width: 48px !important;
+        height: 48px !important;
+      }
+
+      .brandTitle,
+      .brandSubtitle,
+      .navItem span:not(.navIcon),
+      .sidebarSpacer,
+      .sidebarCoord {
+        display: none !important;
+      }
+
+      .sidebarToggle {
+        display: none !important;
+      }
+
+      .navItem {
+        grid-template-columns: 1fr !important;
+        justify-items: center !important;
+        padding: 10px !important;
+      }
+
+      .navIcon {
+        width: 38px !important;
+        height: 38px !important;
+      }
+
+      .content {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+      }
+
+      #view-visaoGeral .panelPreenchimento,
+      #view-visaoGeral .panelTipo {
+        grid-template-columns: 1fr !important;
+        padding-right: 14px !important;
+      }
+
+      #view-visaoGeral .panelPreenchimento .panelTitle,
+      #view-visaoGeral .panelPreenchimento .chartBox,
+      #view-visaoGeral .panelPreenchimento .sideLegend,
+      #view-visaoGeral .panelTipo .panelTitle,
+      #view-visaoGeral .panelTipo .chartBox,
+      #view-visaoGeral .panelTipo .sideLegend {
+        grid-column: 1 !important;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        display: block !important;
+        min-height: 100vh !important;
+      }
+
+      .sidebar {
+        position: sticky !important;
+        top: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        z-index: 3000 !important;
+        display: grid !important;
+        grid-template-columns: auto 1fr !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 8px 10px !important;
+      }
+
+      .brand {
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: start !important;
+      }
+
+      .brandLogo {
+        width: 42px !important;
+        height: 42px !important;
+      }
+
+      .nav {
+        display: flex !important;
+        gap: 6px !important;
+        margin: 0 !important;
+        justify-content: flex-end !important;
+        overflow-x: auto !important;
+      }
+
+      .navItem {
+        min-width: 42px !important;
+        min-height: 42px !important;
+        border-radius: 14px !important;
+      }
+
+      .navIcon {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 14px !important;
+      }
+
+      .top {
+        padding: 12px 14px 10px !important;
+      }
+
+      .titleSmall {
+        font-size: 15px !important;
+      }
+
+      .titleBig {
+        font-size: 28px !important;
+      }
+
+      .content {
+        padding: 10px 12px 24px !important;
+      }
+
+      #view-visaoGeral .kpiGrid,
+      #view-vagas .vagasKpiGridCustom,
+      .alertKpiGrid {
+        grid-template-columns: 1fr !important;
+      }
+
+      #view-visaoGeral .overviewChartsGrid,
+      #view-visaoGeral .overviewBottomGrid {
+        grid-template-columns: 1fr !important;
+      }
+
+      #view-visaoGeral .panelCategoria .chartBox.tall,
+      #view-visaoGeral .chartBox.smallDonut,
+      #view-visaoGeral .panelTipo .chartBox.tipoGrande,
+      #view-visaoGeral .chartBox.compactBar {
+        height: 280px !important;
+      }
+
+      .fullTableWrap {
+        overflow-x: auto !important;
+      }
+    }
+
+    @media (max-height: 760px) and (min-width: 1281px) {
+      #view-visaoGeral .kpi {
+        min-height: 64px !important;
+      }
+
+      #view-visaoGeral .panelCategoria .chartBox.tall {
+        height: 235px !important;
+      }
+
+      #view-visaoGeral .chartBox.smallDonut,
+      #view-visaoGeral .panelTipo .chartBox.tipoGrande {
+        height: 210px !important;
+      }
+
+      #view-visaoGeral .chartBox.compactBar,
+      #view-visaoGeral .rankingBars {
+        height: 170px !important;
+        min-height: 170px !important;
+      }
+    }
+
