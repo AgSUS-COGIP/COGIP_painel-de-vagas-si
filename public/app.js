@@ -1153,9 +1153,9 @@
       const contratados = deveUsarIndicadoresResumoBase() && indicadoresResumoBase
         ? Number(indicadoresResumoBase.contratados || 0)
         : contratadosCalculados;
-      // Total de vagas ociosas = soma apenas das ociosas positivas por linha; valores
-      // negativos (excedente de contratação) contam como 0 e não abatem o total.
-      const vagasOciosas = (data || []).reduce((s, r) => s + Math.max(0, calcularOciosas(r)), 0);
+      // Vagas ociosas (déficit operacional) = previstas - contratados + afastados.
+      // Considera os negativos (excedente) abatendo — vale para todos os KPIs.
+      const vagasOciosas = vagasPrevistas - contratados + afastados;
       // Vagas preenchidas = trabalhadores contratados (dado correto).
       const vagasPreenchidas = contratados;
       const vagasPreenchidasPerc = vagasPrevistas > 0
@@ -1781,7 +1781,7 @@
         titulo: "Vagas",
         subtitulo: "Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.",
         exportHtml: '<button type="button" class="exportBtn" onclick="exportarVagas()">Exportar base filtrada</button><button type="button" class="exportBtn" onclick="exportarPdf()">Salvar em PDF</button>',
-        avisoHtml: '<div class="vagasOciosasAviso">⚠ No total de <strong>Vagas Ociosas</strong>, valores negativos (excedente de contratação) contam como 0 — uma vaga excedente não abate as vagas ociosas existentes. O déficit/excedente por linha continua visível no Detalhamento Completo.</div>'
+        avisoHtml: ""
       },
       ociosas: {
         bloco: "blocoTabelaOciosas",
@@ -1882,8 +1882,7 @@
         item.quantitativoPlano += Number(row.quantitativoPlano || 0);
         item.totalContratados += Number(row.totalContratados || 0);
         item.afastados += Number(row.afastados || 0);
-        // Negativos (excedente de contratação) não abatem as ociosas positivas: contam como 0.
-        item.ociosas += Math.max(0, Number(row.ociosas || 0));
+        item.ociosas += Number(row.ociosas || 0);
         item.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
         item.contratadosTemporario += Number(row.contratadosTemporario || 0);
         // Soma dos valores derivados por linha (já clampados) — total independe da visão.
@@ -2052,8 +2051,7 @@
         acc.quantitativoPlano += Number(row.quantitativoPlano || 0);
         acc.totalContratados += Number(row.totalContratados || 0);
         acc.afastados += Number(row.afastados || 0);
-        // Negativos (excedente) não abatem o total de vagas ociosas: contam como 0.
-        acc.ociosas += Math.max(0, Number(row.ociosas || 0));
+        acc.ociosas += Number(row.ociosas || 0);
         acc.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
         acc.contratadosTemporario += Number(row.contratadosTemporario || 0);
         return acc;

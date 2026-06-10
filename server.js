@@ -1463,9 +1463,8 @@ function calcularIndicadoresServidor(rows, totaisMonitoramento) {
   const temporarios = somaServidor(rows, "contratadosTemporario");
   const indigenas = somaServidor(rows, "contratadosIndigenas");
   const contratadosNormal = somaServidor(rows, "contratadosNormal");
-  // Total de vagas ociosas = soma apenas das ociosas positivas por linha; valores
-  // negativos (excedente de contratação) contam como 0 e não abatem o total.
-  const vagasOciosas = (rows || []).reduce((s, r) => s + Math.max(0, calcularOciosasServidor(r)), 0);
+  // Vagas ociosas (déficit operacional) = previstas - contratados + afastados (com negativos).
+  const vagasOciosas = vagasPrevistas - contratados + afastados;
   // Vagas preenchidas = trabalhadores contratados (dado correto).
   const vagasPreenchidas = contratados;
   const vagasPreenchidasPerc = vagasPrevistas > 0 ? (vagasPreenchidas / vagasPrevistas) * 100 : 0;
