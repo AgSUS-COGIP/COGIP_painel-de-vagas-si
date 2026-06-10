@@ -16,6 +16,7 @@
       acrescentado: []
     };
     let vagasViewAtual = "dsei";
+    let vagasTabelaAtual = "vagas";
     let vagasSearchTerm = "";
     let vagasSortState = { key: "label", direction: "asc" };
     let activeView = "visaoGeral";
@@ -1152,8 +1153,11 @@
       const contratados = deveUsarIndicadoresResumoBase() && indicadoresResumoBase
         ? Number(indicadoresResumoBase.contratados || 0)
         : contratadosCalculados;
-      const vagasOciosas = vagasPrevistas - contratados + afastados;
-      const vagasPreenchidas = vagasPrevistas - vagasOciosas;
+      // Total de vagas ociosas = soma apenas das ociosas positivas por linha; valores
+      // negativos (excedente de contratação) contam como 0 e não abatem o total.
+      const vagasOciosas = (data || []).reduce((s, r) => s + Math.max(0, calcularOciosas(r)), 0);
+      // Vagas preenchidas = trabalhadores contratados (dado correto).
+      const vagasPreenchidas = contratados;
       const vagasPreenchidasPerc = vagasPrevistas > 0
         ? (vagasPreenchidas / vagasPrevistas) * 100
         : 0;
@@ -1739,7 +1743,20 @@
         .map(row => {
           const ociosas = calcularOciosas(row);
           const preenchimento = calcularPreenchimento(row.quantitativoPlano, ociosas);
-          return { ...row, ociosas, preenchimento };
+          // Valores das tabelas de distribuição/processo seletivo calculados POR LINHA
+          // (negativos já zerados). São somados na agregação, então o total independe
+          // de a visão ser por DSEI ou por Cargo.
+          const dist = montarLinhaDistribuicaoBase({ ...row, ociosas });
+          return {
+            ...row,
+            ociosas,
+            preenchimento,
+            distOciosas: dist.vagasOciosas,
+            distSubstituicao: dist.substituicaoTabela,
+            distNormalTemp: dist.normalTemporario,
+            distTemporario: dist.contratadosTemporario,
+            distProcessoSeletivo: dist.processoSeletivo
+          };
         })
         .filter(row => !linhaVagasZerada(row))
         .sort((a, b) => {
@@ -1755,6 +1772,54 @@
       vagasSortState = { key: vagasViewAtual === "detalhado" ? "dseiCasai" : "label", direction: "asc" };
       vagasCurrentPage = 1;
       renderVagasDaPagina();
+    }
+
+    // Configuração de cada tabela da aba Vagas: título, subtítulo, botões de exportar e aviso.
+    const VAGAS_TABELA_CONFIG = {
+      vagas: {
+        bloco: "blocoTabelaVagas",
+        titulo: "Vagas",
+        subtitulo: "Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.",
+        exportHtml: '<button type="button" class="exportBtn" onclick="exportarVagas()">Exportar base filtrada</button><button type="button" class="exportBtn" onclick="exportarPdf()">Salvar em PDF</button>',
+        avisoHtml: '<div class="vagasOciosasAviso">⚠ No total de <strong>Vagas Ociosas</strong>, valores negativos (excedente de contratação) contam como 0 — uma vaga excedente não abate as vagas ociosas existentes. O déficit/excedente por linha continua visível no Detalhamento Completo.</div>'
+      },
+      ociosas: {
+        bloco: "blocoTabelaOciosas",
+        titulo: "Distribuição das Vagas Ociosas",
+        subtitulo: "Vagas não ocupadas, afastamento sem substituição e o total de vagas ociosas, conforme a visualização atual.",
+        exportHtml: '<button type="button" class="exportBtn" onclick="exportarDistribuicaoVagasOciosas()">Exportar distribuição</button>',
+        avisoHtml: ""
+      },
+      processo: {
+        bloco: "blocoTabelaProcesso",
+        titulo: "Vagas para Processo Seletivo",
+        subtitulo: "Vagas não ocupadas somadas às temporárias (total para processo seletivo).",
+        exportHtml: '<button type="button" class="exportBtn" onclick="exportarProcessoSeletivo()">Exportar processo seletivo</button>',
+        avisoHtml: '<div class="processoSeletivoAviso">⚠ Não entram no cálculo do processo seletivo os cargos de provimento comunitário/indicação: <strong>Agente Indígena de Saúde</strong>, <strong>Agente Indígena de Saneamento</strong>, <strong>Assessor Técnico Indígena</strong> e <strong>Secretário do CONDISI</strong>.</div>'
+      }
+    };
+
+    // Alterna entre as três tabelas da aba Vagas (menu superior). As três continuam
+    // renderizadas; só a selecionada fica visível, e o cabeçalho/aviso/exportar mudam junto.
+    function alterarTabelaVagas(tabela) {
+      vagasTabelaAtual = VAGAS_TABELA_CONFIG[tabela] ? tabela : "vagas";
+      const cfg = VAGAS_TABELA_CONFIG[vagasTabelaAtual];
+
+      document.querySelectorAll(".vagasTabelaTab").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.vagasTabela === vagasTabelaAtual);
+      });
+
+      Object.keys(VAGAS_TABELA_CONFIG).forEach(chave => {
+        const el = document.getElementById(VAGAS_TABELA_CONFIG[chave].bloco);
+        if (el) el.hidden = chave !== vagasTabelaAtual;
+      });
+
+      setText("vagasTituloDinamico", cfg.titulo);
+      setText("vagasSubtituloDinamico", cfg.subtitulo);
+      const exp = document.getElementById("vagasExportActions");
+      if (exp) exp.innerHTML = cfg.exportHtml;
+      const aviso = document.getElementById("vagasAvisoDinamico");
+      if (aviso) aviso.innerHTML = cfg.avisoHtml;
     }
 
     function atualizarPesquisaVagas(valor) {
@@ -1804,7 +1869,12 @@
             ociosas: 0,
             contratadosSubstituicao: 0,
             contratadosTemporario: 0,
-            preenchimento: 0
+            preenchimento: 0,
+            distOciosas: 0,
+            distSubstituicao: 0,
+            distNormalTemp: 0,
+            distTemporario: 0,
+            distProcessoSeletivo: 0
           });
         }
 
@@ -1812,9 +1882,16 @@
         item.quantitativoPlano += Number(row.quantitativoPlano || 0);
         item.totalContratados += Number(row.totalContratados || 0);
         item.afastados += Number(row.afastados || 0);
-        item.ociosas += Number(row.ociosas || 0);
+        // Negativos (excedente de contratação) não abatem as ociosas positivas: contam como 0.
+        item.ociosas += Math.max(0, Number(row.ociosas || 0));
         item.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
         item.contratadosTemporario += Number(row.contratadosTemporario || 0);
+        // Soma dos valores derivados por linha (já clampados) — total independe da visão.
+        item.distOciosas += Number(row.distOciosas || 0);
+        item.distSubstituicao += Number(row.distSubstituicao || 0);
+        item.distNormalTemp += Number(row.distNormalTemp || 0);
+        item.distTemporario += Number(row.distTemporario || 0);
+        item.distProcessoSeletivo += Number(row.distProcessoSeletivo || 0);
       });
 
       return [...mapa.values()]
@@ -1975,7 +2052,8 @@
         acc.quantitativoPlano += Number(row.quantitativoPlano || 0);
         acc.totalContratados += Number(row.totalContratados || 0);
         acc.afastados += Number(row.afastados || 0);
-        acc.ociosas += Number(row.ociosas || 0);
+        // Negativos (excedente) não abatem o total de vagas ociosas: contam como 0.
+        acc.ociosas += Math.max(0, Number(row.ociosas || 0));
         acc.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
         acc.contratadosTemporario += Number(row.contratadosTemporario || 0);
         return acc;
@@ -2010,9 +2088,9 @@
         header.innerHTML = `
           <th>DSEI/CASAI</th>
           <th>Cargo</th>
+          <th>Vagas não ocupadas</th>
+          <th>Afastamento sem substituição</th>
           <th>Vagas Ociosas</th>
-          <th>Substituição</th>
-          <th>Normal/Temporário</th>
         `;
         if (descricao) descricao.textContent = "Composição das vagas ociosas por DSEI/CASAI e cargo nos filtros selecionados.";
         return;
@@ -2027,9 +2105,9 @@
       `;
       header.innerHTML = `
         <th>${primeiraColuna}</th>
+        <th>Vagas não ocupadas</th>
+        <th>Afastamento sem substituição</th>
         <th>Vagas Ociosas</th>
-        <th>Substituição</th>
-        <th>Normal/Temporário</th>
       `;
       if (descricao) {
         descricao.textContent = vagasViewAtual === "cargo"
@@ -2038,31 +2116,63 @@
       }
     }
 
+    // Cargos que NÃO são providos por processo seletivo (comunitários/indicação),
+    // portanto ficam de fora da tabela "Vagas para Processo Seletivo".
+    const CARGOS_FORA_PROCESSO_SELETIVO = new Set([
+      "AGENTE INDIGENA DE SAUDE",
+      "AGENTE INDIGENA DE SANEAMENTO",
+      "ASSESSOR TECNICO INDIGENA",
+      "SECRETARIO DO CONDISI"
+    ]);
+
+    function normalizarNomeCargo(cargo) {
+      return String(cargo || "")
+        .normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
+        .toUpperCase().replace(/\s+/g, " ").trim();
+    }
+
+    function filtrarCargosProcessoSeletivo(rows) {
+      return (rows || []).filter(row => !CARGOS_FORA_PROCESSO_SELETIVO.has(normalizarNomeCargo(row.cargo)));
+    }
+
     function montarLinhaDistribuicaoBase(row) {
-      // Zera negativos ANTES de qualquer cálculo, para que as subtrações não gerem
-      // valores negativos nem somas maiores que as vagas ociosas.
-      const vagasOciosas = Math.max(0, Number(row.ociosas ?? calcularOciosas(row) ?? 0));
+      // Zera negativos por linha: um excedente (valor negativo) nunca abate os positivos.
       const afastados = Math.max(0, Number(row.afastados || 0));
       const substituicoesContratadas = Math.max(0, Number(row.contratadosSubstituicao || 0));
       const contratadosTemporario = Math.max(0, Number(row.contratadosTemporario || 0));
+      const contratadosNormal = Math.max(0, Number(row.contratadosNormal || 0));
+      const quantitativoPlano = Math.max(0, Number(row.quantitativoPlano || 0));
 
-      // Vagas de substituição = afastados ainda não cobertos, limitadas às vagas ociosas
-      // (substituição + normal/temporário nunca pode superar as vagas ociosas).
-      let substituicaoTabela = Math.max(0, afastados - substituicoesContratadas);
-      substituicaoTabela = Math.min(substituicaoTabela, vagasOciosas);
+      // Vagas não ocupadas = vagas previstas - (contratados normais + contratados temporários).
+      const normalTemporario = Math.max(0, quantitativoPlano - (contratadosNormal + contratadosTemporario));
 
-      // Normal/Temporário = o restante das vagas ociosas após a substituição.
-      const normalTemporario = Math.max(0, vagasOciosas - substituicaoTabela);
+      // Substituição = afastados ainda não cobertos por substitutos.
+      const substituicaoTabela = Math.max(0, afastados - substituicoesContratadas);
 
-      // Vagas para processo seletivo = normais/temporárias ociosas + temporárias do quadro geral.
+      // Vagas Ociosas = soma das duas colunas anteriores (sem negativos abatendo positivos).
+      const vagasOciosas = normalTemporario + substituicaoTabela;
+
+      // Total para processo seletivo = Vagas não ocupadas + Temporárias.
       const processoSeletivo = normalTemporario + contratadosTemporario;
 
       return {
         vagasOciosas,
         substituicaoTabela,
         normalTemporario,
+        substituicoesContratadas,
         contratadosTemporario,
         processoSeletivo
+      };
+    }
+
+    // Extrai os valores derivados (já somados por linha) de uma linha/grupo.
+    function valoresDistribuicao(row) {
+      return {
+        vagasOciosas: Number(row.distOciosas || 0),
+        substituicaoTabela: Number(row.distSubstituicao || 0),
+        normalTemporario: Number(row.distNormalTemp || 0),
+        contratadosTemporario: Number(row.distTemporario || 0),
+        processoSeletivo: Number(row.distProcessoSeletivo || 0)
       };
     }
 
@@ -2074,13 +2184,13 @@
         return linhasPagina.map(row => ({
           dseiCasai: row.dseiCasai || "Não informado",
           cargo: row.cargo || "Não informado",
-          ...montarLinhaDistribuicaoBase(row)
+          ...valoresDistribuicao(row)
         }));
       }
 
       return linhasPagina.map(row => ({
         label: row.label || "Não informado",
-        ...montarLinhaDistribuicaoBase(row)
+        ...valoresDistribuicao(row)
       }));
     }
 
@@ -2089,6 +2199,7 @@
       if (!tbody) return;
 
       atualizarCabecalhoDistribuicaoVagasOciosas();
+      renderPaginacaoTabela("distribuicaoPagination", rows);
       const linhas = montarDistribuicaoVagasOciosas(rows).filter(item => {
         return Number(item.vagasOciosas || 0) !== 0 ||
           Number(item.substituicaoTabela || 0) !== 0 ||
@@ -2113,16 +2224,16 @@
           <tr>
             <td>${escapeHtml(row.dseiCasai)}</td>
             <td>${escapeHtml(row.cargo)}</td>
-            <td>${formatNumber(row.vagasOciosas)}</td>
-            <td>${formatNumber(row.substituicaoTabela)}</td>
             <td>${formatNumber(row.normalTemporario)}</td>
+            <td>${formatNumber(row.substituicaoTabela)}</td>
+            <td>${formatNumber(row.vagasOciosas)}</td>
           </tr>
         `).join("") + `
           <tr class="totalRow">
             <td colspan="2">TOTAL</td>
-            <td>${formatNumber(total.vagasOciosas)}</td>
-            <td>${formatNumber(total.substituicaoTabela)}</td>
             <td>${formatNumber(total.normalTemporario)}</td>
+            <td>${formatNumber(total.substituicaoTabela)}</td>
+            <td>${formatNumber(total.vagasOciosas)}</td>
           </tr>
         `;
         return;
@@ -2131,16 +2242,16 @@
       tbody.innerHTML = linhas.map(row => `
         <tr>
           <td>${escapeHtml(row.label)}</td>
-          <td>${formatNumber(row.vagasOciosas)}</td>
-          <td>${formatNumber(row.substituicaoTabela)}</td>
           <td>${formatNumber(row.normalTemporario)}</td>
+          <td>${formatNumber(row.substituicaoTabela)}</td>
+          <td>${formatNumber(row.vagasOciosas)}</td>
         </tr>
       `).join("") + `
         <tr class="totalRow">
           <td>TOTAL</td>
-          <td>${formatNumber(total.vagasOciosas)}</td>
-          <td>${formatNumber(total.substituicaoTabela)}</td>
           <td>${formatNumber(total.normalTemporario)}</td>
+          <td>${formatNumber(total.substituicaoTabela)}</td>
+          <td>${formatNumber(total.vagasOciosas)}</td>
         </tr>
       `;
     }
@@ -2162,8 +2273,8 @@
         header.innerHTML = `
           <th>DSEI/CASAI</th>
           <th>Cargo</th>
-          <th>Normal/Temporário (Ociosas)</th>
-          <th>Temporárias (Quadro Geral)</th>
+          <th>Vagas não ocupadas</th>
+          <th>Temporárias</th>
           <th>Total Processo Seletivo</th>
         `;
         if (descricao) descricao.textContent = "Vagas para processo seletivo por DSEI/CASAI e cargo nos filtros selecionados.";
@@ -2179,14 +2290,14 @@
       `;
       header.innerHTML = `
         <th>${primeiraColuna}</th>
-        <th>Normal/Temporário (Ociosas)</th>
-        <th>Temporárias (Quadro Geral)</th>
+        <th>Vagas não ocupadas</th>
+        <th>Temporárias</th>
         <th>Total Processo Seletivo</th>
       `;
       if (descricao) {
         descricao.textContent = vagasViewAtual === "cargo"
-          ? "Vagas para processo seletivo por cargo nos filtros selecionados."
-          : "Vagas para processo seletivo por DSEI/CASAI nos filtros selecionados.";
+          ? "Vagas não ocupadas somado às temporárias (total para processo seletivo) por cargo."
+          : "Vagas não ocupadas somado às temporárias (total para processo seletivo) por DSEI/CASAI.";
       }
     }
 
@@ -2195,7 +2306,9 @@
       if (!tbody) return;
 
       atualizarCabecalhoProcessoSeletivo();
-      const linhas = montarDistribuicaoVagasOciosas(rows).filter(item => {
+      renderPaginacaoTabela("processoSeletivoPagination", rows);
+      // Exclui os cargos que não passam por processo seletivo (antes da agregação).
+      const linhas = montarDistribuicaoVagasOciosas(filtrarCargosProcessoSeletivo(rows)).filter(item => {
         return Number(item.normalTemporario || 0) !== 0 ||
           Number(item.contratadosTemporario || 0) !== 0 ||
           Number(item.processoSeletivo || 0) !== 0;
@@ -2253,7 +2366,11 @@
 
     function mudarPaginaVagas(delta) {
       vagasCurrentPage = Math.max(1, vagasCurrentPage + Number(delta || 0));
+      // As três tabelas compartilham a mesma página (mesmo grupo de DSEI),
+      // então navegam juntas.
       renderVagasTable(vagasRows);
+      renderDistribuicaoVagasOciosas(vagasRows);
+      renderProcessoSeletivo(vagasRows);
     }
 
     function obterPaginaVagas(linhas) {
@@ -2278,6 +2395,16 @@
           <button type="button" onclick="mudarPaginaVagas(1)" ${vagasCurrentPage >= totalPaginas ? "disabled" : ""}>Próxima</button>
         `
       };
+    }
+
+    // Renderiza os controles de paginação (mesmo grupo de DSEI da tabela de Vagas)
+    // num elemento alvo, reaproveitando a lógica de paginação da tabela principal.
+    function renderPaginacaoTabela(elementId, rows) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const linhasBase = obterRowsVagasPorVisualizacao(rows);
+      const { resumoPaginacao } = obterPaginaVagas(linhasBase);
+      el.innerHTML = resumoPaginacao;
     }
 
     function montarAlertas(data) {
@@ -2692,32 +2819,32 @@
 
       if (vagasViewAtual === "detalhado") {
         rows = linhasBase.map(row => {
-          const base = montarLinhaDistribuicaoBase(row);
+          const base = valoresDistribuicao(row);
           return {
             "DSEI/CASAI": row.dseiCasai || "Não informado",
             "Cargo": row.cargo || "Não informado",
-            "Vagas Ociosas": base.vagasOciosas,
-            "Substituição": base.substituicaoTabela,
-            "Normal/Temporário": base.normalTemporario
+            "Vagas não ocupadas": base.normalTemporario,
+            "Afastamento sem substituição": base.substituicaoTabela,
+            "Vagas Ociosas": base.vagasOciosas
           };
         });
       } else {
         const primeiraColuna = vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
         rows = linhasBase.map(row => {
-          const base = montarLinhaDistribuicaoBase(row);
+          const base = valoresDistribuicao(row);
           return {
             [primeiraColuna]: row.label || "Não informado",
-            "Vagas Ociosas": base.vagasOciosas,
-            "Substituição": base.substituicaoTabela,
-            "Normal/Temporário": base.normalTemporario
+            "Vagas não ocupadas": base.normalTemporario,
+            "Afastamento sem substituição": base.substituicaoTabela,
+            "Vagas Ociosas": base.vagasOciosas
           };
         });
       }
 
       rows = rows.filter(item =>
         Number(item["Vagas Ociosas"] || 0) !== 0 ||
-        Number(item["Substituição"] || 0) !== 0 ||
-        Number(item["Normal/Temporário"] || 0) !== 0
+        Number(item["Afastamento sem substituição"] || 0) !== 0 ||
+        Number(item["Vagas não ocupadas"] || 0) !== 0
       );
 
       baixarCsv("distribuicao_vagas_ociosas", rows, false);
@@ -2726,36 +2853,36 @@
     function exportarProcessoSeletivo() {
       // Exporta a tabela "Vagas para Processo Seletivo" conforme a visualização ativa
       // e respeitando os filtros superiores DSEI/CASAI e Cargo.
-      const linhasBase = obterRowsVagasPorVisualizacao(vagasRows);
+      const linhasBase = obterRowsVagasPorVisualizacao(filtrarCargosProcessoSeletivo(vagasRows));
       let rows;
 
       if (vagasViewAtual === "detalhado") {
         rows = linhasBase.map(row => {
-          const base = montarLinhaDistribuicaoBase(row);
+          const base = valoresDistribuicao(row);
           return {
             "DSEI/CASAI": row.dseiCasai || "Não informado",
             "Cargo": row.cargo || "Não informado",
-            "Normal/Temporário (Ociosas)": base.normalTemporario,
-            "Temporárias (Quadro Geral)": base.contratadosTemporario,
+            "Vagas não ocupadas": base.normalTemporario,
+            "Temporárias": base.contratadosTemporario,
             "Total Processo Seletivo": base.processoSeletivo
           };
         });
       } else {
         const primeiraColuna = vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
         rows = linhasBase.map(row => {
-          const base = montarLinhaDistribuicaoBase(row);
+          const base = valoresDistribuicao(row);
           return {
             [primeiraColuna]: row.label || "Não informado",
-            "Normal/Temporário (Ociosas)": base.normalTemporario,
-            "Temporárias (Quadro Geral)": base.contratadosTemporario,
+            "Vagas não ocupadas": base.normalTemporario,
+            "Temporárias": base.contratadosTemporario,
             "Total Processo Seletivo": base.processoSeletivo
           };
         });
       }
 
       rows = rows.filter(item =>
-        Number(item["Normal/Temporário (Ociosas)"] || 0) !== 0 ||
-        Number(item["Temporárias (Quadro Geral)"] || 0) !== 0 ||
+        Number(item["Vagas não ocupadas"] || 0) !== 0 ||
+        Number(item["Temporárias"] || 0) !== 0 ||
         Number(item["Total Processo Seletivo"] || 0) !== 0
       );
 
@@ -2949,12 +3076,18 @@
       const idDsei = String(document.getElementById("remanejamentoDsei")?.value || "");
       return (remanejamentoCadastroRows || [])
         .filter(row => !idDsei || String(row.idDseiCasai || "") === idDsei)
-        .map(row => ({
-          value: String(row.idCargoFuncao || ""),
-          label: row.cargo || `Cargo ID ${row.idCargoFuncao}`,
-          row
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+        .slice()
+        .sort((a, b) => String(a.cargo || "").localeCompare(String(b.cargo || ""), "pt-BR"))
+        .map(row => {
+          const cargo = row.cargo || `Cargo ID ${row.idCargoFuncao}`;
+          const ociosas = Math.max(0, Math.floor(Number(row.vagasOciosas || 0)));
+          return {
+            value: String(row.idCargoFuncao || ""),
+            // Mostra quantas vagas ociosas o cargo tem no DSEI selecionado.
+            label: `${cargo} — ${ociosas} ociosa(s)`,
+            row
+          };
+        });
     }
 
     function obterCadastroCargoRemanejamento(idCargoFuncao) {

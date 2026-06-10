@@ -255,14 +255,6 @@
         </section>
 
         <section id="view-vagas" class="viewPanel tableView">
-          <div class="pageHeader">
-            <div>
-              <h2 class="pageTitle">Vagas</h2>
-              <div class="pageSub">Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.</div>
-            </div>
-            <div class="exportActions"><button type="button" class="exportBtn" onclick="exportarVagas()">Exportar base filtrada</button><button type="button" class="exportBtn" onclick="exportarPdf()">Salvar em PDF</button></div>
-          </div>
-
           <section class="kpiGrid vagasKpiGridCustom">
             <div class="kpi">
               <div class="kpiIcon iTeal">#</div>
@@ -337,55 +329,79 @@
             </div>
           </section>
 
-          <div class="tableTools">
+          <!-- 1) Menu de tabelas -->
+          <div class="vagasTabelaTabs" aria-label="Tabelas da aba de vagas">
+            <button type="button" class="vagasTabelaTab active" data-vagas-tabela="vagas" onclick="alterarTabelaVagas('vagas')">Vagas</button>
+            <button type="button" class="vagasTabelaTab" data-vagas-tabela="ociosas" onclick="alterarTabelaVagas('ociosas')">Vagas Ociosas</button>
+            <button type="button" class="vagasTabelaTab" data-vagas-tabela="processo" onclick="alterarTabelaVagas('processo')">Vagas para Processo Seletivo</button>
+          </div>
+
+          <!-- 2) Menu de resumos / detalhamento -->
+          <div class="vagasTabs vagasTabsTopo" aria-label="Visualizações da tabela de vagas">
+            <button type="button" class="vagasTab active" data-vagas-view="dsei" onclick="alterarVisualizacaoVagas('dsei')">Resumo por DSEI/CASAI</button>
+            <button type="button" class="vagasTab" data-vagas-view="cargo" onclick="alterarVisualizacaoVagas('cargo')">Resumo por Cargo</button>
+            <button type="button" class="vagasTab" data-vagas-view="detalhado" onclick="alterarVisualizacaoVagas('detalhado')">Detalhamento Completo</button>
+          </div>
+
+          <!-- 3) Cabeçalho (muda conforme a tabela selecionada) -->
+          <div class="pageHeader">
+            <div>
+              <h2 class="pageTitle" id="vagasTituloDinamico">Vagas</h2>
+              <div class="pageSub" id="vagasSubtituloDinamico">Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.</div>
+            </div>
+            <div class="exportActions" id="vagasExportActions">
+              <button type="button" class="exportBtn" onclick="exportarVagas()">Exportar base filtrada</button>
+              <button type="button" class="exportBtn" onclick="exportarPdf()">Salvar em PDF</button>
+            </div>
+          </div>
+
+          <!-- 4) Aviso (muda conforme a tabela selecionada) -->
+          <div id="vagasAvisoDinamico">
+            <div class="vagasOciosasAviso">
+              ⚠ No total de <strong>Vagas Ociosas</strong>, valores negativos (excedente de contratação) contam como 0 — uma vaga excedente não abate as vagas ociosas existentes. O déficit/excedente por linha continua visível no Detalhamento Completo.
+            </div>
+          </div>
+
+          <!-- 5) Busca, imediatamente acima da tabela -->
+          <div class="vagasSearchWrap">
             <input id="vagasSearch" class="searchBox" type="search" placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" oninput="atualizarPesquisaVagas(this.value)">
-            <div class="vagasTabs" aria-label="Visualizações da tabela de vagas">
-              <button type="button" class="vagasTab active" data-vagas-view="dsei" onclick="alterarVisualizacaoVagas('dsei')">Resumo por DSEI/CASAI</button>
-              <button type="button" class="vagasTab" data-vagas-view="cargo" onclick="alterarVisualizacaoVagas('cargo')">Resumo por Cargo</button>
-              <button type="button" class="vagasTab" data-vagas-view="detalhado" onclick="alterarVisualizacaoVagas('detalhado')">Detalhamento Completo</button>
-            </div>
           </div>
 
-          <div class="fullTableWrap">
-            <table class="fullTable">
-              <colgroup id="vagasColGroup">
-                <col style="width: 17%;">
-                <col style="width: 22%;">
-                <col style="width: 9%;">
-                <col style="width: 11%;">
-                <col style="width: 8%;">
-                <col style="width: 9%;">
-                <col style="width: 8%;">
-                <col style="width: 8%;">
-                <col style="width: 8%;">
-              </colgroup>
-              <thead>
-                <tr id="vagasHeaderRow">
-                  <th>DSEI/CASAI</th>
-                  <th>Cargo</th>
-                  <th>Vagas previstas</th>
-                  <th>Total de Contratados</th>
-                  <th>Afastados</th>
-                  <th class="colOciosasHead">Vagas Ociosas (Déficit Operacional)</th>
-                  <th>Substituições</th>
-                  <th>Temporários</th>
-                  <th>% preenchimento</th>
-                </tr>
-              </thead>
-              <tbody id="vagasBody"></tbody>
-            </table>
-          </div>
-          <div id="vagasPagination" class="tablePagination"></div>
-
-          <section class="distribuicaoSection">
-            <div class="pageHeader distribuicaoHeader">
-              <div>
-                <h3 class="pageTitle">Distribuição das Vagas Ociosas</h3>
-                <div id="distribuicaoDescricao" class="pageSub">Composição entre substituição e normal/temporário conforme a visualização atual.</div>
-              </div>
-              <div class="exportActions"><button type="button" class="exportBtn" onclick="exportarDistribuicaoVagasOciosas()">Exportar distribuição</button></div>
+          <!-- 6) Tabelas -->
+          <div id="blocoTabelaVagas" class="vagasTabelaBloco">
+            <div class="fullTableWrap">
+              <table class="fullTable">
+                <colgroup id="vagasColGroup">
+                  <col style="width: 17%;">
+                  <col style="width: 22%;">
+                  <col style="width: 9%;">
+                  <col style="width: 11%;">
+                  <col style="width: 8%;">
+                  <col style="width: 9%;">
+                  <col style="width: 8%;">
+                  <col style="width: 8%;">
+                  <col style="width: 8%;">
+                </colgroup>
+                <thead>
+                  <tr id="vagasHeaderRow">
+                    <th>DSEI/CASAI</th>
+                    <th>Cargo</th>
+                    <th>Vagas previstas</th>
+                    <th>Total de Contratados</th>
+                    <th>Afastados</th>
+                    <th class="colOciosasHead">Vagas Ociosas (Déficit Operacional)</th>
+                    <th>Substituições</th>
+                    <th>Temporários</th>
+                    <th>% preenchimento</th>
+                  </tr>
+                </thead>
+                <tbody id="vagasBody"></tbody>
+              </table>
             </div>
+            <div id="vagasPagination" class="tablePagination"></div>
+          </div>
 
+          <div id="blocoTabelaOciosas" class="vagasTabelaBloco distribuicaoSection" hidden>
             <div class="fullTableWrap distribuicaoWrap">
               <table class="fullTable distribuicaoTable">
                 <colgroup id="distribuicaoColGroup">
@@ -397,25 +413,18 @@
                 <thead>
                   <tr id="distribuicaoHeaderRow">
                     <th>DSEI/CASAI</th>
+                    <th>Vagas não ocupadas</th>
+                    <th>Afastamento sem substituição</th>
                     <th>Vagas Ociosas</th>
-                    <th>Substituição</th>
-                    <th>Normal/Temporário</th>
                   </tr>
                 </thead>
                 <tbody id="distribuicaoOciosasBody"></tbody>
               </table>
             </div>
-          </section>
+            <div id="distribuicaoPagination" class="tablePagination"></div>
+          </div>
 
-          <section class="distribuicaoSection">
-            <div class="pageHeader distribuicaoHeader">
-              <div>
-                <h3 class="pageTitle">Vagas para Processo Seletivo</h3>
-                <div id="processoSeletivoDescricao" class="pageSub">Consolidado das vagas normais/temporárias ociosas somadas às vagas temporárias do quadro geral, por DSEI/CASAI.</div>
-              </div>
-              <div class="exportActions"><button type="button" class="exportBtn" onclick="exportarProcessoSeletivo()">Exportar processo seletivo</button></div>
-            </div>
-
+          <div id="blocoTabelaProcesso" class="vagasTabelaBloco distribuicaoSection" hidden>
             <div class="fullTableWrap distribuicaoWrap">
               <table class="fullTable distribuicaoTable">
                 <colgroup id="processoSeletivoColGroup">
@@ -427,15 +436,16 @@
                 <thead>
                   <tr id="processoSeletivoHeaderRow">
                     <th>DSEI/CASAI</th>
-                    <th>Normal/Temporário (Ociosas)</th>
-                    <th>Temporárias (Quadro Geral)</th>
+                    <th>Vagas não ocupadas</th>
+                    <th>Temporárias</th>
                     <th>Total Processo Seletivo</th>
                   </tr>
                 </thead>
                 <tbody id="processoSeletivoBody"></tbody>
               </table>
             </div>
-          </section>
+            <div id="processoSeletivoPagination" class="tablePagination"></div>
+          </div>
         </section>
 
         <section id="view-alertas" class="viewPanel tableView">

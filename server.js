@@ -26,11 +26,10 @@ const DASH_CONFIG = {
   MONITORAMENTO_VIEW: process.env.MONITORAMENTO_VIEW || "VW_MONITORAMENTO_VAGAS_SAUDE_INDIGENA",
   ALERTAS_OBSERVACOES_TABLE: process.env.ALERTAS_OBSERVACOES_TABLE || "ALERTAS_OBSERVACOES",
   CUSTO_GERAL_VAGA_TABLE: process.env.CUSTO_GERAL_VAGA_TABLE || "CUSTO_GERAL_VAGA",
-  // Modelo normalizado de remanejamento (1 processo SEI -> N vagas reduzidas e N acrescidas).
+  // Modelo de remanejamento (1 processo SEI central + N movimentações tipadas).
+  // Cada movimentação indica a vaga e o tipo: ACRESCIMO ou DECRESCIMO.
   PROCESSO_REMANEJAMENTO_TABLE: process.env.PROCESSO_REMANEJAMENTO_TABLE || "PROCESSO_REMANEJAMENTO",
-  VAGA_REMANEJADA_TABLE: process.env.VAGA_REMANEJADA_TABLE || "VAGA_REMANEJADA",
-  REMANEJAMENTO_ACRESCIDO_TABLE: process.env.REMANEJAMENTO_ACRESCIDO_TABLE || "REMANEJAMENTO_ACRESCIDO",
-  REL_REMANEJAMENTO_TABLE: process.env.REL_REMANEJAMENTO_TABLE || "REL_REMANEJAMENTO",
+  MOVIMENTACAO_REMANEJAMENTO_TABLE: process.env.MOVIMENTACAO_REMANEJAMENTO_TABLE || "MOVIMENTACAO_REMANEJAMENTO",
   USUARIOS_TABLE: process.env.USUARIOS_TABLE || "USUARIOS_PAINEL",
   JWT_SECRET: process.env.JWT_SECRET || "painel-vagas-si-dev-secret-trocar",
   JWT_EXPIRES: process.env.JWT_EXPIRES || "8h",
@@ -104,35 +103,31 @@ const DASH_SQL = {
         GROUP BY ID_DSEI_CASAI, ID_VAGA
       ) ult ON ult.max_id = c.ID_CUSTO_GERAL_VAGA
     ),
-    -- Reduzidos agregados por processo (cada vaga reduzida contada uma vez).
+    -- Movimentações de decréscimo (vagas reduzidas) agregadas por processo.
     red AS (
       SELECT
-        rel.ID_PROCESSO_REMANEJAMENTO AS id_processo,
-        MAX(vr.ID_DSEI_CASAI) AS id_dsei_casai,
-        SUM(COALESCE(custo.mensal_unitario, 0) * vr.QTD) AS total_mensal,
-        GROUP_CONCAT(CONCAT(${montarCaseCargoSql("vr.ID_VAGA", "cd")}, ' x', vr.QTD) ORDER BY cd.cargo SEPARATOR ' | ') AS cargos
-      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` rel
-      JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.VAGA_REMANEJADA_TABLE}\` vr
-        ON vr.ID_VAGA_REMANEJADA = rel.ID_VAGA_REMANEJADA
-      LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = vr.ID_VAGA
-      LEFT JOIN custo_dim custo ON custo.ID_DSEI_CASAI = vr.ID_DSEI_CASAI AND custo.ID_VAGA = vr.ID_VAGA
-      WHERE rel.ID_VAGA_REMANEJADA IS NOT NULL
-      GROUP BY rel.ID_PROCESSO_REMANEJAMENTO
+        m.ID_PROCESSO_REMANEJAMENTO AS id_processo,
+        MAX(m.ID_DSEI_CASAI) AS id_dsei_casai,
+        SUM(COALESCE(custo.mensal_unitario, 0) * m.QTD) AS total_mensal,
+        GROUP_CONCAT(CONCAT(${montarCaseCargoSql("m.ID_VAGA", "cd")}, ' x', m.QTD) ORDER BY cd.cargo SEPARATOR ' | ') AS cargos
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MOVIMENTACAO_REMANEJAMENTO_TABLE}\` m
+      LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = m.ID_VAGA
+      LEFT JOIN custo_dim custo ON custo.ID_DSEI_CASAI = m.ID_DSEI_CASAI AND custo.ID_VAGA = m.ID_VAGA
+      WHERE m.TIPO_MOVIMENTACAO = 'DECRESCIMO'
+      GROUP BY m.ID_PROCESSO_REMANEJAMENTO
     ),
-    -- Acrescidos agregados por processo (cada vaga acrescida contada uma vez).
+    -- Movimentações de acréscimo (vagas acrescidas) agregadas por processo.
     acr AS (
       SELECT
-        rel.ID_PROCESSO_REMANEJAMENTO AS id_processo,
-        MAX(ra.ID_DSEI_CASAI) AS id_dsei_casai,
-        SUM(COALESCE(custo.mensal_unitario, 0) * ra.QTD) AS total_mensal,
-        GROUP_CONCAT(CONCAT(${montarCaseCargoSql("ra.ID_VAGA", "cd")}, ' x', ra.QTD) ORDER BY cd.cargo SEPARATOR ' | ') AS cargos
-      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` rel
-      JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE}\` ra
-        ON ra.ID_REMANEJAMENTO_ACRESCIDO = rel.ID_REMANEJAMENTO_ACRESCIDO
-      LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = ra.ID_VAGA
-      LEFT JOIN custo_dim custo ON custo.ID_DSEI_CASAI = ra.ID_DSEI_CASAI AND custo.ID_VAGA = ra.ID_VAGA
-      WHERE rel.ID_REMANEJAMENTO_ACRESCIDO IS NOT NULL
-      GROUP BY rel.ID_PROCESSO_REMANEJAMENTO
+        m.ID_PROCESSO_REMANEJAMENTO AS id_processo,
+        MAX(m.ID_DSEI_CASAI) AS id_dsei_casai,
+        SUM(COALESCE(custo.mensal_unitario, 0) * m.QTD) AS total_mensal,
+        GROUP_CONCAT(CONCAT(${montarCaseCargoSql("m.ID_VAGA", "cd")}, ' x', m.QTD) ORDER BY cd.cargo SEPARATOR ' | ') AS cargos
+      FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MOVIMENTACAO_REMANEJAMENTO_TABLE}\` m
+      LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = m.ID_VAGA
+      LEFT JOIN custo_dim custo ON custo.ID_DSEI_CASAI = m.ID_DSEI_CASAI AND custo.ID_VAGA = m.ID_VAGA
+      WHERE m.TIPO_MOVIMENTACAO = 'ACRESCIMO'
+      GROUP BY m.ID_PROCESSO_REMANEJAMENTO
     )
     SELECT
       p.ID_PROCESSO_REMANEJAMENTO AS id_processo,
@@ -147,7 +142,8 @@ const DASH_SQL = {
       p.ANEXO_TAMANHO_BYTES AS anexo_tamanho_bytes,
       CASE WHEN p.ANEXO_PROCESSO IS NULL THEN 0 ELSE 1 END AS tem_anexo,
       COALESCE(red.id_dsei_casai, acr.id_dsei_casai) AS id_dsei_casai,
-      COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', COALESCE(red.id_dsei_casai, acr.id_dsei_casai))) AS dsei_casai,
+      CASE WHEN COALESCE(red.id_dsei_casai, acr.id_dsei_casai) = 9610501 THEN 'SAMU INDÍGENA'
+           ELSE COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', COALESCE(red.id_dsei_casai, acr.id_dsei_casai))) END AS dsei_casai,
       red.cargos AS cargos_reduzidos,
       acr.cargos AS cargos_acrescentados,
       COALESCE(red.total_mensal, 0) AS total_reduzido_mensal,
@@ -198,7 +194,8 @@ const DASH_SQL = {
     )
     SELECT
       vp.id_dsei_casai,
-      COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', vp.id_dsei_casai)) AS dsei_casai,
+      CASE WHEN vp.id_dsei_casai = 9610501 THEN 'SAMU INDÍGENA'
+           ELSE COALESCE(dd.dsei_casai, CONCAT('DSEI/CASAI ID ', vp.id_dsei_casai)) END AS dsei_casai,
       vp.id_cargo_funcao,
       COALESCE(
         CASE vp.id_cargo_funcao
@@ -424,6 +421,10 @@ if (require.main === module) {
   garantirTabelaUsuarios().catch(err => {
     console.error("Não foi possível garantir a tabela de usuários do painel:", err && err.message ? err.message : err);
   });
+
+  garantirTabelaMovimentacaoRemanejamento().catch(err => {
+    console.error("Não foi possível garantir a tabela de movimentações de remanejamento:", err && err.message ? err.message : err);
+  });
 }
 
 module.exports = app;
@@ -498,6 +499,30 @@ async function getAlertasData() {
     observacoes,
     atualizadoEm: obterUltimaAtualizacaoDash(rows)
   };
+}
+
+async function garantirTabelaMovimentacaoRemanejamento() {
+  const conn = await getMysqlConnection();
+  try {
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MOVIMENTACAO_REMANEJAMENTO_TABLE}\` (
+        \`ID_MOVIMENTACAO_REMANEJAMENTO\` INT(11) NOT NULL AUTO_INCREMENT,
+        \`ID_PROCESSO_REMANEJAMENTO\`     INT(11) NOT NULL,
+        \`ID_DSEI_CASAI\`                 INT(11) NOT NULL,
+        \`ID_VAGA\`                       INT(11) NOT NULL,
+        \`TIPO_MOVIMENTACAO\`             ENUM('ACRESCIMO','DECRESCIMO') NOT NULL,
+        \`QTD\`                           INT(11) NOT NULL DEFAULT 1,
+        \`DATA_INSERCAO\`                 DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`ID_MOVIMENTACAO_REMANEJAMENTO\`),
+        KEY \`IDX_MOV_PROCESSO\` (\`ID_PROCESSO_REMANEJAMENTO\`),
+        KEY \`IDX_MOV_DSEI_VAGA\` (\`ID_DSEI_CASAI\`, \`ID_VAGA\`),
+        CONSTRAINT \`FK_MOV_PROCESSO\` FOREIGN KEY (\`ID_PROCESSO_REMANEJAMENTO\`)
+          REFERENCES \`${DASH_CONFIG.PROCESSO_REMANEJAMENTO_TABLE}\` (\`ID_PROCESSO_REMANEJAMENTO\`) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } finally {
+    await fecharJdbc(conn);
+  }
 }
 
 async function garantirTabelaAlertasObservacoes() {
@@ -1104,36 +1129,21 @@ async function salvarRemanejamentoComConn(conn, body, file) {
 
     const idProcesso = procResult.insertId;
 
-    // 2) Modelo 1 processo -> N vagas. Cada cargo (reduzido OU acrescido) é uma linha própria,
-    // ligada ao processo pela REL_REMANEJAMENTO. Sem pares forçados nem quantidade 0.
+    // 2) Modelo 1 processo -> N movimentações tipadas. Cada cargo vira uma linha em
+    // MOVIMENTACAO_REMANEJAMENTO, com TIPO_MOVIMENTACAO indicando se é DECRESCIMO ou ACRESCIMO.
+    const inserirMovimentacao = (linha, tipo) => conn.execute(
+      `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MOVIMENTACAO_REMANEJAMENTO_TABLE}\` (
+        ID_PROCESSO_REMANEJAMENTO, ID_DSEI_CASAI, ID_VAGA, TIPO_MOVIMENTACAO, QTD
+      ) VALUES (?, ?, ?, ?, ?)`,
+      [idProcesso, idDseiCasai, linha.idCargoFuncao, tipo, linha.quantidade]
+    );
+
     for (const linha of linhasReduzido) {
-      const [vagaResult] = await conn.execute(
-        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.VAGA_REMANEJADA_TABLE}\` (
-          ID_DSEI_CASAI, ID_VAGA, QTD
-        ) VALUES (?, ?, ?)`,
-        [idDseiCasai, linha.idCargoFuncao, linha.quantidade]
-      );
-      await conn.execute(
-        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` (
-          ID_PROCESSO_REMANEJAMENTO, ID_VAGA_REMANEJADA, ID_REMANEJAMENTO_ACRESCIDO
-        ) VALUES (?, ?, NULL)`,
-        [idProcesso, vagaResult.insertId]
-      );
+      await inserirMovimentacao(linha, "DECRESCIMO");
     }
 
     for (const linha of linhasAcrescentado) {
-      const [acrResult] = await conn.execute(
-        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE}\` (
-          ID_DSEI_CASAI, ID_VAGA, QTD
-        ) VALUES (?, ?, ?)`,
-        [idDseiCasai, linha.idCargoFuncao, linha.quantidade]
-      );
-      await conn.execute(
-        `INSERT INTO \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` (
-          ID_PROCESSO_REMANEJAMENTO, ID_VAGA_REMANEJADA, ID_REMANEJAMENTO_ACRESCIDO
-        ) VALUES (?, NULL, ?)`,
-        [idProcesso, acrResult.insertId]
-      );
+      await inserirMovimentacao(linha, "ACRESCIMO");
     }
 
     await conn.commit();
@@ -1263,48 +1273,22 @@ function normalizarLinhasRemanejamentoServidor(linhas) {
     .filter(item => item.idCargoFuncao && item.quantidade > 0);
 }
 
-// Exclui um remanejamento no modelo normalizado (PROCESSO_REMANEJAMENTO, VAGA_REMANEJADA,
-// REMANEJAMENTO_ACRESCIDO e REL_REMANEJAMENTO), em transação.
+// Exclui um remanejamento: remove as movimentações (MOVIMENTACAO_REMANEJAMENTO) e o
+// processo (PROCESSO_REMANEJAMENTO), em transação.
 async function excluirRemanejamentoComConn(conn, idProcesso) {
   const id = converterNumeroDash(idProcesso);
   if (!id) throw new Error("Remanejamento inválido.");
 
   await conn.beginTransaction();
   try {
-    // Coleta as vagas (reduzidas e acrescidas) ligadas ao processo antes de remover.
-    const [vinculos] = await conn.query(
-      `SELECT ID_VAGA_REMANEJADA, ID_REMANEJAMENTO_ACRESCIDO
-         FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\`
-        WHERE ID_PROCESSO_REMANEJAMENTO = ?`,
-      [id]
-    );
-    const idsReduzidas = (vinculos || []).map(v => converterNumeroDash(v.ID_VAGA_REMANEJADA)).filter(Boolean);
-    const idsAcrescidas = (vinculos || []).map(v => converterNumeroDash(v.ID_REMANEJAMENTO_ACRESCIDO)).filter(Boolean);
-
-    // 1) Remove os vínculos.
+    // 1) Remove as movimentações do processo.
     await conn.execute(
-      `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\`
+      `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MOVIMENTACAO_REMANEJAMENTO_TABLE}\`
         WHERE ID_PROCESSO_REMANEJAMENTO = ?`,
       [id]
     );
 
-    // 2) Remove as vagas reduzidas e acrescidas.
-    if (idsReduzidas.length) {
-      const ph = idsReduzidas.map(() => "?").join(",");
-      await conn.execute(
-        `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.VAGA_REMANEJADA_TABLE}\` WHERE ID_VAGA_REMANEJADA IN (${ph})`,
-        idsReduzidas
-      );
-    }
-    if (idsAcrescidas.length) {
-      const ph = idsAcrescidas.map(() => "?").join(",");
-      await conn.execute(
-        `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE}\` WHERE ID_REMANEJAMENTO_ACRESCIDO IN (${ph})`,
-        idsAcrescidas
-      );
-    }
-
-    // 3) Remove o processo.
+    // 2) Remove o processo.
     await conn.execute(
       `DELETE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.PROCESSO_REMANEJAMENTO_TABLE}\` WHERE ID_PROCESSO_REMANEJAMENTO = ?`,
       [id]
@@ -1340,8 +1324,8 @@ function montarCaseCargoSql(coluna, cargoDimAlias) {
   )`;
 }
 
-// Monta a consulta de detalhe para um lado (reduzidas ou acrescidas) do remanejamento.
-function montarSqlDetalheLado(tabelaVaga, idColuna) {
+// Monta a consulta de detalhe para um tipo de movimentação (DECRESCIMO ou ACRESCIMO).
+function montarSqlDetalheMovimentacao() {
   return `
     WITH
     cargo_dim AS (
@@ -1361,22 +1345,20 @@ function montarSqlDetalheLado(tabelaVaga, idColuna) {
     )
     SELECT
       (13 - MONTH(p.DATA_INSERCAO)) AS n_meses,
-      ${montarCaseCargoSql("v.ID_VAGA", "cd")} AS cargo,
-      v.QTD AS qtd,
+      ${montarCaseCargoSql("m.ID_VAGA", "cd")} AS cargo,
+      m.QTD AS qtd,
       COALESCE(cu.SALARIO_BASE, 0) AS salario,
       COALESCE(cu.INSALUBRIDADE_PERICULOSIDADE, 0) AS insal,
       COALESCE(cu.GRATIFICACAO_RT, 0) AS grat,
       COALESCE(cu.NOTURNO, 0) AS noturno,
       COALESCE(cu.ENCARGOS, 0) AS encargos,
       COALESCE(cu.PROVISOES, 0) AS provisoes
-    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.REL_REMANEJAMENTO_TABLE}\` rel
+    FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.MOVIMENTACAO_REMANEJAMENTO_TABLE}\` m
     JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.PROCESSO_REMANEJAMENTO_TABLE}\` p
-      ON p.ID_PROCESSO_REMANEJAMENTO = rel.ID_PROCESSO_REMANEJAMENTO
-    JOIN \`${DASH_CONFIG.DB_SCHEMA}\`.\`${tabelaVaga}\` v
-      ON v.${idColuna} = rel.${idColuna}
-    LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = v.ID_VAGA
-    LEFT JOIN custo_dim cu ON cu.ID_DSEI_CASAI = v.ID_DSEI_CASAI AND cu.ID_VAGA = v.ID_VAGA
-    WHERE rel.ID_PROCESSO_REMANEJAMENTO = ? AND rel.${idColuna} IS NOT NULL
+      ON p.ID_PROCESSO_REMANEJAMENTO = m.ID_PROCESSO_REMANEJAMENTO
+    LEFT JOIN cargo_dim cd ON cd.id_cargo_funcao = m.ID_VAGA
+    LEFT JOIN custo_dim cu ON cu.ID_DSEI_CASAI = m.ID_DSEI_CASAI AND cu.ID_VAGA = m.ID_VAGA
+    WHERE m.ID_PROCESSO_REMANEJAMENTO = ? AND m.TIPO_MOVIMENTACAO = ?
   `;
 }
 
@@ -1384,13 +1366,12 @@ async function getRemanejamentoDetalheData(idProcesso) {
   const id = converterNumeroDash(idProcesso);
   if (!id) throw new Error("Remanejamento inválido.");
 
-  const sqlReduzidas = montarSqlDetalheLado(DASH_CONFIG.VAGA_REMANEJADA_TABLE, "ID_VAGA_REMANEJADA");
-  const sqlAcrescidas = montarSqlDetalheLado(DASH_CONFIG.REMANEJAMENTO_ACRESCIDO_TABLE, "ID_REMANEJAMENTO_ACRESCIDO");
+  const sqlDetalhe = montarSqlDetalheMovimentacao();
 
   const conn = await getMysqlConnection();
   try {
-    const [linhasRed] = await conn.query(sqlReduzidas, [id]);
-    const [linhasAcr] = await conn.query(sqlAcrescidas, [id]);
+    const [linhasRed] = await conn.query(sqlDetalhe, [id, "DECRESCIMO"]);
+    const [linhasAcr] = await conn.query(sqlDetalhe, [id, "ACRESCIMO"]);
 
     const meses = Math.max(1, Number((linhasRed[0] || linhasAcr[0] || {}).n_meses || mesesAteFimDoAno()));
 
@@ -1482,8 +1463,11 @@ function calcularIndicadoresServidor(rows, totaisMonitoramento) {
   const temporarios = somaServidor(rows, "contratadosTemporario");
   const indigenas = somaServidor(rows, "contratadosIndigenas");
   const contratadosNormal = somaServidor(rows, "contratadosNormal");
-  const vagasOciosas = vagasPrevistas - contratados + afastados;
-  const vagasPreenchidas = vagasPrevistas - vagasOciosas;
+  // Total de vagas ociosas = soma apenas das ociosas positivas por linha; valores
+  // negativos (excedente de contratação) contam como 0 e não abatem o total.
+  const vagasOciosas = (rows || []).reduce((s, r) => s + Math.max(0, calcularOciosasServidor(r)), 0);
+  // Vagas preenchidas = trabalhadores contratados (dado correto).
+  const vagasPreenchidas = contratados;
   const vagasPreenchidasPerc = vagasPrevistas > 0 ? (vagasPreenchidas / vagasPrevistas) * 100 : 0;
   const coberturaAfastamentos = afastados > 0 ? (substituicoes / afastados) * 100 : 0;
   const percentualIndigenas = contratados > 0 ? (indigenas / contratados) * 100 : 0;
