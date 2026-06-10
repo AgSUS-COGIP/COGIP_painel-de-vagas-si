@@ -5890,12 +5890,12 @@
 /* =========================================================
    VISÃO GERAL EM PÁGINA ÚNICA (sem rolagem)
    Distribui as duas faixas de gráficos no espaço vertical livre e
-   faz cada gráfico encolher/crescer junto com a tela. Aplica-se a
-   qualquer resolução de desktop/notebook (>= 1000px de largura);
-   abaixo disso o painel volta a rolar, pois caber tudo numa tela
-   muito pequena tornaria os gráficos ilegíveis.
+   faz cada gráfico encolher/crescer junto com a tela.
+   Só é aplicado quando há ESPAÇO suficiente (largura >= 1000px e
+   altura >= 860px); em telas mais baixas o painel volta a rolar,
+   para que os gráficos não fiquem espremidos/ilegíveis.
 ========================================================= */
-@media (min-width: 1000px) {
+@media (min-width: 1000px) and (min-height: 860px) {
   /* Visão Geral não rola: ocupa exatamente a altura disponível */
   .main:not(.view-scroll) {
     overflow: hidden !important;
@@ -5970,4 +5970,77 @@
   #view-visaoGeral .kpi {
     min-height: 0 !important;
   }
+}
+
+/* Aviso abaixo da tabela "Vagas para Processo Seletivo" */
+.processoSeletivoAviso {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid #f3df9e;
+  color: #7a5b00;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Aviso sobre vagas ociosas negativas (excedente) na tabela de Vagas */
+.vagasOciosasAviso {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid #f3df9e;
+  color: #7a5b00;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Menu superior das tabelas da aba Vagas (Vagas | Vagas Ociosas | Processo Seletivo) */
+.vagasTabelaTabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+
+.vagasTabelaTab {
+  border: 1px solid rgba(0, 83, 166, .20);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .92);
+  color: #07346b;
+  font-size: 12.5px;
+  font-weight: 900;
+  padding: 11px 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0, 43, 93, .10);
+  transition: .18s ease;
+}
+
+.vagasTabelaTab:hover {
+  background: rgba(232, 247, 255, .98);
+  transform: translateY(-1px);
+}
+
+.vagasTabelaTab.active {
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #fff;
+  border-color: rgba(255, 255, 255, .28);
+  box-shadow: 0 12px 22px rgba(0, 63, 143, .22);
+}
+
+.vagasTabelaBloco[hidden] { display: none !important; }
+
+/* Menu de resumos no topo (fora da barra de busca) + busca acima da tabela */
+.vagasTabs.vagasTabsTopo {
+  margin: 0 0 12px;
+}
+
+.vagasSearchWrap {
+  margin: 0 0 12px;
+}
+
+.vagasSearchWrap .searchBox {
+  width: 100%;
 }
