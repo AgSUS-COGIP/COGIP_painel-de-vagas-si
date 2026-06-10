@@ -3760,11 +3760,19 @@
 
     @media print {
 
+      @page {
+        size: A4 landscape;
+        margin: 12mm;
+      }
+
       .sidebar,
       .top,
       .nav,
       .vagasTabs,
+      .vagasTabelaTabs,
       .tableTools .exportActions,
+      .exportActions,
+      .tablePagination,
       .clearBtn {
         display: none !important;
       }
@@ -3774,9 +3782,11 @@
       .app,
       .main,
       .content,
+      .viewPanel,
       .viewPanel.active {
         width: 100% !important;
         height: auto !important;
+        max-height: none !important;
         overflow: visible !important;
         background: #ffffff !important;
       }
@@ -3785,10 +3795,67 @@
         display: block !important;
       }
 
-      .fullTableWrap {
+      /* Garante a ordem KPIs em cima, tabela embaixo. */
+      .kpiGrid,
+      .alertKpiGrid {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+        page-break-inside: avoid;
+      }
+
+      .kpi {
+        min-height: auto !important;
+        break-inside: avoid;
+      }
+
+      /* Tabela completa e estendida: sem rolagem nem corte de altura.
+         Especificidade elevada (id + 2 classes) para vencer regras
+         "!important" declaradas mais adiante no arquivo. */
+      .fullTableWrap,
+      #view-vagas.viewPanel .fullTableWrap,
+      #view-alertas.viewPanel .fullTableWrap,
+      .main .content .fullTableWrap {
         overflow: visible !important;
+        max-height: none !important;
+        height: auto !important;
         box-shadow: none !important;
       }
+
+      .fullTableWrap table {
+        width: 100% !important;
+        table-layout: auto !important;
+      }
+
+      .fullTableWrap thead {
+        display: table-header-group;
+      }
+
+      .fullTableWrap tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      /* Coluna de observação (Alertas): vira texto puro na impressão. */
+      .alertaObservacaoInput,
+      .alertaObservacaoActions,
+      .alertaObservacaoStatus,
+      .alertaObservacaoMeta,
+      .alertaObservacaoCell .alertaObservacaoBtn {
+        display: none !important;
+      }
+
+      .alertaObservacaoTextoPrint {
+        display: block !important;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+    }
+
+    /* Texto-espelho da observação, visível apenas na impressão. */
+    .alertaObservacaoTextoPrint {
+      display: none;
     }
 
 

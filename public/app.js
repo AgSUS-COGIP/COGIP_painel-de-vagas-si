@@ -2534,6 +2534,7 @@
 
       return `
         <div class="alertaObservacaoWrap">
+          <div class="alertaObservacaoTextoPrint">${escapeHtml(obs)}</div>
           <textarea class="alertaObservacaoInput" id="${idObservacaoAlerta(chave)}" placeholder="Digite uma justificativa ou observação">${escapeHtml(obs)}</textarea>
           <div class="alertaObservacaoActions">
             <button type="button" class="alertaObservacaoBtn" id="${idBotaoObservacaoAlerta(chave)}" onclick="salvarObservacaoAlertaPainel('${escapeJs(chave)}')">Salvar</button>
