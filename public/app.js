@@ -98,6 +98,7 @@
       atualizarModoRolagem(activeView || "visaoGeral");
       configurarMultiSelectEstaticos();
       configurarFechamentoDeMenus();
+      configurarDelegacaoEventos();
       configurarPainelExterno();
       configurarPainelFerias();
       configurarRemanejamento();
@@ -836,6 +837,68 @@
       });
     }
 
+    // Delegação de eventos: substitui os handlers inline (onclick/onchange/oninput).
+    // Os elementos declaram a ação em data-click / data-change / data-input e os
+    // parâmetros em data-* adicionais; aqui despachamos para a função correspondente.
+    function configurarDelegacaoEventos() {
+      document.addEventListener("click", event => {
+        const el = event.target.closest("[data-click]");
+        if (!el) return;
+        const d = el.dataset;
+        switch (d.click) {
+          case "toggle-sidebar": toggleSidebar(); break;
+          case "logout": logoutPainel(); break;
+          case "limpar-filtros": limparFiltros(); break;
+          case "recarregar": recarregarTodosOsDados(el); break;
+          case "alterar-tabela-vagas": alterarTabelaVagas(d.vagasTabela); break;
+          case "alterar-visualizacao-vagas": alterarVisualizacaoVagas(d.vagasView); break;
+          case "exportar-vagas": exportarVagas(); break;
+          case "exportar-pdf": exportarPdf(); break;
+          case "exportar-alertas": exportarAlertas(); break;
+          case "exportar-distribuicao": exportarDistribuicaoVagasOciosas(); break;
+          case "exportar-processo": exportarProcessoSeletivo(); break;
+          case "abrir-painel-externo": abrirPainelExterno(); break;
+          case "abrir-painel-ferias": abrirPainelFerias(); break;
+          case "adicionar-linha-rem": adicionarLinhaRemanejamento(d.tipo); break;
+          case "limpar-form-rem": limparFormularioRemanejamento(); break;
+          case "salvar-rem": salvarRemanejamentoPainel(); break;
+          case "filtro-grafico": alternarFiltroGrafico(d.filterType, d.filterValue); break;
+          case "ordenar-vagas": ordenarTabelaVagas(d.key); break;
+          case "mudar-pagina-vagas": mudarPaginaVagas(Number(d.delta || 0)); break;
+          case "editar-obs": editarObservacaoAlertaPainel(d.chave); break;
+          case "salvar-obs": salvarObservacaoAlertaPainel(d.chave); break;
+          case "cancelar-obs": cancelarEdicaoObservacaoAlertaPainel(); break;
+          case "detalhe-rem": alternarDetalheRemanejamento(d.id); break;
+          case "excluir-rem": excluirRemanejamentoPainel(d.id); break;
+          case "remover-linha-rem": removerLinhaRemanejamento(d.tipo, d.id); break;
+        }
+      });
+
+      document.addEventListener("change", event => {
+        const el = event.target.closest("[data-change]");
+        if (!el) return;
+        const d = el.dataset;
+        switch (d.change) {
+          case "atualizar-vagas-origem": atualizarVagasOrigemPorDsei(); break;
+          case "atualizar-resumo-rem": atualizarResumoRemanejamento(); break;
+          case "render-rem-lista": renderRemanejamentoLista(); break;
+          case "campo-linha-rem": atualizarCampoLinhaRemanejamento(d.tipo, d.id, d.campo, event.target.value); break;
+        }
+      });
+
+      document.addEventListener("input", event => {
+        const el = event.target.closest("[data-input]");
+        if (!el) return;
+        const d = el.dataset;
+        switch (d.input) {
+          case "pesquisa-vagas": atualizarPesquisaVagas(event.target.value); break;
+          case "atualizar-resumo-rem": atualizarResumoRemanejamento(); break;
+          case "render-rem-lista": renderRemanejamentoLista(); break;
+          case "campo-linha-rem": atualizarCampoLinhaRemanejamento(d.tipo, d.id, d.campo, event.target.value); break;
+        }
+      });
+    }
+
     function onDataLoaded(payload) {
       payload = payload || {};
       allRows = payload.rows || [];
@@ -1318,9 +1381,8 @@
         const valor = Number(item.value || 0);
         const largura = Math.max(4, (valor / max) * 100);
         const label = escapeHtml(item.label || '');
-        const safeValue = escapeHtml(String(item.label || ''));
         return `
-          <button type="button" class="rankingRow" title="${label}" onclick="alternarFiltroGrafico('${filterType}', '${safeValue.replace(/'/g, "\'")}')">
+          <button type="button" class="rankingRow" title="${label}" data-click="filtro-grafico" data-filter-type="${escapeAttr(filterType || '')}" data-filter-value="${escapeAttr(item.label || '')}">
             <span class="rankingLabel">${label}</span>
             <span class="rankingTrack"><span class="rankingFill" style="width:${largura}%; background:${color};"></span></span>
             <strong class="rankingValue">${formatNumber(valor)}</strong>
@@ -1357,10 +1419,9 @@
         const width = Math.max(50, 100 - (index * 11));
         const opacity = Math.max(.54, 1 - (index * .09));
         const safeLabel = escapeHtml(item.label || "");
-        const safeRaw = String(item.label || "").replace(/'/g, "\\'");
 
         return `
-          <button type="button" class="funnelStep" title="${safeLabel}" onclick="alternarFiltroGrafico('${cfg.filterType || ""}', '${safeRaw}')">
+          <button type="button" class="funnelStep" title="${safeLabel}" data-click="filtro-grafico" data-filter-type="${escapeAttr(cfg.filterType || "")}" data-filter-value="${escapeAttr(item.label || "")}">
             <span class="funnelStepShape" style="width:${width}%; background:${item.color || COLORS.blue}; opacity:${opacity};"></span>
             <span class="funnelStepLabel">${safeLabel}</span>
             <strong class="funnelStepValue">${formatNumber(item.value)}</strong>
@@ -1387,10 +1448,9 @@
         const basis = Math.max(16, (Number(item.value || 0) / total) * 100);
         const tone = 0.92 - (index * 0.12);
         const safeLabel = escapeHtml(item.label || "");
-        const safeRaw = String(item.label || "").replace(/'/g, "\\'");
 
         return `
-          <button type="button" class="treemapNode" style="flex-basis:${basis}%; background:linear-gradient(135deg, rgba(246,178,50,${tone}), rgba(255,133,0,${Math.max(.32, tone - .18)}));" title="${safeLabel}" onclick="alternarFiltroGrafico('${cfg.filterType || ""}', '${safeRaw}')">
+          <button type="button" class="treemapNode" style="flex-basis:${basis}%; background:linear-gradient(135deg, rgba(246,178,50,${tone}), rgba(255,133,0,${Math.max(.32, tone - .18)}));" title="${safeLabel}" data-click="filtro-grafico" data-filter-type="${escapeAttr(cfg.filterType || "")}" data-filter-value="${escapeAttr(item.label || "")}">
             <span class="treemapLabel">${safeLabel}</span>
             <strong class="treemapValue">${formatNumber(item.value)}</strong>
           </button>
@@ -1780,21 +1840,21 @@
         bloco: "blocoTabelaVagas",
         titulo: "Vagas",
         subtitulo: "Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.",
-        exportHtml: '<button type="button" class="exportBtn" onclick="exportarVagas()">Exportar base filtrada</button><button type="button" class="exportBtn" onclick="exportarPdf()">Salvar em PDF</button>',
+        exportHtml: '<button type="button" class="exportBtn" data-click="exportar-vagas">Exportar base filtrada</button><button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button>',
         avisoHtml: ""
       },
       ociosas: {
         bloco: "blocoTabelaOciosas",
         titulo: "Distribuição das Vagas Ociosas",
         subtitulo: "Vagas não ocupadas, afastamento sem substituição e o total de vagas ociosas, conforme a visualização atual.",
-        exportHtml: '<button type="button" class="exportBtn" onclick="exportarDistribuicaoVagasOciosas()">Exportar distribuição</button>',
+        exportHtml: '<button type="button" class="exportBtn" data-click="exportar-distribuicao">Exportar distribuição</button>',
         avisoHtml: ""
       },
       processo: {
         bloco: "blocoTabelaProcesso",
         titulo: "Vagas para Processo Seletivo",
         subtitulo: "Vagas não ocupadas somadas às temporárias (total para processo seletivo).",
-        exportHtml: '<button type="button" class="exportBtn" onclick="exportarProcessoSeletivo()">Exportar processo seletivo</button>',
+        exportHtml: '<button type="button" class="exportBtn" data-click="exportar-processo">Exportar processo seletivo</button>',
         avisoHtml: '<div class="processoSeletivoAviso">⚠ Não entram no cálculo do processo seletivo os cargos de provimento comunitário/indicação: <strong>Agente Indígena de Saúde</strong>, <strong>Agente Indígena de Saneamento</strong>, <strong>Assessor Técnico Indígena</strong> e <strong>Secretário do CONDISI</strong>.</div>'
       }
     };
@@ -1915,7 +1975,7 @@
         const ativo = vagasSortState.key === key;
         const classe = ativo ? (vagasSortState.direction === "asc" ? "sortAsc" : "sortDesc") : "";
         const extraClasse = key === "ociosas" ? " colOciosasHead" : "";
-        return `<th class="sortable ${classe}${extraClasse}" onclick="ordenarTabelaVagas('${key}')">${label}</th>`;
+        return `<th class="sortable ${classe}${extraClasse}" data-click="ordenar-vagas" data-key="${escapeAttr(key)}">${label}</th>`;
       };
 
       if (vagasViewAtual === "detalhado") {
@@ -2388,9 +2448,9 @@
       return {
         linhasPagina,
         resumoPaginacao: `
-          <button type="button" onclick="mudarPaginaVagas(-1)" ${vagasCurrentPage <= 1 ? "disabled" : ""}>Anterior</button>
+          <button type="button" data-click="mudar-pagina-vagas" data-delta="-1" ${vagasCurrentPage <= 1 ? "disabled" : ""}>Anterior</button>
           <span>Página ${formatNumber(vagasCurrentPage)} de ${formatNumber(totalPaginas)}${grupoAtual ? ` · ${escapeHtml(grupoAtual)}` : ""}</span>
-          <button type="button" onclick="mudarPaginaVagas(1)" ${vagasCurrentPage >= totalPaginas ? "disabled" : ""}>Próxima</button>
+          <button type="button" data-click="mudar-pagina-vagas" data-delta="1" ${vagasCurrentPage >= totalPaginas ? "disabled" : ""}>Próxima</button>
         `
       };
     }
@@ -2524,7 +2584,7 @@
           <div class="alertaObservacaoWrap">
             <div class="alertaObservacaoTexto">${escapeHtml(obs)}</div>
             <div class="alertaObservacaoActions">
-              <button type="button" class="alertaObservacaoBtn secundario" onclick="editarObservacaoAlertaPainel('${escapeJs(chave)}')">Editar</button>
+              <button type="button" class="alertaObservacaoBtn secundario" data-click="editar-obs" data-chave="${escapeAttr(chave)}">Editar</button>
             </div>
             ${meta}
             <div class="alertaObservacaoStatus" id="${idStatusObservacaoAlerta(chave)}"></div>
@@ -2536,8 +2596,8 @@
         <div class="alertaObservacaoWrap">
           <textarea class="alertaObservacaoInput" id="${idObservacaoAlerta(chave)}" placeholder="Digite uma justificativa ou observação">${escapeHtml(obs)}</textarea>
           <div class="alertaObservacaoActions">
-            <button type="button" class="alertaObservacaoBtn" id="${idBotaoObservacaoAlerta(chave)}" onclick="salvarObservacaoAlertaPainel('${escapeJs(chave)}')">Salvar</button>
-            ${obs ? `<button type="button" class="alertaObservacaoBtn secundario" onclick="cancelarEdicaoObservacaoAlertaPainel()">Cancelar</button>` : ""}
+            <button type="button" class="alertaObservacaoBtn" id="${idBotaoObservacaoAlerta(chave)}" data-click="salvar-obs" data-chave="${escapeAttr(chave)}">Salvar</button>
+            ${obs ? `<button type="button" class="alertaObservacaoBtn secundario" data-click="cancelar-obs">Cancelar</button>` : ""}
           </div>
           ${meta}
           <div class="alertaObservacaoStatus" id="${idStatusObservacaoAlerta(chave)}"></div>
@@ -3180,9 +3240,9 @@
         const impactoClass = classeValorImpacto(impacto);
         const idAttr = escapeAttr(row.idProcesso);
 
-        const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" onclick="alternarDetalheRemanejamento('${escapeJs(row.idProcesso)}')">👁</button>`;
+        const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-rem" data-id="${escapeAttr(row.idProcesso)}">👁</button>`;
         const btnExcluir = podeExcluir
-          ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" onclick="excluirRemanejamentoPainel('${escapeJs(row.idProcesso)}')">🗑</button>`
+          ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" data-click="excluir-rem" data-id="${escapeAttr(row.idProcesso)}">🗑</button>`
           : "";
 
         return `
@@ -3499,7 +3559,7 @@
 
       body.innerHTML = rows.map(row => {
         const total = calcularTotalLinhaRemanejamento(row);
-        const selectHtml = `<select onchange="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','idCargoFuncao',this.value)">${optionsHtml.replace(`value="${escapeAttr(row.idCargoFuncao)}"`, `value="${escapeAttr(row.idCargoFuncao)}" selected`)}</select>`;
+        const selectHtml = `<select data-change="campo-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}" data-campo="idCargoFuncao">${optionsHtml.replace(`value="${escapeAttr(row.idCargoFuncao)}"`, `value="${escapeAttr(row.idCargoFuncao)}" selected`)}</select>`;
 
         // Apenas para o lado reduzido: exibe vagas ociosas disponíveis e sinaliza quando falta.
         let infoOciosas = "";
@@ -3519,10 +3579,10 @@
         return `
           <tr${classeLinha}>
             <td>${selectHtml}${infoOciosas}</td>
-            <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" oninput="atualizarCampoLinhaRemanejamento('${tipo}','${row.id}','quantidade',this.value)"></td>
+            <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" data-input="campo-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}" data-campo="quantidade"></td>
             <td><span class="remMesesValor" title="Meses do mês atual até dezembro (calculado automaticamente).">${escapeHtml(row.meses)}</span></td>
             <td><strong>${formatCurrency(total.total)}</strong></td>
-            <td><button type="button" class="remDeleteBtn" onclick="removerLinhaRemanejamento('${tipo}','${row.id}')">🗑</button></td>
+            <td><button type="button" class="remDeleteBtn" data-click="remover-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}">🗑</button></td>
           </tr>
         `;
       }).join("");

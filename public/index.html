@@ -54,7 +54,7 @@
         <div class="brandMeta">unidade de gestão de pessoas | diretoria de operações</div>
       </div>
 
-      <button type="button" class="sidebarToggle" onclick="toggleSidebar()" aria-label="Recolher ou expandir menu" title="Recolher menu">
+      <button type="button" class="sidebarToggle" data-click="toggle-sidebar" aria-label="Recolher ou expandir menu" title="Recolher menu">
         <span class="sidebarToggleIcon">&#8249;</span>
       </button>
 
@@ -95,7 +95,7 @@
 
       <div id="sidebarUsuario" class="sidebarUsuario" style="display:none;">
         <div class="sidebarUsuarioNome" id="sidebarUsuarioNome"></div>
-        <button type="button" class="sidebarLogoutBtn" onclick="logoutPainel()">Sair</button>
+        <button type="button" class="sidebarLogoutBtn" data-click="logout">Sair</button>
       </div>
 
       <div class="sidebarCoord">
@@ -129,12 +129,12 @@
             <div id="fTipoAlerta" class="multiSelect"></div>
           </div>
 
-          <button type="button" class="clearBtn" onclick="limparFiltros()">
+          <button type="button" class="clearBtn" data-click="limpar-filtros">
             <span>&#8635;</span>
             <span>Limpar Filtros</span>
           </button>
 
-          <button type="button" class="refreshBtn" id="refreshBtn" onclick="recarregarTodosOsDados(this)" title="Buscar os dados mais recentes do banco">
+          <button type="button" class="refreshBtn" id="refreshBtn" data-click="recarregar" title="Buscar os dados mais recentes do banco">
             <span class="refreshBtnIcon">&#8635;</span>
             <span>Atualizar dados</span>
           </button>
@@ -331,16 +331,16 @@
 
           <!-- 1) Menu de tabelas -->
           <div class="vagasTabelaTabs" aria-label="Tabelas da aba de vagas">
-            <button type="button" class="vagasTabelaTab active" data-vagas-tabela="vagas" onclick="alterarTabelaVagas('vagas')">Vagas</button>
-            <button type="button" class="vagasTabelaTab" data-vagas-tabela="ociosas" onclick="alterarTabelaVagas('ociosas')">Vagas Ociosas</button>
-            <button type="button" class="vagasTabelaTab" data-vagas-tabela="processo" onclick="alterarTabelaVagas('processo')">Vagas para Processo Seletivo</button>
+            <button type="button" class="vagasTabelaTab active" data-vagas-tabela="vagas" data-click="alterar-tabela-vagas">Vagas</button>
+            <button type="button" class="vagasTabelaTab" data-vagas-tabela="ociosas" data-click="alterar-tabela-vagas">Vagas Ociosas</button>
+            <button type="button" class="vagasTabelaTab" data-vagas-tabela="processo" data-click="alterar-tabela-vagas">Vagas para Processo Seletivo</button>
           </div>
 
           <!-- 2) Menu de resumos / detalhamento -->
           <div class="vagasTabs vagasTabsTopo" aria-label="Visualizações da tabela de vagas">
-            <button type="button" class="vagasTab active" data-vagas-view="dsei" onclick="alterarVisualizacaoVagas('dsei')">Resumo por DSEI/CASAI</button>
-            <button type="button" class="vagasTab" data-vagas-view="cargo" onclick="alterarVisualizacaoVagas('cargo')">Resumo por Cargo</button>
-            <button type="button" class="vagasTab" data-vagas-view="detalhado" onclick="alterarVisualizacaoVagas('detalhado')">Detalhamento Completo</button>
+            <button type="button" class="vagasTab active" data-vagas-view="dsei" data-click="alterar-visualizacao-vagas">Resumo por DSEI/CASAI</button>
+            <button type="button" class="vagasTab" data-vagas-view="cargo" data-click="alterar-visualizacao-vagas">Resumo por Cargo</button>
+            <button type="button" class="vagasTab" data-vagas-view="detalhado" data-click="alterar-visualizacao-vagas">Detalhamento Completo</button>
           </div>
 
           <!-- 3) Cabeçalho (muda conforme a tabela selecionada) -->
@@ -350,8 +350,8 @@
               <div class="pageSub" id="vagasSubtituloDinamico">Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.</div>
             </div>
             <div class="exportActions" id="vagasExportActions">
-              <button type="button" class="exportBtn" onclick="exportarVagas()">Exportar base filtrada</button>
-              <button type="button" class="exportBtn" onclick="exportarPdf()">Salvar em PDF</button>
+              <button type="button" class="exportBtn" data-click="exportar-vagas">Exportar base filtrada</button>
+              <button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button>
             </div>
           </div>
 
@@ -360,7 +360,7 @@
 
           <!-- 5) Busca, imediatamente acima da tabela -->
           <div class="vagasSearchWrap">
-            <input id="vagasSearch" class="searchBox" type="search" placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" oninput="atualizarPesquisaVagas(this.value)">
+            <input id="vagasSearch" class="searchBox" type="search" placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" data-input="pesquisa-vagas">
           </div>
 
           <!-- 6) Tabelas -->
@@ -450,7 +450,7 @@
               <h2 class="pageTitle">Alertas</h2>
               <div class="pageSub">Afastamentos, temporários ativos e vagas excedentes conforme filtros selecionados.</div>
             </div>
-            <div class="exportActions"><button type="button" class="exportBtn" onclick="exportarAlertas()">Exportar alertas</button><button type="button" class="exportBtn" onclick="exportarPdf()">Salvar em PDF</button></div>
+            <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas">Exportar alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button></div>
           </div>
 
           <section class="alertKpiGrid">
@@ -519,7 +519,7 @@
               <h2 class="pageTitle">Dashboard Saúde Indígena</h2>
               <div class="pageSub">Área reservada para incorporar um painel externo específico desta página.</div>
             </div>
-            <button id="btnAbrirPainelExterno" type="button" class="exportBtn" onclick="abrirPainelExterno()">
+            <button id="btnAbrirPainelExterno" type="button" class="exportBtn" data-click="abrir-painel-externo">
               Abrir painel em nova aba
             </button>
           </div>
@@ -554,7 +554,7 @@
               <h2 class="pageTitle">Férias - Saúde Indígena</h2>
               <div class="pageSub">Área reservada para incorporar o painel de férias específico desta página.</div>
             </div>
-            <button id="btnAbrirPainelFerias" type="button" class="exportBtn" onclick="abrirPainelFerias()">
+            <button id="btnAbrirPainelFerias" type="button" class="exportBtn" data-click="abrir-painel-ferias">
               Abrir painel em nova aba
             </button>
           </div>
@@ -596,7 +596,7 @@
               <section class="remBox remDseiBox">
                 <h3>1. SELECIONE O DSEI</h3>
                 <label for="remanejamentoDsei">DSEI</label>
-                <select id="remanejamentoDsei" onchange="atualizarVagasOrigemPorDsei()"></select>
+                <select id="remanejamentoDsei" data-change="atualizar-vagas-origem"></select>
               </section>
 
               <section class="remBox remResumoTopoBox">
@@ -626,7 +626,7 @@
               <section class="remBox">
                 <div class="remBoxHeader">
                   <h3>2. O QUE ESTÁ SENDO REDUZIDO</h3>
-                  <button type="button" class="remAddBtn" onclick="adicionarLinhaRemanejamento('reduzido')">+ Adicionar Cargo</button>
+                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="reduzido">+ Adicionar Cargo</button>
                 </div>
                 <div id="remOciosasAviso" class="remOciosasAviso" hidden></div>
                 <div class="remTableWrap">
@@ -651,7 +651,7 @@
               <section class="remBox">
                 <div class="remBoxHeader">
                   <h3>3. O QUE ESTÁ SENDO ACRESCENTADO</h3>
-                  <button type="button" class="remAddBtn" onclick="adicionarLinhaRemanejamento('acrescentado')">+ Adicionar Cargo</button>
+                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="acrescentado">+ Adicionar Cargo</button>
                 </div>
                 <div class="remTableWrap">
                   <table class="remTable remTableFinanceira">
@@ -702,15 +702,15 @@
               <section class="remBox remDocBox">
                 <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
                 <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
-                <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: 00000.000000/2024-00" oninput="atualizarResumoRemanejamento()">
+                <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: 00000.000000/2024-00" data-input="atualizar-resumo-rem">
                 <label for="remObservacao">Observação</label>
                 <textarea id="remObservacao" rows="3" placeholder="Informe a justificativa do remanejamento."></textarea>
                 <label for="remAnexoArquivo">Anexar Ofício ou Documento (PDF)</label>
-                <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf" onchange="atualizarResumoRemanejamento()">
+                <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf" data-change="atualizar-resumo-rem">
                 <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar. PDF até 10MB.</div>
                 <div class="remDocActions">
-                  <button type="button" class="remSecondaryBtn" onclick="limparFormularioRemanejamento()">Limpar</button>
-                  <button type="button" class="remSaveBtn" id="remSaveBtn" onclick="salvarRemanejamentoPainel()">Salvar Remanejamento</button>
+                  <button type="button" class="remSecondaryBtn" data-click="limpar-form-rem">Limpar</button>
+                  <button type="button" class="remSaveBtn" id="remSaveBtn" data-click="salvar-rem">Salvar Remanejamento</button>
                 </div>
               </section>
             </div>
@@ -730,11 +730,11 @@
               <div class="remHistoricoHead">
                 <h3>HISTÓRICO DE REMANEJAMENTOS</h3>
                 <div class="remHistoricoToolbar">
-                  <select id="remanejamentoStatusFiltro" onchange="renderRemanejamentoLista()">
+                  <select id="remanejamentoStatusFiltro" data-change="render-rem-lista">
                     <option value="">Todos os Status</option>
                     <option value="Registrado">Registrado</option>
                   </select>
-                  <input id="remanejamentoSearch" class="searchBox" type="search" placeholder="Buscar remanejamento" oninput="renderRemanejamentoLista()">
+                  <input id="remanejamentoSearch" class="searchBox" type="search" placeholder="Buscar remanejamento" data-input="render-rem-lista">
                 </div>
               </div>
               <div class="fullTableWrap remHistoryWrap">
