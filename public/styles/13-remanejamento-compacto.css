@@ -203,6 +203,10 @@
   min-width: 0;
 }
 
+.alertaObservacaoTextoPrint {
+  display: none;
+}
+
 .alertaObservacaoInput {
   width: 100%;
   min-width: 0;
