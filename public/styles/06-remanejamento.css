@@ -1223,6 +1223,11 @@
       }
     }
 
+    /* Texto-espelho da observacao, visivel apenas na impressao. */
+    .alertaObservacaoTextoPrint {
+      display: none;
+    }
+
 
 
     /* Ajuste fino: responsividade dos gráficos da Visão Geral */
