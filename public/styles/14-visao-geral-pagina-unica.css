@@ -1,0 +1,156 @@
+/* =========================================================
+   Distribui as duas faixas de gráficos no espaço vertical livre e
+   faz cada gráfico encolher/crescer junto com a tela.
+   Só é aplicado quando há ESPAÇO suficiente (largura >= 1000px e
+   altura >= 860px); em telas mais baixas o painel volta a rolar,
+   para que os gráficos não fiquem espremidos/ilegíveis.
+========================================================= */
+@media (min-width: 1000px) and (min-height: 860px) {
+  /* Visão Geral não rola: ocupa exatamente a altura disponível */
+  .main:not(.view-scroll) {
+    overflow: hidden !important;
+  }
+
+  .main:not(.view-scroll) .content {
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  #view-visaoGeral.viewPanel.active {
+    display: block !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Linhas: KPIs (auto), barra (auto), e as DUAS faixas de gráficos
+     dividindo o restante igualmente */
+  #view-visaoGeral .onePageDashboard {
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: clamp(6px, 1.1vh, 12px) !important;
+    align-content: stretch !important;
+  }
+
+  /* Sempre 3 colunas iguais em cada faixa, para que cada faixa seja
+     exatamente uma linha visual (condição para caber em uma tela) */
+  #view-visaoGeral .overviewChartsGrid,
+  #view-visaoGeral .overviewBottomGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    min-height: 0 !important;
+    align-items: stretch !important;
+  }
+
+  /* Cada cartão preenche a altura da sua linha */
+  #view-visaoGeral .panel {
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Cartões simples (título + gráfico): título no topo, gráfico ocupa o resto */
+  #view-visaoGeral .panel:not(.panelPreenchimento):not(.panelTipo) {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  /* Cartões com legenda lateral mantêm as colunas; a linha do gráfico encolhe */
+  #view-visaoGeral .panelPreenchimento,
+  #view-visaoGeral .panelTipo {
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  /* Gráficos preenchem o espaço disponível (substitui as alturas fixas) */
+  #view-visaoGeral .panelCategoria .chartBox.tall,
+  #view-visaoGeral .panelTipo .chartBox.tipoGrande,
+  #view-visaoGeral .chartBox.smallDonut,
+  #view-visaoGeral .chartBox.compactBar,
+  #view-visaoGeral .chartBox.coverageDonut,
+  #view-visaoGeral .chartBox {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  #view-visaoGeral .rankingBars {
+    min-height: 0 !important;
+  }
+
+  /* KPIs e barra de progresso ocupam só o necessário */
+  #view-visaoGeral .kpi {
+    min-height: 0 !important;
+  }
+}
+
+/* Aviso abaixo da tabela "Vagas para Processo Seletivo" */
+.processoSeletivoAviso {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid #f3df9e;
+  color: #7a5b00;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Aviso sobre vagas ociosas negativas (excedente) na tabela de Vagas */
+.vagasOciosasAviso {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff8e6;
+  border: 1px solid #f3df9e;
+  color: #7a5b00;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Menu superior das tabelas da aba Vagas (Vagas | Vagas Ociosas | Processo Seletivo) */
+.vagasTabelaTabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+
+.vagasTabelaTab {
+  border: 1px solid rgba(0, 83, 166, .20);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .92);
+  color: #07346b;
+  font-size: 12.5px;
+  font-weight: 900;
+  padding: 11px 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0, 43, 93, .10);
+  transition: .18s ease;
+}
+
+.vagasTabelaTab:hover {
+  background: rgba(232, 247, 255, .98);
+  transform: translateY(-1px);
+}
+
+.vagasTabelaTab.active {
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #fff;
+  border-color: rgba(255, 255, 255, .28);
+  box-shadow: 0 12px 22px rgba(0, 63, 143, .22);
+}
+
+.vagasTabelaBloco[hidden] { display: none !important; }
+
+/* Menu de resumos no topo (fora da barra de busca) + busca acima da tabela */
+.vagasTabs.vagasTabsTopo {
+  margin: 0 0 12px;
+}
+
+.vagasSearchWrap {
+  margin: 0 0 12px;
+}
+
+.vagasSearchWrap .searchBox {
+  width: 100%;
+}

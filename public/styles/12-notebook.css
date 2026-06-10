@@ -1,0 +1,214 @@
+    /* =========================================================
+       
+    ========================================================= */
+
+    @media (min-width: 1024px) and (max-width: 1440px) {
+
+      html,
+      body {
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+
+      .app {
+        height: 100vh !important;
+        min-height: 100vh !important;
+        overflow: hidden !important;
+        grid-template-columns: clamp(96px, 8vw, 116px) minmax(0, 1fr) !important;
+      }
+
+      .sidebar {
+        height: 100vh !important;
+        min-height: 100vh !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 12px 10px !important;
+      }
+
+      .sidebarSpacer {
+        min-height: 10px !important;
+      }
+
+      .main {
+        height: 100vh !important;
+        min-height: 100vh !important;
+        overflow: hidden !important;
+      }
+
+      .content {
+        height: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 0 16px 14px 16px !important;
+      }
+
+      #view-visaoGeral .onePageDashboard {
+        height: auto !important;
+        min-height: 0 !important;
+        grid-template-rows: auto auto auto !important;
+        gap: 8px !important;
+      }
+
+      #view-visaoGeral .kpiGrid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+      }
+
+      #view-visaoGeral .kpi {
+        min-height: 78px !important;
+      }
+
+      #view-visaoGeral .overviewChartsGrid,
+      #view-visaoGeral .overviewBottomGrid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+      }
+
+      #view-visaoGeral .panelIndigenas.wideIndigenas {
+        grid-column: 1 / -1 !important;
+      }
+
+      #view-visaoGeral .panelCategoria .chartBox.tall {
+        height: 250px !important;
+      }
+
+      #view-visaoGeral .chartBox.smallDonut,
+      #view-visaoGeral .panelTipo .chartBox.tipoGrande {
+        height: 205px !important;
+      }
+
+      #view-visaoGeral .chartBox.compactBar,
+      #view-visaoGeral .rankingBars {
+        height: 170px !important;
+        min-height: 170px !important;
+      }
+
+      .panelPreenchimento {
+        grid-template-columns: minmax(0, 1fr) minmax(135px, .62fr) !important;
+        align-items: center !important;
+      }
+
+      .panelTipo {
+        padding-right: 0 !important;
+        grid-template-columns: minmax(200px, 1fr) minmax(145px, .70fr) 110px !important;
+        grid-template-rows: auto 1fr !important;
+        align-items: center !important;
+        column-gap: 10px !important;
+      }
+
+      .panelTipo .panelTitle {
+        grid-column: 1 / -1 !important;
+      }
+
+      .panelTipo .chartBox.tipoGrande {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+      }
+
+      .panelTipo .sideLegend {
+        grid-column: 2 !important;
+        grid-row: 2 !important;
+        font-size: 10.2px !important;
+        gap: 6px !important;
+        margin-top: 0 !important;
+        align-self: center !important;
+      }
+
+      .imagemIndigenaPainel {
+        position: relative !important;
+        grid-column: 3 !important;
+        grid-row: 2 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        align-self: stretch !important;
+        justify-self: stretch !important;
+        background-size: contain !important;
+        background-position: center bottom !important;
+        background-repeat: no-repeat !important;
+        opacity: .22 !important;
+        filter: saturate(1.05) contrast(1.02) brightness(1.02) !important;
+        z-index: 1 !important;
+        pointer-events: none !important;
+      }
+    }
+
+    @media (min-width: 1024px) and (max-width: 1280px) {
+      .app {
+        grid-template-columns: 86px minmax(0, 1fr) !important;
+      }
+
+      .brandTitle,
+      .brandSubtitle,
+      .brandMeta,
+      .sidebarCoord {
+        display: none !important;
+      }
+
+      .sidebarToggle {
+        display: none !important;
+      }
+
+      .brandLogo {
+        width: 54px !important;
+        height: 54px !important;
+      }
+
+      .navItem {
+        grid-template-columns: 1fr !important;
+        justify-items: center !important;
+        padding: 10px !important;
+      }
+
+      .navItem span:not(.navIcon) {
+        display: none !important;
+      }
+
+      .navIcon {
+        width: 40px !important;
+        height: 40px !important;
+      }
+
+      #view-visaoGeral .overviewChartsGrid,
+      #view-visaoGeral .overviewBottomGrid {
+        grid-template-columns: 1fr !important;
+      }
+
+      .panelPreenchimento,
+      .panelTipo {
+        grid-template-columns: 1fr !important;
+      }
+
+      .panelPreenchimento .panelTitle,
+      .panelPreenchimento .chartBox,
+      .panelPreenchimento .sideLegend,
+      .panelTipo .panelTitle,
+      .panelTipo .chartBox,
+      .panelTipo .sideLegend {
+        grid-column: 1 !important;
+      }
+
+      .imagemIndigenaPainel {
+        display: none !important;
+      }
+    }
+
+    #view-visaoGeral .kpiGrid {
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      width: 100% !important;
+    }
+
+    /* Mantém adaptação quando o menu lateral ou a tela reduzem o espaço */
+    @media (max-width: 1366px) {
+      #view-visaoGeral .kpiGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+
+    @media (max-width: 760px) {
+      #view-visaoGeral .kpiGrid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+

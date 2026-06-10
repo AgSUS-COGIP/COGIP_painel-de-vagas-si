@@ -1,0 +1,373 @@
+    /* =========================================================
+       VISÃO GERAL
+    ========================================================= */
+
+    .onePageDashboard {
+      height: 100%;
+      grid-template-rows: auto minmax(260px, 1.15fr) minmax(220px, .92fr) !important;
+      gap: clamp(8px, 1vh, 12px) !important;
+    }
+
+    .kpiGrid {
+      gap: clamp(8px, .8vw, 14px) !important;
+    }
+
+    .kpi {
+      min-height: clamp(64px, 8.2vh, 82px) !important;
+      padding: clamp(8px, .75vw, 12px) clamp(10px, .9vw, 15px) !important;
+      grid-template-columns: clamp(38px, 2.8vw, 46px) 1fr !important;
+    }
+
+    .kpiIcon {
+      width: clamp(38px, 2.8vw, 46px) !important;
+      height: clamp(38px, 2.8vw, 46px) !important;
+      font-size: clamp(17px, 1.25vw, 21px) !important;
+    }
+
+    .kpiLabel {
+      font-size: clamp(10px, .72vw, 12px) !important;
+    }
+
+    .kpiValue {
+      font-size: clamp(22px, 1.8vw, 28px) !important;
+    }
+
+    .kpiSub {
+      font-size: clamp(9.5px, .70vw, 11px) !important;
+    }
+
+    .overviewChartsGrid {
+      display: grid;
+      grid-template-columns: minmax(500px, 1.42fr) minmax(330px, .88fr) minmax(520px, 1.20fr) !important;
+      gap: clamp(8px, .85vw, 12px) !important;
+      min-height: 0;
+    }
+
+    .overviewBottomGrid {
+      display: grid;
+      grid-template-columns: minmax(340px, .84fr) minmax(350px, .92fr) minmax(560px, 1.38fr) !important;
+      gap: clamp(8px, .85vw, 12px) !important;
+      min-height: 0;
+    }
+
+    .overviewChartsGrid .panel,
+    .overviewBottomGrid .panel {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      padding: clamp(10px, .8vw, 15px) clamp(12px, .95vw, 17px) !important;
+    }
+
+    .panelTitle {
+      font-size: clamp(11px, .78vw, 13px) !important;
+      margin-bottom: clamp(7px, .8vh, 10px) !important;
+      line-height: 1.12 !important;
+    }
+
+    .panelCategoria .chartBox.tall {
+      height: clamp(235px, 31vh, 340px) !important;
+    }
+
+    .panelPreenchimento,
+    .panelTipo {
+      display: grid !important;
+      grid-template-rows: auto 1fr !important;
+      min-height: 0;
+    }
+
+    .panelPreenchimento {
+      grid-template-columns: minmax(190px, 1fr) minmax(145px, .72fr) !important;
+      column-gap: clamp(8px, .8vw, 14px) !important;
+      align-items: center;
+    }
+
+    .panelPreenchimento .panelTitle {
+      grid-column: 1 / -1;
+    }
+
+    .panelPreenchimento .chartBox.smallDonut {
+      grid-column: 1;
+      height: clamp(210px, 29vh, 310px) !important;
+      align-self: center;
+    }
+
+    .panelPreenchimento .sideLegend {
+      grid-column: 2;
+      align-self: center;
+      margin-top: 0 !important;
+      gap: 10px !important;
+      font-size: clamp(10px, .72vw, 11.8px) !important;
+    }
+
+    .panelTipo {
+      position: relative;
+      grid-template-columns: minmax(245px, .96fr) minmax(230px, .74fr) !important;
+      column-gap: clamp(10px, 1vw, 16px) !important;
+      padding-right: clamp(135px, 10vw, 210px) !important;
+    }
+
+    .panelTipo .panelTitle {
+      grid-column: 1 / -1;
+    }
+
+    .panelTipo .chartBox.tipoGrande {
+      grid-column: 1;
+      height: clamp(215px, 30vh, 320px) !important;
+      min-height: 0 !important;
+      align-self: center;
+      z-index: 2;
+    }
+
+    .panelTipo .sideLegend {
+      grid-column: 2;
+      z-index: 2;
+      align-self: center;
+      margin-top: 0 !important;
+      gap: 10px !important;
+      font-size: clamp(10px, .72vw, 11.8px) !important;
+    }
+
+    .imagemIndigenaPainel {
+      position: absolute !important;
+      right: clamp(10px, .9vw, 18px) !important;
+      bottom: 0 !important;
+      width: clamp(118px, 9.2vw, 190px) !important;
+      height: calc(100% - 42px) !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      background-size: contain !important;
+      background-position: right bottom !important;
+      background-repeat: no-repeat !important;
+      opacity: .98 !important;
+      z-index: 1 !important;
+      transform: none !important;
+      pointer-events: none;
+    }
+
+    .chartBox.compactBar {
+      height: clamp(180px, 24vh, 250px) !important;
+    }
+
+    .wideIndigenas {
+      display: grid !important;
+      grid-template-rows: auto 1fr !important;
+    }
+
+    .rankingBars {
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+      display: grid;
+      gap: clamp(5px, .6vh, 8px);
+      align-content: stretch;
+      overflow: hidden;
+      padding: 2px 2px 2px 0;
+    }
+
+    .rankingRow {
+      width: 100%;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(190px, .88fr) minmax(220px, 1.35fr) auto;
+      align-items: center;
+      gap: clamp(8px, .75vw, 12px);
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+    }
+
+    .rankingRow:hover .rankingTrack {
+      box-shadow: inset 0 0 0 1px rgba(0, 109, 204, .25);
+    }
+
+    .rankingLabel {
+      min-width: 0;
+      color: #07346b;
+      font-size: clamp(9.8px, .72vw, 11.2px);
+      font-weight: 900;
+      line-height: 1.12;
+      text-transform: uppercase;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+    .rankingTrack {
+      height: clamp(10px, 1.15vh, 15px);
+      min-width: 0;
+      border-radius: 999px;
+      background: rgba(0, 111, 204, .10);
+      overflow: hidden;
+    }
+
+    .rankingFill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .08);
+    }
+
+    .rankingValue {
+      color: #07346b;
+      font-size: clamp(10px, .72vw, 11.6px);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .emptyState {
+      align-self: center;
+      color: #315c8e;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    @media (min-width: 1281px) and (max-width: 1620px) {
+      .overviewChartsGrid {
+        grid-template-columns: minmax(430px, 1.20fr) minmax(330px, .86fr) minmax(470px, 1.08fr) !important;
+      }
+
+      .overviewBottomGrid {
+        grid-template-columns: minmax(300px, .82fr) minmax(310px, .88fr) minmax(500px, 1.30fr) !important;
+      }
+
+      .panelTipo {
+        padding-right: clamp(115px, 8vw, 155px) !important;
+      }
+
+      .imagemIndigenaPainel {
+        width: clamp(105px, 8vw, 150px) !important;
+      }
+
+      .rankingRow {
+        grid-template-columns: minmax(160px, .82fr) minmax(190px, 1.32fr) auto;
+      }
+    }
+
+    @media (min-width: 1281px) and (max-height: 820px) {
+      .onePageDashboard {
+        grid-template-rows: auto minmax(235px, 1.05fr) minmax(185px, .82fr) !important;
+        gap: 8px !important;
+      }
+
+      .panelCategoria .chartBox.tall {
+        height: clamp(220px, 28vh, 285px) !important;
+      }
+
+      .panelPreenchimento .chartBox.smallDonut,
+      .panelTipo .chartBox.tipoGrande {
+        height: clamp(200px, 26vh, 260px) !important;
+      }
+
+      .chartBox.compactBar {
+        height: clamp(165px, 20vh, 215px) !important;
+      }
+
+      .rankingBars {
+        gap: 4px;
+      }
+
+      .rankingLabel {
+        font-size: 9.4px;
+      }
+
+      .rankingTrack {
+        height: 10px;
+      }
+    }
+
+    @media (max-width: 1280px) {
+
+      html,
+      body {
+        overflow: auto !important;
+      }
+
+      .app {
+        height: auto !important;
+        min-height: 100vh;
+      }
+
+      .main {
+        overflow: visible !important;
+      }
+
+      .content {
+        overflow: visible !important;
+      }
+
+      .onePageDashboard {
+        height: auto !important;
+        display: grid;
+        grid-template-rows: auto auto auto !important;
+      }
+
+      .overviewChartsGrid,
+      .overviewBottomGrid {
+        grid-template-columns: 1fr !important;
+      }
+
+      .panelPreenchimento,
+      .panelTipo {
+        grid-template-columns: 1fr !important;
+        padding-right: 14px !important;
+      }
+
+      .panelPreenchimento .panelTitle,
+      .panelPreenchimento .chartBox.smallDonut,
+      .panelPreenchimento .sideLegend,
+      .panelTipo .panelTitle,
+      .panelTipo .chartBox.tipoGrande,
+      .panelTipo .sideLegend {
+        grid-column: 1 !important;
+      }
+
+      .panelPreenchimento .sideLegend,
+      .panelTipo .sideLegend {
+        margin-top: 8px !important;
+      }
+
+      .imagemIndigenaPainel {
+        display: none !important;
+      }
+
+      .rankingRow {
+        grid-template-columns: minmax(150px, .9fr) minmax(160px, 1.1fr) auto;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .rankingRow {
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+          "label value"
+          "bar bar";
+        row-gap: 4px;
+      }
+
+      .rankingLabel {
+        grid-area: label;
+      }
+
+      .rankingValue {
+        grid-area: value;
+      }
+
+      .rankingTrack {
+        grid-area: bar;
+      }
+    }
+
+    #view-vagas .fullTableWrap {
+      overflow: auto !important;
+      max-height: 520px !important;
+    }
+
+    #view-remanejamento .fullTableWrap {
+      overflow: auto !important;
+    }
+
+
+

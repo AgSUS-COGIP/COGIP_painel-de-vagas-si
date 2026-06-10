@@ -1,0 +1,222 @@
+    /* =========================================================
+       MENU LATERAL INTEIRO, COLORIDO E RECOLHÍVEL
+    ========================================================= */
+
+    .app {
+      transition: grid-template-columns .24s ease;
+    }
+
+    .sidebar {
+      overflow-x: hidden;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, .34) rgba(255, 255, 255, .08);
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, .08);
+      border-radius: 999px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .34);
+      border-radius: 999px;
+    }
+
+    .sidebarCoord {
+      width: 100%;
+      max-width: 100%;
+      margin: 16px 0 18px;
+      flex-shrink: 0;
+    }
+
+    .sidebarCoordImgWrap {
+      width: 82px;
+      height: 82px;
+    }
+
+    .sidebarCoordTitle {
+      max-width: 132px;
+      margin-left: auto;
+      margin-right: auto;
+      font-size: 8.6px;
+      line-height: 1.34;
+    }
+
+    .sidebarToggle {
+      position: relative;
+      z-index: 20;
+      width: 34px;
+      height: 34px;
+      margin: -8px auto 12px;
+      border: 1px solid rgba(255, 255, 255, .28);
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .08));
+      color: #ffffff;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, .16), inset 0 1px 0 rgba(255, 255, 255, .20);
+      transition: .18s ease;
+    }
+
+    .sidebarToggle:hover {
+      transform: translateY(-1px);
+      background: linear-gradient(135deg, rgba(255, 255, 255, .30), rgba(255, 255, 255, .12));
+    }
+
+    .sidebarToggleIcon {
+      display: block;
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+      transform: translateY(-1px);
+    }
+
+    .navItem {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .10);
+      background: rgba(255, 255, 255, .055);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+    }
+
+    .navItem::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      opacity: .12;
+      background: linear-gradient(135deg, var(--nav-color, #00b5d8), transparent 68%);
+      transition: .18s ease;
+    }
+
+    .navItem:hover {
+      background: rgba(255, 255, 255, .13);
+      border-color: rgba(255, 255, 255, .20);
+      transform: translateX(2px);
+    }
+
+    .navItem:hover::before {
+      opacity: .24;
+    }
+
+    .navItem.active {
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--nav-color, #0ea5ff) 88%, #ffffff 12%), rgba(0, 71, 150, .94));
+      border-color: rgba(255, 255, 255, .30);
+      box-shadow: 0 12px 22px rgba(0, 0, 0, .20), inset 0 1px 0 rgba(255, 255, 255, .18);
+    }
+
+    .navItem[data-view="visaoGeral"] {
+      --nav-color: #0ea5ff;
+    }
+
+    .navItem[data-view="vagas"] {
+      --nav-color: #00b5d8;
+    }
+
+    .navItem[data-view="alertas"] {
+      --nav-color: #ffb21f;
+    }
+
+    .navItem[data-view="painelSaudeIndigena"] {
+      --nav-color: #7857e6;
+    }
+
+    .navItem[data-view="remanejamento"] {
+      --nav-color: #ff6b6b;
+    }
+
+    .navIcon {
+      background: linear-gradient(135deg, var(--nav-color, #00b5d8), rgba(0, 71, 150, .96));
+      box-shadow: 0 8px 16px rgba(0, 0, 0, .16), inset 0 1px 0 rgba(255, 255, 255, .20);
+      color: #ffffff;
+    }
+
+    .app.sidebar-collapsed {
+      grid-template-columns: 76px 1fr;
+    }
+
+    .app.sidebar-collapsed .sidebar {
+      padding: 14px 10px;
+      overflow-y: visible;
+    }
+
+    .app.sidebar-collapsed .brand {
+      margin-bottom: 10px;
+    }
+
+    .app.sidebar-collapsed .brandLogo {
+      width: 46px;
+      height: 46px;
+      margin-bottom: 0;
+    }
+
+    .app.sidebar-collapsed .brandTitle,
+    .app.sidebar-collapsed .brandSubtitle,
+    .app.sidebar-collapsed .navItem span:not(.navIcon),
+    .app.sidebar-collapsed .sidebarSpacer,
+    .app.sidebar-collapsed .sidebarCoord {
+      display: none;
+    }
+
+    .app.sidebar-collapsed .sidebarToggle {
+      width: 32px;
+      height: 32px;
+      margin: 4px auto 12px;
+    }
+
+    .app.sidebar-collapsed .sidebarToggleIcon {
+      transform: rotate(180deg) translateY(1px);
+    }
+
+    .app.sidebar-collapsed .nav {
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .app.sidebar-collapsed .navItem {
+      grid-template-columns: 1fr;
+      padding: 10px;
+      justify-items: center;
+      border-radius: 16px;
+    }
+
+    .app.sidebar-collapsed .navIcon {
+      width: 36px;
+      height: 36px;
+      border-radius: 13px;
+      font-size: 16px;
+    }
+
+    @media (max-height: 760px) {
+      .sidebarCoord {
+        margin-top: 10px;
+        margin-bottom: 12px;
+        padding: 12px 10px;
+      }
+
+      .sidebarCoordImgWrap {
+        width: 70px;
+        height: 70px;
+        margin: 8px auto 8px;
+      }
+
+      .sidebarCoordImg {
+        width: 54px;
+        height: 54px;
+      }
+
+      .sidebarCoordTitle {
+        font-size: 7.8px;
+        line-height: 1.28;
+      }
+    }
+
+

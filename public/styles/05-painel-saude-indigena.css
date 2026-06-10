@@ -1,0 +1,98 @@
+    /* =========================================================
+       Dashboard Saúde Indígena externo
+       Página preparada para receber link de painel incorporado.
+    ========================================================= */
+
+    .main.view-iframe-active .filtersBar {
+      display: none;
+    }
+
+    .main.view-iframe-active .top {
+      grid-template-columns: minmax(330px, 1fr);
+    }
+
+    #view-painelSaudeIndigena.viewPanel.active {
+      display: grid;
+    }
+
+    .panelIframeView {
+      height: 100%;
+      min-height: 0;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .externalDashboardCard {
+      position: relative;
+      min-height: calc(100vh - 176px);
+      background: rgba(255, 255, 255, .96);
+      border: 1px solid rgba(0, 83, 166, .16);
+      border-radius: 18px;
+      box-shadow: 0 16px 30px rgba(0, 50, 113, .16);
+      overflow: hidden;
+    }
+
+    .externalDashboardIframe {
+      display: block;
+      width: 100%;
+      height: calc(100vh - 176px);
+      min-height: 560px;
+      border: 0;
+      background: #ffffff;
+    }
+
+    .externalDashboardPlaceholder {
+      min-height: calc(100vh - 176px);
+      display: none;
+      place-items: center;
+      padding: 28px;
+      text-align: center;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .98), rgba(232, 247, 255, .94)),
+        radial-gradient(circle at 90% 16%, rgba(0, 126, 220, .10), transparent 32%);
+    }
+
+    .externalDashboardPlaceholderBox {
+      max-width: 720px;
+      border-radius: 22px;
+      padding: 28px 30px;
+      background: rgba(255, 255, 255, .92);
+      border: 1px solid rgba(0, 83, 166, .16);
+      box-shadow: 0 16px 30px rgba(0, 50, 113, .14);
+      color: #07346b;
+    }
+
+    .externalDashboardPlaceholderTitle {
+      margin: 0 0 10px;
+      font-size: 22px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #07346b;
+    }
+
+    .externalDashboardPlaceholderText {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+      color: #315c8e;
+    }
+
+    .externalDashboardPlaceholderCode {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 8px 11px;
+      border-radius: 10px;
+      background: rgba(0, 83, 166, .08);
+      color: #07346b;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .exportBtn:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+      box-shadow: none;
+    }
+
+
