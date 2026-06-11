@@ -1,4 +1,4 @@
-import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
+import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo, renderTreemap } from "./charts.js";
 import { COLORS } from "./constants.js";
 import { deveUsarIndicadoresResumoBase } from "./filtros.js";
 import { state } from "./state.js";
@@ -145,10 +145,10 @@ import { montarLinhaDistribuicaoBase } from "./vagas.js";
       ]);
 
       const topDseiOciosas = topAgrupadoCalculado(data, "dseiCasai", row => calcularOciosas(row), 5);
-      renderCardsOciosas("cardsTopDseiOciosas", topDseiOciosas.map(i => ({
-        label: i.label,
-        value: i.value
-      })), "dsei");
+      renderTreemap("chartTopDseiOciosas", {
+        items: topDseiOciosas.map(i => ({ label: i.label, value: i.value })),
+        filterType: "dsei"
+      });
 
       const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => calcularOciosas(row), 5);
       renderBar("chartTopCargoOciosas", {
