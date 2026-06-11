@@ -12,17 +12,17 @@ export function calcularIndicadores(data) {
   const substituicoes = soma(data, "contratadosSubstituicao");
   const temporarios = soma(data, "contratadosTemporario");
 
-  const contratados = deveUsarIndicadoresResumoBase() && state.indicadoresResumoBase
-    ? Number(state.indicadoresResumoBase.contratados || 0)
-    : contratadosCalculados;
-  // Vagas ociosas (déficit operacional) = previstas - contratados + afastados.
-  // Considera os negativos (excedente) abatendo — vale para todos os KPIs.
-  const vagasOciosas = vagasPrevistas - contratados + afastados;
-  // Vagas preenchidas = trabalhadores contratados (dado correto).
-  const vagasPreenchidas = contratados;
-  const vagasPreenchidasPerc = vagasPrevistas > 0
-    ? (vagasPreenchidas / vagasPrevistas) * 100
-    : 0;
+      const contratados = deveUsarIndicadoresResumoBase() && state.indicadoresResumoBase
+        ? Number(state.indicadoresResumoBase.contratados || 0)
+        : contratadosCalculados;
+      // Vagas ociosas (déficit operacional) = previstas - contratados + afastados.
+      // Considera os negativos (excedente) abatendo — vale para todos os KPIs.
+      const vagasOciosas = vagasPrevistas - contratados + afastados;
+      // Vagas preenchidas = previstas - ociosas (mesma base da coluna % preenchimento).
+      const vagasPreenchidas = vagasPrevistas - vagasOciosas;
+      const vagasPreenchidasPerc = vagasPrevistas > 0
+        ? (vagasPreenchidas / vagasPrevistas) * 100
+        : 0;
 
   const coberturaAfastamentos = afastados > 0
     ? (substituicoes / afastados) * 100
@@ -150,20 +150,20 @@ export function renderGraficos(data) {
     filterType: "dsei"
   });
 
-  const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => calcularOciosas(row), 5);
-  renderBar("chartTopCargoOciosas", {
-    labels: topCargoOciosas.map(i => i.label),
-    values: topCargoOciosas.map(i => i.value),
-    color: COLORS.purple,
-    labelFontSize: 9.6,
-    dataLabelFontSize: 10,
-    xTickFontSize: 9.5,
-    rightPadding: 44,
-    wrapLabels: true,
-    maxCharsPerLine: 24,
-    maxLines: 5,
-    yAxisWidth: 290
-  });
+      const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => calcularOciosas(row), 5);
+      renderBar("chartTopCargoOciosas", {
+        labels: topCargoOciosas.map(i => i.label),
+        values: topCargoOciosas.map(i => i.value),
+        color: COLORS.purple,
+        labelFontSize: 13,
+        dataLabelFontSize: 13.5,
+        xTickFontSize: 12,
+        rightPadding: 44,
+        wrapLabels: true,
+        maxCharsPerLine: 24,
+        maxLines: 5,
+        yAxisWidth: 290
+      });
 
   const cobertos = Math.min(Math.max(0, indicadores.substituicoes), Math.max(0, indicadores.afastados));
   const naoCobertos = Math.max(0, indicadores.afastados - cobertos);
