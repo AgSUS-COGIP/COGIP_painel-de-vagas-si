@@ -36,8 +36,10 @@ const DASH_CONFIG = {
   JWT_EXPIRES: process.env.JWT_EXPIRES || "8h",
   // Login com Google (OAuth 2.0 / OpenID Connect). Sem CLIENT_ID, o botão Google fica oculto.
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
-  // Domínio permitido para login via Google. Vazio = qualquer domínio.
+  // Domínios permitidos para login via Google (lista separada por vírgula). Vazio = qualquer domínio.
   GOOGLE_ALLOWED_DOMAIN: process.env.GOOGLE_ALLOWED_DOMAIN || "agenciasus.org.br",
+  // E-mails liberados individualmente (lista separada por vírgula), independente do domínio.
+  GOOGLE_ALLOWED_EMAILS: process.env.GOOGLE_ALLOWED_EMAILS || "",
   // Nível de autorização atribuído a um usuário Google novo (auto-cadastro).
   GOOGLE_NIVEL_PADRAO: Number(process.env.GOOGLE_NIVEL_PADRAO || 0),
   // Nível mínimo de autorização exigido por ação. Centraliza a regra de acesso;
@@ -767,11 +769,28 @@ async function autenticarUsuarioGoogle(body) {
     throw new Error("Conta Google sem e-mail verificado.");
   }
 
-  const dominioPermitido = String(DASH_CONFIG.GOOGLE_ALLOWED_DOMAIN || "").toLowerCase();
-  if (dominioPermitido) {
+  // E-mails liberados individualmente (lista separada por vírgula). Útil para pessoas
+  // externas pontuais (ex.: usuários de teste) sem precisar liberar o domínio inteiro.
+  const emailsPermitidos = String(DASH_CONFIG.GOOGLE_ALLOWED_EMAILS || "")
+    .toLowerCase()
+    .split(",")
+    .map(e => e.trim())
+    .filter(Boolean);
+  const emailLiberadoIndividualmente = emailsPermitidos.includes(email);
+
+  // Domínios permitidos: lista separada por vírgula (ex.: "agenciasus.org.br, outro.com").
+  // Vazio = qualquer domínio. Mantém o acesso restrito mesmo com a tela de consentimento "External".
+  const dominiosPermitidos = String(DASH_CONFIG.GOOGLE_ALLOWED_DOMAIN || "")
+    .toLowerCase()
+    .split(",")
+    .map(d => d.trim())
+    .filter(Boolean);
+
+  // Se o e-mail está na allowlist individual, libera direto (ignora a checagem de domínio).
+  if (!emailLiberadoIndividualmente && dominiosPermitidos.length) {
     const dominioConta = String((payload && payload.hd) || email.split("@")[1] || "").toLowerCase();
-    if (dominioConta !== dominioPermitido) {
-      throw new Error(`Apenas contas @${dominioPermitido} podem acessar este painel.`);
+    if (!dominiosPermitidos.includes(dominioConta)) {
+      throw new Error(`Seu domínio (@${dominioConta}) não tem acesso a este painel.`);
     }
   }
 
