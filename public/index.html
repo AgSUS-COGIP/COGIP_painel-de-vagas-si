@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 
-<body>
+<body class="modoPainelFixo">
   <div id="loading" class="loading">
     <div class="loadingDecorLeft" aria-hidden="true"></div>
     <div class="loadingDecorRight" aria-hidden="true"></div>
@@ -101,7 +101,7 @@
 
       <div class="sidebarCoord">
         <div class="sidebarCoordImgWrap">
-          <img class="sidebarCoordImg" src="" data-config-src="logoCoordenacaoUrl" alt="Coordenação de Gestão da Informação de Pessoal">
+          <img class="sidebarCoordImg" src="./img/logo-cogip.png" alt="Coordenação de Gestão da Informação de Pessoal">
         </div>
         <div class="sidebarCoordTitle">Coordenação de Gestão da Informação de Pessoal - COGIP</div>
       </div>
@@ -148,7 +148,7 @@
 
       <section class="content">
         <section id="view-visaoGeral" class="viewPanel active">
-          <div class="onePageDashboard">
+          <div class="onePageDashboard visaoPrintLayout">
             <section class="kpiGrid">
               <div class="kpi">
                 <div class="kpiIcon iTeal"><i class="fa-solid fa-clipboard-user" style="color: rgb(255, 255, 255);"></i></div>
@@ -187,36 +187,33 @@
               </div>
             </section>
 
-            <section class="overviewProgressPanel">
-              <div class="progressPanel">
-                <div class="progressPanelHead">
-                  <h3 class="panelTitle">Percentual de Vagas Preenchidas</h3>
-                  <strong id="preenchimentoBarPercentual">0%</strong>
-                </div>
-                <div class="progressTrack" aria-label="Percentual de vagas preenchidas">
-                  <div id="preenchimentoBarFill" class="progressFill"></div>
-                </div>
-                <div class="progressMeta">
-                  <span id="preenchimentoBarTexto">0 de 0 vagas preenchidas</span>
-                  <span id="preenchimentoBarOciosas">0 vagas ociosas</span>
-                </div>
+            <section class="preenchimentoFaixa panel">
+              <div class="preenchimentoHeader">
+                <h3 class="panelTitle">Percentual de Vagas Preenchidas</h3>
+                <strong id="kpiPreenchidasPerc">0%</strong>
+              </div>
+              <div class="preenchimentoTrack">
+                <div id="barraPreenchidas" class="preenchimentoFill"></div>
+              </div>
+              <div class="preenchimentoFooter">
+                <span id="kpiPreenchidasSub">0 de 0 vagas preenchidas</span>
+                <span id="kpiOciosasSub">0 vagas ociosas</span>
               </div>
             </section>
 
             <section class="overviewChartsGrid">
-              <div class="panel panelCategoria">
-                <h3 class="panelTitle">Top 5 vagas por DSEI</h3>
-                <div class="chartBox tall">
-                  <div id="chartCategoria" class="funnelChart" aria-label="Top 5 vagas por DSEI"></div>
-                </div>
+              <div class="panel panelFunnelDsei">
+                <h3 class="panelTitle">Os 5 DSEIs com mais vagas previstas</h3>
+                <div id="funnelTopDsei" class="funnelDsei" aria-label="Os 5 DSEIs com mais vagas previstas"></div>
               </div>
 
-              <div class="panel panelPreenchimento panelIndigenasResumo">
-                <h3 class="panelTitle">Percentual geral de trabalhadores indígenas</h3>
+              <div class="panel panelIndigenasGeral">
+                <h3 class="panelTitle">Percentual Geral de Trabalhadores Indígenas</h3>
                 <div class="chartBox smallDonut">
                   <canvas id="chartIndigenasGeral"></canvas>
                 </div>
                 <div class="sideLegend" id="legendIndigenasGeral"></div>
+                <div class="imagemTrabalhadoresIndigenas" aria-hidden="true"></div>
               </div>
 
               <div class="panel panelTipo">
@@ -230,11 +227,9 @@
             </section>
 
             <section class="overviewBottomGrid">
-              <div class="panel panelTreemap">
+              <div class="panel panelTreemapOciosas">
                 <h3 class="panelTitle">Top 5 DSEIs com mais vagas ociosas</h3>
-                <div class="chartBox compactBar">
-                  <div id="chartTopDseiOciosas" class="treemapChart" aria-label="Top 5 DSEIs com mais vagas ociosas"></div>
-                </div>
+                <div id="cardsTopDseiOciosas" class="cardsOciosas" aria-label="Top 5 DSEIs com mais vagas ociosas"></div>
               </div>
 
               <div class="panel">
@@ -244,9 +239,9 @@
                 </div>
               </div>
 
-              <div class="panel panelCobertura wideIndigenas">
+              <div class="panel panelCoberturaAfastamentos">
                 <h3 class="panelTitle">Cobertura de Afastamentos</h3>
-                <div class="chartBox coverageDonut">
+                <div class="chartBox smallDonut">
                   <canvas id="chartCoberturaAfastamentos"></canvas>
                 </div>
                 <div class="sideLegend" id="legendCoberturaAfastamentos"></div>

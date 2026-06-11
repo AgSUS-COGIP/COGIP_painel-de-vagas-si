@@ -1,7 +1,7 @@
 import { renderAlertasDaPagina, renderAlertasErro } from "./alertas.js";
 import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
-import { renderBar, renderDoughnut, renderFunnel, renderLegend, renderProgressBarResumo, renderTreemap } from "./charts.js";
+import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { AUTO_FULL_RELOAD_MS, AUTO_REFRESH_MS, COLORS } from "./constants.js";
 import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
@@ -31,10 +31,27 @@ import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
       await verificarSessaoInicial();
     }
 
+    // Escala do painel fixo/TV: mantém a composição da base 1918x927 e
+    // apenas ajusta o zoom para caber na janela (igual ao modelo do Apps Script).
+    export function ajustarEscalaPainelFixo() {
+      const larguraBase = 1918;
+      const alturaBase = 927;
+      const escala = Math.min(
+        window.innerWidth / larguraBase,
+        window.innerHeight / alturaBase
+      );
+
+      document.documentElement.style.setProperty("--painel-scale", escala.toFixed(6));
+    }
+
     export function configurarResponsividadePainel() {
       let resizeTimer = null;
 
+      ajustarEscalaPainelFixo();
+      window.addEventListener("load", ajustarEscalaPainelFixo);
+
       window.addEventListener("resize", () => {
+        ajustarEscalaPainelFixo();
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
           Object.values(charts).forEach(chart => {
@@ -122,14 +139,10 @@ import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
       });
 
       const topCategorias = payload.topDseiVagas || payload.topCategorias || payload.topCargos || [];
-      renderFunnel("chartCategoria", {
-        items: topCategorias.map(i => ({
-          label: i.label,
-          value: Number(i.value || 0),
-          color: COLORS.blue
-        })),
-        filterType: "dsei"
-      });
+      renderFunnelDsei("funnelTopDsei", topCategorias.map(i => ({
+        label: i.label,
+        value: Number(i.value || 0)
+      })), "dsei");
 
       const preenchidas = Math.max(0, Number(indicadores.vagasPreenchidas || 0));
       const ociosas = Math.max(0, Number(indicadores.vagasOciosas || 0));
@@ -144,17 +157,27 @@ import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
       });
 
       const indigenas = Number(indicadores.indigenas || 0);
+      const totalContratados = Number(indicadores.contratados || 0);
+      const demaisTrabalhadores = Math.max(0, totalContratados - indigenas);
       const percentualIndigenas = Number(indicadores.percentualIndigenas || 0);
       renderDoughnut("chartIndigenasGeral", {
-        labels: ["Trabalhadores indígenas", "Demais trabalhadores"],
-        values: [indigenas, Math.max(0, Number(indicadores.contratados || 0) - indigenas)],
+        labels: ["Indígenas", "Demais"],
+        values: [indigenas, demaisTrabalhadores],
         colors: [COLORS.green, COLORS.blue2],
         center: formatPercent(percentualIndigenas),
-        centerSub: "INDÍGENAS"
+        centerSub: "INDÍGENAS",
+        datalabelMin: 1,
+        datalabelFontSize: 15,
+        datalabelOffset: 12,
+        cutout: "68%",
+        radius: "90%",
+        layoutPadding: { left: 18, right: 18, top: 18, bottom: 18 },
+        centerFontSize: 19,
+        centerSubFontSize: 12
       });
       renderLegend("legendIndigenasGeral", [
-        ["Indígenas", indigenas, COLORS.green, percentualIndigenas],
-        ["Demais", Math.max(0, Number(indicadores.contratados || 0) - indigenas), COLORS.blue2, Math.max(0, 100 - percentualIndigenas)]
+        ["Indígenas", indigenas, COLORS.green, part(indigenas, totalContratados)],
+        ["Demais", demaisTrabalhadores, COLORS.blue2, part(demaisTrabalhadores, totalContratados)]
       ]);
 
       const normal = Number(indicadores.contratadosNormal || 0);
@@ -167,7 +190,29 @@ import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
         values: [normal, substituicao, temporario],
         colors: [COLORS.blue, COLORS.orange, COLORS.green],
         center: formatNumber(totalContratacao),
-        centerSub: "TOTAL"
+        centerSub: "TOTAL",
+        filterType: "tipo",
+        filterValues: ["NORMAL", "SUBSTITUICAO", "TEMPORARIO"],
+        datalabelMin: 0.4,
+        datalabelFontSize: 15,
+        datalabelOffset: function(context) {
+          const index = context.dataIndex;
+          if (index === 0) return 26;
+          if (index === 1) return 16;
+          return 14;
+        },
+        datalabelAlign: function(context) {
+          const index = context.dataIndex;
+          if (index === 0) return "left";
+          if (index === 1) return "top";
+          return "right";
+        },
+        datalabelAnchor: "end",
+        cutout: "70%",
+        radius: "84%",
+        layoutPadding: { left: 78, right: 34, top: 28, bottom: 14 },
+        centerFontSize: 20,
+        centerSubFontSize: 12
       });
       renderLegend("legendTipo", [
         ["Normal", normal, COLORS.blue, part(normal, totalContratacao)],
@@ -176,14 +221,10 @@ import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
       ]);
 
       const topDseiOciosas = payload.topDseiOciosas || [];
-      renderTreemap("chartTopDseiOciosas", {
-        items: topDseiOciosas.map(i => ({
-          label: i.label,
-          value: Number(i.value || 0)
-        })),
-        color: COLORS.orange,
-        filterType: "dsei"
-      });
+      renderCardsOciosas("cardsTopDseiOciosas", topDseiOciosas.map(i => ({
+        label: i.label,
+        value: Number(i.value || 0)
+      })), "dsei");
 
       const topCargoOciosas = payload.topCargoOciosas || [];
       renderBar("chartTopCargoOciosas", {
@@ -191,27 +232,31 @@ import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
         values: topCargoOciosas.map(i => Number(i.value || 0)),
         color: COLORS.purple,
         labelFontSize: 9.6,
-        dataLabelFontSize: 10.8,
+        dataLabelFontSize: 10,
         xTickFontSize: 9.5,
         rightPadding: 44,
         wrapLabels: true,
-        maxCharsPerLine: 18,
+        maxCharsPerLine: 24,
         maxLines: 5,
-        yAxisWidth: 205
+        yAxisWidth: 290
       });
 
       const cobertos = Math.min(Math.max(0, substituicao), Math.max(0, Number(indicadores.afastados || 0)));
       const naoCobertos = Math.max(0, Number(indicadores.afastados || 0) - cobertos);
       renderDoughnut("chartCoberturaAfastamentos", {
-        labels: ["Afastamentos cobertos", "Afastamentos sem cobertura"],
+        labels: ["Cobertos", "Sem cobertura"],
         values: [cobertos, naoCobertos],
         colors: [COLORS.blue, COLORS.orange],
         center: formatPercent(Number(indicadores.coberturaAfastamentos || 0)),
         centerSub: "COBERTURA",
-        datalabelMin: 18,
-        datalabelFontSize: 8,
-        centerFontSize: 26,
-        centerSubFontSize: 8
+        datalabelMin: 1,
+        datalabelFontSize: 20,
+        datalabelOffset: 12,
+        cutout: "70%",
+        radius: "90%",
+        layoutPadding: { left: 34, right: 18, top: 20, bottom: 20 },
+        centerFontSize: 18,
+        centerSubFontSize: 12
       });
       renderLegend("legendCoberturaAfastamentos", [
         ["Cobertos", cobertos, COLORS.blue, part(cobertos, Number(indicadores.afastados || 0))],

@@ -1,4 +1,4 @@
-import { renderBar, renderDoughnut, renderFunnel, renderLegend, renderProgressBarResumo, renderTreemap } from "./charts.js";
+import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { COLORS } from "./constants.js";
 import { deveUsarIndicadoresResumoBase } from "./filtros.js";
 import { state } from "./state.js";
@@ -67,14 +67,10 @@ import { montarLinhaDistribuicaoBase } from "./vagas.js";
       const indicadores = calcularIndicadores(data);
 
       const topCategorias = topAgrupadoCalculado(data, "dseiCasai", row => Number(row.quantitativoPlano || 0), 5);
-      renderFunnel("chartCategoria", {
-        items: topCategorias.map(i => ({
-          label: i.label,
-          value: i.value,
-          color: COLORS.blue
-        })),
-        filterType: "dsei"
-      });
+      renderFunnelDsei("funnelTopDsei", topCategorias.map(i => ({
+        label: i.label,
+        value: i.value
+      })), "dsei");
 
       const preenchidas = Math.max(0, Number(indicadores.vagasPreenchidas || 0));
       const ociosas = Math.max(0, Number(indicadores.vagasOciosas || 0));
@@ -86,17 +82,27 @@ import { montarLinhaDistribuicaoBase } from "./vagas.js";
       });
 
       const indigenas = Number(indicadores.indigenas || 0);
+      const totalContratados = Number(indicadores.contratados || 0);
+      const demaisTrabalhadores = Math.max(0, totalContratados - indigenas);
       const percentualIndigenas = Number(indicadores.percentualIndigenas || 0);
       renderDoughnut("chartIndigenasGeral", {
-        labels: ["Trabalhadores indígenas", "Demais trabalhadores"],
-        values: [indigenas, Math.max(0, Number(indicadores.contratados || 0) - indigenas)],
+        labels: ["Indígenas", "Demais"],
+        values: [indigenas, demaisTrabalhadores],
         colors: [COLORS.green, COLORS.blue2],
         center: formatPercent(percentualIndigenas),
-        centerSub: "INDÍGENAS"
+        centerSub: "INDÍGENAS",
+        datalabelMin: 1,
+        datalabelFontSize: 15,
+        datalabelOffset: 12,
+        cutout: "68%",
+        radius: "90%",
+        layoutPadding: { left: 18, right: 18, top: 18, bottom: 18 },
+        centerFontSize: 19,
+        centerSubFontSize: 12
       });
       renderLegend("legendIndigenasGeral", [
-        ["Indígenas", indigenas, COLORS.green, percentualIndigenas],
-        ["Demais", Math.max(0, Number(indicadores.contratados || 0) - indigenas), COLORS.blue2, Math.max(0, 100 - percentualIndigenas)]
+        ["Indígenas", indigenas, COLORS.green, part(indigenas, totalContratados)],
+        ["Demais", demaisTrabalhadores, COLORS.blue2, part(demaisTrabalhadores, totalContratados)]
       ]);
 
       const normal = soma(data, "contratadosNormal");
@@ -110,7 +116,27 @@ import { montarLinhaDistribuicaoBase } from "./vagas.js";
         center: formatNumber(totalContratacao),
         centerSub: "TOTAL",
         filterType: "tipo",
-        filterValues: ["NORMAL", "SUBSTITUICAO", "TEMPORARIO"]
+        filterValues: ["NORMAL", "SUBSTITUICAO", "TEMPORARIO"],
+        datalabelMin: 0.4,
+        datalabelFontSize: 15,
+        datalabelOffset: function(context) {
+          const index = context.dataIndex;
+          if (index === 0) return 26;
+          if (index === 1) return 16;
+          return 14;
+        },
+        datalabelAlign: function(context) {
+          const index = context.dataIndex;
+          if (index === 0) return "left";
+          if (index === 1) return "top";
+          return "right";
+        },
+        datalabelAnchor: "end",
+        cutout: "70%",
+        radius: "84%",
+        layoutPadding: { left: 78, right: 34, top: 28, bottom: 14 },
+        centerFontSize: 20,
+        centerSubFontSize: 12
       });
       renderLegend("legendTipo", [
         ["Normal", normal, COLORS.blue, part(normal, totalContratacao)],
@@ -119,14 +145,10 @@ import { montarLinhaDistribuicaoBase } from "./vagas.js";
       ]);
 
       const topDseiOciosas = topAgrupadoCalculado(data, "dseiCasai", row => calcularOciosas(row), 5);
-      renderTreemap("chartTopDseiOciosas", {
-        items: topDseiOciosas.map(i => ({
-          label: i.label,
-          value: i.value
-        })),
-        color: COLORS.orange,
-        filterType: "dsei"
-      });
+      renderCardsOciosas("cardsTopDseiOciosas", topDseiOciosas.map(i => ({
+        label: i.label,
+        value: i.value
+      })), "dsei");
 
       const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => calcularOciosas(row), 5);
       renderBar("chartTopCargoOciosas", {
@@ -134,27 +156,31 @@ import { montarLinhaDistribuicaoBase } from "./vagas.js";
         values: topCargoOciosas.map(i => i.value),
         color: COLORS.purple,
         labelFontSize: 9.6,
-        dataLabelFontSize: 10.8,
+        dataLabelFontSize: 10,
         xTickFontSize: 9.5,
         rightPadding: 44,
         wrapLabels: true,
-        maxCharsPerLine: 18,
+        maxCharsPerLine: 24,
         maxLines: 5,
-        yAxisWidth: 205
+        yAxisWidth: 290
       });
 
       const cobertos = Math.min(Math.max(0, indicadores.substituicoes), Math.max(0, indicadores.afastados));
       const naoCobertos = Math.max(0, indicadores.afastados - cobertos);
       renderDoughnut("chartCoberturaAfastamentos", {
-        labels: ["Afastamentos cobertos", "Afastamentos sem cobertura"],
+        labels: ["Cobertos", "Sem cobertura"],
         values: [cobertos, naoCobertos],
         colors: [COLORS.blue, COLORS.orange],
         center: formatPercent(indicadores.coberturaAfastamentos),
         centerSub: "COBERTURA",
-        datalabelMin: 18,
-        datalabelFontSize: 8,
-        centerFontSize: 26,
-        centerSubFontSize: 8
+        datalabelMin: 1,
+        datalabelFontSize: 20,
+        datalabelOffset: 12,
+        cutout: "70%",
+        radius: "90%",
+        layoutPadding: { left: 34, right: 18, top: 20, bottom: 20 },
+        centerFontSize: 18,
+        centerSubFontSize: 12
       });
       renderLegend("legendCoberturaAfastamentos", [
         ["Cobertos", cobertos, COLORS.blue, part(cobertos, indicadores.afastados)],
