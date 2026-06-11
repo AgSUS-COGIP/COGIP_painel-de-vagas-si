@@ -435,15 +435,56 @@
       white-space: nowrap;
     }
 
-    .updateLine {
+    .topMetaLine {
       grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px 14px;
+      margin-top: 1px;
+    }
+
+    .updateLine {
       color: #fff;
       font-size: 10.5px;
       font-weight: 800;
       text-align: right;
       opacity: .92;
-      margin-top: 1px;
       text-shadow: 0 2px 5px rgba(0, 0, 0, .20);
+    }
+
+    .topUsuario {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .topUsuarioNome {
+      color: #eaf4ff;
+      font-size: 11px;
+      font-weight: 900;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 2px 5px rgba(0, 0, 0, .20);
+    }
+
+    .topLogoutBtn {
+      border: 1px solid rgba(255, 255, 255, .45);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .16);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 6px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .topLogoutBtn:hover {
+      background: rgba(255, 255, 255, .28);
     }
 
     .content {

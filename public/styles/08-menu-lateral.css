@@ -219,4 +219,54 @@
       }
     }
 
+    /* =========================================================
+       Sidebar à prova de telas baixas: a marca e a logo da
+       coordenação nunca devem ser cortadas. Os blocos fixos não
+       encolhem; a navegação rola se faltar espaço; e os textos da
+       marca somem progressivamente conforme a altura diminui.
+    ========================================================= */
+    .brand,
+    .sidebarToggle,
+    .sidebarCoord {
+      flex-shrink: 0;
+    }
+
+    .brandLogo {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Em telas baixas, esconde os textos da marca em etapas para
+       liberar altura e manter a logo centralizada. */
+    @media (max-height: 820px) {
+      .brandMeta {
+        display: none;
+      }
+    }
+
+    @media (max-height: 720px) {
+      .brandSubtitle {
+        display: none;
+      }
+
+      .brand {
+        margin-bottom: 12px;
+      }
+    }
+
+    @media (max-height: 640px) {
+      .brandTitle {
+        display: none;
+      }
+
+      .brand {
+        margin-bottom: 8px;
+      }
+    }
+
+    /* Menu recolhido: também esconde o "unidade de gestão..." */
+    .app.sidebar-collapsed .brandMeta {
+      display: none;
+    }
+
 

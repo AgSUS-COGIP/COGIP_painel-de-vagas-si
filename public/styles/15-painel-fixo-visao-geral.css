@@ -275,6 +275,8 @@
 
 :root {
   --painel-scale: 1;
+  --painel-scale-x: 1;
+  --painel-scale-y: 1;
   --painel-base-width: 1918px;
   --painel-base-height: 927px;
 }
@@ -299,7 +301,7 @@ body.modoPainelFixo .app {
   max-height: none !important;
   display: grid !important;
   grid-template-columns: 246px minmax(0, 1fr) !important;
-  transform: translate(-50%, -50%) scale(var(--painel-scale)) !important;
+  transform: translate(-50%, -50%) scale(var(--painel-scale-x), var(--painel-scale-y)) !important;
   transform-origin: center center !important;
   overflow: hidden !important;
 }

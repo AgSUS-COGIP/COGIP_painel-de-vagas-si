@@ -105,11 +105,6 @@
 
       <div class="sidebarSpacer"></div>
 
-      <div id="sidebarUsuario" class="sidebarUsuario" style="display:none;">
-        <div class="sidebarUsuarioNome" id="sidebarUsuarioNome"></div>
-        <button type="button" class="sidebarLogoutBtn" data-click="logout">Sair</button>
-      </div>
-
       <div class="sidebarCoord">
         <div class="sidebarCoordImgWrap">
           <img class="sidebarCoordImg" src="./img/logo-cogip.png" alt="Coordenação de Gestão da Informação de Pessoal">
@@ -152,7 +147,12 @@
             <span>Atualizar dados</span>
           </button>
 
-          <div class="updateLine"><i class="fa-solid fa-rotate"></i> Última atualização: <span id="updatedAt">-</span>
+          <div class="topMetaLine">
+            <div class="updateLine"><i class="fa-solid fa-rotate"></i> Última atualização: <span id="updatedAt">-</span></div>
+            <div id="sidebarUsuario" class="topUsuario" style="display:none;">
+              <span class="topUsuarioNome" id="sidebarUsuarioNome"></span>
+              <button type="button" class="topLogoutBtn" data-click="logout">Sair</button>
+            </div>
           </div>
         </div>
       </header>

@@ -36,12 +36,15 @@ import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
     export function ajustarEscalaPainelFixo() {
       const larguraBase = 1918;
       const alturaBase = 927;
-      const escala = Math.min(
-        window.innerWidth / larguraBase,
-        window.innerHeight / alturaBase
-      );
+      // Escala X e Y de forma independente para o painel preencher toda a janela
+      // (sem bordas vazias nas laterais), mesmo quando a proporção difere da base.
+      const escalaX = window.innerWidth / larguraBase;
+      const escalaY = window.innerHeight / alturaBase;
 
-      document.documentElement.style.setProperty("--painel-scale", escala.toFixed(6));
+      const root = document.documentElement.style;
+      root.setProperty("--painel-scale-x", escalaX.toFixed(6));
+      root.setProperty("--painel-scale-y", escalaY.toFixed(6));
+      root.setProperty("--painel-scale", Math.min(escalaX, escalaY).toFixed(6));
     }
 
     export function configurarResponsividadePainel() {
