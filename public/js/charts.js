@@ -30,14 +30,68 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, limitarLabelGrafic
     }
 
     export function renderProgressBarResumo(cfg) {
-      const fill = document.getElementById("preenchimentoBarFill");
+      const fill = document.getElementById("barraPreenchidas");
       if (fill) {
         fill.style.width = `${Math.max(0, Math.min(100, Number(cfg.percentual || 0)))}%`;
       }
 
-      setText("preenchimentoBarPercentual", formatPercent(cfg.percentual || 0));
-      setText("preenchimentoBarTexto", `${formatNumber(cfg.preenchidas || 0)} de ${formatNumber(cfg.vagasPrevistas || 0)} vagas preenchidas`);
-      setText("preenchimentoBarOciosas", `${formatNumber(cfg.ociosas || 0)} vagas ociosas`);
+      setText("kpiPreenchidasPerc", formatPercent(cfg.percentual || 0));
+      setText("kpiPreenchidasSub", `${formatNumber(cfg.preenchidas || 0)} de ${formatNumber(cfg.vagasPrevistas || 0)} vagas preenchidas`);
+      setText("kpiOciosasSub", `${formatNumber(cfg.ociosas || 0)} vagas ociosas`);
+    }
+
+    // Funil "Os 5 DSEIs com mais vagas previstas" (modelo do painel fixo).
+    export function renderFunnelDsei(containerId, items, filterType) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const lista = (items || [])
+        .filter(item => Number(item.value || 0) > 0)
+        .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+        .slice(0, 5);
+
+      if (!lista.length) {
+        container.innerHTML = '<div class="emptyState">Sem dados para os filtros selecionados.</div>';
+        return;
+      }
+
+      container.innerHTML = lista.map((item, index) => {
+        const width = 96 - (index * 10);
+        const label = escapeHtml(item.label || "-");
+        return `
+          <button type="button" class="funnelRow" title="${label}" data-click="filtro-grafico" data-filter-type="${escapeAttr(filterType || "")}" data-filter-value="${escapeAttr(item.label || "")}">
+            <span class="funnelShape" style="width:${Math.max(48, width)}%"></span>
+            <span class="funnelLabel">${label}</span>
+            <span class="funnelValue">${formatNumber(item.value)}</span>
+          </button>
+        `;
+      }).join("");
+    }
+
+    // Cards "Top 5 DSEIs com mais vagas ociosas" (modelo do painel fixo).
+    export function renderCardsOciosas(containerId, items, filterType) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const lista = (items || [])
+        .filter(item => Number(item.value || 0) > 0)
+        .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+        .slice(0, 5);
+
+      if (!lista.length) {
+        container.innerHTML = '<div class="emptyState">Sem dados para os filtros selecionados.</div>';
+        return;
+      }
+
+      container.innerHTML = lista.map(item => {
+        const label = escapeHtml(item.label || "-");
+        return `
+          <button type="button" class="ociosaCard" title="${label}" data-click="filtro-grafico" data-filter-type="${escapeAttr(filterType || "")}" data-filter-value="${escapeAttr(item.label || "")}">
+            <span class="ociosaNome">${label}</span>
+            <span class="ociosaValor">${formatNumber(item.value)}</span>
+          </button>
+        `;
+      }).join("");
     }
 
     export function renderFunnel(containerId, cfg) {
@@ -119,7 +173,8 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, limitarLabelGrafic
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          cutout: "60%",
+          cutout: cfg.cutout || "60%",
+          radius: cfg.radius || undefined,
           onClick: function(event, elements) {
             if (!elements || !elements.length) return;
             const index = elements[0].index;
@@ -127,7 +182,7 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, limitarLabelGrafic
               alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
             }
           },
-          layout: { padding: 8 },
+          layout: { padding: cfg.layoutPadding !== undefined ? cfg.layoutPadding : 8 },
           plugins: {
             legend: { display: false },
             datalabels: {
@@ -138,15 +193,25 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, limitarLabelGrafic
                 const pct = total > 0 ? (value / total) * 100 : 0;
                 return pct >= (cfg.datalabelMin || 8);
               },
-              color: "#ffffff",
-              font: { size: cfg.datalabelFontSize || 11, weight: "900" },
+              // Rótulos externos (fora da rosca) para leitura clara dos percentuais.
+              anchor: cfg.datalabelAnchor || "end",
+              align: cfg.datalabelAlign || "end",
+              offset: cfg.datalabelOffset || 10,
+              clamp: true,
+              clip: false,
+              color: "#07346b",
+              backgroundColor: "rgba(255, 255, 255, .96)",
+              borderColor: "rgba(7, 52, 107, .16)",
+              borderWidth: 1,
+              borderRadius: 10,
+              padding: { top: 4, right: 6, bottom: 4, left: 6 },
+              font: { size: cfg.datalabelFontSize || 13, weight: "900" },
               formatter: function(value, context) {
                 const values = context.chart.data.datasets[0].data || [];
                 const total = values.reduce((acc, item) => acc + Number(item || 0), 0);
                 const pct = total > 0 ? (Number(value || 0) / total) * 100 : 0;
                 return formatPercent(pct);
-              },
-              clip: true
+              }
             },
             tooltip: {
               callbacks: {
@@ -342,19 +407,37 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, limitarLabelGrafic
           const ctx = chart.ctx;
           const centerX = (area.left + area.right) / 2;
           const centerY = (area.top + area.bottom) / 2;
+          const meta = chart.getDatasetMeta(0);
+          const firstArc = meta && meta.data && meta.data[0];
+          const innerRadius = firstArc && firstArc.innerRadius ? firstArc.innerRadius : Math.min(area.width, area.height) * .26;
+          const maxTextWidth = Math.max(42, innerRadius * 1.54);
+          const mainText = text || "0";
+          const subText = subtext || "";
 
           ctx.save();
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
 
-          ctx.fillStyle = "#07346b";
-          ctx.font = `900 ${fontSize || 25}px Arial`;
-          ctx.fillText(text || "0", centerX, subtext ? centerY - 6 : centerY);
+          let mainFontSize = fontSize || 25;
+          ctx.font = `900 ${mainFontSize}px Arial`;
+          while (ctx.measureText(mainText).width > maxTextWidth && mainFontSize > 14) {
+            mainFontSize -= 1;
+            ctx.font = `900 ${mainFontSize}px Arial`;
+          }
 
-          if (subtext) {
+          ctx.fillStyle = "#07346b";
+          ctx.fillText(mainText, centerX, subText ? centerY - 6 : centerY);
+
+          if (subText) {
+            let secondaryFontSize = subFontSize || 9;
+            ctx.font = `900 ${secondaryFontSize}px Arial`;
+            while (ctx.measureText(subText).width > maxTextWidth && secondaryFontSize > 7) {
+              secondaryFontSize -= 1;
+              ctx.font = `900 ${secondaryFontSize}px Arial`;
+            }
+
             ctx.fillStyle = "rgba(7, 52, 107, .72)";
-            ctx.font = `900 ${subFontSize || 9}px Arial`;
-            ctx.fillText(subtext, centerX, centerY + 18);
+            ctx.fillText(subText, centerX, centerY + Math.max(16, mainFontSize * .85));
           }
 
           ctx.restore();

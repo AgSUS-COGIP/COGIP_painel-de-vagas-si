@@ -1,5 +1,5 @@
 import { cancelarEdicaoObservacaoAlertaPainel, editarObservacaoAlertaPainel, renderAlertasDaPagina, salvarObservacaoAlertaPainel } from "./alertas.js";
-import { filtrarRowsBase, garantirCarregamentoPagina, recarregarTodosOsDados, renderTudo } from "./app.js";
+import { ajustarEscalaPainelFixo, filtrarRowsBase, garantirCarregamentoPagina, recarregarTodosOsDados, renderTudo } from "./app.js";
 import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
@@ -13,12 +13,29 @@ import { alterarTabelaVagas, alterarVisualizacaoVagas, atualizarPesquisaVagas, m
       const main = document.querySelector(".main");
       if (!main) return;
 
+      const isVisaoGeral = view === "visaoGeral";
+
+      // Modo painel fixo/TV ativo apenas na Visão Geral: o painel inteiro escala
+      // para caber em uma tela (base 1918x927). Nas demais abas o body volta ao
+      // fluxo normal com rolagem.
+      document.body.classList.toggle("modoPainelFixo", isVisaoGeral);
+
       // A Visão Geral permanece sem rolagem para preservar o layout executivo em tela única.
       // As demais abas podem rolar verticalmente para acomodar tabelas e conteúdos maiores.
-      main.classList.toggle("view-scroll", view !== "visaoGeral");
+      main.classList.toggle("view-scroll", !isVisaoGeral);
       main.classList.toggle("view-alertas-active", view === "alertas");
       main.classList.toggle("view-iframe-active", view === "painelSaudeIndigena" || view === "ferias");
       main.classList.toggle("view-remanejamento-active", view === "remanejamento" || view === "remanejamentoFormulario");
+
+      if (isVisaoGeral) {
+        ajustarEscalaPainelFixo();
+        // Reescala os gráficos após a troca de layout/escala.
+        setTimeout(() => {
+          Object.values(charts).forEach(chart => {
+            if (chart) chart.resize();
+          });
+        }, 80);
+      }
     }
 
     export function toggleSidebar(forceState) {
