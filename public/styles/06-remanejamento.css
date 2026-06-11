@@ -451,9 +451,14 @@
 
     .remImpactoGrid {
       display: grid;
-      grid-template-columns: minmax(280px, 360px) 1fr;
+      grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
       gap: 14px;
       align-items: start;
+    }
+
+    .remResumoTableWrap {
+      min-width: 0;
+      overflow-x: auto;
     }
 
     .remImpactoCards {
@@ -1138,6 +1143,7 @@
       .sidebar,
       .top,
       .nav,
+      .vagasNavCard,
       .vagasTabs,
       .vagasTabelaTabs,
       .tableTools .exportActions,
@@ -1297,4 +1303,4 @@
     }
 
 
-
+

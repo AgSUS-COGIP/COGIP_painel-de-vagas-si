@@ -6,6 +6,7 @@ const mysql = require("mysql2/promise");
 const multer = require("multer");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -33,6 +34,14 @@ const DASH_CONFIG = {
   USUARIOS_TABLE: process.env.USUARIOS_TABLE || "USUARIOS_PAINEL",
   JWT_SECRET: process.env.JWT_SECRET || "painel-vagas-si-dev-secret-trocar",
   JWT_EXPIRES: process.env.JWT_EXPIRES || "8h",
+  // Login com Google (OAuth 2.0 / OpenID Connect). Sem CLIENT_ID, o botão Google fica oculto.
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
+  // Domínios permitidos para login via Google (lista separada por vírgula). Vazio = qualquer domínio.
+  GOOGLE_ALLOWED_DOMAIN: process.env.GOOGLE_ALLOWED_DOMAIN || "agenciasus.org.br",
+  // E-mails liberados individualmente (lista separada por vírgula), independente do domínio.
+  GOOGLE_ALLOWED_EMAILS: process.env.GOOGLE_ALLOWED_EMAILS || "",
+  // Nível de autorização atribuído a um usuário Google novo (auto-cadastro).
+  GOOGLE_NIVEL_PADRAO: Number(process.env.GOOGLE_NIVEL_PADRAO || 0),
   // Nível mínimo de autorização exigido por ação. Centraliza a regra de acesso;
   // novos níveis/páginas podem ser definidos futuramente.
   NIVEL_REMANEJAMENTO_SALVAR: Number(process.env.NIVEL_REMANEJAMENTO_SALVAR || 2),
@@ -267,7 +276,8 @@ app.get("/api/config", (req, res) => {
     logoCoordenacaoUrl: getLogoCoordenacaoUrl(),
     imagemIndigenaPainelUrl: getImagemIndigenaPainelUrl(),
     dashboardSaudeIndigenaUrl: process.env.DASHBOARD_SAUDE_INDIGENA_URL || DASH_CONFIG.DASHBOARD_SAUDE_INDIGENA_URL,
-    dashboardFeriasUrl: process.env.DASHBOARD_FERIAS_URL || DASH_CONFIG.DASHBOARD_FERIAS_URL
+    dashboardFeriasUrl: process.env.DASHBOARD_FERIAS_URL || DASH_CONFIG.DASHBOARD_FERIAS_URL,
+    googleClientId: DASH_CONFIG.GOOGLE_CLIENT_ID
   });
 });
 
@@ -363,6 +373,15 @@ app.post("/api/login", express.json(), asyncHandler(async (req, res) => {
     res.json(resultado);
   } catch (err) {
     res.status(401).json({ error: err && err.message ? err.message : "Falha na autenticação." });
+  }
+}));
+
+app.post("/api/login/google", express.json(), asyncHandler(async (req, res) => {
+  try {
+    const resultado = await autenticarUsuarioGoogle(req.body || {});
+    res.json(resultado);
+  } catch (err) {
+    res.status(401).json({ error: err && err.message ? err.message : "Falha na autenticação Google." });
   }
 }));
 
@@ -715,6 +734,111 @@ async function autenticarUsuario(body) {
   }
 }
 
+let googleOAuthClient = null;
+function getGoogleClient() {
+  if (!DASH_CONFIG.GOOGLE_CLIENT_ID) return null;
+  if (!googleOAuthClient) googleOAuthClient = new OAuth2Client(DASH_CONFIG.GOOGLE_CLIENT_ID);
+  return googleOAuthClient;
+}
+
+// Login via Google (OpenID Connect). Recebe o ID token do cliente, valida com o
+// Google, confere o domínio permitido e reaproveita o mesmo JWT/permissões do painel.
+async function autenticarUsuarioGoogle(body) {
+  const credential = String((body && body.credential) || "");
+  if (!credential) throw new Error("Token do Google ausente.");
+
+  const client = getGoogleClient();
+  if (!client) throw new Error("Login com Google não está configurado no servidor.");
+
+  let payload;
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: DASH_CONFIG.GOOGLE_CLIENT_ID
+    });
+    payload = ticket.getPayload();
+  } catch (e) {
+    throw new Error("Não foi possível validar o login do Google.");
+  }
+
+  const email = String((payload && payload.email) || "").trim().toLowerCase();
+  const emailVerificado = !!(payload && payload.email_verified);
+  const nome = String((payload && payload.name) || email);
+
+  if (!email || !emailVerificado) {
+    throw new Error("Conta Google sem e-mail verificado.");
+  }
+
+  // E-mails liberados individualmente (lista separada por vírgula). Útil para pessoas
+  // externas pontuais (ex.: usuários de teste) sem precisar liberar o domínio inteiro.
+  const emailsPermitidos = String(DASH_CONFIG.GOOGLE_ALLOWED_EMAILS || "")
+    .toLowerCase()
+    .split(",")
+    .map(e => e.trim())
+    .filter(Boolean);
+  const emailLiberadoIndividualmente = emailsPermitidos.includes(email);
+
+  // Domínios permitidos: lista separada por vírgula (ex.: "agenciasus.org.br, outro.com").
+  // Vazio = qualquer domínio. Mantém o acesso restrito mesmo com a tela de consentimento "External".
+  const dominiosPermitidos = String(DASH_CONFIG.GOOGLE_ALLOWED_DOMAIN || "")
+    .toLowerCase()
+    .split(",")
+    .map(d => d.trim())
+    .filter(Boolean);
+
+  // Se o e-mail está na allowlist individual, libera direto (ignora a checagem de domínio).
+  if (!emailLiberadoIndividualmente && dominiosPermitidos.length) {
+    const dominioConta = String((payload && payload.hd) || email.split("@")[1] || "").toLowerCase();
+    if (!dominiosPermitidos.includes(dominioConta)) {
+      throw new Error(`Seu domínio (@${dominioConta}) não tem acesso a este painel.`);
+    }
+  }
+
+  const tabela = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+  const selectPorEmail =
+    `SELECT \`ID_USUARIO\`, \`LOGIN\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`
+       FROM ${tabela} WHERE \`EMAIL\` = ? LIMIT 1`;
+
+  const conn = await getMysqlConnection();
+  try {
+    let [rows] = await conn.query(selectPorEmail, [email]);
+    let registro = rows && rows[0] ? rows[0] : null;
+
+    if (registro && Number(registro.ATIVO) !== 1) {
+      throw new Error("Usuário inativo. Procure o administrador.");
+    }
+
+    // Auto-cadastro: usuário do domínio ainda não existe -> cria com nível padrão.
+    if (!registro) {
+      // Guarda apenas a parte do e-mail antes do "@" como LOGIN (descarta o domínio).
+      const loginCurto = email.split("@")[0];
+      await conn.execute(
+        `INSERT INTO ${tabela}
+           (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
+         VALUES (?, '', ?, ?, ?, 1)`,
+        [loginCurto, nome, email, DASH_CONFIG.GOOGLE_NIVEL_PADRAO]
+      );
+      [rows] = await conn.query(selectPorEmail, [email]);
+      registro = rows && rows[0] ? rows[0] : null;
+    }
+
+    if (!registro) throw new Error("Falha ao registrar o usuário do Google.");
+
+    const usuario = {
+      id: Number(registro.ID_USUARIO),
+      login: limparValorDash(registro.LOGIN),
+      nome: limparValorDash(registro.NOME),
+      email: limparValorDash(registro.EMAIL),
+      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0)
+    };
+
+    const token = jwt.sign(usuario, DASH_CONFIG.JWT_SECRET, { expiresIn: DASH_CONFIG.JWT_EXPIRES });
+    return { token, usuario };
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
 function lerTokenDaRequisicao(req) {
   const header = String(req.headers.authorization || req.headers.Authorization || "");
   if (header.toLowerCase().startsWith("bearer ")) {
@@ -898,7 +1022,7 @@ function mapMonitoramentoRow(row) {
   const dsei = limparValorDash(row.dsei_casai);
   const cargo = limparValorDash(row.cargo);
   const quantitativoPlano = converterNumeroDash(row.quantitativo_plano_trabalho);
-  const totalContratados = converterNumeroDash(row.total_contratados_geral);
+  const totalTrabalhadores = converterNumeroDash(row.total_contratados_geral);
   const contratadosSubstituicao = converterNumeroDash(row.contratados_substituicao);
   const contratadosTemporario = converterNumeroDash(row.contratados_temporario);
   const contratadosNormal = converterNumeroDash(row.contratados_normal);
@@ -935,7 +1059,7 @@ function mapMonitoramentoRow(row) {
     unidade: dsei,
     cargo,
     quantitativoPlano,
-    totalContratados,
+    totalTrabalhadores,
     contratadosSubstituicao,
     contratadosTemporario,
     contratadosNormal,
@@ -947,7 +1071,7 @@ function mapMonitoramentoRow(row) {
     profissionaisIndigenasCargo: contratadosIndigenas,
     contratadosIndigenas,
     profissionaisIndigenas: contratadosIndigenas,
-    totalProfissionaisRaca: totalContratados,
+    totalProfissionaisRaca: totalTrabalhadores,
     emProcessoSeletivo: 0,
     temAlerta,
     alertaAfastamentoSemSubstituto,
@@ -1457,7 +1581,7 @@ function calcularIndicadoresServidor(rows, totaisMonitoramento) {
   const vagasPrevistas = somaServidor(rows, "quantitativoPlano");
   const contratados = totaisMonitoramento && totaisMonitoramento.totalContratadosGeral !== undefined
     ? Number(totaisMonitoramento.totalContratadosGeral || 0)
-    : somaServidor(rows, "totalContratados");
+    : somaServidor(rows, "totalTrabalhadores");
   const afastados = somaServidor(rows, "afastados");
   const substituicoes = somaServidor(rows, "contratadosSubstituicao");
   const temporarios = somaServidor(rows, "contratadosTemporario");
@@ -1519,10 +1643,10 @@ function calcularOciosasServidor(row) {
   }
 
   const vagas = Number(row.quantitativoPlano || 0);
-  const contratados = Number(row.totalContratados || 0);
+  const trabalhadores = Number(row.totalTrabalhadores || 0);
   const afastados = Number(row.afastados || 0);
 
-  return vagas - contratados + afastados;
+  return vagas - trabalhadores + afastados;
 }
 
 function somaServidor(rows, field) {
@@ -1894,3 +2018,17 @@ function asyncHandler(fn) {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
+
+// Exporta funções internas para os testes automatizados (test/*.test.js).
+// Não altera o uso de server.js como app Express (module.exports = app, acima);
+// apenas anexa referências para podermos testar a gravação de dados isoladamente.
+Object.assign(module.exports, {
+  _salvarObservacaoAlertaComConn: salvarObservacaoAlertaComConn,
+  _salvarRemanejamentoComConn: salvarRemanejamentoComConn,
+  _normalizarLinhasRemanejamentoServidor: normalizarLinhasRemanejamentoServidor,
+  _calcularResumoLinhasServidor: calcularResumoLinhasServidor,
+  _mapearCargoParaPrevistas: mapearCargoParaPrevistas,
+  _mesesAteFimDoAno: mesesAteFimDoAno,
+  _limparValorDash: limparValorDash,
+  _converterNumeroDash: converterNumeroDash
+});

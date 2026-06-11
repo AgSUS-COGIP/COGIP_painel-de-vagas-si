@@ -27,7 +27,6 @@
 
     body {
       background:
-        linear-gradient(180deg, rgba(0, 63, 143, .18), rgba(0, 63, 143, .34)),
         var(--background-painel-image) center center / cover no-repeat fixed;
     }
 
@@ -407,8 +406,8 @@
 
     .multiSelectOption,
     .multiSelectOption span {
-      color: #07346b !important;
-      text-shadow: none !important;
+      color: #07346b;
+      text-shadow: none;
     }
 
 
@@ -424,9 +423,9 @@
       text-transform: uppercase;
       font-size: 9px;
       font-weight: 900;
-      padding: 0 8px;
-      width: 96px;
-      min-width: 96px;
+      padding: 0 10px;
+      width: 100%;
+      min-width: 120px;
       height: 34px;
       border-radius: 10px;
       white-space: nowrap;
@@ -438,13 +437,21 @@
 
     .updateLine {
       grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px 14px;
       color: #fff;
       font-size: 10.5px;
       font-weight: 800;
-      text-align: right;
       opacity: .92;
       margin-top: 1px;
       text-shadow: 0 2px 5px rgba(0, 0, 0, .20);
+    }
+
+    .updateLine .updateText {
+      white-space: nowrap;
     }
 
     .content {
@@ -1146,4 +1153,3 @@
     canvas {
       cursor: pointer;
     }
-

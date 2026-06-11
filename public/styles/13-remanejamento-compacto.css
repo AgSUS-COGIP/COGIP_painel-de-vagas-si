@@ -210,9 +210,7 @@
 .alertaObservacaoInput {
   width: 100%;
   min-width: 0;
-  min-height: 76px;
-  max-height: 160px;
-  resize: vertical;
+  height: 38px;
   border: 1px solid rgba(0, 83, 166, .20);
   border-radius: 10px;
   background: rgba(255, 255, 255, .96);
@@ -232,7 +230,7 @@
 }
 
 .alertaObservacaoTexto {
-  min-height: 58px;
+  min-height: 0;
   padding: 9px 10px;
   border-radius: 10px;
   background: rgba(255, 255, 255, .72);
@@ -400,18 +398,64 @@
 }
 
 .sidebarLogoutBtn {
-  border: 1px solid rgba(255, 255, 255, .35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, .25);
   border-radius: 10px;
-  background: rgba(255, 255, 255, .12);
+  background: linear-gradient(135deg, #e23b3b, #c01f1f);
   color: #ffffff;
   font-size: 10px;
   font-weight: 900;
-  padding: 6px 8px;
+  padding: 7px 8px;
   cursor: pointer;
 }
 
 .sidebarLogoutBtn:hover {
-  background: rgba(255, 255, 255, .22);
+  background: linear-gradient(135deg, #f04a4a, #d62626);
+}
+
+.sidebar {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden; 
+}
+.nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebarSpacer {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+.sidebarUsuario {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 6; 
+}
+
+.sidebar::before,
+.sidebar::after {
+  pointer-events: none !important;
+}
+.navItem {
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+.navItem > span:not(.navIcon) {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+.brandTitle,
+.brandSubtitle,
+.brandMeta {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* Notificação visual de vagas ociosas (remanejamento) */
@@ -501,5 +545,32 @@
 @keyframes refreshSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Login com Google: separador "ou" + centralizacao do botao GIS */
+.loginGoogleWrap {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.loginGoogleSep {
+  width: 100%;
+  text-align: center;
+  border-top: 1px solid rgba(0, 43, 93, .15);
+  line-height: 0;
+}
+.loginGoogleSep span {
+  background: #fff;
+  padding: 0 10px;
+  color: #5c7190;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+#googleBtn {
+  display: flex;
+  justify-content: center;
 }
 

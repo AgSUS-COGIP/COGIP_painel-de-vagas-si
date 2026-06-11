@@ -158,12 +158,57 @@
       margin-bottom: 0;
     }
 
+    /* Recolhido: mostra apenas a logo do AgSUS centralizada, os ícones do menu
+       e o ícone da coordenação. Esconde textos da marca, rótulos do menu,
+       o bloco de usuário/Sair e o título da coordenação. */
     .app.sidebar-collapsed .brandTitle,
     .app.sidebar-collapsed .brandSubtitle,
+    .app.sidebar-collapsed .brandMeta,
     .app.sidebar-collapsed .navItem span:not(.navIcon),
-    .app.sidebar-collapsed .sidebarSpacer,
+    .app.sidebar-collapsed .sidebarUsuarioNome,
+    .app.sidebar-collapsed .sidebarLogoutLabel,
+    .app.sidebar-collapsed .sidebarCoordTitle {
+      display: none !important;
+    }
+
+    /* Recolhido: o botão Sair vira apenas o ícone. */
+    .app.sidebar-collapsed .sidebarUsuario {
+      background: transparent !important;
+      padding: 0 !important;
+      margin: 6px 0 !important;
+    }
+
+    .app.sidebar-collapsed .sidebarLogoutBtn {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+      padding: 0;
+      border-radius: 12px;
+      font-size: 15px;
+    }
+
+    .app.sidebar-collapsed .sidebarSpacer {
+      flex: 1 1 auto !important;
+    }
+
     .app.sidebar-collapsed .sidebarCoord {
-      display: none;
+      display: block !important;
+      margin: auto 0 6px !important;
+      padding: 4px 0 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .app.sidebar-collapsed .sidebarCoordImgWrap {
+      width: 46px !important;
+      height: 46px !important;
+      margin: 0 auto !important;
+    }
+
+    .app.sidebar-collapsed .sidebarCoordImg {
+      width: 40px !important;
+      height: 40px !important;
     }
 
     .app.sidebar-collapsed .sidebarToggle {
@@ -217,6 +262,56 @@
         font-size: 7.8px;
         line-height: 1.28;
       }
+    }
+
+    /* =========================================================
+       Sidebar à prova de telas baixas: a marca e a logo da
+       coordenação nunca devem ser cortadas. Os blocos fixos não
+       encolhem; a navegação rola se faltar espaço; e os textos da
+       marca somem progressivamente conforme a altura diminui.
+    ========================================================= */
+    .brand,
+    .sidebarToggle,
+    .sidebarCoord {
+      flex-shrink: 0;
+    }
+
+    .brandLogo {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Em telas baixas, esconde os textos da marca em etapas para
+       liberar altura e manter a logo centralizada. */
+    @media (max-height: 820px) {
+      .brandMeta {
+        display: none;
+      }
+    }
+
+    @media (max-height: 720px) {
+      .brandSubtitle {
+        display: none;
+      }
+
+      .brand {
+        margin-bottom: 12px;
+      }
+    }
+
+    @media (max-height: 640px) {
+      .brandTitle {
+        display: none;
+      }
+
+      .brand {
+        margin-bottom: 8px;
+      }
+    }
+
+    /* Menu recolhido: também esconde o "unidade de gestão..." */
+    .app.sidebar-collapsed .brandMeta {
+      display: none;
     }
 
 

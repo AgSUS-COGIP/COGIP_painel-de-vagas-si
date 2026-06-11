@@ -24,8 +24,12 @@
     }
 
     .brandLogo {
-      width: clamp(70px, 9.8vh, 96px) !important;
-      height: clamp(70px, 9.8vh, 96px) !important;
+      /* Adapta ao espaço entre as bordas da sidebar (nunca corta). */
+      width: min(100%, clamp(70px, 9.8vh, 96px)) !important;
+      height: auto !important;
+      aspect-ratio: 1 / 1 !important;
+      object-fit: contain !important;
+      margin: 0 auto !important;
       margin-bottom: 0 !important;
     }
 

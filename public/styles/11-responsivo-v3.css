@@ -63,12 +63,12 @@
 
     .filtersBar {
       max-width: 100% !important;
-      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) 112px !important;
+      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) 128px !important;
       justify-content: end !important;
     }
 
     .main.view-alertas-active .filtersBar {
-      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) minmax(170px, 220px) 112px !important;
+      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) minmax(170px, 220px) 128px !important;
     }
 
     #view-visaoGeral.viewPanel.active {
@@ -213,8 +213,11 @@
       }
 
       .brandLogo {
-        width: 48px !important;
-        height: 48px !important;
+        width: min(100%, 48px) !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1 !important;
+        object-fit: contain !important;
+        margin: 0 auto !important;
       }
 
       .brandTitle,
@@ -369,6 +372,66 @@
       #view-visaoGeral .rankingBars {
         height: 170px !important;
         min-height: 170px !important;
+      }
+    }
+
+    /* =========================================================
+       Páginas muito pequenas (sidebar vertical estreita ou baixa):
+       o rodapé da coordenação mostra apenas a logo + "COGIP", para
+       não cortar o título longo. Vale entre 761px e 1280px de
+       largura, ou em telas baixas (≤760px de altura).
+    ========================================================= */
+    @media (min-width: 761px) and (max-width: 1280px),
+           (min-width: 761px) and (max-height: 760px) {
+      /* Marca: evita o texto longo estourar a sidebar estreita. */
+      .brandMeta {
+        display: none !important;
+      }
+
+      .brandTitle,
+      .brandSubtitle {
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+
+      .sidebarCoord {
+        display: block !important;
+        margin-top: auto !important;
+        margin-bottom: 6px !important;
+        padding: 6px 4px !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+
+      .sidebarCoordImgWrap {
+        width: 48px !important;
+        height: 48px !important;
+        margin: 0 auto 4px !important;
+      }
+
+      .sidebarCoordImg {
+        width: 40px !important;
+        height: 40px !important;
+      }
+
+      /* Esconde o título longo e mostra apenas "COGIP". */
+      .sidebarCoordTitle {
+        max-width: 100% !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        text-align: center !important;
+      }
+
+      .sidebarCoordTitle::after {
+        content: "COGIP";
+        display: block;
+        font-size: 10px;
+        line-height: 1.2;
+        font-weight: 900;
+        letter-spacing: .6px;
+        color: rgba(255, 255, 255, .92);
       }
     }
 
