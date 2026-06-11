@@ -63,12 +63,12 @@
 
     .filtersBar {
       max-width: 100% !important;
-      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) 112px !important;
+      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) 128px !important;
       justify-content: end !important;
     }
 
     .main.view-alertas-active .filtersBar {
-      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) minmax(170px, 220px) 112px !important;
+      grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) minmax(170px, 220px) 128px !important;
     }
 
     #view-visaoGeral.viewPanel.active {
