@@ -27,7 +27,6 @@
 
     body {
       background:
-        linear-gradient(180deg, rgba(0, 63, 143, .18), rgba(0, 63, 143, .34)),
         var(--background-painel-image) center center / cover no-repeat fixed;
     }
 

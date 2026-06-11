@@ -4,7 +4,6 @@
 
     body {
       background:
-        linear-gradient(90deg, rgba(0, 52, 112, .92) 0 13%, rgba(236, 248, 255, .62) 13% 100%),
         var(--background-painel-image) center center / cover no-repeat fixed;
     }
 
@@ -15,10 +14,10 @@
         radial-gradient(circle at 92% 18%, rgba(255, 255, 255, .38), transparent 24%);
     }
 
-    .main::before {
+    /* .main::before {
       background:
         linear-gradient(180deg, rgba(0, 75, 147, .22) 0%, rgba(232, 247, 255, .88) 42%, rgba(212, 238, 255, .92) 100%);
-    }
+    } */
 
     .top {
       padding: 14px 22px 8px 24px;
@@ -904,6 +903,3 @@
       right: 0;
       min-width: 100%;
     }
-
-
-
