@@ -2018,3 +2018,17 @@ function asyncHandler(fn) {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
+
+// Exporta funções internas para os testes automatizados (test/*.test.js).
+// Não altera o uso de server.js como app Express (module.exports = app, acima);
+// apenas anexa referências para podermos testar a gravação de dados isoladamente.
+Object.assign(module.exports, {
+  _salvarObservacaoAlertaComConn: salvarObservacaoAlertaComConn,
+  _salvarRemanejamentoComConn: salvarRemanejamentoComConn,
+  _normalizarLinhasRemanejamentoServidor: normalizarLinhasRemanejamentoServidor,
+  _calcularResumoLinhasServidor: calcularResumoLinhasServidor,
+  _mapearCargoParaPrevistas: mapearCargoParaPrevistas,
+  _mesesAteFimDoAno: mesesAteFimDoAno,
+  _limparValorDash: limparValorDash,
+  _converterNumeroDash: converterNumeroDash
+});

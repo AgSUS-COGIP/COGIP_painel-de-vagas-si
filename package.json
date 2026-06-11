@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && node -e \"require('fs').readdirSync('public/js').filter(f=>f.endsWith('.js')).forEach(f=>require('child_process').execSync('node --check public/js/'+f))\""
+    "check": "node --check server.js && node -e \"require('fs').readdirSync('public/js').filter(f=>f.endsWith('.js')).forEach(f=>require('child_process').execSync('node --check public/js/'+f))\"",
+    "test": "node --test"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
