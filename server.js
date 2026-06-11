@@ -1022,7 +1022,7 @@ function mapMonitoramentoRow(row) {
   const dsei = limparValorDash(row.dsei_casai);
   const cargo = limparValorDash(row.cargo);
   const quantitativoPlano = converterNumeroDash(row.quantitativo_plano_trabalho);
-  const totalContratados = converterNumeroDash(row.total_contratados_geral);
+  const totalTrabalhadores = converterNumeroDash(row.total_contratados_geral);
   const contratadosSubstituicao = converterNumeroDash(row.contratados_substituicao);
   const contratadosTemporario = converterNumeroDash(row.contratados_temporario);
   const contratadosNormal = converterNumeroDash(row.contratados_normal);
@@ -1059,7 +1059,7 @@ function mapMonitoramentoRow(row) {
     unidade: dsei,
     cargo,
     quantitativoPlano,
-    totalContratados,
+    totalTrabalhadores,
     contratadosSubstituicao,
     contratadosTemporario,
     contratadosNormal,
@@ -1071,7 +1071,7 @@ function mapMonitoramentoRow(row) {
     profissionaisIndigenasCargo: contratadosIndigenas,
     contratadosIndigenas,
     profissionaisIndigenas: contratadosIndigenas,
-    totalProfissionaisRaca: totalContratados,
+    totalProfissionaisRaca: totalTrabalhadores,
     emProcessoSeletivo: 0,
     temAlerta,
     alertaAfastamentoSemSubstituto,
@@ -1581,7 +1581,7 @@ function calcularIndicadoresServidor(rows, totaisMonitoramento) {
   const vagasPrevistas = somaServidor(rows, "quantitativoPlano");
   const contratados = totaisMonitoramento && totaisMonitoramento.totalContratadosGeral !== undefined
     ? Number(totaisMonitoramento.totalContratadosGeral || 0)
-    : somaServidor(rows, "totalContratados");
+    : somaServidor(rows, "totalTrabalhadores");
   const afastados = somaServidor(rows, "afastados");
   const substituicoes = somaServidor(rows, "contratadosSubstituicao");
   const temporarios = somaServidor(rows, "contratadosTemporario");
@@ -1643,10 +1643,10 @@ function calcularOciosasServidor(row) {
   }
 
   const vagas = Number(row.quantitativoPlano || 0);
-  const contratados = Number(row.totalContratados || 0);
+  const trabalhadores = Number(row.totalTrabalhadores || 0);
   const afastados = Number(row.afastados || 0);
 
-  return vagas - contratados + afastados;
+  return vagas - trabalhadores + afastados;
 }
 
 function somaServidor(rows, field) {
