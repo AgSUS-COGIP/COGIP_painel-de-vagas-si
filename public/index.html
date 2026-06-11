@@ -9,7 +9,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-
   <link rel="stylesheet" href="./styles.css">
 </head>
 
@@ -107,12 +106,15 @@
 
       <div id="sidebarUsuario" class="sidebarUsuario" style="display:none;">
         <div class="sidebarUsuarioNome" id="sidebarUsuarioNome"></div>
-        <button type="button" class="sidebarLogoutBtn" data-click="logout">Sair</button>
+        <button type="button" class="sidebarLogoutBtn" data-click="logout" title="Sair">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span class="sidebarLogoutLabel">Sair</span>
+        </button>
       </div>
 
       <div class="sidebarCoord">
         <div class="sidebarCoordImgWrap">
-          <img class="sidebarCoordImg" src="./img/logo-cogip.png" alt="Coordenação de Gestão da Informação de Pessoal">
+          <img class="sidebarCoordImg" src="./assets/images/logo-cogip.png" alt="Coordenação de Gestão da Informação de Pessoal">
         </div>
         <div class="sidebarCoordTitle">Coordenação de Gestão da Informação de Pessoal - COGIP</div>
       </div>
@@ -147,7 +149,8 @@
           </button>
 
           <div class="updateLine">
-            <span class="updateText"><i class="fa-solid fa-rotate"></i> Última atualização: <span id="updatedAt">-</span></span>
+            <span class="updateText"><i class="fa-solid fa-rotate"></i> Última atualização: <span
+                id="updatedAt">-</span></span>
             <button type="button" class="refreshBtn" id="refreshBtn" data-click="recarregar"
               title="Buscar os dados mais recentes do banco">
               <span class="refreshBtnIcon"><i class="fa-solid fa-rotate"></i></span>
@@ -178,7 +181,7 @@
                 <div class="kpiText">
                   <div class="kpiLabel">Trabalhadores Contratados</div>
                   <div class="kpiValue" id="kpiContratados">0</div>
-                  <div class="kpiSub">Normal + substituições + temporários</div>
+                  <div class="kpiSub">normal (Transição/PSS) + substituições + temporários</div>
                 </div>
               </div>
 
@@ -244,7 +247,8 @@
               <div class="panel panelTreemapOciosas">
                 <h3 class="panelTitle">Top 5 DSEIs com mais vagas ociosas</h3>
                 <div class="chartBox compactBar">
-                  <div id="chartTopDseiOciosas" class="treemapChart" aria-label="Top 5 DSEIs com mais vagas ociosas"></div>
+                  <div id="chartTopDseiOciosas" class="treemapChart" aria-label="Top 5 DSEIs com mais vagas ociosas">
+                  </div>
                 </div>
               </div>
 
@@ -283,7 +287,7 @@
               <div class="kpiText">
                 <div class="kpiLabel">Trabalhadores Contratados</div>
                 <div class="kpiValue" id="vagasKpiContratados">0</div>
-                <div class="kpiSub">Normal + substituições + temporários</div>
+                <div class="kpiSub">normal (Transição/PSS) + substituições + temporários</div>
               </div>
             </div>
 
@@ -342,49 +346,72 @@
             </div>
           </section>
 
-          <!-- 1) Menu de tabelas -->
-          <div class="vagasTabelaTabs" aria-label="Tabelas da aba de vagas">
-            <button type="button" class="vagasTabelaTab active" data-vagas-tabela="vagas"
-              data-click="alterar-tabela-vagas">Vagas</button>
-            <button type="button" class="vagasTabelaTab" data-vagas-tabela="ociosas"
-              data-click="alterar-tabela-vagas">Vagas Ociosas</button>
-            <button type="button" class="vagasTabelaTab" data-vagas-tabela="processo"
-              data-click="alterar-tabela-vagas">Vagas para Processo Seletivo</button>
-          </div>
-
-          <!-- 2) Menu de resumos / detalhamento -->
-          <div class="vagasTabs vagasTabsTopo" aria-label="Visualizações da tabela de vagas">
-            <button type="button" class="vagasTab active" data-vagas-view="dsei"
-              data-click="alterar-visualizacao-vagas">Resumo por DSEI/CASAI</button>
-            <button type="button" class="vagasTab" data-vagas-view="cargo"
-              data-click="alterar-visualizacao-vagas">Resumo por Cargo</button>
-            <button type="button" class="vagasTab" data-vagas-view="detalhado"
-              data-click="alterar-visualizacao-vagas">Detalhamento Completo</button>
-          </div>
-
-          <!-- 3) Cabeçalho (muda conforme a tabela selecionada) -->
-          <div class="pageHeader">
-            <div>
-              <h2 class="pageTitle" id="vagasTituloDinamico">Vagas</h2>
-              <div class="pageSub" id="vagasSubtituloDinamico">Detalhamento por DSEI/CASAI e cargo conforme filtros
-                selecionados.</div>
+          <!-- Menu de navegação das tabelas de vagas -->
+          <div class="vagasNavCard">
+            <!-- 1) Menu de tabelas -->
+            <div class="vagasNavSection">
+              <span class="vagasNavLabel">Navegação Principal</span>
+              <div class="vagasTabelaTabs" aria-label="Tabelas da aba de vagas">
+                <button type="button" class="vagasTabelaTab active" data-vagas-tabela="vagas"
+                  data-click="alterar-tabela-vagas">
+                  <i class="fa-solid fa-users"></i><span>Vagas</span>
+                </button>
+                <button type="button" class="vagasTabelaTab" data-vagas-tabela="ociosas"
+                  data-click="alterar-tabela-vagas">
+                  <i class="fa-solid fa-user-clock"></i><span>Vagas Ociosas</span>
+                </button>
+                <button type="button" class="vagasTabelaTab" data-vagas-tabela="processo"
+                  data-click="alterar-tabela-vagas">
+                  <i class="fa-solid fa-briefcase"></i><span>Vagas para Processo Seletivo</span>
+                </button>
+              </div>
             </div>
-            <div class="exportActions" id="vagasExportActions">
-              <button type="button" class="exportBtn" data-click="exportar-vagas">Exportar base filtrada</button>
-              <button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button>
+
+            <!-- 2) Menu de resumos / detalhamento -->
+            <div class="vagasNavSection vagasNavSubsection">
+              <span class="vagasNavLabel">Visão Detalhada</span>
+              <div class="vagasTabs vagasTabsTopo" aria-label="Visualizações da tabela de vagas">
+                <button type="button" class="vagasTab active" data-vagas-view="dsei"
+                  data-click="alterar-visualizacao-vagas">
+                  <i class="fa-solid fa-chart-simple"></i><span>Resumo por DSEI/CASAI</span>
+                </button>
+                <button type="button" class="vagasTab" data-vagas-view="cargo"
+                  data-click="alterar-visualizacao-vagas">
+                  <i class="fa-solid fa-briefcase"></i><span>Resumo por Cargo</span>
+                </button>
+                <button type="button" class="vagasTab" data-vagas-view="detalhado"
+                  data-click="alterar-visualizacao-vagas">
+                  <i class="fa-solid fa-list-ul"></i><span>Detalhamento Completo</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- 4) Aviso (muda conforme a tabela selecionada) -->
-          <div id="vagasAvisoDinamico"></div>
+          <!-- 3-5) Cartão de título + aviso + busca -->
+          <div class="vagasInfoCard">
+            <!-- Cabeçalho (muda conforme a tabela selecionada) -->
+            <div class="pageHeader">
+              <div>
+                <h2 class="pageTitle" id="vagasTituloDinamico">Vagas</h2>
+                <div class="pageSub" id="vagasSubtituloDinamico">Detalhamento por DSEI/CASAI e cargo conforme filtros
+                  selecionados.</div>
+              </div>
+              <div class="exportActions" id="vagasExportActions">
+                <button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i> Exportar base filtrada</button>
+                <button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>
+              </div>
+            </div>
 
-          <!-- 5) Busca, imediatamente acima da tabela -->
-          <div class="vagasSearchWrap">
-            <input id="vagasSearch" class="searchBox" type="search"
-              placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" data-input="pesquisa-vagas">
-          </div>
+            <!-- Aviso (muda conforme a tabela selecionada) -->
+            <div id="vagasAvisoDinamico"></div>
 
-          <!-- 6) Tabelas -->
+            <!-- Busca, imediatamente acima da tabela -->
+            <div class="vagasSearchWrap">
+              <input id="vagasSearch" class="searchBox" type="search"
+                placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" data-input="pesquisa-vagas">
+            </div>
+
+          <!-- 6) Tabelas (dentro do mesmo cartão) -->
           <div id="blocoTabelaVagas" class="vagasTabelaBloco">
             <div class="fullTableWrap">
               <table class="fullTable">
@@ -404,7 +431,7 @@
                     <th>DSEI/CASAI</th>
                     <th>Cargo</th>
                     <th>Vagas previstas</th>
-                    <th>Total de Contratados</th>
+                    <th>Total de Trabalhadores</th>
                     <th>Afastados</th>
                     <th class="colOciosasHead">Vagas Ociosas (Déficit Operacional)</th>
                     <th>Substituições</th>
@@ -463,6 +490,7 @@
             </div>
             <div id="processoSeletivoPagination" class="tablePagination"></div>
           </div>
+          </div>
         </section>
 
         <section id="view-alertas" class="viewPanel tableView">
@@ -472,8 +500,8 @@
               <div class="pageSub">Afastamentos, temporários ativos e vagas excedentes conforme filtros selecionados.
               </div>
             </div>
-            <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas">Exportar
-                alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button>
+            <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas"><i class="fa-solid fa-download"></i> Exportar
+                alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>
             </div>
           </div>
 

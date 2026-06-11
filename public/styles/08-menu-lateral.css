@@ -158,12 +158,57 @@
       margin-bottom: 0;
     }
 
+    /* Recolhido: mostra apenas a logo do AgSUS centralizada, os ícones do menu
+       e o ícone da coordenação. Esconde textos da marca, rótulos do menu,
+       o bloco de usuário/Sair e o título da coordenação. */
     .app.sidebar-collapsed .brandTitle,
     .app.sidebar-collapsed .brandSubtitle,
+    .app.sidebar-collapsed .brandMeta,
     .app.sidebar-collapsed .navItem span:not(.navIcon),
-    .app.sidebar-collapsed .sidebarSpacer,
+    .app.sidebar-collapsed .sidebarUsuarioNome,
+    .app.sidebar-collapsed .sidebarLogoutLabel,
+    .app.sidebar-collapsed .sidebarCoordTitle {
+      display: none !important;
+    }
+
+    /* Recolhido: o botão Sair vira apenas o ícone. */
+    .app.sidebar-collapsed .sidebarUsuario {
+      background: transparent !important;
+      padding: 0 !important;
+      margin: 6px 0 !important;
+    }
+
+    .app.sidebar-collapsed .sidebarLogoutBtn {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+      padding: 0;
+      border-radius: 12px;
+      font-size: 15px;
+    }
+
+    .app.sidebar-collapsed .sidebarSpacer {
+      flex: 1 1 auto !important;
+    }
+
     .app.sidebar-collapsed .sidebarCoord {
-      display: none;
+      display: block !important;
+      margin: auto 0 6px !important;
+      padding: 4px 0 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .app.sidebar-collapsed .sidebarCoordImgWrap {
+      width: 46px !important;
+      height: 46px !important;
+      margin: 0 auto !important;
+    }
+
+    .app.sidebar-collapsed .sidebarCoordImg {
+      width: 40px !important;
+      height: 40px !important;
     }
 
     .app.sidebar-collapsed .sidebarToggle {

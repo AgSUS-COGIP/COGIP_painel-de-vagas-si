@@ -133,7 +133,7 @@
       }
     }
 
-    @media (min-width: 1024px) and (max-width: 1280px) {
+    @media (min-width: 1024px) and (max-width: 1440px) {
       .app {
         grid-template-columns: 86px minmax(0, 1fr) !important;
       }
@@ -149,9 +149,18 @@
         display: none !important;
       }
 
+      .brand {
+        display: grid !important;
+        place-items: center !important;
+        margin-bottom: 12px !important;
+      }
+
       .brandLogo {
-        width: 54px !important;
-        height: 54px !important;
+        width: min(100%, 56px) !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1 !important;
+        margin: 0 auto !important;
+        object-fit: contain !important;
       }
 
       .navItem {

@@ -239,7 +239,7 @@
   bottom: 0;
   width: 128px;
   height: 158px;
-  background-image: url("../img/ze-gotinha-indigena.png");
+  background-image: url("../assets/images/ze-gotinha-indigena.png");
   background-repeat: no-repeat;
   background-position: right bottom;
   background-size: contain;
@@ -254,7 +254,7 @@
   background-position: right bottom;
   background-size: contain;
   pointer-events: none;
-  background-image: url("../img/indigena-contratacoes.png");
+  background-image: url("../assets/images/indigena-contratacoes.png");
 }
 
 #view-visaoGeral .panelTipo .imagemIndigenaPainel {

@@ -213,8 +213,11 @@
       }
 
       .brandLogo {
-        width: 48px !important;
-        height: 48px !important;
+        width: min(100%, 48px) !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1 !important;
+        object-fit: contain !important;
+        margin: 0 auto !important;
       }
 
       .brandTitle,
