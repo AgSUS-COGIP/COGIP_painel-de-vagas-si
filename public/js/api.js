@@ -4,6 +4,7 @@ import { state } from "./state.js";
       const config = await apiGet("/api/config");
       state.DASHBOARD_SAUDE_INDIGENA_URL = String(config.dashboardSaudeIndigenaUrl || "").trim();
       state.DASHBOARD_FERIAS_URL = String(config.dashboardFeriasUrl || "").trim();
+      state.googleClientId = String(config.googleClientId || "").trim();
 
       const root = document.documentElement;
       root.style.setProperty("--background-painel-image", config.backgroundPainelUrl ? `url("${config.backgroundPainelUrl}")` : "none");

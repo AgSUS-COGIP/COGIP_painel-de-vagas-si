@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Monitoramento de Vagas - Saúde Indígena</title>
 
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
@@ -43,6 +44,12 @@
       <input id="loginSenha" class="loginInput" type="password" name="password" autocomplete="current-password" required>
       <button type="submit" class="loginBtn" id="loginBtn">Entrar</button>
       <div id="loginErro" class="loginErro"></div>
+
+      <!-- Login com Google (aparece só quando GOOGLE_CLIENT_ID está configurado) -->
+      <div id="loginGoogleWrap" class="loginGoogleWrap" style="display:none;">
+        <div class="loginGoogleSep"><span>ou</span></div>
+        <div id="googleBtn"></div>
+      </div>
     </form>
   </div>
 

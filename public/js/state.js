@@ -47,6 +47,7 @@ export const state = {
   painelFeriasCarregado: false,
   DASHBOARD_SAUDE_INDIGENA_URL: "",
   DASHBOARD_FERIAS_URL: "",
+  googleClientId: "",
 
   // Sessão / login
   painelLoginToken: "",

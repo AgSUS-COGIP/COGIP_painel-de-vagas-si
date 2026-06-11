@@ -42,6 +42,46 @@ import { state } from "./state.js";
       if (login) login.style.display = "grid";
       const usuarioInput = document.getElementById("loginUsuario");
       if (usuarioInput) setTimeout(() => usuarioInput.focus(), 0);
+      configurarLoginGoogle();
+    }
+
+    // Inicializa o Google Identity Services e renderiza o botão "Entrar com Google".
+    // Só aparece quando o servidor expõe um googleClientId (GOOGLE_CLIENT_ID no .env).
+    function configurarLoginGoogle() {
+      const clientId = state.googleClientId;
+      const wrap = document.getElementById("loginGoogleWrap");
+      if (!clientId || !wrap || wrap.dataset.bound) return;
+
+      const tentar = () => {
+        const gid = window.google && window.google.accounts && window.google.accounts.id;
+        if (!gid) { setTimeout(tentar, 200); return; } // GIS carrega async; aguarda ficar pronto
+        gid.initialize({ client_id: clientId, callback: onGoogleCredential });
+        const btn = document.getElementById("googleBtn");
+        if (btn) {
+          gid.renderButton(btn, { theme: "outline", size: "large", text: "signin_with", locale: "pt-BR" });
+        }
+        wrap.dataset.bound = "1";
+        wrap.style.display = "";
+      };
+      tentar();
+    }
+
+    async function onGoogleCredential(resposta) {
+      const erro = document.getElementById("loginErro");
+      if (erro) erro.innerText = "";
+      try {
+        const payload = await apiPost("/api/login/google", { credential: resposta && resposta.credential });
+        state.painelLoginToken = payload.token || "";
+        state.painelLoginUsuario = payload.usuario || null;
+        try { localStorage.setItem("painelLoginToken", state.painelLoginToken); } catch (e) {}
+
+        const login = document.getElementById("loginScreen");
+        if (login) login.style.display = "none";
+
+        iniciarPainelAutenticado();
+      } catch (error) {
+        if (erro) erro.innerText = error && error.message ? error.message : "Falha ao entrar com Google.";
+      }
     }
 
     export async function realizarLoginPainel() {

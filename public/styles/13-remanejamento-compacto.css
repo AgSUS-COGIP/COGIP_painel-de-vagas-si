@@ -503,3 +503,30 @@
   to { transform: rotate(360deg); }
 }
 
+/* Login com Google: separador "ou" + centralizacao do botao GIS */
+.loginGoogleWrap {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.loginGoogleSep {
+  width: 100%;
+  text-align: center;
+  border-top: 1px solid rgba(0, 43, 93, .15);
+  line-height: 0;
+}
+.loginGoogleSep span {
+  background: #fff;
+  padding: 0 10px;
+  color: #5c7190;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+#googleBtn {
+  display: flex;
+  justify-content: center;
+}
+
