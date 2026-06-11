@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <title>Monitoramento de Vagas - Saúde Indígena</title>
@@ -23,9 +24,10 @@
       </div>
       <div class="loadingTitle">Carregando painel</div>
       <div class="loadingDots" aria-hidden="true"><span></span><span></span><span></span></div>
-      <div class="loadingBar" aria-hidden="true"><span></span></div>
     </div>
   </div>
+
+
 
   <div id="loginScreen" class="loginScreen" style="display:none;">
     <div class="loadingDecorLeft" aria-hidden="true"></div>
@@ -40,7 +42,8 @@
       <label class="loginLabel" for="loginUsuario">Usuário</label>
       <input id="loginUsuario" class="loginInput" type="text" name="username" autocomplete="username" required>
       <label class="loginLabel" for="loginSenha">Senha</label>
-      <input id="loginSenha" class="loginInput" type="password" name="password" autocomplete="current-password" required>
+      <input id="loginSenha" class="loginInput" type="password" name="password" autocomplete="current-password"
+      required>
       <button type="submit" class="loginBtn" id="loginBtn">Entrar</button>
       <div id="loginErro" class="loginErro"></div>
     </form>
@@ -55,7 +58,8 @@
         <div class="brandMeta">unidade de gestão de pessoas | diretoria de operações</div>
       </div>
 
-      <button type="button" class="sidebarToggle" data-click="toggle-sidebar" aria-label="Recolher ou expandir menu" title="Recolher menu">
+      <button type="button" class="sidebarToggle" data-click="toggle-sidebar" aria-label="Recolher ou expandir menu"
+        title="Recolher menu">
         <span class="sidebarToggleIcon">&#8249;</span>
       </button>
 
@@ -101,7 +105,8 @@
 
       <div class="sidebarCoord">
         <div class="sidebarCoordImgWrap">
-          <img class="sidebarCoordImg" src="" data-config-src="logoCoordenacaoUrl" alt="Coordenação de Gestão da Informação de Pessoal">
+          <img class="sidebarCoordImg" src="" data-config-src="logoCoordenacaoUrl"
+            alt="Coordenação de Gestão da Informação de Pessoal">
         </div>
         <div class="sidebarCoordTitle">Coordenação de Gestão da Informação de Pessoal - COGIP</div>
       </div>
@@ -131,16 +136,18 @@
           </div>
 
           <button type="button" class="clearBtn" data-click="limpar-filtros">
-            <span>&#8635;</span>
+            <span><i class="fa-solid fa-filter-circle-xmark"></i></span>
             <span>Limpar Filtros</span>
           </button>
 
-          <button type="button" class="refreshBtn" id="refreshBtn" data-click="recarregar" title="Buscar os dados mais recentes do banco">
-            <span class="refreshBtnIcon">&#8635;</span>
+          <button type="button" class="refreshBtn" id="refreshBtn" data-click="recarregar"
+            title="Buscar os dados mais recentes do banco">
+            <span class="refreshBtnIcon"><i class="fa-solid fa-rotate"></i></span>
             <span>Atualizar dados</span>
           </button>
 
-          <div class="updateLine">&#8635; Última atualização: <span id="updatedAt">-</span></div>
+          <div class="updateLine"><i class="fa-solid fa-rotate"></i> Última atualização: <span id="updatedAt">-</span>
+          </div>
         </div>
       </header>
 
@@ -151,7 +158,8 @@
           <div class="onePageDashboard">
             <section class="kpiGrid">
               <div class="kpi">
-                <div class="kpiIcon iTeal"><i class="fa-solid fa-clipboard-user" style="color: rgb(255, 255, 255);"></i></div>
+                <div class="kpiIcon iTeal"><i class="fa-solid fa-clipboard-user" style="color: rgb(255, 255, 255);"></i>
+                </div>
                 <div class="kpiText">
                   <div class="kpiLabel">Vagas Previstas</div>
                   <div class="kpiValue" id="kpiVagasPrevistas">0</div>
@@ -233,7 +241,8 @@
               <div class="panel panelTreemap">
                 <h3 class="panelTitle">Top 5 DSEIs com mais vagas ociosas</h3>
                 <div class="chartBox compactBar">
-                  <div id="chartTopDseiOciosas" class="treemapChart" aria-label="Top 5 DSEIs com mais vagas ociosas"></div>
+                  <div id="chartTopDseiOciosas" class="treemapChart" aria-label="Top 5 DSEIs com mais vagas ociosas">
+                  </div>
                 </div>
               </div>
 
@@ -258,7 +267,8 @@
         <section id="view-vagas" class="viewPanel tableView">
           <section class="kpiGrid vagasKpiGridCustom">
             <div class="kpi">
-              <div class="kpiIcon iTeal"><i class="fa-solid fa-clipboard-user" style="color: rgb(255, 255, 255);"></i></div>
+              <div class="kpiIcon iTeal"><i class="fa-solid fa-clipboard-user" style="color: rgb(255, 255, 255);"></i>
+              </div>
               <div class="kpiText">
                 <div class="kpiLabel">Vagas Previstas</div>
                 <div class="kpiValue" id="vagasKpiVagasPrevistas">0</div>
@@ -280,7 +290,7 @@
               <div class="kpiText">
                 <div class="kpiLabel">Afastados</div>
                 <div class="kpiValue" id="vagasKpiAfastados">0</div>
-                <div class="kpiSub">Afastados - atestados - afastamentos com remuneração  - Licença Paternidade</div>
+                <div class="kpiSub">Afastados - atestados - afastamentos com remuneração - Licença Paternidade</div>
               </div>
             </div>
 
@@ -332,23 +342,30 @@
 
           <!-- 1) Menu de tabelas -->
           <div class="vagasTabelaTabs" aria-label="Tabelas da aba de vagas">
-            <button type="button" class="vagasTabelaTab active" data-vagas-tabela="vagas" data-click="alterar-tabela-vagas">Vagas</button>
-            <button type="button" class="vagasTabelaTab" data-vagas-tabela="ociosas" data-click="alterar-tabela-vagas">Vagas Ociosas</button>
-            <button type="button" class="vagasTabelaTab" data-vagas-tabela="processo" data-click="alterar-tabela-vagas">Vagas para Processo Seletivo</button>
+            <button type="button" class="vagasTabelaTab active" data-vagas-tabela="vagas"
+              data-click="alterar-tabela-vagas">Vagas</button>
+            <button type="button" class="vagasTabelaTab" data-vagas-tabela="ociosas"
+              data-click="alterar-tabela-vagas">Vagas Ociosas</button>
+            <button type="button" class="vagasTabelaTab" data-vagas-tabela="processo"
+              data-click="alterar-tabela-vagas">Vagas para Processo Seletivo</button>
           </div>
 
           <!-- 2) Menu de resumos / detalhamento -->
           <div class="vagasTabs vagasTabsTopo" aria-label="Visualizações da tabela de vagas">
-            <button type="button" class="vagasTab active" data-vagas-view="dsei" data-click="alterar-visualizacao-vagas">Resumo por DSEI/CASAI</button>
-            <button type="button" class="vagasTab" data-vagas-view="cargo" data-click="alterar-visualizacao-vagas">Resumo por Cargo</button>
-            <button type="button" class="vagasTab" data-vagas-view="detalhado" data-click="alterar-visualizacao-vagas">Detalhamento Completo</button>
+            <button type="button" class="vagasTab active" data-vagas-view="dsei"
+              data-click="alterar-visualizacao-vagas">Resumo por DSEI/CASAI</button>
+            <button type="button" class="vagasTab" data-vagas-view="cargo"
+              data-click="alterar-visualizacao-vagas">Resumo por Cargo</button>
+            <button type="button" class="vagasTab" data-vagas-view="detalhado"
+              data-click="alterar-visualizacao-vagas">Detalhamento Completo</button>
           </div>
 
           <!-- 3) Cabeçalho (muda conforme a tabela selecionada) -->
           <div class="pageHeader">
             <div>
               <h2 class="pageTitle" id="vagasTituloDinamico">Vagas</h2>
-              <div class="pageSub" id="vagasSubtituloDinamico">Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.</div>
+              <div class="pageSub" id="vagasSubtituloDinamico">Detalhamento por DSEI/CASAI e cargo conforme filtros
+                selecionados.</div>
             </div>
             <div class="exportActions" id="vagasExportActions">
               <button type="button" class="exportBtn" data-click="exportar-vagas">Exportar base filtrada</button>
@@ -361,7 +378,8 @@
 
           <!-- 5) Busca, imediatamente acima da tabela -->
           <div class="vagasSearchWrap">
-            <input id="vagasSearch" class="searchBox" type="search" placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" data-input="pesquisa-vagas">
+            <input id="vagasSearch" class="searchBox" type="search"
+              placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" data-input="pesquisa-vagas">
           </div>
 
           <!-- 6) Tabelas -->
@@ -449,9 +467,12 @@
           <div class="pageHeader">
             <div>
               <h2 class="pageTitle">Alertas</h2>
-              <div class="pageSub">Afastamentos, temporários ativos e vagas excedentes conforme filtros selecionados.</div>
+              <div class="pageSub">Afastamentos, temporários ativos e vagas excedentes conforme filtros selecionados.
+              </div>
             </div>
-            <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas">Exportar alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button></div>
+            <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas">Exportar
+                alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button>
+            </div>
           </div>
 
           <section class="alertKpiGrid">
@@ -514,7 +535,7 @@
         </section>
 
 
-<section id="view-painelSaudeIndigena" class="viewPanel panelIframeView">
+        <section id="view-painelSaudeIndigena" class="viewPanel panelIframeView">
           <div class="pageHeader">
             <div>
               <h2 class="pageTitle">Dashboard Saúde Indígena</h2>
@@ -537,13 +558,8 @@
               </div>
             </div>
 
-            <iframe
-              id="iframeDashboardSaudeIndigena"
-              class="externalDashboardIframe"
-              title="Dashboard Saúde Indígena"
-              loading="lazy"
-              allowfullscreen
-              referrerpolicy="no-referrer-when-downgrade">
+            <iframe id="iframeDashboardSaudeIndigena" class="externalDashboardIframe" title="Dashboard Saúde Indígena"
+              loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade">
             </iframe>
           </div>
         </section>
@@ -572,13 +588,8 @@
               </div>
             </div>
 
-            <iframe
-              id="iframeDashboardFerias"
-              class="externalDashboardIframe"
-              title="Dashboard Férias"
-              loading="lazy"
-              allowfullscreen
-              referrerpolicy="no-referrer-when-downgrade">
+            <iframe id="iframeDashboardFerias" class="externalDashboardIframe" title="Dashboard Férias" loading="lazy"
+              allowfullscreen referrerpolicy="no-referrer-when-downgrade">
             </iframe>
           </div>
         </section>
@@ -627,7 +638,8 @@
               <section class="remBox">
                 <div class="remBoxHeader">
                   <h3>2. O QUE ESTÁ SENDO REDUZIDO</h3>
-                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="reduzido">+ Adicionar Cargo</button>
+                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="reduzido">+
+                    Adicionar Cargo</button>
                 </div>
                 <div id="remOciosasAviso" class="remOciosasAviso" hidden></div>
                 <div class="remTableWrap">
@@ -643,7 +655,11 @@
                     </thead>
                     <tbody id="remReduzidoBody"></tbody>
                     <tfoot>
-                      <tr><td colspan="3">TOTAL REDUZIDO</td><td id="remTotalReduzidoTabela">R$ 0,00</td><td></td></tr>
+                      <tr>
+                        <td colspan="3">TOTAL REDUZIDO</td>
+                        <td id="remTotalReduzidoTabela">R$ 0,00</td>
+                        <td></td>
+                      </tr>
                     </tfoot>
                   </table>
                 </div>
@@ -652,7 +668,8 @@
               <section class="remBox">
                 <div class="remBoxHeader">
                   <h3>3. O QUE ESTÁ SENDO ACRESCENTADO</h3>
-                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="acrescentado">+ Adicionar Cargo</button>
+                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="acrescentado">+
+                    Adicionar Cargo</button>
                 </div>
                 <div class="remTableWrap">
                   <table class="remTable remTableFinanceira">
@@ -667,7 +684,11 @@
                     </thead>
                     <tbody id="remAcrescentadoBody"></tbody>
                     <tfoot>
-                      <tr><td colspan="3">TOTAL ACRESCENTADO</td><td id="remTotalAcrescentadoTabela">R$ 0,00</td><td></td></tr>
+                      <tr>
+                        <td colspan="3">TOTAL ACRESCENTADO</td>
+                        <td id="remTotalAcrescentadoTabela">R$ 0,00</td>
+                        <td></td>
+                      </tr>
                     </tfoot>
                   </table>
                 </div>
@@ -679,39 +700,90 @@
                 <h3>4. IMPACTO DO REMANEJAMENTO ⓘ</h3>
                 <div class="remImpactoGrid">
                   <div class="remImpactoCards">
-                    <div><span>Total Reduzido (Mensal)</span><strong id="remTotalReduzidoMensal" class="remRed">R$ 0,00</strong></div>
-                    <div><span>Total Acrescentado (Mensal)</span><strong id="remTotalAcrescentadoMensal" class="remGreen">R$ 0,00</strong></div>
+                    <div><span>Total Reduzido (Mensal)</span><strong id="remTotalReduzidoMensal" class="remRed">R$
+                        0,00</strong></div>
+                    <div><span>Total Acrescentado (Mensal)</span><strong id="remTotalAcrescentadoMensal"
+                        class="remGreen">R$ 0,00</strong></div>
                     <div><span>Impacto Mensal</span><strong id="remImpactoMensal2">R$ 0,00</strong></div>
-                    <div><span>Impacto do Período (<span id="remImpactoPeriodoMeses">0</span> meses)</span><strong id="remImpactoPeriodo2">R$ 0,00</strong></div>
+                    <div><span>Impacto do Período (<span id="remImpactoPeriodoMeses">0</span> meses)</span><strong
+                        id="remImpactoPeriodo2">R$ 0,00</strong></div>
                   </div>
                   <table class="remResumoTable">
-                    <thead><tr><th>Resumo dos Valores (Mensal)</th><th>Reduzido</th><th>Acrescentado</th><th>Impacto</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>Resumo dos Valores (Mensal)</th>
+                        <th>Reduzido</th>
+                        <th>Acrescentado</th>
+                        <th>Impacto</th>
+                      </tr>
+                    </thead>
                     <tbody>
-                      <tr><td>Salários</td><td id="remSalarioRed">R$ 0,00</td><td id="remSalarioAdd">R$ 0,00</td><td id="remSalarioImpacto">R$ 0,00</td></tr>
-                      <tr><td>Insalubridade/Periculosidade</td><td id="remInsalRed">R$ 0,00</td><td id="remInsalAdd">R$ 0,00</td><td id="remInsalImpacto">R$ 0,00</td></tr>
-                      <tr><td>Gratificação RT</td><td id="remRtRed">R$ 0,00</td><td id="remRtAdd">R$ 0,00</td><td id="remRtImpacto">R$ 0,00</td></tr>
-                      <tr><td>Adicional Noturno</td><td id="remNoturnoRed">R$ 0,00</td><td id="remNoturnoAdd">R$ 0,00</td><td id="remNoturnoImpacto">R$ 0,00</td></tr>
-                      <tr><td>Encargos</td><td id="remEncargoRed">R$ 0,00</td><td id="remEncargoAdd">R$ 0,00</td><td id="remEncargoImpacto">R$ 0,00</td></tr>
-                      <tr><td>Provisões</td><td id="remProvisaoRed">R$ 0,00</td><td id="remProvisaoAdd">R$ 0,00</td><td id="remProvisaoImpacto">R$ 0,00</td></tr>
-                      <tr class="remResumoTotal"><td>Total</td><td id="remResumoTotalRed">R$ 0,00</td><td id="remResumoTotalAdd">R$ 0,00</td><td id="remResumoTotalImpacto">R$ 0,00</td></tr>
+                      <tr>
+                        <td>Salários</td>
+                        <td id="remSalarioRed">R$ 0,00</td>
+                        <td id="remSalarioAdd">R$ 0,00</td>
+                        <td id="remSalarioImpacto">R$ 0,00</td>
+                      </tr>
+                      <tr>
+                        <td>Insalubridade/Periculosidade</td>
+                        <td id="remInsalRed">R$ 0,00</td>
+                        <td id="remInsalAdd">R$ 0,00</td>
+                        <td id="remInsalImpacto">R$ 0,00</td>
+                      </tr>
+                      <tr>
+                        <td>Gratificação RT</td>
+                        <td id="remRtRed">R$ 0,00</td>
+                        <td id="remRtAdd">R$ 0,00</td>
+                        <td id="remRtImpacto">R$ 0,00</td>
+                      </tr>
+                      <tr>
+                        <td>Adicional Noturno</td>
+                        <td id="remNoturnoRed">R$ 0,00</td>
+                        <td id="remNoturnoAdd">R$ 0,00</td>
+                        <td id="remNoturnoImpacto">R$ 0,00</td>
+                      </tr>
+                      <tr>
+                        <td>Encargos</td>
+                        <td id="remEncargoRed">R$ 0,00</td>
+                        <td id="remEncargoAdd">R$ 0,00</td>
+                        <td id="remEncargoImpacto">R$ 0,00</td>
+                      </tr>
+                      <tr>
+                        <td>Provisões</td>
+                        <td id="remProvisaoRed">R$ 0,00</td>
+                        <td id="remProvisaoAdd">R$ 0,00</td>
+                        <td id="remProvisaoImpacto">R$ 0,00</td>
+                      </tr>
+                      <tr class="remResumoTotal">
+                        <td>Total</td>
+                        <td id="remResumoTotalRed">R$ 0,00</td>
+                        <td id="remResumoTotalAdd">R$ 0,00</td>
+                        <td id="remResumoTotalImpacto">R$ 0,00</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
-                <div class="remLegend"><span>Valores negativos indicam economia. Valores positivos indicam acréscimo.</span></div>
+                <div class="remLegend"><span>Valores negativos indicam economia. Valores positivos indicam
+                    acréscimo.</span></div>
               </section>
 
               <section class="remBox remDocBox">
                 <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
                 <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
-                <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: 00000.000000/2024-00" data-input="atualizar-resumo-rem">
+                <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: 00000.000000/2024-00"
+                  data-input="atualizar-resumo-rem">
                 <label for="remObservacao">Observação</label>
-                <textarea id="remObservacao" rows="3" placeholder="Informe a justificativa do remanejamento."></textarea>
+                <textarea id="remObservacao" rows="3"
+                  placeholder="Informe a justificativa do remanejamento."></textarea>
                 <label for="remAnexoArquivo">Anexar Ofício ou Documento (PDF)</label>
-                <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf" data-change="atualizar-resumo-rem">
-                <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar. PDF até 10MB.</div>
+                <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf"
+                  data-change="atualizar-resumo-rem">
+                <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar.
+                  PDF até 10MB.</div>
                 <div class="remDocActions">
                   <button type="button" class="remSecondaryBtn" data-click="limpar-form-rem">Limpar</button>
-                  <button type="button" class="remSaveBtn" id="remSaveBtn" data-click="salvar-rem">Salvar Remanejamento</button>
+                  <button type="button" class="remSaveBtn" id="remSaveBtn" data-click="salvar-rem">Salvar
+                    Remanejamento</button>
                 </div>
               </section>
             </div>
@@ -719,7 +791,8 @@
             <div class="remanejamentoCalculoBox">
               <div>
                 <div class="remanejamentoCalculoLabel">Resumo operacional</div>
-                <div id="remanejamentoCalculoTexto" class="remanejamentoCalculoFormula">Selecione o DSEI e os cargos para montar o resumo do remanejamento.</div>
+                <div id="remanejamentoCalculoTexto" class="remanejamentoCalculoFormula">Selecione o DSEI e os cargos
+                  para montar o resumo do remanejamento.</div>
               </div>
               <div class="remanejamentoCalculoTotal">
                 <div class="remanejamentoResumoLabel">Quantidade movimentada</div>
@@ -735,7 +808,8 @@
                     <option value="">Todos os Status</option>
                     <option value="Registrado">Registrado</option>
                   </select>
-                  <input id="remanejamentoSearch" class="searchBox" type="search" placeholder="Buscar remanejamento" data-input="render-rem-lista">
+                  <input id="remanejamentoSearch" class="searchBox" type="search" placeholder="Buscar remanejamento"
+                    data-input="render-rem-lista">
                 </div>
               </div>
               <div class="fullTableWrap remHistoryWrap">
@@ -767,7 +841,9 @@
                     </tr>
                   </thead>
                   <tbody id="remanejamentoBody">
-                    <tr><td class="remanejamentoEmpty" colspan="10">Carregando dados de remanejamento...</td></tr>
+                    <tr>
+                      <td class="remanejamentoEmpty" colspan="10">Carregando dados de remanejamento...</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -778,9 +854,10 @@
         <section id="view-remanejamentoFormulario" class="viewPanel remanejamentoFormView"></section>
 
       </section>
-</main>
+    </main>
   </div>
 
   <script type="module" src="./js/app.js"></script>
 </body>
+
 </html>

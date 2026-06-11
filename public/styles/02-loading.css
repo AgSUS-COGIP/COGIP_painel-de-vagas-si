@@ -11,25 +11,25 @@
       color: #fff;
       overflow: hidden;
       background:
-        linear-gradient(135deg, rgba(0, 37, 91, .96), rgba(0, 85, 161, .92)),
-        radial-gradient(circle at 18% 20%, rgba(255, 184, 50, .14), transparent 24%),
-        radial-gradient(circle at 85% 18%, rgba(0, 194, 255, .16), transparent 24%),
-        radial-gradient(circle at 82% 82%, rgba(56, 193, 114, .12), transparent 22%),
-        var(--imagem-indigena-painel-image) right 64px bottom 26px / 310px auto no-repeat;
+        linear-gradient(135deg, rgba(0, 37, 91, .98), rgba(0, 85, 161, .96)),
+        radial-gradient(circle at 18% 20%, rgba(255, 184, 50, .12), transparent 24%),
+        radial-gradient(circle at 85% 18%, rgba(0, 194, 255, .14), transparent 24%),
+        radial-gradient(circle at 82% 82%, rgba(56, 193, 114, .10), transparent 22%),
+        var(--imagem-indigena-painel-image) right 28px bottom 18px / 260px auto no-repeat;
     }
 
     .loading::before {
       content: "";
       position: absolute;
       inset: 0;
-      opacity: .17;
+      opacity: .24;
       pointer-events: none;
       background:
         repeating-linear-gradient(135deg,
-          rgba(255, 255, 255, .13) 0 2px,
+          rgba(255, 255, 255, .10) 0 2px,
           transparent 2px 22px),
         repeating-linear-gradient(45deg,
-          rgba(255, 255, 255, .08) 0 2px,
+          rgba(255, 255, 255, .06) 0 2px,
           transparent 2px 26px);
     }
 
@@ -38,11 +38,12 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      opacity: .20;
+      opacity: .34;
       background:
-        linear-gradient(90deg, transparent 0 8%, rgba(255, 255, 255, .06) 8% 9%, transparent 9% 91%, rgba(255, 255, 255, .06) 91% 92%, transparent 92% 100%),
-        radial-gradient(circle at 10% 82%, rgba(255, 184, 50, .20), transparent 18%),
-        radial-gradient(circle at 90% 16%, rgba(0, 194, 255, .18), transparent 18%);
+        linear-gradient(180deg, rgba(0, 35, 78, .10), rgba(0, 35, 78, .18)),
+        linear-gradient(90deg, transparent 0 8%, rgba(255, 255, 255, .05) 8% 9%, transparent 9% 91%, rgba(255, 255, 255, .05) 91% 92%, transparent 92% 100%),
+        radial-gradient(circle at 10% 82%, rgba(255, 184, 50, .14), transparent 18%),
+        radial-gradient(circle at 90% 16%, rgba(0, 194, 255, .14), transparent 18%);
     }
 
     .loadingDecorLeft,
@@ -54,8 +55,8 @@
       position: relative;
       z-index: 2;
       width: min(620px, calc(100vw - 44px));
-      min-height: 350px;
-      padding: 34px 38px 34px;
+      min-height: 392px;
+      padding: 44px 40px 42px;
       display: grid;
       place-items: center;
       text-align: center;
@@ -89,23 +90,23 @@
     }
 
     .loadingCard::before {
-      top: 18px;
+      top: 20px;
     }
 
     .loadingCard::after {
-      bottom: 18px;
+      bottom: 20px;
     }
 
     .loadingBrand {
       display: grid;
       place-items: center;
-      gap: 0;
+      gap: 2px;
       animation: loadingPulse 2.2s ease-in-out infinite;
     }
 
     .loadingBrandLogo {
-      width: 130px;
-      height: 130px;
+      width: 136px;
+      height: 136px;
       object-fit: contain;
       filter: drop-shadow(0 7px 14px rgba(0, 0, 0, .28));
     }
@@ -132,7 +133,7 @@
     }
 
     .loadingTitle {
-      margin-top: 22px;
+      margin-top: 28px;
       font-size: 24px;
       font-weight: 900;
       line-height: 1.12;
@@ -154,7 +155,8 @@
       display: flex;
       gap: 7px;
       justify-content: center;
-      margin-top: 18px;
+      margin-top: 24px;
+      padding-bottom: 6px;
     }
 
     .loadingDots span {
@@ -172,25 +174,6 @@
 
     .loadingDots span:nth-child(3) {
       animation-delay: .32s;
-    }
-
-    .loadingBar {
-      width: min(300px, 78%);
-      height: 7px;
-      margin-top: 18px;
-      border-radius: 999px;
-      overflow: hidden;
-      background: rgba(255, 255, 255, .18);
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, .16);
-    }
-
-    .loadingBar span {
-      display: block;
-      width: 44%;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #00c2ff, #ffb832, #38c172, #ffffff);
-      animation: loadingBarMove 1.8s ease-in-out infinite;
     }
 
     @keyframes loadingPulse {
@@ -216,16 +199,6 @@
       50% {
         opacity: 1;
         transform: translateY(-4px);
-      }
-    }
-
-    @keyframes loadingBarMove {
-      0% {
-        transform: translateX(-110%);
-      }
-
-      100% {
-        transform: translateX(250%);
       }
     }
 
@@ -260,10 +233,6 @@
 
       .top {
         grid-template-columns: 1fr;
-      }
-
-      .filtersBar {
-        grid-template-columns: repeat(2, minmax(160px, 1fr));
       }
 
       .kpiGrid,

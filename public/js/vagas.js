@@ -387,6 +387,57 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, normalizarNomeCarg
       return (rows || []).filter(row => !CARGOS_FORA_PROCESSO_SELETIVO.has(normalizarNomeCargo(row.cargo)));
     }
 
+    // Unifica os cargos (ART) com seus equivalentes base para que sejam somados
+    // em uma única linha na tabela de Vagas para Processo Seletivo.
+    const CARGOS_UNIFICAR_ART = ["ENFERMEIRO", "FARMACEUTICO"];
+
+    export function unificarCargosArt(rows) {
+      const ehCargoUnificado = cargo => {
+        const normalizado = normalizarNomeCargo(cargo);
+        return CARGOS_UNIFICAR_ART.some(nome => normalizado.startsWith(nome));
+      };
+
+      const renomeadas = (rows || []).map(row => {
+        const normalizado = normalizarNomeCargo(row.cargo);
+        const base = CARGOS_UNIFICAR_ART.find(nome => normalizado.startsWith(nome));
+        return base ? { ...row, cargo: base } : row;
+      });
+
+      // Após renomear, soma linhas que passaram a ter o mesmo DSEI/CASAI + cargo
+      // (ex.: ENFERMEIRO e ENFERMEIRO (ART) no mesmo DSEI) em uma só.
+      const mapa = new Map();
+      renomeadas.forEach(row => {
+        const chave = `${row.dseiCasai || ""}||${row.cargo || ""}`;
+        if (!mapa.has(chave)) {
+          mapa.set(chave, { ...row });
+          return;
+        }
+        const acumulado = mapa.get(chave);
+        Object.keys(row).forEach(campo => {
+          if (typeof row[campo] === "number") {
+            acumulado[campo] = Number(acumulado[campo] || 0) + Number(row[campo] || 0);
+          }
+        });
+      });
+
+      // Para os cargos unificados (normal + ART são o MESMO cargo), recalcula a
+      // distribuição a partir dos quantitativos brutos somados. Assim os excedentes
+      // (negativos) de uma variante abatem as vagas da outra, em vez de cada linha
+      // ser zerada isoladamente antes da soma.
+      return [...mapa.values()].map(row => {
+        if (!ehCargoUnificado(row.cargo)) return row;
+        const dist = montarLinhaDistribuicaoBase(row);
+        return {
+          ...row,
+          distOciosas: dist.vagasOciosas,
+          distSubstituicao: dist.substituicaoTabela,
+          distNormalTemp: dist.normalTemporario,
+          distTemporario: dist.contratadosTemporario,
+          distProcessoSeletivo: dist.processoSeletivo
+        };
+      });
+    }
+
     export function montarLinhaDistribuicaoBase(row) {
       // Zera negativos por linha: um excedente (valor negativo) nunca abate os positivos.
       const afastados = Math.max(0, Number(row.afastados || 0));
@@ -448,6 +499,9 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, normalizarNomeCarg
     export function renderDistribuicaoVagasOciosas(rows) {
       const tbody = document.getElementById("distribuicaoOciosasBody");
       if (!tbody) return;
+
+      // Unifica os cargos (ART) com o cargo base antes de agrupar/paginar.
+      rows = unificarCargosArt(rows);
 
       atualizarCabecalhoDistribuicaoVagasOciosas();
       renderPaginacaoTabela("distribuicaoPagination", rows);
@@ -555,6 +609,9 @@ import { escapeAttr, escapeHtml, formatNumber, formatPercent, normalizarNomeCarg
     export function renderProcessoSeletivo(rows) {
       const tbody = document.getElementById("processoSeletivoBody");
       if (!tbody) return;
+
+      // Unifica os cargos (ART) com o cargo base antes de agrupar/paginar.
+      rows = unificarCargosArt(rows);
 
       atualizarCabecalhoProcessoSeletivo();
       renderPaginacaoTabela("processoSeletivoPagination", rows);
