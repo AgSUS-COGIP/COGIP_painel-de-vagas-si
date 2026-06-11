@@ -407,8 +407,8 @@
 
     .multiSelectOption,
     .multiSelectOption span {
-      color: #07346b !important;
-      text-shadow: none !important;
+      color: #07346b;
+      text-shadow: none;
     }
 
 
@@ -1146,4 +1146,3 @@
     canvas {
       cursor: pointer;
     }
-
