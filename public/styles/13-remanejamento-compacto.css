@@ -414,6 +414,48 @@
   background: rgba(255, 255, 255, .22);
 }
 
+.sidebar {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden; 
+}
+.nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebarSpacer {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+.sidebarUsuario {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 6; 
+}
+
+.sidebar::before,
+.sidebar::after {
+  pointer-events: none !important;
+}
+.navItem {
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+.navItem > span:not(.navIcon) {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+.brandTitle,
+.brandSubtitle,
+.brandMeta {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 /* Notificação visual de vagas ociosas (remanejamento) */
 .remOciosasAviso {
   margin: 0 0 12px;
