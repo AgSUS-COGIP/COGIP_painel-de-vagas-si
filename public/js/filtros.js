@@ -38,6 +38,8 @@ export function atualizarModoRolagem(view) {
   }
 }
 
+let menuRecolhidoFinalTimer = null;
+
 export function toggleSidebar(forceState) {
   const app = document.querySelector(".app");
   if (!app) return;
@@ -46,7 +48,33 @@ export function toggleSidebar(forceState) {
     ? forceState
     : !app.classList.contains("sidebar-collapsed");
 
-  app.classList.toggle("sidebar-collapsed", shouldCollapse);
+  if (menuRecolhidoFinalTimer) {
+    clearTimeout(menuRecolhidoFinalTimer);
+    menuRecolhidoFinalTimer = null;
+  }
+
+  if (shouldCollapse) {
+    app.classList.add("sidebar-collapsed");
+    // Depois que a animação de recolhimento termina (~280ms), os rótulos viram
+    // display:none para não deixarem nenhum espaço residual.
+    menuRecolhidoFinalTimer = setTimeout(() => {
+      app.classList.add("menu-recolhido-final");
+      menuRecolhidoFinalTimer = null;
+    }, 320);
+  } else {
+    const estavaFinal = app.classList.contains("menu-recolhido-final");
+    app.classList.remove("menu-recolhido-final");
+    if (estavaFinal) {
+      // Os rótulos estavam em display:none. Removemos o "collapsed" só no frame
+      // seguinte para que eles renderizem um instante com opacity 0 e então
+      // façam o fade-in suave (em vez de "pipocarem" já visíveis).
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => app.classList.remove("sidebar-collapsed"));
+      });
+    } else {
+      app.classList.remove("sidebar-collapsed");
+    }
+  }
 
   const toggle = document.querySelector(".sidebarToggle");
   if (toggle) {
@@ -70,7 +98,13 @@ export function toggleSidebar(forceState) {
 export function restaurarEstadoMenuLateral() {
   try {
     const salvo = localStorage.getItem("menuSaudeIndigenaRecolhido");
-    if (salvo === "SIM") toggleSidebar(true);
+    if (salvo === "SIM") {
+      // Na carga inicial, aplica o estado recolhido já no final (sem animação)
+      // para não exibir o menu "fechando" toda vez que a página abre.
+      const app = document.querySelector(".app");
+      if (app) app.classList.add("sidebar-collapsed", "menu-recolhido-final");
+      toggleSidebar(true);
+    }
   } catch (e) {
     // Mantém o menu aberto quando não houver permissão de armazenamento local.
   }

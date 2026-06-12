@@ -42,6 +42,29 @@ const DASH_CONFIG = {
   GOOGLE_ALLOWED_EMAILS: process.env.GOOGLE_ALLOWED_EMAILS || "",
   // Nível de autorização atribuído a um usuário Google novo (auto-cadastro).
   GOOGLE_NIVEL_PADRAO: Number(process.env.GOOGLE_NIVEL_PADRAO || 0),
+  // ---- Login via LDAP / Active Directory ----
+  // LDAP_URL vazio = LDAP desativado (login continua só por senha local/Google).
+  // Ex.: ldap://10.0.0.10:389  ou  ldaps://ad.empresa.org:636
+  LDAP_URL: process.env.LDAP_URL || "",
+  // Conta de serviço usada para PROCURAR o usuário no diretório (read-only).
+  LDAP_BIND_DN: process.env.LDAP_BIND_DN || "",
+  LDAP_BIND_PASSWORD: process.env.LDAP_BIND_PASSWORD || "",
+  // Base da árvore onde procurar usuários. Ex.: DC=empresa,DC=org,DC=br
+  LDAP_SEARCH_BASE: process.env.LDAP_SEARCH_BASE || "",
+  // Filtro de busca. {{login}} é substituído (com escape) pelo que o usuário digitou.
+  LDAP_SEARCH_FILTER: process.env.LDAP_SEARCH_FILTER ||
+    "(|(sAMAccountName={{login}})(userPrincipalName={{login}})(mail={{login}}))",
+  // Atributos do diretório usados para extrair login/nome/e-mail.
+  LDAP_ATTR_LOGIN: process.env.LDAP_ATTR_LOGIN || "sAMAccountName",
+  LDAP_ATTR_NOME: process.env.LDAP_ATTR_NOME || "displayName",
+  LDAP_ATTR_EMAIL: process.env.LDAP_ATTR_EMAIL || "mail",
+  // Mapa opcional grupo->nível: "2:Painel-Admins,1:Painel-Gestores".
+  // Casa por trecho do DN do grupo (memberOf). Vazio = usa LDAP_NIVEL_PADRAO.
+  LDAP_GROUP_NIVEL_MAP: process.env.LDAP_GROUP_NIVEL_MAP || "",
+  LDAP_NIVEL_PADRAO: Number(process.env.LDAP_NIVEL_PADRAO || 0),
+  // Em ldaps:// com certificado interno/autoassinado, defina como "false".
+  LDAP_TLS_REJECT_UNAUTHORIZED: String(process.env.LDAP_TLS_REJECT_UNAUTHORIZED || "true") !== "false",
+  LDAP_TIMEOUT: Number(process.env.LDAP_TIMEOUT || 8000),
   // Nível mínimo de autorização exigido por ação. Centraliza a regra de acesso;
   // novos níveis/páginas podem ser definidos futuramente.
   NIVEL_REMANEJAMENTO_SALVAR: Number(process.env.NIVEL_REMANEJAMENTO_SALVAR || 2),
@@ -694,7 +717,22 @@ async function garantirTabelaUsuarios() {
   }
 }
 
+// Orquestra o login por senha: se o LDAP estiver configurado, valida primeiro
+// no diretório; usuários que não existem no LDAP caem no login local (ex.: o
+// admin semente e contas locais avulsas). Senha errada no LDAP NÃO faz fallback.
 async function autenticarUsuario(body) {
+  if (DASH_CONFIG.LDAP_URL) {
+    try {
+      return await autenticarUsuarioLdap(body);
+    } catch (err) {
+      if (!err || !err.ldapUsuarioInexistente) throw err;
+      // Usuário ausente no diretório -> tenta o login local abaixo.
+    }
+  }
+  return await autenticarUsuarioLocal(body);
+}
+
+async function autenticarUsuarioLocal(body) {
   const login = limparValorDash(body.login || body.usuario);
   const senha = String(body.senha || "");
 
@@ -732,6 +770,169 @@ async function autenticarUsuario(body) {
   } finally {
     await fecharJdbc(conn);
   }
+}
+
+// ---------- Login via LDAP / Active Directory ----------
+
+// Carrega o cliente LDAP sob demanda para o servidor não quebrar quando o
+// pacote não está instalado e o LDAP está desativado.
+function getLdapClientCtor() {
+  try {
+    return require("ldapts").Client;
+  } catch (e) {
+    throw new Error("Pacote 'ldapts' não instalado. Rode: npm install ldapts");
+  }
+}
+
+// Escapa valores usados dentro do filtro LDAP (evita injeção de filtro).
+function escaparFiltroLdap(valor) {
+  return String(valor).replace(/[\\*() ]/g, c => "\\" + c.charCodeAt(0).toString(16).padStart(2, "0"));
+}
+
+// Primeiro valor de um atributo (ldapts pode retornar string ou array).
+function valorAtributoLdap(v) {
+  if (Array.isArray(v)) return v.length ? v[0] : "";
+  return v == null ? "" : v;
+}
+
+// Resolve o nível de autorização a partir dos grupos (memberOf) do usuário.
+function resolverNivelPorGruposLdap(grupos) {
+  const mapa = String(DASH_CONFIG.LDAP_GROUP_NIVEL_MAP || "")
+    .split(",").map(s => s.trim()).filter(Boolean);
+  if (!mapa.length) return DASH_CONFIG.LDAP_NIVEL_PADRAO;
+
+  const gruposLower = (grupos || []).map(g => String(g).toLowerCase());
+  let nivel = DASH_CONFIG.LDAP_NIVEL_PADRAO;
+  for (const item of mapa) {
+    const sep = item.indexOf(":");
+    if (sep < 0) continue;
+    const n = Number(item.slice(0, sep).trim());
+    const alvo = item.slice(sep + 1).trim().toLowerCase();
+    if (!alvo || Number.isNaN(n)) continue;
+    if (gruposLower.some(g => g.includes(alvo))) nivel = Math.max(nivel, n);
+  }
+  return nivel;
+}
+
+// Auto-cadastro/sincronização de usuário externo (LDAP) na tabela do painel.
+// Usuário novo recebe o nível calculado; usuário existente mantém o nível do
+// banco (editável pelo administrador). Lança erro se estiver inativo.
+async function sincronizarUsuarioExterno({ login, nome, email, nivelPadrao }) {
+  const tabela = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+  const selectCampos =
+    "`ID_USUARIO`, `LOGIN`, `NOME`, `EMAIL`, `NIVEL_AUTORIZACAO`, `ATIVO`";
+
+  const conn = await getMysqlConnection();
+  try {
+    let registro = null;
+    if (email) {
+      const [r] = await conn.query(`SELECT ${selectCampos} FROM ${tabela} WHERE \`EMAIL\` = ? LIMIT 1`, [email]);
+      registro = r && r[0] ? r[0] : null;
+    }
+    if (!registro) {
+      const [r] = await conn.query(`SELECT ${selectCampos} FROM ${tabela} WHERE \`LOGIN\` = ? LIMIT 1`, [login]);
+      registro = r && r[0] ? r[0] : null;
+    }
+
+    if (registro && Number(registro.ATIVO) !== 1) {
+      throw new Error("Usuário inativo. Procure o administrador.");
+    }
+
+    if (!registro) {
+      await conn.execute(
+        `INSERT INTO ${tabela}
+           (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
+         VALUES (?, '', ?, ?, ?, 1)`,
+        [login, nome || null, email || null, Number(nivelPadrao || 0)]
+      );
+      const [r] = await conn.query(`SELECT ${selectCampos} FROM ${tabela} WHERE \`LOGIN\` = ? LIMIT 1`, [login]);
+      registro = r && r[0] ? r[0] : null;
+    }
+
+    if (!registro) throw new Error("Falha ao registrar o usuário.");
+
+    return {
+      id: Number(registro.ID_USUARIO),
+      login: limparValorDash(registro.LOGIN),
+      nome: limparValorDash(registro.NOME),
+      email: limparValorDash(registro.EMAIL),
+      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0)
+    };
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+// Valida login/senha contra o LDAP em duas etapas (padrão "search + bind"):
+//   1) bind com a conta de serviço e busca o usuário (resgata os dados);
+//   2) bind com o DN do usuário + a senha digitada (valida a senha).
+async function autenticarUsuarioLdap(body) {
+  const login = limparValorDash(body.login || body.usuario);
+  const senha = String(body.senha || "");
+  if (!login || !senha) throw new Error("Informe usuário e senha.");
+
+  const Client = getLdapClientCtor();
+  const opcoes = {
+    url: DASH_CONFIG.LDAP_URL,
+    timeout: DASH_CONFIG.LDAP_TIMEOUT,
+    connectTimeout: DASH_CONFIG.LDAP_TIMEOUT,
+    tlsOptions: { rejectUnauthorized: DASH_CONFIG.LDAP_TLS_REJECT_UNAUTHORIZED }
+  };
+
+  // 1) Procura o usuário com a conta de serviço.
+  const clienteServico = new Client(opcoes);
+  let entrada = null;
+  try {
+    await clienteServico.bind(DASH_CONFIG.LDAP_BIND_DN, DASH_CONFIG.LDAP_BIND_PASSWORD);
+    const filtro = DASH_CONFIG.LDAP_SEARCH_FILTER.replace(/\{\{login\}\}/g, escaparFiltroLdap(login));
+    const { searchEntries } = await clienteServico.search(DASH_CONFIG.LDAP_SEARCH_BASE, {
+      scope: "sub",
+      filter: filtro,
+      attributes: [
+        DASH_CONFIG.LDAP_ATTR_LOGIN,
+        DASH_CONFIG.LDAP_ATTR_NOME,
+        DASH_CONFIG.LDAP_ATTR_EMAIL,
+        "memberOf"
+      ]
+    });
+    entrada = searchEntries && searchEntries[0] ? searchEntries[0] : null;
+  } catch (e) {
+    throw new Error("Não foi possível conectar ao servidor LDAP.");
+  } finally {
+    try { await clienteServico.unbind(); } catch (e) { /* ignora */ }
+  }
+
+  if (!entrada || !entrada.dn) {
+    // Sinaliza ausência no diretório para o orquestrador tentar o login local.
+    const erro = new Error("Usuário ou senha inválidos.");
+    erro.ldapUsuarioInexistente = true;
+    throw erro;
+  }
+
+  // 2) Valida a senha fazendo bind com o DN do próprio usuário.
+  const clienteUsuario = new Client(opcoes);
+  try {
+    await clienteUsuario.bind(entrada.dn, senha);
+  } catch (e) {
+    throw new Error("Usuário ou senha inválidos.");
+  } finally {
+    try { await clienteUsuario.unbind(); } catch (e) { /* ignora */ }
+  }
+
+  // 3) Extrai os dados do diretório e calcula o nível pelos grupos.
+  const loginDir = limparValorDash(valorAtributoLdap(entrada[DASH_CONFIG.LDAP_ATTR_LOGIN]) || login);
+  const nome = limparValorDash(valorAtributoLdap(entrada[DASH_CONFIG.LDAP_ATTR_NOME]) || loginDir);
+  const email = String(valorAtributoLdap(entrada[DASH_CONFIG.LDAP_ATTR_EMAIL]) || "").trim().toLowerCase();
+  const grupos = entrada.memberOf
+    ? (Array.isArray(entrada.memberOf) ? entrada.memberOf : [entrada.memberOf])
+    : [];
+  const nivelLdap = resolverNivelPorGruposLdap(grupos);
+
+  // 4) Sincroniza com a tabela do painel (auto-cadastro + nível editável).
+  const usuario = await sincronizarUsuarioExterno({ login: loginDir, nome, email, nivelPadrao: nivelLdap });
+
+  const token = jwt.sign(usuario, DASH_CONFIG.JWT_SECRET, { expiresIn: DASH_CONFIG.JWT_EXPIRES });
+  return { token, usuario };
 }
 
 let googleOAuthClient = null;
