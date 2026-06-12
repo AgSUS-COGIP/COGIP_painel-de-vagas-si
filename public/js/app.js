@@ -3,7 +3,7 @@ import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { AUTO_FULL_RELOAD_MS, AUTO_REFRESH_MS, COLORS } from "./constants.js";
-import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
+import { aplicarFiltros, aplicarModoMenuEstreito, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
@@ -18,6 +18,7 @@ export async function init() {
   }
 
   restaurarEstadoMenuLateral();
+  aplicarModoMenuEstreito();
   configurarNavegacao();
   atualizarModoRolagem(state.activeView || "visaoGeral");
   configurarMultiSelectEstaticos();
@@ -31,20 +32,28 @@ export async function init() {
   await verificarSessaoInicial();
 }
 
-// Escala do painel fixo/TV: mantém a composição da base 1918x927 e
-// apenas ajusta o zoom para caber na janela (igual ao modelo do Apps Script).
+// Escala do painel fixo/TV. Largura lógica fixa em 1920px e ALTURA ADAPTATIVA:
+// a altura da base é calculada a partir da proporção real da janela, de modo que
+// escalaX == escalaY. Resultado: escala UNIFORME (sem distorção) e SEM margens,
+// em qualquer notebook (16:9, 16:10, etc.). O grid de gráficos usa 1fr e absorve
+// sozinho a variação de altura entre proporções.
 export function ajustarEscalaPainelFixo() {
-  const larguraBase = 1918;
-  const alturaBase = 927;
-  // Escala X e Y de forma independente para o painel preencher toda a janela
-  // (sem bordas vazias nas laterais), mesmo quando a proporção difere da base.
-  const escalaX = window.innerWidth / larguraBase;
-  const escalaY = window.innerHeight / alturaBase;
+  const larguraBase = 1920;
+  const larguraJanela = window.innerWidth || larguraBase;
+  const alturaJanela = window.innerHeight || larguraBase;
+
+  // Altura da base que casa com a proporção atual da janela.
+  const alturaBase = Math.round(larguraBase * alturaJanela / larguraJanela);
+
+  // Com a base na mesma proporção da janela, X e Y dão o mesmo fator.
+  const escala = larguraJanela / larguraBase;
 
   const root = document.documentElement.style;
-  root.setProperty("--painel-scale-x", escalaX.toFixed(6));
-  root.setProperty("--painel-scale-y", escalaY.toFixed(6));
-  root.setProperty("--painel-scale", Math.min(escalaX, escalaY).toFixed(6));
+  root.setProperty("--painel-base-width", larguraBase + "px");
+  root.setProperty("--painel-base-height", alturaBase + "px");
+  root.setProperty("--painel-scale-x", escala.toFixed(6));
+  root.setProperty("--painel-scale-y", escala.toFixed(6));
+  root.setProperty("--painel-scale", escala.toFixed(6));
 }
 
 export function configurarResponsividadePainel() {
@@ -55,6 +64,7 @@ export function configurarResponsividadePainel() {
 
   window.addEventListener("resize", () => {
     ajustarEscalaPainelFixo();
+    aplicarModoMenuEstreito();
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       Object.values(charts).forEach(chart => {

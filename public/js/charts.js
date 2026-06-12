@@ -158,6 +158,18 @@ export function renderDoughnut(canvasId, cfg) {
     charts[canvasId].destroy();
   }
 
+  // Fator de escala dos rótulos externos: como o anel é dimensionado em
+  // porcentagem (radius), a fonte/offset dos rótulos precisam acompanhar o
+  // tamanho REAL do canvas. Sem isso, em resoluções/escalas/zoom diferentes os
+  // rótulos (px fixo) ficam grandes demais para a rosca e se sobrepõem.
+  // refHeight = altura na qual os valores de cfg foram calibrados (100% zoom).
+  const refHeight = cfg.datalabelRefHeight || 230;
+  const labelScale = function (chart) {
+    const altura = (chart && chart.height) || refHeight;
+    // Limita o fator para não exagerar em telas muito pequenas/grandes.
+    return Math.max(0.55, Math.min(1.35, altura / refHeight));
+  };
+
   charts[canvasId] = new Chart(canvas, {
     type: "doughnut",
     data: {
@@ -196,7 +208,13 @@ export function renderDoughnut(canvasId, cfg) {
           // Rótulos externos (fora da rosca) para leitura clara dos percentuais.
           anchor: cfg.datalabelAnchor || "end",
           align: cfg.datalabelAlign || "end",
-          offset: cfg.datalabelOffset || 10,
+          // Offset proporcional ao tamanho do canvas (aceita base fixa ou função).
+          offset: function (context) {
+            let base = cfg.datalabelOffset;
+            if (typeof base === "function") base = base(context);
+            if (base === undefined || base === null) base = 10;
+            return base * labelScale(context.chart);
+          },
           clamp: true,
           clip: false,
           color: "#07346b",
@@ -204,8 +222,21 @@ export function renderDoughnut(canvasId, cfg) {
           borderColor: "rgba(7, 52, 107, .16)",
           borderWidth: 1,
           borderRadius: 10,
-          padding: { top: 4, right: 6, bottom: 4, left: 6 },
-          font: { size: cfg.datalabelFontSize || 13, weight: "900" },
+          // Padding da "pílula" também acompanha a escala.
+          padding: function (context) {
+            const f = labelScale(context.chart);
+            return {
+              top: Math.round(4 * f),
+              right: Math.round(6 * f),
+              bottom: Math.round(4 * f),
+              left: Math.round(6 * f)
+            };
+          },
+          // Fonte proporcional ao tamanho do canvas.
+          font: function (context) {
+            const base = cfg.datalabelFontSize || 13;
+            return { size: Math.round(base * labelScale(context.chart)), weight: "900" };
+          },
           formatter: function (value, context) {
             const values = context.chart.data.datasets[0].data || [];
             const total = values.reduce((acc, item) => acc + Number(item || 0), 0);

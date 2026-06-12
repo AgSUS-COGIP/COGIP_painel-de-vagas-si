@@ -1,5 +1,5 @@
 /* =========================================================
-   VISÃO GERAL NO MODELO DO PAINEL FIXO (base 1918x927)
+   VISÃO GERAL NO MODELO DO PAINEL FIXO (largura base 1920px, altura adaptativa)
    Portado do Apps Script. Escopo restrito à aba Visão Geral.
    - Componentes próprios: funil (.funnelDsei), cards (.cardsOciosas),
      faixa de preenchimento (.preenchimentoFaixa) e imagens.
@@ -269,7 +269,7 @@
 
 /* =========================================================
    MODO PAINEL FIXO / TV - COMPOSIÇÃO IGUAL À TELA GRANDE
-   Base visual: 1918 x 927 px. O painel não reorganiza os blocos
+   Base visual: 1920px de largura, altura proporcional à janela. Não reorganiza os blocos
    em telas menores; ele escala.
 ========================================================= */
 
@@ -277,8 +277,10 @@
   --painel-scale: 1;
   --painel-scale-x: 1;
   --painel-scale-y: 1;
-  --painel-base-width: 1918px;
-  --painel-base-height: 927px;
+  /* Fallback: a altura é recalculada pelo JS (ajustarEscalaPainelFixo) para
+     casar com a proporção da janela — escala uniforme, sem distorção/margens. */
+  --painel-base-width: 1920px;
+  --painel-base-height: 911px;
 }
 
 body.modoPainelFixo {
@@ -301,7 +303,10 @@ body.modoPainelFixo .app {
   max-height: none !important;
   display: grid !important;
   grid-template-columns: 246px minmax(0, 1fr) !important;
-  transform: translate(-50%, -50%) scale(var(--painel-scale-x), var(--painel-scale-y)) !important;
+  /* Escala UNIFORME (mesmo fator em X e Y) para nunca distorcer a composição,
+     em qualquer resolução/proporção de notebook. Em telas com proporção
+     diferente da base sobram margens com o fundo (#032a57), tipo moldura. */
+  transform: translate(-50%, -50%) scale(var(--painel-scale)) !important;
   transform-origin: center center !important;
   overflow: hidden !important;
 }
