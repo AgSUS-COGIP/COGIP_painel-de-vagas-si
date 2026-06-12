@@ -16,7 +16,7 @@ export function atualizarModoRolagem(view) {
   const isVisaoGeral = view === "visaoGeral";
 
   // Modo painel fixo/TV ativo apenas na Visão Geral: o painel inteiro escala
-  // para caber em uma tela (largura base 1920px, altura adaptativa). Nas demais abas o body volta ao
+  // para caber em uma tela (base 1918x927). Nas demais abas o body volta ao
   // fluxo normal com rolagem.
   document.body.classList.toggle("modoPainelFixo", isVisaoGeral);
 

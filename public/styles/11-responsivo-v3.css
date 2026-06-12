@@ -224,31 +224,12 @@
       .brandSubtitle,
       .navItem span:not(.navIcon),
       .sidebarSpacer,
-      .sidebarCoord,
-      .sidebarUsuarioNome,
-      .sidebarLogoutLabel {
+      .sidebarCoord {
         display: none !important;
       }
 
       .sidebarToggle {
         display: none !important;
-      }
-
-      /* Sidebar estreita: botão Sair vira apenas o ícone, sem extrapolar. */
-      .sidebarUsuario {
-        background: transparent !important;
-        padding: 0 !important;
-        margin: 6px 0 !important;
-        justify-items: center !important;
-      }
-
-      .sidebarLogoutBtn {
-        width: 40px !important;
-        height: 40px !important;
-        margin: 0 auto !important;
-        padding: 0 !important;
-        border-radius: 12px !important;
-        font-size: 15px !important;
       }
 
       .navItem {

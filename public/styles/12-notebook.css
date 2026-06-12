@@ -2,7 +2,7 @@
        
     ========================================================= */
 
-    @media (min-width: 800px) and (max-width: 1024px) {
+    @media (min-width: 1024px) and (max-width: 1440px) {
 
       html,
       body {
@@ -133,7 +133,7 @@
       }
     }
 
-    @media (min-width: 800px) and (max-width: 1024px) {
+    @media (min-width: 1024px) and (max-width: 1440px) {
       .app {
         grid-template-columns: 86px minmax(0, 1fr) !important;
       }
@@ -169,27 +169,8 @@
         padding: 10px !important;
       }
 
-      .navItem span:not(.navIcon),
-      .sidebarUsuarioNome,
-      .sidebarLogoutLabel {
+      .navItem span:not(.navIcon) {
         display: none !important;
-      }
-
-      /* Sidebar estreita: botão Sair vira apenas o ícone, sem extrapolar. */
-      .sidebarUsuario {
-        background: transparent !important;
-        padding: 0 !important;
-        margin: 6px 0 !important;
-        justify-items: center !important;
-      }
-
-      .sidebarLogoutBtn {
-        width: 40px !important;
-        height: 40px !important;
-        margin: 0 auto !important;
-        padding: 0 !important;
-        border-radius: 12px !important;
-        font-size: 15px !important;
       }
 
       .navIcon {
