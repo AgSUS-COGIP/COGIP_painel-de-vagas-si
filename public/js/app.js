@@ -3,7 +3,7 @@ import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { AUTO_FULL_RELOAD_MS, AUTO_REFRESH_MS, COLORS } from "./constants.js";
-import { aplicarFiltros, aplicarModoMenuEstreito, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
+import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
@@ -18,7 +18,6 @@ export async function init() {
   }
 
   restaurarEstadoMenuLateral();
-  aplicarModoMenuEstreito();
   configurarNavegacao();
   atualizarModoRolagem(state.activeView || "visaoGeral");
   configurarMultiSelectEstaticos();
@@ -56,7 +55,6 @@ export function configurarResponsividadePainel() {
 
   window.addEventListener("resize", () => {
     ajustarEscalaPainelFixo();
-    aplicarModoMenuEstreito();
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       Object.values(charts).forEach(chart => {

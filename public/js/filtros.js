@@ -38,17 +38,13 @@ export function atualizarModoRolagem(view) {
   }
 }
 
-// Abaixo desta largura (px) o menu recolhe automaticamente e, ao ser expandido,
-// vira overlay sobre o conteúdo em vez de empurrá-lo.
-const LARGURA_MENU_ESTREITO = 1440;
-let menuEstreitoAtivo = null;
-
-// Aplica o estado visual do menu. persist=true grava a preferência do usuário
-// (usado no clique do botão); persist=false é para ajustes automáticos
-// (modo estreito), que não devem sobrescrever a preferência salva.
-function aplicarEstadoSidebar(shouldCollapse, persist) {
+export function toggleSidebar(forceState) {
   const app = document.querySelector(".app");
   if (!app) return;
+
+  const shouldCollapse = typeof forceState === "boolean"
+    ? forceState
+    : !app.classList.contains("sidebar-collapsed");
 
   app.classList.toggle("sidebar-collapsed", shouldCollapse);
 
@@ -58,12 +54,10 @@ function aplicarEstadoSidebar(shouldCollapse, persist) {
     toggle.setAttribute("aria-label", shouldCollapse ? "Expandir menu" : "Recolher menu");
   }
 
-  if (persist) {
-    try {
-      localStorage.setItem("menuSaudeIndigenaRecolhido", shouldCollapse ? "SIM" : "NAO");
-    } catch (e) {
-      // Sem impacto para o painel caso o navegador bloqueie localStorage.
-    }
+  try {
+    localStorage.setItem("menuSaudeIndigenaRecolhido", shouldCollapse ? "SIM" : "NAO");
+  } catch (e) {
+    // Sem impacto para o painel caso o navegador bloqueie localStorage.
   }
 
   setTimeout(() => {
@@ -73,47 +67,13 @@ function aplicarEstadoSidebar(shouldCollapse, persist) {
   }, 180);
 }
 
-export function toggleSidebar(forceState) {
-  const app = document.querySelector(".app");
-  if (!app) return;
-
-  const shouldCollapse = typeof forceState === "boolean"
-    ? forceState
-    : !app.classList.contains("sidebar-collapsed");
-
-  aplicarEstadoSidebar(shouldCollapse, true);
-}
-
-function lerPreferenciaRecolhido() {
-  try {
-    return localStorage.getItem("menuSaudeIndigenaRecolhido") === "SIM";
-  } catch (e) {
-    return false;
-  }
-}
-
 export function restaurarEstadoMenuLateral() {
-  if (lerPreferenciaRecolhido()) aplicarEstadoSidebar(true, false);
-}
-
-// Em telas estreitas (<= 1440px) recolhe o menu automaticamente e marca o modo
-// overlay; ao voltar para telas largas, restaura a preferência do usuário.
-export function aplicarModoMenuEstreito() {
-  const app = document.querySelector(".app");
-  if (!app) return;
-
-  const estreito = window.innerWidth <= LARGURA_MENU_ESTREITO;
-  app.classList.toggle("menu-estreito", estreito);
-
-  if (estreito && menuEstreitoAtivo !== true) {
-    // Entrou no modo estreito: recolhe sem sobrescrever a preferência salva.
-    aplicarEstadoSidebar(true, false);
-  } else if (!estreito && menuEstreitoAtivo === true) {
-    // Saiu do modo estreito: volta ao estado preferido pelo usuário.
-    aplicarEstadoSidebar(lerPreferenciaRecolhido(), false);
+  try {
+    const salvo = localStorage.getItem("menuSaudeIndigenaRecolhido");
+    if (salvo === "SIM") toggleSidebar(true);
+  } catch (e) {
+    // Mantém o menu aberto quando não houver permissão de armazenamento local.
   }
-
-  menuEstreitoAtivo = estreito;
 }
 
 export function configurarNavegacao() {
@@ -161,15 +121,6 @@ export function configurarFechamentoDeMenus() {
         el.classList.remove("open");
       }
     });
-
-    // No modo estreito, clicar fora do menu aberto (overlay) recolhe novamente.
-    const app = document.querySelector(".app");
-    if (app && app.classList.contains("menu-estreito") && !app.classList.contains("sidebar-collapsed")) {
-      const sidebar = app.querySelector(".sidebar");
-      const toggle = app.querySelector(".sidebarToggle");
-      const clicouNoMenu = (sidebar && sidebar.contains(event.target)) || (toggle && toggle.contains(event.target));
-      if (!clicouNoMenu) aplicarEstadoSidebar(true, false);
-    }
   });
 }
 

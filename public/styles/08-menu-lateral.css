@@ -166,29 +166,9 @@
     .app.sidebar-collapsed .brandMeta,
     .app.sidebar-collapsed .navItem span:not(.navIcon),
     .app.sidebar-collapsed .sidebarUsuarioNome,
-    .app.sidebar-collapsed .sidebarLogoutLabel {
-      display: none !important;
-    }
-
-    /* Recolhido: oculta o título longo da coordenação e mostra apenas
-       "COGIP" abaixo da logo (mesmo truque usado no responsivo estreito). */
+    .app.sidebar-collapsed .sidebarLogoutLabel,
     .app.sidebar-collapsed .sidebarCoordTitle {
-      display: block !important;
-      max-width: 100% !important;
-      margin: 4px auto 0 !important;
-      font-size: 0 !important;
-      line-height: 0 !important;
-      text-align: center !important;
-    }
-
-    .app.sidebar-collapsed .sidebarCoordTitle::after {
-      content: "COGIP";
-      display: block;
-      font-size: 11px;
-      line-height: 1.2;
-      font-weight: 900;
-      letter-spacing: .6px;
-      color: rgba(255, 255, 255, .92);
+      display: none !important;
     }
 
     /* Recolhido: o botão Sair vira apenas o ícone. */
@@ -332,43 +312,6 @@
     /* Menu recolhido: também esconde o "unidade de gestão..." */
     .app.sidebar-collapsed .brandMeta {
       display: none;
-    }
-
-    /* =========================================================
-       MODO ESTREITO (<= 1440px): o menu recolhe automaticamente (via JS).
-       Ao expandir, ele vira OVERLAY sobre o conteúdo — o conteúdo mantém a
-       largura da faixa recolhida e o menu flutua por cima. Não se aplica no
-       modo painel fixo (Visão Geral), que já se ajusta pela escala.
-    ========================================================= */
-    body:not(.modoPainelFixo) .app.menu-estreito {
-      position: relative;
-    }
-
-    /* Expandido em tela estreita: a coluna do grid permanece estreita, então
-       o conteúdo não é empurrado; o menu sobrepõe. */
-    body:not(.modoPainelFixo) .app.menu-estreito:not(.sidebar-collapsed) {
-      grid-template-columns: 78px 1fr !important;
-    }
-
-    body:not(.modoPainelFixo) .app.menu-estreito:not(.sidebar-collapsed) .sidebar {
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      bottom: 0 !important;
-      width: clamp(218px, 14.5vw, 246px) !important;
-      z-index: 60 !important;
-      box-shadow: 14px 0 44px rgba(0, 28, 66, .42) !important;
-    }
-
-    /* Leve escurecimento do conteúdo atrás do overlay (apenas visual; o fechar
-       ao clicar fora é tratado no JS). */
-    body:not(.modoPainelFixo) .app.menu-estreito:not(.sidebar-collapsed)::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: 55;
-      background: rgba(2, 20, 45, .28);
-      pointer-events: none;
     }
 
 
