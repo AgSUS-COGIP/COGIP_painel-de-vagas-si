@@ -44,14 +44,14 @@ export const VAGAS_TABELA_CONFIG = {
     titulo: "Distribuição das Vagas Ociosas",
     subtitulo: "Vagas não ocupadas, afastamento sem substituição e o total de vagas ociosas, conforme a visualização atual.",
     exportHtml: '<button type="button" class="exportBtn" data-click="exportar-distribuicao"><i class="fa-solid fa-download"></i> Exportar distribuição</button>',
-    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> O campo <strong>Vagas não ocupadas</strong> considera a conta <strong>(normais + temporários) - vagas previstas</strong>, sem considerar os trabalhadores em substituições.</div>'
+    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> O campo <strong>Vagas não ocupadas</strong> não considera os trabalhadores em substituições.</div>'
   },
   processo: {
     bloco: "blocoTabelaProcesso",
     titulo: "Vagas para Processo Seletivo",
     subtitulo: "Vagas não ocupadas somadas às temporárias (total para processo seletivo).",
     exportHtml: '<button type="button" class="exportBtn" data-click="exportar-processo"><i class="fa-solid fa-download"></i> Exportar processo seletivo</button>',
-    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> O campo <strong>Vagas não ocupadas</strong> considera a conta <strong>(normais + temporários) - vagas previstas</strong>, sem considerar os trabalhadores em substituições.</div><div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Não entram no cálculo do processo seletivo os cargos de provimento comunitário/indicação: <strong>Agente Indígena de Saúde</strong>, <strong>Agente Indígena de Saneamento</strong>, <strong>Assessor Técnico Indígena</strong> e <strong>Secretário do CONDISI</strong>.</div>'
+    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> O campo <strong>Vagas não ocupadas</strong> não considera os trabalhadores em substituições.</div><div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Não entram no cálculo do processo seletivo os cargos de provimento comunitário/indicação: <strong>Agente Indígena de Saúde</strong>, <strong>Agente Indígena de Saneamento</strong>, <strong>Assessor Técnico Indígena</strong> e <strong>Secretário do CONDISI</strong>.</div>'
   }
 };
 
