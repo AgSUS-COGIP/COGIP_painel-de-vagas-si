@@ -2,6 +2,37 @@
        TELA DE CARREGAMENTO - VERSÃO MAIS INDÍGENA E MAIS AGSUS
     ========================================================= */
 
+    /* Overlay de carregamento leve (ações de salvar/excluir).
+       Fundo translúcido claro com o loader animado. */
+    .overlayCarregando {
+      position: fixed;
+      inset: 0;
+      z-index: 9500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, .6);
+    }
+
+    .loader {
+      width: 45px;
+      aspect-ratio: 1;
+      --c: no-repeat linear-gradient(#000 0 0);
+      background:
+        var(--c) 0 0,
+        var(--c) 0 100%,
+        var(--c) 50% 50%,
+        var(--c) 100% 0,
+        var(--c) 100% 100%;
+      animation: l13 1s infinite alternate;
+    }
+
+    @keyframes l13 {
+      0%, 10%   { background-size: 20% 100%; }
+      50%       { background-size: 20% 20%; }
+      90%, 100% { background-size: 100% 20%; }
+    }
+
     .loading {
       position: fixed;
       inset: 0;
@@ -158,7 +189,7 @@
       margin-top: 24px;
       padding-bottom: 6px;
     }
-
+    
     .loadingDots span {
       width: 9px;
       height: 9px;

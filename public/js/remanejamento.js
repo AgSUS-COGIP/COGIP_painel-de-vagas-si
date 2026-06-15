@@ -3,6 +3,7 @@ import { apiGet } from "./api.js";
 import { garantirCarregamentoPagina, recarregarTodosOsDados } from "./app.js";
 import { REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
 import { atualizarModoRolagem } from "./filtros.js";
+import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, mesesAteFimDoAno, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
@@ -232,9 +233,9 @@ export function renderRemanejamentoLista() {
     const impactoClass = classeValorImpacto(impacto);
     const idAttr = escapeAttr(row.idProcesso);
 
-    const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-rem" data-id="${escapeAttr(row.idProcesso)}">👁</button>`;
+    const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-info"></i></button>`;
     const btnExcluir = podeExcluir
-      ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" data-click="excluir-rem" data-id="${escapeAttr(row.idProcesso)}">🗑</button>`
+      ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" data-click="excluir-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-trash"></i></button>`
       : "";
 
     return `
@@ -352,10 +353,15 @@ export function renderDetalheRemanejamentoHtml(detalhe, rowLista) {
 }
 
 export async function excluirRemanejamentoPainel(idProcesso) {
-  if (!confirm("Tem certeza que deseja excluir este remanejamento? Esta ação remove o registro nas três tabelas e não pode ser desfeita.")) {
-    return;
-  }
+  const confirmacao = await abrirModal({
+    titulo: "Excluir remanejamento",
+    msg: "Tem certeza que deseja excluir este remanejamento? Esta ação remove o registro nas tabelas de movimentação e processo de remanejamento e não pode ser desfeita.",
+    confirmarTexto: "Excluir",
+    perigo: true
+  });
+  if (!confirmacao.ok) return;
 
+  mostrarCarregando();
   try {
     const response = await fetch(`/api/remanejamento/${encodeURIComponent(idProcesso)}`, {
       method: "DELETE",
@@ -365,12 +371,18 @@ export async function excluirRemanejamentoPainel(idProcesso) {
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
     delete detalhesRemanejamentoCache[idProcesso];
-    alert("Remanejamento excluído com sucesso.");
     // Atualiza todos os dados afetados pela exclusão (vagas ociosas voltam ao saldo,
     // monitoramento, alertas, visão geral e a própria lista).
-    recarregarTodosOsDados();
+    await recarregarTodosOsDados();
+    ocultarCarregando();
+    await abrirAviso({ titulo: "Remanejamento excluído", msg: "Remanejamento excluído com sucesso." });
   } catch (error) {
-    alert(`Erro ao excluir remanejamento: ${error && error.message ? error.message : error}`);
+    ocultarCarregando();
+    await abrirAviso({
+      titulo: "Erro ao excluir",
+      msg: `Erro ao excluir remanejamento: ${error && error.message ? error.message : error}`,
+      perigo: true
+    });
   }
 }
 
@@ -712,29 +724,47 @@ export async function salvarRemanejamentoPainel() {
   const linhasAcrescentado = coletarLinhasRemanejamento("acrescentado").filter(item => item.idCargoFuncao && item.quantidade > 0);
 
   if (!idDseiCasai) {
-    alert("Selecione o DSEI.");
+    await abrirAviso({ titulo: "Remanejamento bloqueado", msg: "Selecione o DSEI.", perigo: true });
     return;
   }
   if (!processoSei.trim()) {
-    alert("Informe o número do Processo SEI.");
+    await abrirAviso({ titulo: "Remanejamento bloqueado", msg: "Informe o número do Processo SEI.", perigo: true });
     return;
   }
   if (!linhasReduzido.length || !linhasAcrescentado.length) {
-    alert("Informe ao menos um cargo reduzido e um cargo acrescentado.");
+    await abrirAviso({ titulo: "Remanejamento bloqueado", msg: "Informe ao menos um cargo reduzido e um cargo acrescentado.", perigo: true });
     return;
   }
 
   const errosOciosas = atualizarAvisoOciosasRemanejamento();
   if (errosOciosas.length) {
-    alert(`Não é possível salvar: não há vagas ociosas suficientes para reduzir — ${errosOciosas.join("; ")}.`);
+    await abrirAviso({
+      titulo: "Remanejamento bloqueado",
+      msg: `Não é possível salvar: não há vagas ociosas suficientes para reduzir — ${errosOciosas.join("; ")}.`,
+      perigo: true
+    });
     return;
   }
 
   const resumo = atualizarResumoRemanejamentoPainel();
   if (resumo && (Number(resumo.impactoMensal || 0) > 0 || Number(resumo.impactoPeriodo || 0) > 0)) {
-    alert("Remanejamento bloqueado: o impacto financeiro está positivo (aumento de custo). Ajuste os cargos para que o impacto fique zerado ou negativo.");
+    await abrirAviso({
+      titulo: "Remanejamento bloqueado",
+      msg: "Remanejamento bloqueado: o impacto financeiro está positivo (aumento de custo). Ajuste os cargos para que o impacto fique zerado ou negativo.",
+      perigo: true
+    });
     return;
   }
+
+  // Confirmação extra para evitar remanejamentos errados — resume os dados principais.
+  const dseiNome = document.getElementById("remanejamentoDsei")?.selectedOptions?.[0]?.text || idDseiCasai;
+  const impactoMensalFmt = formatCurrency(resumo ? resumo.impactoMensal : 0);
+  const confirmacao = await abrirModal({
+    titulo: "Confirmar remanejamento",
+    msg: `Confira os dados antes de registrar:\nDSEI/CASAI: ${dseiNome}\nProcesso SEI: ${processoSei}\nImpacto mensal: ${impactoMensalFmt}\n\nEsta ação altera as vagas ociosas e o monitoramento.`,
+    confirmarTexto: "Confirmar remanejamento"
+  });
+  if (!confirmacao.ok) return;
 
   const formData = new FormData();
   formData.append("idDseiCasai", idDseiCasai);
@@ -745,6 +775,7 @@ export async function salvarRemanejamentoPainel() {
   formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
   if (anexo) formData.append("anexo", anexo);
 
+  mostrarCarregando();
   try {
     const response = await fetch("/api/remanejamento/salvar", {
       method: "POST",
@@ -754,12 +785,18 @@ export async function salvarRemanejamentoPainel() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
-    alert("Remanejamento salvo com sucesso.");
     limparFormularioRemanejamento();
     // Atualiza todos os dados afetados: lista de remanejamentos, vagas ociosas do
     // formulário, monitoramento, alertas e visão geral.
-    recarregarTodosOsDados();
+    await recarregarTodosOsDados();
+    ocultarCarregando();
+    await abrirAviso({ titulo: "Remanejamento salvo", msg: "Remanejamento salvo com sucesso." });
   } catch (error) {
-    alert(`Erro ao salvar remanejamento: ${error && error.message ? error.message : error}`);
+    ocultarCarregando();
+    await abrirAviso({
+      titulo: "Erro ao salvar",
+      msg: `Erro ao salvar remanejamento: ${error && error.message ? error.message : error}`,
+      perigo: true
+    });
   }
 }

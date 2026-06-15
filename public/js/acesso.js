@@ -2,6 +2,7 @@
 // - Usuário sem acesso aprovado: envia/acompanha a solicitação (formulário <-> tela pendente).
 // - Administradores (nível >= 2): gerenciam solicitações (aprovar via modal, recusar via caixa inline).
 import { apiGet, apiPost } from "./api.js";
+import { abrirModal } from "./modal.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 
@@ -171,66 +172,6 @@ async function enviarSolicitacao(ev) {
   } finally {
     if (btn) btn.disabled = false;
   }
-}
-
-// ----------------------------------------------------------------------------
-// Modal de confirmação central (sobrepõe a tela) — usado na aprovação
-// ----------------------------------------------------------------------------
-let modalResolver = null;
-let modalExigeInput = false;
-
-// Abre o modal central. Com `comInput`, mostra um campo de texto (ex.: motivo da recusa).
-// Resolve { ok: true, valor } ao confirmar, ou { ok: false } ao cancelar.
-function abrirModal(opts) {
-  const o = opts || {};
-  modalExigeInput = !!o.comInput;
-  return new Promise(resolve => {
-    modalResolver = resolve;
-    if (el("acessoModalTitulo")) el("acessoModalTitulo").innerText = o.titulo || "Confirmar";
-    if (el("acessoModalMsg")) el("acessoModalMsg").innerText = o.msg || "";
-    if (el("acessoModalErro")) el("acessoModalErro").innerText = "";
-
-    const wrap = el("acessoModalInputWrap");
-    const input = el("acessoModalInput");
-    if (wrap) wrap.style.display = o.comInput ? "" : "none";
-    if (el("acessoModalInputLabel")) el("acessoModalInputLabel").innerText = o.inputLabel || "";
-    if (input) { input.value = ""; input.placeholder = o.placeholder || ""; }
-
-    const conf = el("acessoModalConfirmar");
-    if (conf) {
-      conf.innerText = o.confirmarTexto || "Confirmar";
-      conf.classList.toggle("solRecusar", !!o.perigo);
-      conf.classList.toggle("solAprovar", !o.perigo);
-    }
-
-    const ov = el("acessoModal");
-    if (ov) ov.style.display = "flex";
-    if (o.comInput && input) setTimeout(() => input.focus(), 50);
-  });
-}
-
-function confirmarModalClick() {
-  if (modalExigeInput) {
-    const input = el("acessoModalInput");
-    const valor = input ? input.value.trim() : "";
-    if (!valor) {
-      if (el("acessoModalErro")) el("acessoModalErro").innerText = "Este campo é obrigatório.";
-      if (input) input.focus();
-      return;
-    }
-    fecharModal({ ok: true, valor });
-    return;
-  }
-  fecharModal({ ok: true });
-}
-
-function fecharModal(resultado) {
-  const ov = el("acessoModal");
-  if (ov) ov.style.display = "none";
-  const r = modalResolver;
-  modalResolver = null;
-  modalExigeInput = false;
-  if (r) r(resultado || { ok: false });
 }
 
 // ----------------------------------------------------------------------------
@@ -430,17 +371,6 @@ export function configurarAcesso() {
   if (editar && !editar.dataset.bound) {
     editar.dataset.bound = "1";
     editar.addEventListener("click", mostrarEstadoFormulario);
-  }
-
-  // Modal de confirmação (aprovação / recusa / exclusão / privilégio).
-  const mConf = el("acessoModalConfirmar");
-  if (mConf && !mConf.dataset.bound) { mConf.dataset.bound = "1"; mConf.addEventListener("click", confirmarModalClick); }
-  const mCanc = el("acessoModalCancelar");
-  if (mCanc && !mCanc.dataset.bound) { mCanc.dataset.bound = "1"; mCanc.addEventListener("click", () => fecharModal({ ok: false })); }
-  const ov = el("acessoModal");
-  if (ov && !ov.dataset.bound) {
-    ov.dataset.bound = "1";
-    ov.addEventListener("click", (e) => { if (e.target === ov) fecharModal({ ok: false }); });
   }
 
   // Painel admin: delega cliques e mudanças (privilégio) e carrega ao abrir a aba.
