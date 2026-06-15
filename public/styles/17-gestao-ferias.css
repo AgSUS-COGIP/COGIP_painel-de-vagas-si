@@ -1,0 +1,657 @@
+    /* =========================================================
+       Gestão de Férias
+       Página de gestão completa do ciclo de férias (maquete com
+       dados de exemplo). Mantém o visual do painel: cartões claros
+       translúcidos, cabeçalhos azul-profundo e rolagem de página.
+    ========================================================= */
+
+    /* Esta aba tem filtros próprios; esconde a barra de filtros do topo. */
+    .main.view-gestao-active .filtersBar {
+      display: none;
+    }
+
+    .main.view-gestao-active .top {
+      grid-template-columns: minmax(330px, 1fr);
+    }
+
+    .gestaoFeriasView {
+      height: auto;
+      padding-bottom: 28px;
+    }
+
+    .main.view-scroll .gestaoFeriasView.active {
+      min-height: calc(100vh - 94px);
+      overflow: visible;
+    }
+
+    /* ---------- Cabeçalho da página ---------- */
+    .gfPageHeader {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255, 255, 255, .9);
+      border-radius: 18px;
+      box-shadow: 0 14px 24px rgba(0, 43, 93, .16);
+      padding: 14px 18px;
+      margin-bottom: 14px;
+    }
+
+    .gfPageHeader h2 {
+      margin: 0;
+      color: #07346b;
+      font-size: 21px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .gfPageHeader p {
+      margin: 4px 0 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ---------- Grade mestre ---------- */
+    .gfGrid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.06fr) minmax(0, .94fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .gfGrid + .gfGrid,
+    .gfGrid + .gfPanel,
+    .gfPanel + .gfPanel,
+    .gfPanel + .gfGrid {
+      margin-top: 14px;
+    }
+
+    .gfSpan2 {
+      grid-column: 1 / -1;
+    }
+
+    .gfStack {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    /* ---------- Painéis ---------- */
+    .gfPanel {
+      position: relative;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .97), rgba(224, 244, 255, .94)),
+        radial-gradient(circle at 90% 12%, rgba(32, 178, 255, .16), transparent 34%);
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 20px;
+      box-shadow: 0 16px 30px rgba(0, 32, 74, .20);
+      padding: 16px 18px;
+    }
+
+    .gfPanelTitle {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 14px 0;
+      color: #07346b;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .2px;
+    }
+
+    .gfPanelTitle .gfNum {
+      display: inline-grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0ea5ff, #0070d9);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      box-shadow: 0 6px 12px rgba(0, 60, 120, .22);
+    }
+
+    .gfPanelTitle i {
+      color: #0070d9;
+    }
+
+    .gfSectionLabel {
+      margin: 18px 0 9px 0;
+      color: #0b4488;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    /* ---------- Formulário ---------- */
+    .gfForm {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 11px;
+    }
+
+    .gfField {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .gfField label {
+      color: #2d537f;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+
+    .gfField label .req {
+      color: #e0483b;
+    }
+
+    .gfInput,
+    .gfSelect {
+      height: 38px;
+      border: 1px solid rgba(0, 83, 166, .22);
+      border-radius: 10px;
+      background: #fff;
+      color: #0b2445;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 0 11px;
+      width: 100%;
+      outline: none;
+    }
+
+    .gfInput:focus,
+    .gfSelect:focus {
+      border-color: #0070d9;
+      box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+    }
+
+    /* ---------- Botões ---------- */
+    .gfBtn {
+      border: none;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #007de0, #0055a7);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      font-family: inherit;
+      padding: 10px 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 12px 22px rgba(0, 43, 93, .18);
+      transition: .16s ease;
+    }
+
+    .gfBtn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 26px rgba(0, 43, 93, .24);
+    }
+
+    .gfBtn.gfBtnGhost {
+      background: #fff;
+      color: #0b4488;
+      border: 1px solid rgba(0, 83, 166, .3);
+      box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
+    }
+
+    .gfBtn.gfBtnBlock {
+      width: 100%;
+    }
+
+    .gfBtnRow {
+      display: grid;
+      gap: 10px;
+    }
+
+    .gfBtnRow.gfBtnRow2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .gfTitleAction {
+      margin-left: auto;
+    }
+
+    /* ---------- Tabelas ---------- */
+    .gfTableWrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 83, 166, .14);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 83, 166, .4) transparent;
+    }
+
+    .gfTableWrap::-webkit-scrollbar {
+      height: 9px;
+    }
+
+    .gfTableWrap::-webkit-scrollbar-thumb {
+      background: rgba(0, 83, 166, .4);
+      border-radius: 999px;
+    }
+
+    .gfTable {
+      width: 100%;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      white-space: nowrap;
+      table-layout: auto;
+    }
+
+    .gfTable th,
+    .gfTable td {
+      vertical-align: middle;
+    }
+
+    .gfTable th {
+      background: linear-gradient(135deg, #00457f, #006dcc);
+      color: #fff;
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      position: sticky;
+      top: 0;
+    }
+
+    .gfTable td {
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(0, 86, 167, .12);
+      color: #143a63;
+      font-weight: 700;
+    }
+
+    .gfTable tbody tr:nth-child(even) td {
+      background: rgba(232, 247, 255, .55);
+    }
+
+    .gfTable tbody tr:hover td {
+      background: rgba(0, 112, 217, .08);
+    }
+
+    .gfTable .gfTd-center {
+      text-align: center;
+    }
+
+    .gfIconBtn {
+      border: none;
+      background: transparent;
+      color: #a23b3b;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+    }
+
+    .gfIconBtn.gfView {
+      color: #0070d9;
+    }
+
+    /* ---------- Badges de status ---------- */
+    .gfBadge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .2px;
+      white-space: nowrap;
+    }
+
+    .gfBadge.is-elaboracao {
+      background: #e7eefb;
+      color: #2a4b80;
+    }
+
+    .gfBadge.is-aprovacao {
+      background: #fff2d6;
+      color: #8a5a00;
+    }
+
+    .gfBadge.is-aprovado {
+      background: #d7f5e3;
+      color: #0a7a44;
+    }
+
+    .gfBadge.is-rejeitado {
+      background: #ffdcd7;
+      color: #b5281a;
+    }
+
+    .gfBadge.is-gozo {
+      background: #d6ecff;
+      color: #0a5bb0;
+    }
+
+    .gfBadge.is-programado {
+      background: #ede7ff;
+      color: #5536b6;
+    }
+
+    .gfBadge.is-pago {
+      background: #d7f5e3;
+      color: #0a7a44;
+    }
+
+    .gfBadge.is-naopago {
+      background: #ffdcd7;
+      color: #b5281a;
+    }
+
+    /* ---------- Tiles de resumo ---------- */
+    .gfStatGrid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .gfStatGrid.gfStatGrid2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gfStat {
+      background: rgba(255, 255, 255, .7);
+      border: 1px solid rgba(0, 83, 166, .14);
+      border-radius: 14px;
+      padding: 11px 12px;
+      text-align: center;
+    }
+
+    .gfStatValue {
+      color: #07346b;
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -.6px;
+    }
+
+    .gfStatLabel {
+      color: #4a6a93;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-top: 6px;
+      line-height: 1.2;
+    }
+
+    .gfStatValue.is-orange { color: #d98200; }
+    .gfStatValue.is-green { color: #0a8a4d; }
+    .gfStatValue.is-red { color: #c0392b; }
+    .gfStatValue.is-purple { color: #5536b6; }
+
+    /* ---------- Indicadores gerais (KPIs grandes) ---------- */
+    .gfKpiGrid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .gfKpi {
+      background:
+        linear-gradient(145deg, rgba(0, 61, 122, .96), rgba(0, 104, 184, .9));
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 16px;
+      box-shadow: 0 14px 24px rgba(0, 32, 74, .26);
+      padding: 13px 12px;
+      text-align: center;
+    }
+
+    .gfKpiValue {
+      color: #fff;
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -.6px;
+    }
+
+    .gfKpiValue.is-orange { color: #ffcf6b; }
+    .gfKpiValue.is-yellow { color: #ffe08a; }
+    .gfKpiValue.is-red { color: #ff9b8f; }
+
+    .gfKpiLabel {
+      color: rgba(255, 255, 255, .85);
+      font-size: 9.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-top: 7px;
+      line-height: 1.2;
+    }
+
+    /* ---------- Cartões de alerta de dobra ---------- */
+    .gfAlertCards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .gfAlertCard {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      align-items: center;
+      gap: 10px;
+      border-radius: 13px;
+      padding: 11px 12px;
+      border: 1px solid transparent;
+    }
+
+    .gfAlertCard i {
+      font-size: 20px;
+    }
+
+    .gfAlertCard.is-red {
+      background: #ffe7e3;
+      border-color: #ffc4bb;
+    }
+    .gfAlertCard.is-red i { color: #d63b29; }
+
+    .gfAlertCard.is-orange {
+      background: #fff0d8;
+      border-color: #ffd99c;
+    }
+    .gfAlertCard.is-orange i { color: #e08200; }
+
+    .gfAlertCard.is-yellow {
+      background: #fffae0;
+      border-color: #ffec9e;
+    }
+    .gfAlertCard.is-yellow i { color: #c79a00; }
+
+    .gfAlertCardTitle {
+      color: #5a3a10;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+
+    .gfAlertCardSub {
+      color: #7a5a2a;
+      font-size: 10.5px;
+      font-weight: 800;
+      margin-top: 2px;
+    }
+
+    .gfDays {
+      display: inline-block;
+      min-width: 34px;
+      text-align: center;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-weight: 900;
+      font-size: 11px;
+    }
+
+    .gfDays.is-red { background: #ffdcd7; color: #b5281a; }
+    .gfDays.is-orange { background: #ffe6c2; color: #99610a; }
+    .gfDays.is-yellow { background: #fff3c4; color: #8a6d00; }
+
+    /* ---------- Mini-cartões (regras / abono / anexo) ---------- */
+    .gfMiniGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .gfMiniCard {
+      background: rgba(255, 255, 255, .68);
+      border: 1px solid rgba(0, 83, 166, .14);
+      border-radius: 14px;
+      padding: 13px 14px;
+    }
+
+    .gfMiniCard h4 {
+      margin: 0 0 9px 0;
+      color: #0b4488;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .gfMiniList {
+      margin: 0;
+      padding-left: 16px;
+      color: #2d537f;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.6;
+    }
+
+    .gfKv {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #2d537f;
+      padding: 4px 0;
+      border-bottom: 1px dashed rgba(0, 83, 166, .14);
+    }
+
+    .gfKv:last-child {
+      border-bottom: none;
+    }
+
+    .gfKv strong {
+      color: #07346b;
+    }
+
+    .gfDropzone {
+      display: grid;
+      place-items: center;
+      gap: 6px;
+      text-align: center;
+      border: 2px dashed rgba(0, 83, 166, .3);
+      border-radius: 12px;
+      padding: 16px 10px;
+      color: #3a608c;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .gfDropzone i {
+      font-size: 22px;
+      color: #0070d9;
+    }
+
+    .gfFileChip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      background: #eef6ff;
+      border: 1px solid rgba(0, 83, 166, .18);
+      border-radius: 10px;
+      padding: 8px 11px;
+      color: #0b4488;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .gfFileChip i:first-child { color: #c0392b; }
+    .gfFileChip .gfIconBtn { margin-left: auto; }
+
+    /* ---------- Filtros internos (consulta geral) ---------- */
+    .gfFilters {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    /* ---------- Toast de feedback ---------- */
+    .gfToast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      z-index: 100000;
+      max-width: 90vw;
+      padding: 12px 20px;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 12.5px;
+      font-weight: 800;
+      box-shadow: 0 18px 40px rgba(0, 24, 61, .4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease, transform .25s ease;
+    }
+
+    .gfToast.is-ok {
+      background: linear-gradient(135deg, #0e9f5d, #0a7a44);
+    }
+
+    .gfToast.is-erro {
+      background: linear-gradient(135deg, #e0594b, #c0392b);
+    }
+
+    .gfToast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ---------- Responsivo ---------- */
+    @media (max-width: 1180px) {
+      .gfGrid {
+        grid-template-columns: 1fr;
+      }
+
+      .gfKpiGrid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .gfForm {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .gfFilters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .gfStatGrid,
+      .gfAlertCards,
+      .gfMiniGrid {
+        grid-template-columns: 1fr;
+      }
+
+      .gfKpiGrid,
+      .gfForm {
+        grid-template-columns: 1fr 1fr;
+      }
+    }

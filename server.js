@@ -995,16 +995,30 @@ async function autenticarUsuarioLdap(body) {
   const opcoes = {
     url: DASH_CONFIG.LDAP_URL,
     timeout: DASH_CONFIG.LDAP_TIMEOUT,
-    connectTimeout: DASH_CONFIG.LDAP_TIMEOUT,
-    tlsOptions: { rejectUnauthorized: DASH_CONFIG.LDAP_TLS_REJECT_UNAUTHORIZED }
+    connectTimeout: DASH_CONFIG.LDAP_TIMEOUT
   };
+  // ATENÇÃO: o ldapts ativa TLS sempre que `tlsOptions` tem algum valor definido
+  // (ver Client: `secure = isSecureProtocol || hasTlsOptions`). Por isso só
+  // enviamos tlsOptions em ldaps:// — caso contrário ele tentaria TLS na porta
+  // 389 (texto puro) e o servidor derruba a conexão (ECONNRESET no TLSWrap).
+  if (/^ldaps:/i.test(DASH_CONFIG.LDAP_URL)) {
+    opcoes.tlsOptions = { rejectUnauthorized: DASH_CONFIG.LDAP_TLS_REJECT_UNAUTHORIZED };
+  }
+
+  console.log(`[LDAP] Iniciando autenticação | login="${login}" | url=${DASH_CONFIG.LDAP_URL}`);
 
   // 1) Procura o usuário com a conta de serviço.
   const clienteServico = new Client(opcoes);
   let entrada = null;
+  // Marca em qual sub-etapa estamos para o log apontar a causa exata.
+  let etapa = "conexão/bind da conta de serviço";
   try {
     await clienteServico.bind(DASH_CONFIG.LDAP_BIND_DN, DASH_CONFIG.LDAP_BIND_PASSWORD);
+    console.log(`[LDAP] Etapa 1a OK: bind da conta de serviço ("${DASH_CONFIG.LDAP_BIND_DN}") autenticou.`);
+
+    etapa = "busca do usuário (search)";
     const filtro = DASH_CONFIG.LDAP_SEARCH_FILTER.replace(/\{\{login\}\}/g, escaparFiltroLdap(login));
+    console.log(`[LDAP] Etapa 1b: buscando em base="${DASH_CONFIG.LDAP_SEARCH_BASE}" | filtro=${filtro}`);
     const { searchEntries } = await clienteServico.search(DASH_CONFIG.LDAP_SEARCH_BASE, {
       scope: "sub",
       filter: filtro,
@@ -1016,13 +1030,21 @@ async function autenticarUsuarioLdap(body) {
       ]
     });
     entrada = searchEntries && searchEntries[0] ? searchEntries[0] : null;
+    console.log(`[LDAP] Etapa 1b OK: ${searchEntries ? searchEntries.length : 0} entrada(s) encontrada(s). DN=${entrada && entrada.dn ? entrada.dn : "(nenhum)"}`);
   } catch (e) {
-    throw new Error("Não foi possível conectar ao servidor LDAP.");
+    // Loga a causa REAL (código + mensagem do servidor) sem expô-la ao cliente.
+    console.error(`[LDAP] FALHA na etapa "${etapa}" | login="${login}" | name=${e && e.name} | code=${e && (e.code !== undefined ? e.code : "-")} | message=${e && e.message}`);
+    if (e && e.stack) console.error(e.stack);
+    const erro = new Error("Não foi possível conectar ao servidor LDAP.");
+    erro.ldapEtapa = etapa;
+    erro.ldapCausa = e;
+    throw erro;
   } finally {
     try { await clienteServico.unbind(); } catch (e) { /* ignora */ }
   }
 
   if (!entrada || !entrada.dn) {
+    console.warn(`[LDAP] Usuário "${login}" não encontrado no diretório -> tentando login local (fallback).`);
     // Sinaliza ausência no diretório para o orquestrador tentar o login local.
     const erro = new Error("Usuário ou senha inválidos.");
     erro.ldapUsuarioInexistente = true;
@@ -1033,7 +1055,10 @@ async function autenticarUsuarioLdap(body) {
   const clienteUsuario = new Client(opcoes);
   try {
     await clienteUsuario.bind(entrada.dn, senha);
+    console.log(`[LDAP] Etapa 2 OK: senha validada para DN=${entrada.dn}`);
   } catch (e) {
+    // Distingue "senha errada" (49/InvalidCredentials) de outras falhas de conexão.
+    console.error(`[LDAP] FALHA na etapa "validação de senha (bind do usuário)" | DN=${entrada.dn} | name=${e && e.name} | code=${e && (e.code !== undefined ? e.code : "-")} | message=${e && e.message}`);
     throw new Error("Usuário ou senha inválidos.");
   } finally {
     try { await clienteUsuario.unbind(); } catch (e) { /* ignora */ }
