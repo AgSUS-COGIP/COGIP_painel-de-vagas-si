@@ -289,19 +289,22 @@ function cardSolicitacao(s, comAcoes) {
     </div>`;
 }
 
-export async function carregarSolicitacoesAdmin() {
+export async function carregarSolicitacoesAdmin(silencioso) {
   const boxPend = el("solicitacoesPendentes");
   const boxHist = el("solicitacoesHistorico");
   if (!boxPend || !boxHist) return;
 
-  boxPend.innerHTML = '<div class="solVazio">Carregando…</div>';
-  boxHist.innerHTML = "";
+  // No polling (silencioso) não mostramos "Carregando…" para não piscar a tela.
+  if (!silencioso) {
+    boxPend.innerHTML = '<div class="solVazio">Carregando…</div>';
+    boxHist.innerHTML = "";
+  }
 
   let dados;
   try {
     dados = await apiGet("/api/acesso/solicitacoes");
   } catch (e) {
-    boxPend.innerHTML = '<div class="solVazio">Não foi possível carregar as solicitações.</div>';
+    if (!silencioso) boxPend.innerHTML = '<div class="solVazio">Não foi possível carregar as solicitações.</div>';
     return;
   }
 
@@ -386,6 +389,25 @@ async function onChangeAdmin(ev) {
   } catch (e) { alert(e && e.message ? e.message : "Falha ao alterar o privilégio."); await carregarSolicitacoesAdmin(); }
 }
 
+// Polling do painel admin: atualiza a lista enquanto a aba está aberta,
+// sem piscar a tela e sem atrapalhar uma ação em andamento.
+let pollSolicitacoesTimer = null;
+function podeAtualizarSolicitacoes() {
+  const painel = el("view-solicitacoes");
+  if (!painel || !painel.classList.contains("active")) return false; // só com a aba aberta
+  const modal = el("acessoModal");
+  if (modal && modal.style.display === "flex") return false;          // modal aberto
+  const ae = document.activeElement;                                  // admin mexendo num select
+  if (ae && painel.contains(ae) && ae.tagName === "SELECT") return false;
+  return true;
+}
+function iniciarPollSolicitacoes() {
+  if (pollSolicitacoesTimer) return;
+  pollSolicitacoesTimer = setInterval(() => {
+    if (podeAtualizarSolicitacoes()) carregarSolicitacoesAdmin(true);
+  }, 15000);
+}
+
 // ----------------------------------------------------------------------------
 // Inicialização (chamada no init do app)
 // ----------------------------------------------------------------------------
@@ -433,4 +455,6 @@ export function configurarAcesso() {
     navItem.dataset.boundAcesso = "1";
     navItem.addEventListener("click", () => { carregarSolicitacoesAdmin(); });
   }
+
+  iniciarPollSolicitacoes();
 }
