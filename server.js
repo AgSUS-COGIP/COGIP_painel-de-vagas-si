@@ -940,8 +940,8 @@ function resolverNivelPorGruposLdap(grupos) {
 }
 
 // Auto-cadastro/sincronização de usuário externo (LDAP) na tabela do painel.
-// Usuário novo recebe o nível calculado; usuário existente mantém o nível do
-// banco (editável pelo administrador). Lança erro se estiver inativo.
+// Usuário NOVO é criado como PENDENTE (ATIVO=0): só vira ativo após aprovação de
+// um administrador (mesmo fluxo do Google). Usuário existente mantém seu ATIVO/nível.
 async function sincronizarUsuarioExterno({ login, nome, email, nivelPadrao }) {
   const tabela = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
   const selectCampos =
@@ -959,15 +959,12 @@ async function sincronizarUsuarioExterno({ login, nome, email, nivelPadrao }) {
       registro = r && r[0] ? r[0] : null;
     }
 
-    if (registro && Number(registro.ATIVO) !== 1) {
-      throw new Error("Usuário inativo. Procure o administrador.");
-    }
-
     if (!registro) {
+      // Novo usuário do diretório entra PENDENTE (ATIVO=0), aguardando aprovação.
       await conn.execute(
         `INSERT INTO ${tabela}
            (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
-         VALUES (?, '', ?, ?, ?, 1)`,
+         VALUES (?, '', ?, ?, ?, 0)`,
         [login, nome || null, email || null, Number(nivelPadrao || 0)]
       );
       const [r] = await conn.query(`SELECT ${selectCampos} FROM ${tabela} WHERE \`LOGIN\` = ? LIMIT 1`, [login]);
@@ -976,12 +973,16 @@ async function sincronizarUsuarioExterno({ login, nome, email, nivelPadrao }) {
 
     if (!registro) throw new Error("Falha ao registrar o usuário.");
 
+    // Não bloqueia o pendente: ele autentica, mas entra sem aprovação (vê a tela
+    // de solicitação). Nível só vale quando aprovado.
+    const aprovado = Number(registro.ATIVO) === 1;
     return {
       id: Number(registro.ID_USUARIO),
       login: limparValorDash(registro.LOGIN),
       nome: limparValorDash(registro.NOME),
       email: limparValorDash(registro.EMAIL),
-      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0)
+      nivelAutorizacao: aprovado ? Number(registro.NIVEL_AUTORIZACAO || 0) : 0,
+      aprovado
     };
   } finally {
     await fecharJdbc(conn);
@@ -1000,16 +1001,30 @@ async function autenticarUsuarioLdap(body) {
   const opcoes = {
     url: DASH_CONFIG.LDAP_URL,
     timeout: DASH_CONFIG.LDAP_TIMEOUT,
-    connectTimeout: DASH_CONFIG.LDAP_TIMEOUT,
-    tlsOptions: { rejectUnauthorized: DASH_CONFIG.LDAP_TLS_REJECT_UNAUTHORIZED }
+    connectTimeout: DASH_CONFIG.LDAP_TIMEOUT
   };
+  // ATENÇÃO: o ldapts ativa TLS sempre que `tlsOptions` tem algum valor definido
+  // (ver Client: `secure = isSecureProtocol || hasTlsOptions`). Por isso só
+  // enviamos tlsOptions em ldaps:// — caso contrário ele tentaria TLS na porta
+  // 389 (texto puro) e o servidor derruba a conexão (ECONNRESET no TLSWrap).
+  if (/^ldaps:/i.test(DASH_CONFIG.LDAP_URL)) {
+    opcoes.tlsOptions = { rejectUnauthorized: DASH_CONFIG.LDAP_TLS_REJECT_UNAUTHORIZED };
+  }
+
+  console.log(`[LDAP] Iniciando autenticação | login="${login}" | url=${DASH_CONFIG.LDAP_URL}`);
 
   // 1) Procura o usuário com a conta de serviço.
   const clienteServico = new Client(opcoes);
   let entrada = null;
+  // Marca em qual sub-etapa estamos para o log apontar a causa exata.
+  let etapa = "conexão/bind da conta de serviço";
   try {
     await clienteServico.bind(DASH_CONFIG.LDAP_BIND_DN, DASH_CONFIG.LDAP_BIND_PASSWORD);
+    console.log(`[LDAP] Etapa 1a OK: bind da conta de serviço ("${DASH_CONFIG.LDAP_BIND_DN}") autenticou.`);
+
+    etapa = "busca do usuário (search)";
     const filtro = DASH_CONFIG.LDAP_SEARCH_FILTER.replace(/\{\{login\}\}/g, escaparFiltroLdap(login));
+    console.log(`[LDAP] Etapa 1b: buscando em base="${DASH_CONFIG.LDAP_SEARCH_BASE}" | filtro=${filtro}`);
     const { searchEntries } = await clienteServico.search(DASH_CONFIG.LDAP_SEARCH_BASE, {
       scope: "sub",
       filter: filtro,
@@ -1021,13 +1036,21 @@ async function autenticarUsuarioLdap(body) {
       ]
     });
     entrada = searchEntries && searchEntries[0] ? searchEntries[0] : null;
+    console.log(`[LDAP] Etapa 1b OK: ${searchEntries ? searchEntries.length : 0} entrada(s) encontrada(s). DN=${entrada && entrada.dn ? entrada.dn : "(nenhum)"}`);
   } catch (e) {
-    throw new Error("Não foi possível conectar ao servidor LDAP.");
+    // Loga a causa REAL (código + mensagem do servidor) sem expô-la ao cliente.
+    console.error(`[LDAP] FALHA na etapa "${etapa}" | login="${login}" | name=${e && e.name} | code=${e && (e.code !== undefined ? e.code : "-")} | message=${e && e.message}`);
+    if (e && e.stack) console.error(e.stack);
+    const erro = new Error("Não foi possível conectar ao servidor LDAP.");
+    erro.ldapEtapa = etapa;
+    erro.ldapCausa = e;
+    throw erro;
   } finally {
     try { await clienteServico.unbind(); } catch (e) { /* ignora */ }
   }
 
   if (!entrada || !entrada.dn) {
+    console.warn(`[LDAP] Usuário "${login}" não encontrado no diretório -> tentando login local (fallback).`);
     // Sinaliza ausência no diretório para o orquestrador tentar o login local.
     const erro = new Error("Usuário ou senha inválidos.");
     erro.ldapUsuarioInexistente = true;
@@ -1038,7 +1061,10 @@ async function autenticarUsuarioLdap(body) {
   const clienteUsuario = new Client(opcoes);
   try {
     await clienteUsuario.bind(entrada.dn, senha);
+    console.log(`[LDAP] Etapa 2 OK: senha validada para DN=${entrada.dn}`);
   } catch (e) {
+    // Distingue "senha errada" (49/InvalidCredentials) de outras falhas de conexão.
+    console.error(`[LDAP] FALHA na etapa "validação de senha (bind do usuário)" | DN=${entrada.dn} | name=${e && e.name} | code=${e && (e.code !== undefined ? e.code : "-")} | message=${e && e.message}`);
     throw new Error("Usuário ou senha inválidos.");
   } finally {
     try { await clienteUsuario.unbind(); } catch (e) { /* ignora */ }
@@ -1053,11 +1079,12 @@ async function autenticarUsuarioLdap(body) {
     : [];
   const nivelLdap = resolverNivelPorGruposLdap(grupos);
 
-  // 4) Sincroniza com a tabela do painel (auto-cadastro + nível editável).
+  // 4) Sincroniza com a tabela do painel (auto-cadastro PENDENTE + nível editável).
   const usuario = await sincronizarUsuarioExterno({ login: loginDir, nome, email, nivelPadrao: nivelLdap });
 
+  // usuario.aprovado já reflete o ATIVO do banco; vai no token p/ rotear (pendente x painel).
   const token = jwt.sign(usuario, DASH_CONFIG.JWT_SECRET, { expiresIn: DASH_CONFIG.JWT_EXPIRES });
-  return { token, usuario };
+  return { token, usuario, aprovado: !!usuario.aprovado };
 }
 
 let googleOAuthClient = null;

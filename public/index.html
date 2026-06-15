@@ -170,6 +170,11 @@
           <span>Férias</span>
         </div>
 
+        <div class="navItem" data-view="gestaoFerias">
+          <span class="navIcon"><i class="fa-solid fa-calendar-check"></i></span>
+          <span>Gestão de Férias</span>
+        </div>
+
         <div class="navItem" data-view="remanejamento">
           <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
           <span>Remanejo</span>
@@ -707,6 +712,424 @@
               allowfullscreen referrerpolicy="no-referrer-when-downgrade">
             </iframe>
           </div>
+        </section>
+
+
+        <!-- ====================== GESTÃO DE FÉRIAS ======================
+             Maquete completa do ciclo de gestão de férias com dados de
+             exemplo, adaptada ao visual do painel. As tabelas têm rolagem
+             horizontal própria e a página rola verticalmente (view-scroll).
+        ============================================================== -->
+        <section id="view-gestaoFerias" class="viewPanel gestaoFeriasView">
+          <div class="gfPageHeader">
+            <div>
+              <h2>Gestão de Férias</h2>
+              <p>Registro, aprovação, alertas de dobra e controle de pagamento das férias dos profissionais da Saúde
+                Indígena.</p>
+            </div>
+            <button type="button" class="gfBtn gfBtnGhost" id="gfBtnExportar"><i class="fa-solid fa-file-export"></i>
+              Exportar relatório</button>
+          </div>
+
+          <!-- Linha 1: Registro do pedido (esq.) | Resumo + Ações + Alertas (dir.) -->
+          <div class="gfGrid">
+            <!-- 1. REGISTRO DO PEDIDO DE FÉRIAS -->
+            <section class="gfPanel">
+              <h3 class="gfPanelTitle"><span class="gfNum">1</span> Registro do Pedido de Férias</h3>
+
+              <div class="gfForm">
+                <div class="gfField">
+                  <label>DSEI/CASAI <span class="req">*</span></label>
+                  <select class="gfSelect" id="gfRegDsei">
+                    <option>DSEI Yanomami</option>
+                    <option>DSEI Alto Rio Negro</option>
+                    <option>DSEI Leste de Roraima</option>
+                    <option>DSEI Kayapó do Pará</option>
+                    <option>DSEI Maranhão</option>
+                    <option>CASAI Boa Vista</option>
+                    <option>CASAI Manaus</option>
+                  </select>
+                </div>
+                <div class="gfField">
+                  <label>Responsável pela Solicitação</label>
+                  <input class="gfInput" type="text" id="gfRegResponsavel" placeholder="Nome do responsável">
+                </div>
+                <div class="gfField">
+                  <label>Nº Processo SEI</label>
+                  <input class="gfInput" type="text" id="gfRegProcesso" placeholder="Ex: 00000.000000/2024-00">
+                </div>
+                <div class="gfField">
+                  <label>Data do Ofício</label>
+                  <input class="gfInput" type="date" id="gfRegData" value="2024-05-20">
+                </div>
+              </div>
+
+              <div class="gfSectionLabel" style="display:flex;align-items:center;gap:10px;">
+                Profissionais incluídos no pedido
+                <button type="button" class="gfBtn gfTitleAction" id="gfBtnAddColab"><i class="fa-solid fa-plus"></i>
+                  Adicionar Colaborador</button>
+              </div>
+              <div class="gfTableWrap">
+                <table class="gfTable">
+                  <thead>
+                    <tr>
+                      <th>Nome do Colaborador</th>
+                      <th>Cargo</th>
+                      <th>Matrícula</th>
+                      <th>Período Aquisitivo</th>
+                      <th>Prazo Limite de Gozo</th>
+                      <th class="gfTd-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gfProfBody"></tbody>
+                </table>
+              </div>
+
+              <div class="gfSectionLabel">Detalhamento da solicitação de férias</div>
+              <div class="gfTableWrap">
+                <table class="gfTable">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Cargo</th>
+                      <th>Período Aquisitivo</th>
+                      <th>Período 1</th>
+                      <th>Período 2</th>
+                      <th>Período 3</th>
+                      <th class="gfTd-center">Abono</th>
+                      <th class="gfTd-center">Dias (Abono)</th>
+                      <th>Situação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gfDetBody"></tbody>
+                </table>
+              </div>
+
+              <div class="gfMiniGrid" style="margin-top:16px;">
+                <div class="gfMiniCard">
+                  <h4>Regras de Fracionamento</h4>
+                  <ul class="gfMiniList">
+                    <li>Máximo de 3 períodos.</li>
+                    <li>Um dos períodos deve ter no mínimo 14 dias.</li>
+                    <li>Demais períodos mínimo 5 dias.</li>
+                    <li>Total da dívida deve somar 30 dias corridos.</li>
+                  </ul>
+                </div>
+                <div class="gfMiniCard">
+                  <h4>Abono Pecuniário</h4>
+                  <div class="gfKv"><span>Dias convertidos em abono</span><strong>10 dias</strong></div>
+                  <div class="gfKv"><span>Dias restantes para gozo</span><strong>20 dias</strong></div>
+                  <div class="gfKv"><span>Status da análise</span><strong>Aguardando aprovação</strong></div>
+                </div>
+                <div class="gfMiniCard">
+                  <h4>Anexar Ofício do DSEI <span class="req" style="color:#e0483b">*</span></h4>
+                  <div class="gfDropzone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Clique ou arraste o arquivo para enviar<br>PDF ou DOCX até 20MB</span>
+                  </div>
+                  <div class="gfFileChip">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Oficio_DSEI_Yanomami_20-05-2024.pdf</span>
+                    <button class="gfIconBtn"><i class="fa-solid fa-trash"></i></button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Coluna direita: Resumo + Ações + Alertas -->
+            <div class="gfStack">
+              <!-- 2. RESUMO DO LOTE -->
+              <section class="gfPanel">
+                <h3 class="gfPanelTitle"><span class="gfNum">2</span> Resumo do Lote</h3>
+                <div class="gfStatGrid">
+                  <div class="gfStat">
+                    <div class="gfStatValue" id="gfResTotal">0</div>
+                    <div class="gfStatLabel">Total de Profissionais</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue" id="gfResIntegrais">0</div>
+                    <div class="gfStatLabel">Férias Integrais</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue" id="gfResFracionadas">0</div>
+                    <div class="gfStatLabel">Férias Fracionadas</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue is-purple" id="gfResAbono">0</div>
+                    <div class="gfStatLabel">Com Abono Pecuniário</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue is-orange" id="gfResAprovacao">0</div>
+                    <div class="gfStatLabel">Em Aprovação</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue is-green" id="gfResAprovadas">0</div>
+                    <div class="gfStatLabel">Aprovadas</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue is-red" id="gfResRejeitadas">0</div>
+                    <div class="gfStatLabel">Rejeitadas</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 3. AÇÕES DO LOTE -->
+              <section class="gfPanel">
+                <h3 class="gfPanelTitle"><span class="gfNum">3</span> Ações do Lote</h3>
+                <div class="gfBtnRow gfBtnRow2">
+                  <button type="button" class="gfBtn gfBtnGhost gfBtnBlock" id="gfBtnSalvar"><i
+                      class="fa-solid fa-floppy-disk"></i> Salvar Lote</button>
+                  <button type="button" class="gfBtn gfBtnBlock" id="gfBtnEncaminhar"><i
+                      class="fa-solid fa-paper-plane"></i> Encaminhar para Aprovação</button>
+                </div>
+              </section>
+
+              <!-- 4. ALERTAS DE DOBRA DE FÉRIAS -->
+              <section class="gfPanel">
+                <h3 class="gfPanelTitle"><span class="gfNum">4</span> Alertas de Dobra de Férias</h3>
+                <div class="gfAlertCards">
+                  <div class="gfAlertCard is-red">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <div>
+                      <div class="gfAlertCardTitle">Menos de 30 dias</div>
+                      <div class="gfAlertCardSub">4 profissionais</div>
+                    </div>
+                  </div>
+                  <div class="gfAlertCard is-orange">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div>
+                      <div class="gfAlertCardTitle">Menos de 90 dias</div>
+                      <div class="gfAlertCardSub">11 profissionais</div>
+                    </div>
+                  </div>
+                  <div class="gfAlertCard is-yellow">
+                    <i class="fa-solid fa-bell"></i>
+                    <div>
+                      <div class="gfAlertCardTitle">Menos de 180 dias</div>
+                      <div class="gfAlertCardSub">39 profissionais</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gfTableWrap">
+                  <table class="gfTable">
+                    <thead>
+                      <tr>
+                        <th>Profissional</th>
+                        <th>Cargo</th>
+                        <th>DSEI</th>
+                        <th>Prazo Limite</th>
+                        <th class="gfTd-center">Dias Restantes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>João da Silva</td>
+                        <td>Enfermeiro</td>
+                        <td>Yanomami</td>
+                        <td>15/06/2024</td>
+                        <td class="gfTd-center"><span class="gfDays is-red">22</span></td>
+                      </tr>
+                      <tr>
+                        <td>Maria Oliveira</td>
+                        <td>Médico Clínico Geral</td>
+                        <td>Leste Roraima</td>
+                        <td>10/08/2024</td>
+                        <td class="gfTd-center"><span class="gfDays is-orange">78</span></td>
+                      </tr>
+                      <tr>
+                        <td>Carlos Mendes</td>
+                        <td>Técnico de Enfermagem</td>
+                        <td>Alto Rio Negro</td>
+                        <td>25/11/2024</td>
+                        <td class="gfTd-center"><span class="gfDays is-yellow">165</span></td>
+                      </tr>
+                      <tr>
+                        <td>Ana Paula</td>
+                        <td>Dentista</td>
+                        <td>Kayapó do Pará</td>
+                        <td>20/01/2025</td>
+                        <td class="gfTd-center"><span class="gfDays is-yellow">231</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- INDICADORES GERAIS DE FÉRIAS -->
+          <section class="gfPanel">
+            <h3 class="gfPanelTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores Gerais de Férias</h3>
+            <div class="gfKpiGrid">
+              <div class="gfKpi">
+                <div class="gfKpiValue">2.315</div>
+                <div class="gfKpiLabel">Total de Colaboradores</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue">134</div>
+                <div class="gfKpiLabel">Em Gozo de Férias</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue">421</div>
+                <div class="gfKpiLabel">Férias Programadas</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue">286</div>
+                <div class="gfKpiLabel">Sem Programação</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-yellow">39</div>
+                <div class="gfKpiLabel">Alertas &lt; 180 dias</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-orange">11</div>
+                <div class="gfKpiLabel">Alertas &lt; 90 dias</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-red">4</div>
+                <div class="gfKpiLabel">Alertas &lt; 30 dias</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Linha: Histórico dos lotes (esq.) | Consulta geral (dir.) -->
+          <div class="gfGrid">
+            <!-- 5. HISTÓRICO DOS LOTES DE FÉRIAS -->
+            <section class="gfPanel">
+              <h3 class="gfPanelTitle"><span class="gfNum">5</span> Histórico dos Lotes de Férias</h3>
+              <div class="gfTableWrap">
+                <table class="gfTable">
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>DSEI/CASAI</th>
+                      <th>Lote</th>
+                      <th class="gfTd-center">Qtd. Prof.</th>
+                      <th>Responsável</th>
+                      <th>Status</th>
+                      <th class="gfTd-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gfHistBody"></tbody>
+                </table>
+              </div>
+
+              <div class="gfSectionLabel" id="gfLoteTitulo">Detalhamento do lote</div>
+              <div class="gfTableWrap">
+                <table class="gfTable">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Cargo</th>
+                      <th>Período de Férias</th>
+                      <th class="gfTd-center">Abono</th>
+                      <th>Status Aprovação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gfLoteBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <!-- 6. CONSULTA GERAL DE FÉRIAS -->
+            <section class="gfPanel">
+              <h3 class="gfPanelTitle"><span class="gfNum">6</span> Consulta Geral de Férias</h3>
+              <div class="gfFilters">
+                <div class="gfField">
+                  <label>DSEI/CASAI</label>
+                  <select class="gfSelect" id="gfConsDsei"></select>
+                </div>
+                <div class="gfField">
+                  <label>Cargo</label>
+                  <select class="gfSelect" id="gfConsCargo"></select>
+                </div>
+                <div class="gfField">
+                  <label>Status das Férias</label>
+                  <select class="gfSelect" id="gfConsStatus"></select>
+                </div>
+                <div class="gfField">
+                  <label>Competência</label>
+                  <select class="gfSelect" id="gfConsComp"></select>
+                </div>
+                <button type="button" class="gfBtn" id="gfBtnBuscar" title="Buscar"><i
+                    class="fa-solid fa-magnifying-glass"></i></button>
+              </div>
+              <div class="gfTableWrap">
+                <table class="gfTable">
+                  <thead>
+                    <tr>
+                      <th>Profissional</th>
+                      <th>Cargo</th>
+                      <th>DSEI/CASAI</th>
+                      <th>Situação</th>
+                      <th>Período de Férias</th>
+                      <th>Pagamento</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gfConsBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <!-- 7. CONTROLE DE PAGAMENTO DE FÉRIAS -->
+          <section class="gfPanel">
+            <h3 class="gfPanelTitle"><span class="gfNum">7</span> Controle de Pagamento de Férias</h3>
+            <div class="gfGrid">
+              <div class="gfStack">
+                <div class="gfStatGrid">
+                  <div class="gfStat">
+                    <div class="gfStatValue is-green">124</div>
+                    <div class="gfStatLabel">Férias Pagas</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue is-red">17</div>
+                    <div class="gfStatLabel">Férias Não Pagas</div>
+                  </div>
+                  <div class="gfStat">
+                    <div class="gfStatValue is-purple">12</div>
+                    <div class="gfStatLabel">Abonos Pagos</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gfTableWrap">
+                <table class="gfTable">
+                  <thead>
+                    <tr>
+                      <th>Profissional</th>
+                      <th>Período</th>
+                      <th>Tipo</th>
+                      <th>Valor (R$)</th>
+                      <th>Pagamento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>João da Silva</td>
+                      <td>Março/2025</td>
+                      <td>Férias</td>
+                      <td>12.500,00</td>
+                      <td><span class="gfBadge is-pago">Pago</span></td>
+                    </tr>
+                    <tr>
+                      <td>Maria Oliveira</td>
+                      <td>Agosto/2025</td>
+                      <td>Férias</td>
+                      <td>8.900,00</td>
+                      <td><span class="gfBadge is-naopago">Não Pago</span></td>
+                    </tr>
+                    <tr>
+                      <td>João da Silva</td>
+                      <td>Abono 10 dias</td>
+                      <td>Abono Pecuniário</td>
+                      <td>4.166,67</td>
+                      <td><span class="gfBadge is-pago">Pago</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
         </section>
 
 

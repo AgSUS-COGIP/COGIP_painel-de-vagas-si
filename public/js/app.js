@@ -7,6 +7,7 @@ import { AUTO_FULL_RELOAD_MS, AUTO_REFRESH_MS, COLORS } from "./constants.js";
 import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
+import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -27,6 +28,7 @@ export async function init() {
   configurarPainelExterno();
   configurarPainelFerias();
   configurarRemanejamento();
+  configurarGestaoFerias();
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();

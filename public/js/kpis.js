@@ -150,20 +150,20 @@ export function renderGraficos(data) {
     filterType: "dsei"
   });
 
-  const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => calcularOciosas(row), 5);
-  renderBar("chartTopCargoOciosas", {
-    labels: topCargoOciosas.map(i => i.label),
-    values: topCargoOciosas.map(i => i.value),
-    color: COLORS.purple,
-    labelFontSize: 9.6,
-    dataLabelFontSize: 10,
-    xTickFontSize: 9.5,
-    rightPadding: 44,
-    wrapLabels: true,
-    maxCharsPerLine: 24,
-    maxLines: 5,
-    yAxisWidth: 290
-  });
+      const topCargoOciosas = topAgrupadoCalculado(data, "cargo", row => calcularOciosas(row), 5);
+      renderBar("chartTopCargoOciosas", {
+        labels: topCargoOciosas.map(i => i.label),
+        values: topCargoOciosas.map(i => i.value),
+        color: COLORS.purple,
+        labelFontSize: 13,
+        dataLabelFontSize: 13.5,
+        xTickFontSize: 12,
+        rightPadding: 44,
+        wrapLabels: true,
+        maxCharsPerLine: 24,
+        maxLines: 5,
+        yAxisWidth: 290
+      });
 
   const cobertos = Math.min(Math.max(0, indicadores.substituicoes), Math.max(0, indicadores.afastados));
   const naoCobertos = Math.max(0, indicadores.afastados - cobertos);

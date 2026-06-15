@@ -116,7 +116,7 @@
 
 .preenchimentoFooter {
   color: #315c8e;
-  font-size: clamp(12px, 1.3vh, 15.5px);
+  font-size: clamp(14px, 1.6vh, 18px);
   font-weight: 900;
 }
 
@@ -159,14 +159,14 @@
 .funnelValue {
   color: #07346b;
   font-weight: 900;
-  font-size: clamp(11.5px, 1.25vh, 13.5px);
+  font-size: clamp(13px, 1.45vh, 15.5px);
   line-height: 1.1;
   text-transform: uppercase;
 }
 
 .funnelValue {
   text-align: right;
-  font-size: clamp(12px, 1.45vh, 14.5px);
+  font-size: clamp(13.5px, 1.65vh, 16.5px);
 }
 
 /* ---------- Cards "Top 5 DSEIs com mais vagas ociosas" ---------- */
@@ -207,7 +207,7 @@
 }
 
 .ociosaNome {
-  font-size: clamp(12.5px, 1.3vh, 15px);
+  font-size: clamp(24px, 2.85vh, 31px);
   font-weight: 900;
   text-transform: uppercase;
   line-height: 1.08;
@@ -215,7 +215,7 @@
 }
 
 .ociosaValor {
-  font-size: clamp(17px, 2.6vh, 28px);
+  font-size: clamp(22px, 3.25vh, 34px);
   font-weight: 900;
   line-height: 1;
   text-shadow: 0 2px 4px rgba(0, 0, 0, .10);
