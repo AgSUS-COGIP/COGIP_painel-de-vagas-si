@@ -66,7 +66,7 @@
 
       <button type="button" class="sidebarToggle" data-click="toggle-sidebar" aria-label="Recolher ou expandir menu"
         title="Recolher menu">
-        <span class="sidebarToggleIcon">&#8249;</span>
+        <span class="sidebarToggleIcon"><i class="fa-solid fa-angle-right"></i></span>
       </button>
 
       <nav class="nav">
@@ -98,7 +98,7 @@
 
         <div class="navItem" data-view="remanejamento">
           <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
-          <span>Remanejamento</span>
+          <span>Remanejo</span>
         </div>
       </nav>
 
@@ -114,7 +114,8 @@
 
       <div class="sidebarCoord">
         <div class="sidebarCoordImgWrap">
-          <img class="sidebarCoordImg" src="./assets/images/logo-cogip.png" alt="Coordenação de Gestão da Informação de Pessoal">
+          <img class="sidebarCoordImg" src="./assets/images/logo-cogip.png"
+            alt="Coordenação de Gestão da Informação de Pessoal">
         </div>
         <div class="sidebarCoordTitle">Coordenação de Gestão da Informação de Pessoal - COGIP</div>
       </div>
@@ -375,8 +376,7 @@
                   data-click="alterar-visualizacao-vagas">
                   <i class="fa-solid fa-chart-simple"></i><span>Resumo por DSEI/CASAI</span>
                 </button>
-                <button type="button" class="vagasTab" data-vagas-view="cargo"
-                  data-click="alterar-visualizacao-vagas">
+                <button type="button" class="vagasTab" data-vagas-view="cargo" data-click="alterar-visualizacao-vagas">
                   <i class="fa-solid fa-briefcase"></i><span>Resumo por Cargo</span>
                 </button>
                 <button type="button" class="vagasTab" data-vagas-view="detalhado"
@@ -397,8 +397,10 @@
                   selecionados.</div>
               </div>
               <div class="exportActions" id="vagasExportActions">
-                <button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i> Exportar base filtrada</button>
-                <button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>
+                <button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i>
+                  Exportar base filtrada</button>
+                <button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i>
+                  Salvar em PDF</button>
               </div>
             </div>
 
@@ -411,100 +413,89 @@
                 placeholder="Pesquisar por DSEI/CASAI, cargo ou informação da tabela" data-input="pesquisa-vagas">
             </div>
 
-          <!-- 6) Tabelas (dentro do mesmo cartão) -->
-          <div id="blocoTabelaVagas" class="vagasTabelaBloco">
-            <div class="fullTableWrap">
-              <table class="fullTable">
-                <colgroup id="vagasColGroup">
-                  <col style="width: 17%;">
-                  <col style="width: 22%;">
-                  <col style="width: 9%;">
-                  <col style="width: 11%;">
-                  <col style="width: 8%;">
-                  <col style="width: 9%;">
-                  <col style="width: 8%;">
-                  <col style="width: 8%;">
-                  <col style="width: 8%;">
-                </colgroup>
-                <thead>
-                  <tr id="vagasHeaderRow">
-                    <th>DSEI/CASAI</th>
-                    <th>Cargo</th>
-                    <th>Vagas previstas</th>
-                    <th>Total de Trabalhadores</th>
-                    <th>Afastados</th>
-                    <th class="colOciosasHead">Vagas Ociosas (Déficit Operacional)</th>
-                    <th>Substituições</th>
-                    <th>Temporários</th>
-                    <th>% preenchimento</th>
-                  </tr>
-                </thead>
-                <tbody id="vagasBody"></tbody>
-              </table>
+            <!-- 6) Tabelas (dentro do mesmo cartão) -->
+            <div id="blocoTabelaVagas" class="vagasTabelaBloco">
+              <div class="fullTableWrap">
+                <table class="fullTable">
+                  <colgroup id="vagasColGroup">
+                    <col style="width: 17%;">
+                    <col style="width: 22%;">
+                    <col style="width: 9%;">
+                    <col style="width: 11%;">
+                    <col style="width: 8%;">
+                    <col style="width: 9%;">
+                    <col style="width: 8%;">
+                    <col style="width: 8%;">
+                    <col style="width: 8%;">
+                  </colgroup>
+                  <thead>
+                    <tr id="vagasHeaderRow">
+                      <th>DSEI/CASAI</th>
+                      <th>Cargo</th>
+                      <th>Vagas previstas</th>
+                      <th>Total de Trabalhadores</th>
+                      <th>Afastados</th>
+                      <th class="colOciosasHead">Vagas Ociosas (Déficit Operacional)</th>
+                      <th>Substituições</th>
+                      <th>Temporários</th>
+                      <th>% preenchimento</th>
+                    </tr>
+                  </thead>
+                  <tbody id="vagasBody"></tbody>
+                </table>
+              </div>
+              <div id="vagasPagination" class="tablePagination"></div>
             </div>
-            <div id="vagasPagination" class="tablePagination"></div>
-          </div>
 
-          <div id="blocoTabelaOciosas" class="vagasTabelaBloco distribuicaoSection" hidden>
-            <div class="fullTableWrap distribuicaoWrap">
-              <table class="fullTable distribuicaoTable">
-                <colgroup id="distribuicaoColGroup">
-                  <col style="width: 40%;">
-                  <col style="width: 20%;">
-                  <col style="width: 20%;">
-                  <col style="width: 20%;">
-                </colgroup>
-                <thead>
-                  <tr id="distribuicaoHeaderRow">
-                    <th>DSEI/CASAI</th>
-                    <th>Vagas não ocupadas</th>
-                    <th>Afastamento sem substituição</th>
-                    <th>Vagas Ociosas</th>
-                  </tr>
-                </thead>
-                <tbody id="distribuicaoOciosasBody"></tbody>
-              </table>
+            <div id="blocoTabelaOciosas" class="vagasTabelaBloco distribuicaoSection" hidden>
+              <div class="fullTableWrap distribuicaoWrap">
+                <table class="fullTable distribuicaoTable">
+                  <colgroup id="distribuicaoColGroup">
+                    <col style="width: 40%;">
+                    <col style="width: 20%;">
+                    <col style="width: 20%;">
+                    <col style="width: 20%;">
+                  </colgroup>
+                  <thead>
+                    <tr id="distribuicaoHeaderRow">
+                      <th>DSEI/CASAI</th>
+                      <th>Vagas não ocupadas</th>
+                      <th>Afastamento sem substituição</th>
+                      <th>Vagas Ociosas</th>
+                    </tr>
+                  </thead>
+                  <tbody id="distribuicaoOciosasBody"></tbody>
+                </table>
+              </div>
+              <div id="distribuicaoPagination" class="tablePagination"></div>
             </div>
-            <div id="distribuicaoPagination" class="tablePagination"></div>
-          </div>
 
-          <div id="blocoTabelaProcesso" class="vagasTabelaBloco distribuicaoSection" hidden>
-            <div class="fullTableWrap distribuicaoWrap">
-              <table class="fullTable distribuicaoTable">
-                <colgroup id="processoSeletivoColGroup">
-                  <col style="width: 40%;">
-                  <col style="width: 20%;">
-                  <col style="width: 20%;">
-                  <col style="width: 20%;">
-                </colgroup>
-                <thead>
-                  <tr id="processoSeletivoHeaderRow">
-                    <th>DSEI/CASAI</th>
-                    <th>Vagas não ocupadas</th>
-                    <th>Temporárias</th>
-                    <th>Total Processo Seletivo</th>
-                  </tr>
-                </thead>
-                <tbody id="processoSeletivoBody"></tbody>
-              </table>
+            <div id="blocoTabelaProcesso" class="vagasTabelaBloco distribuicaoSection" hidden>
+              <div class="fullTableWrap distribuicaoWrap">
+                <table class="fullTable distribuicaoTable">
+                  <colgroup id="processoSeletivoColGroup">
+                    <col style="width: 40%;">
+                    <col style="width: 20%;">
+                    <col style="width: 20%;">
+                    <col style="width: 20%;">
+                  </colgroup>
+                  <thead>
+                    <tr id="processoSeletivoHeaderRow">
+                      <th>DSEI/CASAI</th>
+                      <th>Vagas não ocupadas</th>
+                      <th>Temporárias</th>
+                      <th>Total Processo Seletivo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="processoSeletivoBody"></tbody>
+                </table>
+              </div>
+              <div id="processoSeletivoPagination" class="tablePagination"></div>
             </div>
-            <div id="processoSeletivoPagination" class="tablePagination"></div>
-          </div>
           </div>
         </section>
 
         <section id="view-alertas" class="viewPanel tableView">
-          <div class="pageHeader">
-            <div>
-              <h2 class="pageTitle">Alertas</h2>
-              <div class="pageSub">Afastamentos, temporários ativos e vagas excedentes conforme filtros selecionados.
-              </div>
-            </div>
-            <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas"><i class="fa-solid fa-download"></i> Exportar
-                alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>
-            </div>
-          </div>
-
           <section class="alertKpiGrid">
             <div class="kpi">
               <div class="kpiIcon iYellow"><i class="fa-regular fa-clock"></i></div>
@@ -540,28 +531,43 @@
             </div>
           </section>
 
-          <div class="fullTableWrap">
-            <table class="fullTable alertasTable">
-              <colgroup>
-                <col style="width: 16%;">
-                <col style="width: 24%;">
-                <col style="width: 16%;">
-                <col style="width: 20%;">
-                <col style="width: 24%;">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>DSEI/CASAI</th>
-                  <th>Cargo</th>
-                  <th>Tipo de Alerta</th>
-                  <th>Detalhe</th>
-                  <th>Observação</th>
-                </tr>
-              </thead>
-              <tbody id="alertasBody"></tbody>
-            </table>
+          <div class="vagasInfoCard alertasInfoCard">
+            <div class="pageHeader">
+              <div>
+                <h2 class="pageTitle">Alertas</h2>
+                <div class="pageSub">Afastamentos, temporários ativos e vagas excedentes conforme filtros selecionados.
+                </div>
+              </div>
+              <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas"><i
+                    class="fa-solid fa-download"></i> Exportar
+                  alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i
+                    class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>
+              </div>
+            </div>
+
+            <div class="fullTableWrap">
+              <table class="fullTable alertasTable">
+                <colgroup>
+                  <col style="width: 16%;">
+                  <col style="width: 24%;">
+                  <col style="width: 16%;">
+                  <col style="width: 20%;">
+                  <col style="width: 24%;">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>DSEI/CASAI</th>
+                    <th>Cargo</th>
+                    <th>Tipo de Alerta</th>
+                    <th>Detalhe</th>
+                    <th>Observação</th>
+                  </tr>
+                </thead>
+                <tbody id="alertasBody"></tbody>
+              </table>
+            </div>
+            <div id="alertasPagination" class="tablePagination"></div>
           </div>
-          <div id="alertasPagination" class="tablePagination"></div>
         </section>
 
 
@@ -802,7 +808,7 @@
               <section class="remBox remDocBox">
                 <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
                 <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
-                <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: 00000.000000/2024-00"
+                <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: AGSUS.000000/2026-00"
                   data-input="atualizar-resumo-rem">
                 <label for="remObservacao">Observação</label>
                 <textarea id="remObservacao" rows="3"

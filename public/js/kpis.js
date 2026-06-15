@@ -18,8 +18,8 @@ export function calcularIndicadores(data) {
   // Vagas ociosas (déficit operacional) = previstas - contratados + afastados.
   // Considera os negativos (excedente) abatendo — vale para todos os KPIs.
   const vagasOciosas = vagasPrevistas - contratados + afastados;
-  // Vagas preenchidas = trabalhadores contratados (dado correto).
-  const vagasPreenchidas = contratados;
+  // Vagas preenchidas = trabalhadores contratados - afastados.
+  const vagasPreenchidas = contratados - afastados;
   const vagasPreenchidasPerc = vagasPrevistas > 0
     ? (vagasPreenchidas / vagasPrevistas) * 100
     : 0;

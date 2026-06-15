@@ -2,8 +2,61 @@
        MENU LATERAL INTEIRO, COLORIDO E RECOLHÍVEL
     ========================================================= */
 
+    /* Transições suaves ao recolher/expandir: o fade dos textos e o
+       recolhimento da largura acontecem juntos (mesma duração, sem atrasos). */
     .app {
-      transition: grid-template-columns .24s ease;
+      transition: grid-template-columns .28s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .brandLogo,
+    .navItem,
+    .navIcon,
+    .sidebarToggle,
+    .sidebarUsuario,
+    .sidebarLogoutBtn,
+    .sidebarCoord,
+    .sidebarCoordImgWrap,
+    .sidebarCoordImg {
+      transition:
+        width .28s cubic-bezier(.4, 0, .2, 1),
+        height .28s cubic-bezier(.4, 0, .2, 1),
+        margin .28s cubic-bezier(.4, 0, .2, 1),
+        padding .28s cubic-bezier(.4, 0, .2, 1),
+        border-radius .28s cubic-bezier(.4, 0, .2, 1),
+        grid-template-columns .28s cubic-bezier(.4, 0, .2, 1),
+        background .28s ease,
+        box-shadow .28s ease;
+    }
+
+    /* Os rótulos esmaecem e encolhem junto com a largura. */
+    .brandTitle,
+    .brandSubtitle,
+    .brandMeta,
+    .navItem span:not(.navIcon),
+    .sidebarUsuarioNome,
+    .sidebarLogoutLabel,
+    .sidebarCoordTitle {
+      max-width: 240px;
+      max-height: 80px;
+      transition:
+        opacity .22s ease,
+        max-width .28s cubic-bezier(.4, 0, .2, 1),
+        max-height .28s cubic-bezier(.4, 0, .2, 1),
+        margin .28s cubic-bezier(.4, 0, .2, 1),
+        transform .28s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    /* Após a animação de recolhimento terminar (classe adicionada via JS),
+       os rótulos viram display:none para não deixarem nenhum espaço residual.
+       Ao expandir, a classe é removida na hora e os textos voltam a aparecer. */
+    .app.sidebar-collapsed.menu-recolhido-final .brandTitle,
+    .app.sidebar-collapsed.menu-recolhido-final .brandSubtitle,
+    .app.sidebar-collapsed.menu-recolhido-final .brandMeta,
+    .app.sidebar-collapsed.menu-recolhido-final .navItem span:not(.navIcon),
+    .app.sidebar-collapsed.menu-recolhido-final .sidebarUsuarioNome,
+    .app.sidebar-collapsed.menu-recolhido-final .sidebarLogoutLabel,
+    .app.sidebar-collapsed.menu-recolhido-final .sidebarCoordTitle {
+      display: none !important;
     }
 
     .sidebar {
@@ -74,7 +127,8 @@
       font-size: 26px;
       font-weight: 900;
       line-height: 1;
-      transform: translateY(-1px);
+      transform: rotate(180deg) translateY(1px);
+      transition: transform .28s cubic-bezier(.4, 0, .2, 1);
     }
 
     .navItem {
@@ -168,7 +222,14 @@
     .app.sidebar-collapsed .sidebarUsuarioNome,
     .app.sidebar-collapsed .sidebarLogoutLabel,
     .app.sidebar-collapsed .sidebarCoordTitle {
-      display: none !important;
+      opacity: 0 !important;
+      max-width: 0 !important;
+      max-height: 0 !important;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      overflow: hidden !important;
+      transform: translateX(-8px) scale(.96);
+      pointer-events: none;
     }
 
     /* Recolhido: o botão Sair vira apenas o ícone. */
@@ -218,7 +279,15 @@
     }
 
     .app.sidebar-collapsed .sidebarToggleIcon {
-      transform: rotate(180deg) translateY(1px);
+      transform: rotate(0deg) translateY(-1px);
+    }
+
+    /* Folga horizontal para as abas: dá espaço para o leve deslize (translateX)
+       e a sombra do item ativo/hover não serem cortados pelo overflow da sidebar.
+       Vale para os dois estados (expandido e recolhido). */
+    .nav {
+      padding-left: 4px;
+      padding-right: 6px;
     }
 
     .app.sidebar-collapsed .nav {
@@ -227,8 +296,10 @@
     }
 
     .app.sidebar-collapsed .navItem {
-      grid-template-columns: 1fr;
+      grid-template-columns: 36px minmax(0, 0fr);
+      gap: 0;
       padding: 10px;
+      justify-content: center;
       justify-items: center;
       border-radius: 16px;
     }
@@ -309,9 +380,7 @@
       }
     }
 
-    /* Menu recolhido: também esconde o "unidade de gestão..." */
-    .app.sidebar-collapsed .brandMeta {
-      display: none;
-    }
+    /* O "unidade de gestão..." é tratado pela regra de "evaporar" acima
+       (esmaece e encolhe junto com os demais rótulos ao recolher o menu). */
 
 
