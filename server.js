@@ -32,6 +32,7 @@ const DASH_CONFIG = {
   PROCESSO_REMANEJAMENTO_TABLE: process.env.PROCESSO_REMANEJAMENTO_TABLE || "PROCESSO_REMANEJAMENTO",
   MOVIMENTACAO_REMANEJAMENTO_TABLE: process.env.MOVIMENTACAO_REMANEJAMENTO_TABLE || "MOVIMENTACAO_REMANEJAMENTO",
   USUARIOS_TABLE: process.env.USUARIOS_TABLE || "USUARIOS_PAINEL",
+  TRABALHADOR_CONSOLIDADO_TABLE: process.env.TRABALHADOR_CONSOLIDADO_TABLE || "BD_TRABALHADOR_CONSOLIDADO",
   // Solicitações de acesso (fluxo de aprovação para usuários sem liberação).
   SOLICITACOES_ACESSO_TABLE: process.env.SOLICITACOES_ACESSO_TABLE || "SOLICITACOES_ACESSO",
   // Nível atribuído ao usuário quando uma solicitação é APROVADA (padrão).
@@ -454,6 +455,10 @@ app.post("/api/acesso/solicitar", autenticarMiddleware, express.json(), asyncHan
   } finally {
     await fecharJdbc(conn);
   }
+}));
+
+app.get("/api/acesso/listas", autenticarMiddleware, asyncHandler(async (req, res) => {
+  res.json(await obterListasAcesso());
 }));
 
 // Usuário acompanha a própria situação (status + histórico de recusas).
@@ -1361,6 +1366,31 @@ async function salvarSolicitacaoAcessoComConn(conn, email, body) {
     [emailNorm, dados.nome, dados.cargo, dados.coordenacao, dados.dsei, dados.casai, dados.justificativa]
   );
   return { id: res.insertId, atualizado: false };
+}
+
+let _listasAcessoCache = { expira: 0, data: null };
+async function obterListasAcesso() {
+  if (_listasAcessoCache.data && Date.now() < _listasAcessoCache.expira) {
+    return _listasAcessoCache.data;
+  }
+  const T = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.TRABALHADOR_CONSOLIDADO_TABLE}\``;
+  const conn = await getMysqlConnection();
+  try {
+    const distinta = async (sql) => {
+      try { const [rows] = await conn.query(sql); return rows.map(r => r.v).filter(Boolean); }
+      catch (e) { return []; }
+    };
+    const dsei = await distinta(`SELECT DISTINCT \`UNIDADE_ORCAMENTARIA_DESC\` v FROM ${T} WHERE \`UNIDADE_ORCAMENTARIA_DESC\` LIKE 'DSEI%' ORDER BY v`);
+    const casai = await distinta(`SELECT DISTINCT \`UNIDADE_ORCAMENTARIA_DESC\` v FROM ${T} WHERE \`UNIDADE_ORCAMENTARIA_DESC\` LIKE 'CASAI%' ORDER BY v`);
+    const coordenacoes = await distinta(`SELECT DISTINCT \`COORDENACAO_SIGLA\` v FROM ${T} WHERE \`COORDENACAO_SIGLA\` IS NOT NULL AND \`COORDENACAO_SIGLA\` <> '' ORDER BY v`);
+    const cargos = await distinta(`SELECT DISTINCT \`CARGO_ATUAL_DESC\` v FROM ${T} WHERE \`CARGO_ATUAL_DESC\` IS NOT NULL AND \`CARGO_ATUAL_DESC\` <> '' ORDER BY v`);
+
+    const data = { dsei, casai, coordenacoes, cargos };
+    _listasAcessoCache = { expira: Date.now() + 30 * 60 * 1000, data };
+    return data;
+  } finally {
+    await fecharJdbc(conn);
+  }
 }
 
 // Situação de acesso do usuário: solicitação atual (mais recente) + histórico completo.

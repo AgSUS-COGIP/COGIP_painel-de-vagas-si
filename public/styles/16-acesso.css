@@ -7,14 +7,27 @@
   width: min(94vw, 420px);
   max-height: 94vh;
   overflow-y: auto;
+  overflow-x: hidden; /* nunca rolar horizontalmente */
 }
 
 /* O formulário precisa empilhar rótulos e campos em coluna única
    (o .loginCard que tinha o grid agora é o container externo). */
-.acessoFormWrap {
+.acessoFormWrap,
+.acessoPendenteWrap {
   display: grid;
   gap: 10px;
+  min-width: 0; /* permite o conteúdo encolher dentro do card */
 }
+
+/* Campos e dropdowns nunca ultrapassam a largura do card:
+   sem isso, um <option> longo força a coluna a crescer e gera scroll horizontal. */
+.acessoCard .loginInput {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.acessoCard select.loginInput { text-overflow: ellipsis; }
 
 .acessoStatusBanner {
   border-radius: 12px;

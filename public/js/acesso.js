@@ -14,6 +14,29 @@ function fmtData(v) {
   return s || "—";
 }
 
+// Popula um <select> com as opções vindas do banco, preservando o valor atual.
+function preencherSelectAcesso(id, placeholder, valores) {
+  const sel = el(id);
+  if (!sel || sel.tagName !== "SELECT") return;
+  const atual = sel.value;
+  const opts = (valores || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  sel.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + opts;
+  if (atual) sel.value = atual;
+}
+
+// Carrega DSEI/CASAI/coordenações/cargos do servidor (auto-sync com o banco).
+let listasAcessoCarregadas = false;
+async function carregarListasAcesso() {
+  if (listasAcessoCarregadas) return;
+  let listas;
+  try { listas = await apiGet("/api/acesso/listas"); } catch (e) { return; }
+  preencherSelectAcesso("acDsei", "Selecione o DSEI", listas.dsei);
+  preencherSelectAcesso("acCasai", "Selecione a CASAI", listas.casai);
+  preencherSelectAcesso("acCoordenacao", "Selecione a coordenação", listas.coordenacoes);
+  preencherSelectAcesso("acCargo", "Selecione o cargo / função", listas.cargos);
+  listasAcessoCarregadas = true;
+}
+
 // ----------------------------------------------------------------------------
 // Tela do usuário: formulário <-> solicitação pendente
 // ----------------------------------------------------------------------------
@@ -36,6 +59,7 @@ export async function mostrarAcessoPendente() {
   const tela = el("acessoPendenteScreen");
   if (tela) tela.style.display = "grid";
 
+  await carregarListasAcesso();        // popula os dropdowns antes de preencher os valores
   await carregarMinhaSolicitacao(true);
   iniciarPollAcesso();
 }
