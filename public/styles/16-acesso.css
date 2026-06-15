@@ -9,6 +9,13 @@
   overflow-y: auto;
 }
 
+/* O formulário precisa empilhar rótulos e campos em coluna única
+   (o .loginCard que tinha o grid agora é o container externo). */
+.acessoFormWrap {
+  display: grid;
+  gap: 10px;
+}
+
 .acessoStatusBanner {
   border-radius: 12px;
   padding: 10px 12px;
