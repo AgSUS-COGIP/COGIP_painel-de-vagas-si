@@ -2626,11 +2626,26 @@ function aguardar(ms) {
 async function getMysqlConnection() {
   const pool = getMysqlPool();
   const tentativas = Number(process.env.MYSQL_CONNECT_RETRIES || 2);
+  // O banco/firewall pode fechar conexões ociosas que continuam no pool. Drenamos
+  // (destruímos) as conexões mortas até pegar uma viva — daí o teto pelo tamanho do pool.
+  const maxDrenagem = Number(process.env.MYSQL_POOL_LIMIT || 5) + 2;
   let ultimoErro = null;
 
   for (let i = 0; i <= tentativas; i += 1) {
     try {
-      return await pool.getConnection();
+      for (let v = 0; v < maxDrenagem; v += 1) {
+        const conn = await pool.getConnection();
+        try {
+          // Valida ANTES de usar: o ping falha (ECONNRESET) numa conexão já fechada
+          // pelo servidor, evitando que a query estoure mais adiante.
+          await conn.ping();
+          return conn;
+        } catch (pingErr) {
+          ultimoErro = pingErr;
+          try { conn.destroy(); } catch (e) {} // remove a conexão morta do pool
+        }
+      }
+      throw ultimoErro || new Error("Conexão MySQL indisponível.");
     } catch (err) {
       ultimoErro = err;
       const code = err && err.code ? err.code : "";
