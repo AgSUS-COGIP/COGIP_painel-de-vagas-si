@@ -935,8 +935,8 @@ function resolverNivelPorGruposLdap(grupos) {
 }
 
 // Auto-cadastro/sincronização de usuário externo (LDAP) na tabela do painel.
-// Usuário novo recebe o nível calculado; usuário existente mantém o nível do
-// banco (editável pelo administrador). Lança erro se estiver inativo.
+// Usuário NOVO é criado como PENDENTE (ATIVO=0): só vira ativo após aprovação de
+// um administrador (mesmo fluxo do Google). Usuário existente mantém seu ATIVO/nível.
 async function sincronizarUsuarioExterno({ login, nome, email, nivelPadrao }) {
   const tabela = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
   const selectCampos =
@@ -954,15 +954,12 @@ async function sincronizarUsuarioExterno({ login, nome, email, nivelPadrao }) {
       registro = r && r[0] ? r[0] : null;
     }
 
-    if (registro && Number(registro.ATIVO) !== 1) {
-      throw new Error("Usuário inativo. Procure o administrador.");
-    }
-
     if (!registro) {
+      // Novo usuário do diretório entra PENDENTE (ATIVO=0), aguardando aprovação.
       await conn.execute(
         `INSERT INTO ${tabela}
            (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
-         VALUES (?, '', ?, ?, ?, 1)`,
+         VALUES (?, '', ?, ?, ?, 0)`,
         [login, nome || null, email || null, Number(nivelPadrao || 0)]
       );
       const [r] = await conn.query(`SELECT ${selectCampos} FROM ${tabela} WHERE \`LOGIN\` = ? LIMIT 1`, [login]);
@@ -971,12 +968,16 @@ async function sincronizarUsuarioExterno({ login, nome, email, nivelPadrao }) {
 
     if (!registro) throw new Error("Falha ao registrar o usuário.");
 
+    // Não bloqueia o pendente: ele autentica, mas entra sem aprovação (vê a tela
+    // de solicitação). Nível só vale quando aprovado.
+    const aprovado = Number(registro.ATIVO) === 1;
     return {
       id: Number(registro.ID_USUARIO),
       login: limparValorDash(registro.LOGIN),
       nome: limparValorDash(registro.NOME),
       email: limparValorDash(registro.EMAIL),
-      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0)
+      nivelAutorizacao: aprovado ? Number(registro.NIVEL_AUTORIZACAO || 0) : 0,
+      aprovado
     };
   } finally {
     await fecharJdbc(conn);
@@ -1073,11 +1074,12 @@ async function autenticarUsuarioLdap(body) {
     : [];
   const nivelLdap = resolverNivelPorGruposLdap(grupos);
 
-  // 4) Sincroniza com a tabela do painel (auto-cadastro + nível editável).
+  // 4) Sincroniza com a tabela do painel (auto-cadastro PENDENTE + nível editável).
   const usuario = await sincronizarUsuarioExterno({ login: loginDir, nome, email, nivelPadrao: nivelLdap });
 
+  // usuario.aprovado já reflete o ATIVO do banco; vai no token p/ rotear (pendente x painel).
   const token = jwt.sign(usuario, DASH_CONFIG.JWT_SECRET, { expiresIn: DASH_CONFIG.JWT_EXPIRES });
-  return { token, usuario };
+  return { token, usuario, aprovado: !!usuario.aprovado };
 }
 
 let googleOAuthClient = null;
