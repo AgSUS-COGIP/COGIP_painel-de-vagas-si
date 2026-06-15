@@ -55,6 +55,80 @@
     </form>
   </div>
 
+  <!-- Tela de acesso pendente: usuário autenticado, mas ainda sem liberação -->
+  <div id="acessoPendenteScreen" class="loginScreen acessoScreen" style="display:none;">
+    <div class="loadingDecorLeft" aria-hidden="true"></div>
+    <div class="loadingDecorRight" aria-hidden="true"></div>
+    <div class="loginCard acessoCard">
+      <div class="loadingBrand">
+        <img class="loadingBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+        <div class="loadingBrandTitle">AgSUS</div>
+        <div class="loadingBrandSubtitle">SAÚDE INDÍGENA</div>
+      </div>
+
+      <!-- Estado: solicitação pendente (exibido após o envio) -->
+      <div id="acessoPendenteWrap" class="acessoPendenteWrap" style="display:none;">
+        <div class="acessoPendenteIcon"><i class="fa-solid fa-hourglass-half"></i></div>
+        <div class="loginTitle">Solicitação pendente</div>
+        <div id="acPendBanner" class="acessoStatusBanner statusPendente"></div>
+        <div id="acPendInfo" class="acPendInfo"></div>
+        <button type="button" class="loginBtn loginBtnSecundario" id="acEditarBtn">Editar solicitação</button>
+        <button type="button" class="acLogoutLink" id="acLogoutBtn2">Sair</button>
+      </div>
+
+      <!-- Estado: formulário (novo pedido ou reenvio após recusa) -->
+      <form id="acessoForm" class="acessoFormWrap" autocomplete="off">
+        <div class="loginTitle">Solicitação de acesso</div>
+
+        <div id="acessoStatusBanner" class="acessoStatusBanner statusNovo"></div>
+        <div id="acessoRecusaMotivo" class="acessoRecusaMotivo" style="display:none;"></div>
+
+        <label class="loginLabel" for="acNome">Nome completo</label>
+        <input id="acNome" class="loginInput" type="text">
+
+        <label class="loginLabel" for="acEmail">E-mail institucional</label>
+        <input id="acEmail" class="loginInput" type="email" readonly>
+
+        <label class="loginLabel" for="acCargo">Cargo / Função</label>
+        <input id="acCargo" class="loginInput" type="text">
+
+        <label class="loginLabel" for="acCoordenacao">Coordenação</label>
+        <input id="acCoordenacao" class="loginInput" type="text">
+
+        <label class="loginLabel" for="acDsei">DSEI</label>
+        <input id="acDsei" class="loginInput" type="text">
+
+        <label class="loginLabel" for="acCasai">CASAI</label>
+        <input id="acCasai" class="loginInput" type="text">
+
+        <label class="loginLabel" for="acJustificativa">Justificativa da necessidade de acesso *</label>
+        <textarea id="acJustificativa" class="loginInput acTextarea" rows="3"
+          placeholder="Explique por que você precisa acessar o painel."></textarea>
+
+        <button type="submit" class="loginBtn" id="acSubmitBtn">Enviar solicitação</button>
+        <div id="acErro" class="loginErro"></div>
+        <button type="button" class="acLogoutLink" id="acLogoutBtn">Sair</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação central (usado na aprovação de acesso) -->
+  <div id="acessoModal" class="acessoModalOverlay" style="display:none;">
+    <div class="acessoModalBox" role="dialog" aria-modal="true">
+      <div class="acessoModalTitulo" id="acessoModalTitulo">Confirmar</div>
+      <div class="acessoModalMsg" id="acessoModalMsg"></div>
+      <div id="acessoModalInputWrap" class="acessoModalInputWrap" style="display:none;">
+        <label class="acessoModalInputLabel" id="acessoModalInputLabel"></label>
+        <textarea id="acessoModalInput" class="acessoModalInput" rows="3"></textarea>
+      </div>
+      <div id="acessoModalErro" class="acessoModalErro"></div>
+      <div class="acessoModalAcoes">
+        <button type="button" class="solBtn solSecundario" id="acessoModalCancelar">Cancelar</button>
+        <button type="button" class="solBtn solAprovar" id="acessoModalConfirmar">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
@@ -99,6 +173,11 @@
         <div class="navItem" data-view="remanejamento">
           <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
           <span>Remanejo</span>
+        </div>
+
+        <div class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
+          <span class="navIcon"><i class="fa-solid fa-user-check"></i></span>
+          <span>Solicitações</span>
         </div>
       </nav>
 
@@ -890,6 +969,21 @@
         </section>
 
         <section id="view-remanejamentoFormulario" class="viewPanel remanejamentoFormView"></section>
+
+        <section id="view-solicitacoes" class="viewPanel tableView">
+          <div class="pageHeader">
+            <div>
+              <h2 class="pageTitle">Solicitações de Acesso</h2>
+              <div class="pageSub">Aprove ou recuse pedidos de acesso ao painel. A recusa exige justificativa.</div>
+            </div>
+          </div>
+
+          <h3 class="solSecaoTitulo">Pendentes</h3>
+          <div id="solicitacoesPendentes" class="solLista"></div>
+
+          <h3 class="solSecaoTitulo">Histórico</h3>
+          <div id="solicitacoesHistorico" class="solLista"></div>
+        </section>
 
       </section>
     </main>

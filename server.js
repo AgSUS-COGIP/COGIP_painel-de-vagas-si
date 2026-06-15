@@ -32,6 +32,12 @@ const DASH_CONFIG = {
   PROCESSO_REMANEJAMENTO_TABLE: process.env.PROCESSO_REMANEJAMENTO_TABLE || "PROCESSO_REMANEJAMENTO",
   MOVIMENTACAO_REMANEJAMENTO_TABLE: process.env.MOVIMENTACAO_REMANEJAMENTO_TABLE || "MOVIMENTACAO_REMANEJAMENTO",
   USUARIOS_TABLE: process.env.USUARIOS_TABLE || "USUARIOS_PAINEL",
+  // Solicitações de acesso (fluxo de aprovação para usuários sem liberação).
+  SOLICITACOES_ACESSO_TABLE: process.env.SOLICITACOES_ACESSO_TABLE || "SOLICITACOES_ACESSO",
+  // Nível atribuído ao usuário quando uma solicitação é APROVADA (padrão).
+  NIVEL_ACESSO_APROVADO: Number(process.env.NIVEL_ACESSO_APROVADO || 1),
+  // Nível mínimo para gerenciar (aprovar/recusar) solicitações de acesso.
+  NIVEL_ADMIN: Number(process.env.NIVEL_ADMIN || 2),
   JWT_SECRET: process.env.JWT_SECRET || "painel-vagas-si-dev-secret-trocar",
   JWT_EXPIRES: process.env.JWT_EXPIRES || "8h",
   // Login com Google (OAuth 2.0 / OpenID Connect). Sem CLIENT_ID, o botão Google fica oculto.
@@ -376,7 +382,7 @@ app.get("/api/remanejamento/detalhe/:id", asyncHandler(async (req, res) => {
 
 app.delete(
   "/api/remanejamento/:id",
-  autenticarMiddleware,
+  autenticarFrescoMiddleware,
   exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
@@ -413,13 +419,122 @@ app.post("/api/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/sessao", autenticarMiddleware, (req, res) => {
-  res.json({ usuario: req.usuario });
-});
+app.get("/api/sessao", autenticarMiddleware, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = await obterUsuarioAtualComConn(conn, req.usuario);
+    if (!usuario) {
+      // Usuário foi excluído do banco -> encerra a sessão (cliente faz logout).
+      res.status(401).json({ error: "Sessão encerrada. Faça login novamente." });
+      return;
+    }
+    res.json({ usuario });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// ---- Fluxo de solicitação/aprovação de acesso ----
+
+// Usuário (mesmo sem acesso aprovado) envia/edita sua solicitação.
+app.post("/api/acesso/solicitar", autenticarMiddleware, express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    // Se o acesso já foi aprovado nesse meio-tempo, não reabrir a solicitação:
+    // sinaliza ao cliente para entrar no painel (evita reverter aprovação para pendente).
+    const atual = await obterUsuarioAtualComConn(conn, req.usuario);
+    if (atual && atual.aprovado) {
+      res.json({ ok: true, jaAprovado: true });
+      return;
+    }
+    const resultado = await salvarSolicitacaoAcessoComConn(conn, req.usuario.email, req.body || {});
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao enviar solicitação." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Usuário acompanha a própria situação (status + histórico de recusas).
+app.get("/api/acesso/minha-solicitacao", autenticarMiddleware, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const situacao = await obterSituacaoAcessoComConn(conn, req.usuario.email);
+    res.json({ aprovado: !!req.usuario.aprovado, ...situacao });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Admin: lista pendentes + histórico.
+app.get("/api/acesso/solicitacoes", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    res.json(await listarSolicitacoesComConn(conn));
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Admin: aprova (libera o acesso imediatamente).
+app.post("/api/acesso/solicitacoes/:id/aprovar", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const adminEmail = (req.usuario && (req.usuario.email || req.usuario.login)) || "admin";
+    const resultado = await aprovarSolicitacaoComConn(conn, req.params.id, adminEmail, req.body || {});
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao aprovar a solicitação." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Admin: recusa (justificativa obrigatória).
+app.post("/api/acesso/solicitacoes/:id/recusar", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const adminEmail = (req.usuario && (req.usuario.email || req.usuario.login)) || "admin";
+    const resultado = await recusarSolicitacaoComConn(conn, req.params.id, adminEmail, (req.body || {}).observacao);
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao recusar a solicitação." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Admin: exclui o usuário das duas tabelas (usuários + solicitações).
+app.post("/api/acesso/usuario/excluir", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const resultado = await excluirUsuarioComConn(conn, (req.body || {}).email);
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao excluir o usuário." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Admin: define o privilégio (nível) de um usuário.
+app.post("/api/acesso/usuario/nivel", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const resultado = await definirNivelUsuarioComConn(conn, body.email, body.nivel);
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao alterar o privilégio." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
 
 app.post(
   "/api/remanejamento/salvar",
-  autenticarMiddleware,
+  autenticarFrescoMiddleware,
   exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
   upload.single("anexo"),
   asyncHandler(async (req, res) => {
@@ -466,6 +581,10 @@ if (require.main === module) {
 
   garantirTabelaMovimentacaoRemanejamento().catch(err => {
     console.error("Não foi possível garantir a tabela de movimentações de remanejamento:", err && err.message ? err.message : err);
+  });
+
+  garantirTabelaSolicitacoesAcesso().catch(err => {
+    console.error("Não foi possível garantir a tabela de solicitações de acesso:", err && err.message ? err.message : err);
   });
 }
 
@@ -762,11 +881,12 @@ async function autenticarUsuarioLocal(body) {
       login: limparValorDash(registro.LOGIN),
       nome: limparValorDash(registro.NOME),
       email: limparValorDash(registro.EMAIL),
-      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0)
+      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0),
+      aprovado: true // login por senha exige ATIVO=1 (verificado acima)
     };
 
     const token = jwt.sign(usuario, DASH_CONFIG.JWT_SECRET, { expiresIn: DASH_CONFIG.JWT_EXPIRES });
-    return { token, usuario };
+    return { token, usuario, aprovado: true };
   } finally {
     await fecharJdbc(conn);
   }
@@ -1005,36 +1125,44 @@ async function autenticarUsuarioGoogle(body) {
     let [rows] = await conn.query(selectPorEmail, [email]);
     let registro = rows && rows[0] ? rows[0] : null;
 
-    if (registro && Number(registro.ATIVO) !== 1) {
-      throw new Error("Usuário inativo. Procure o administrador.");
-    }
+    // E-mails da allowlist individual são liberados na hora (não passam pela aprovação).
+    // Os demais começam SEM acesso (ATIVO=0) e precisam de aprovação de um administrador.
+    const ativoInicial = emailLiberadoIndividualmente ? 1 : 0;
+    const nivelInicial = emailLiberadoIndividualmente ? DASH_CONFIG.GOOGLE_NIVEL_PADRAO : 0;
 
-    // Auto-cadastro: usuário do domínio ainda não existe -> cria com nível padrão.
     if (!registro) {
-      // Guarda apenas a parte do e-mail antes do "@" como LOGIN (descarta o domínio).
+      // Auto-cadastro: guarda só a parte do e-mail antes do "@" como LOGIN.
       const loginCurto = email.split("@")[0];
       await conn.execute(
         `INSERT INTO ${tabela}
            (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
-         VALUES (?, '', ?, ?, ?, 1)`,
-        [loginCurto, nome, email, DASH_CONFIG.GOOGLE_NIVEL_PADRAO]
+         VALUES (?, '', ?, ?, ?, ?)`,
+        [loginCurto, nome, email, nivelInicial, ativoInicial]
       );
       [rows] = await conn.query(selectPorEmail, [email]);
       registro = rows && rows[0] ? rows[0] : null;
+    } else if (emailLiberadoIndividualmente && Number(registro.ATIVO) !== 1) {
+      // Promove automaticamente um e-mail da allowlist que estava pendente.
+      await conn.execute(`UPDATE ${tabela} SET \`ATIVO\` = 1 WHERE \`EMAIL\` = ?`, [email]);
+      registro.ATIVO = 1;
     }
 
     if (!registro) throw new Error("Falha ao registrar o usuário do Google.");
 
+    const aprovado = Number(registro.ATIVO) === 1;
     const usuario = {
       id: Number(registro.ID_USUARIO),
       login: limparValorDash(registro.LOGIN),
       nome: limparValorDash(registro.NOME),
       email: limparValorDash(registro.EMAIL),
-      nivelAutorizacao: Number(registro.NIVEL_AUTORIZACAO || 0)
+      nivelAutorizacao: aprovado ? Number(registro.NIVEL_AUTORIZACAO || 0) : 0,
+      aprovado
     };
 
+    // Mesmo sem aprovação, emitimos um token (limitado) para o usuário poder
+    // abrir a tela de acesso pendente e enviar/acompanhar a solicitação.
     const token = jwt.sign(usuario, DASH_CONFIG.JWT_SECRET, { expiresIn: DASH_CONFIG.JWT_EXPIRES });
-    return { token, usuario };
+    return { token, usuario, aprovado };
   } finally {
     await fecharJdbc(conn);
   }
@@ -1056,11 +1184,46 @@ function verificarToken(token) {
       login: payload.login,
       nome: payload.nome,
       email: payload.email,
-      nivelAutorizacao: Number(payload.nivelAutorizacao || 0)
+      nivelAutorizacao: Number(payload.nivelAutorizacao || 0),
+      aprovado: !!payload.aprovado
     };
   } catch (err) {
     return null;
   }
+}
+
+// Middleware: exige que o usuário esteja com acesso aprovado (ATIVO/aprovado no token).
+function exigirAprovadoMiddleware(req, res, next) {
+  if (!req.usuario || !req.usuario.aprovado) {
+    res.status(403).json({ error: "Acesso ainda não aprovado." });
+    return;
+  }
+  next();
+}
+
+// Relê o usuário no banco a partir do token (fonte da verdade da sessão).
+// Retorna null se o usuário não existe mais (excluído) -> a sessão deve cair.
+// nível/aprovado vêm SEMPRE do banco (não do token), refletindo mudanças em tempo real.
+async function obterUsuarioAtualComConn(conn, tokenUser) {
+  const id = Number(tokenUser && tokenUser.id) || 0;
+  if (!id) return null;
+  const tabelaU = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+  const [rows] = await conn.query(
+    `SELECT \`ID_USUARIO\`, \`LOGIN\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`
+       FROM ${tabelaU} WHERE \`ID_USUARIO\` = ? LIMIT 1`,
+    [id]
+  );
+  const r = rows && rows[0] ? rows[0] : null;
+  if (!r) return null;
+  const aprovado = Number(r.ATIVO) === 1;
+  return {
+    id: Number(r.ID_USUARIO),
+    login: limparValorDash(r.LOGIN),
+    nome: limparValorDash(r.NOME),
+    email: limparValorDash(r.EMAIL),
+    nivelAutorizacao: aprovado ? Number(r.NIVEL_AUTORIZACAO || 0) : 0,
+    aprovado
+  };
 }
 
 function autenticarMiddleware(req, res, next) {
@@ -1071,6 +1234,33 @@ function autenticarMiddleware(req, res, next) {
   }
   req.usuario = usuario;
   next();
+}
+
+// Autenticação com REVALIDAÇÃO no banco: além de validar o token, relê nível/ativo
+// do usuário no banco e usa esses valores (frescos) em req.usuario. Assim, conceder
+// ou revogar privilégio passa a valer no PRÓXIMO request, sem o usuário precisar
+// relogar — e quem foi revogado não consegue mais agir com o token antigo.
+function autenticarFrescoMiddleware(req, res, next) {
+  const tokenUser = verificarToken(lerTokenDaRequisicao(req));
+  if (!tokenUser) {
+    res.status(401).json({ error: "Sessão expirada ou inválida. Faça login novamente." });
+    return;
+  }
+  getMysqlConnection()
+    .then(async (conn) => {
+      try {
+        const usuario = await obterUsuarioAtualComConn(conn, tokenUser);
+        if (!usuario) {
+          res.status(401).json({ error: "Sessão encerrada. Faça login novamente." });
+          return;
+        }
+        req.usuario = usuario;
+        next();
+      } finally {
+        await fecharJdbc(conn);
+      }
+    })
+    .catch(next);
 }
 
 function autenticarOpcionalMiddleware(req, res, next) {
@@ -1088,6 +1278,261 @@ function exigirNivelMiddleware(nivelMinimo) {
     }
     next();
   };
+}
+
+// ===================== Solicitações de acesso (fluxo de aprovação) =====================
+
+async function garantirTabelaSolicitacoesAcesso() {
+  const conn = await getMysqlConnection();
+  try {
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS \`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.SOLICITACOES_ACESSO_TABLE}\` (
+        \`ID_SOLICITACAO\`      BIGINT NOT NULL AUTO_INCREMENT,
+        \`EMAIL\`              VARCHAR(255) NOT NULL,
+        \`NOME\`               VARCHAR(255) NULL,
+        \`CARGO\`              VARCHAR(255) NULL,
+        \`COORDENACAO\`        VARCHAR(255) NULL,
+        \`DSEI\`               VARCHAR(255) NULL,
+        \`CASAI\`              VARCHAR(255) NULL,
+        \`JUSTIFICATIVA\`      TEXT NOT NULL,
+        \`STATUS\`             VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+        \`CRIADO_EM\`          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`DECIDIDO_POR\`       VARCHAR(255) NULL,
+        \`DECIDIDO_EM\`        DATETIME NULL,
+        \`OBSERVACAO_DECISAO\` TEXT NULL,
+        PRIMARY KEY (\`ID_SOLICITACAO\`),
+        UNIQUE KEY \`UQ_${DASH_CONFIG.SOLICITACOES_ACESSO_TABLE}_EMAIL\` (\`EMAIL\`),
+        KEY \`IDX_${DASH_CONFIG.SOLICITACOES_ACESSO_TABLE}_STATUS\` (\`STATUS\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+function tabelaSolicitacoes() {
+  return `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.SOLICITACOES_ACESSO_TABLE}\``;
+}
+
+const COLS_SOLICITACAO =
+  "`ID_SOLICITACAO`, `EMAIL`, `NOME`, `CARGO`, `COORDENACAO`, `DSEI`, `CASAI`, " +
+  "`JUSTIFICATIVA`, `STATUS`, `CRIADO_EM`, `DECIDIDO_POR`, `DECIDIDO_EM`, `OBSERVACAO_DECISAO`";
+
+// Cria ou atualiza a solicitação de acesso do usuário.
+// Mantém UMA linha por usuário (por e-mail): se já existe, atualiza a mesma linha
+// e a reabre como PENDENTE (limpando a decisão anterior); senão, cria a linha.
+async function salvarSolicitacaoAcessoComConn(conn, email, body) {
+  const emailNorm = String(email || "").trim().toLowerCase();
+  if (!emailNorm) throw new Error("Não foi possível identificar o usuário.");
+
+  const justificativa = limparValorDash(body.justificativa);
+  if (!justificativa) throw new Error("A justificativa é obrigatória.");
+
+  const dados = {
+    nome: limparValorDash(body.nome) || null,
+    cargo: limparValorDash(body.cargo) || null,
+    coordenacao: limparValorDash(body.coordenacao) || null,
+    dsei: limparValorDash(body.dsei) || null,
+    casai: limparValorDash(body.casai) || null,
+    justificativa
+  };
+
+  const [rows] = await conn.query(
+    `SELECT \`ID_SOLICITACAO\` FROM ${tabelaSolicitacoes()} WHERE \`EMAIL\` = ? LIMIT 1`,
+    [emailNorm]
+  );
+  const existente = rows && rows[0] ? rows[0] : null;
+
+  if (existente) {
+    await conn.execute(
+      `UPDATE ${tabelaSolicitacoes()} SET
+         \`NOME\` = ?, \`CARGO\` = ?, \`COORDENACAO\` = ?, \`DSEI\` = ?, \`CASAI\` = ?, \`JUSTIFICATIVA\` = ?,
+         \`STATUS\` = 'PENDENTE', \`DECIDIDO_POR\` = NULL, \`DECIDIDO_EM\` = NULL, \`OBSERVACAO_DECISAO\` = NULL
+       WHERE \`ID_SOLICITACAO\` = ?`,
+      [dados.nome, dados.cargo, dados.coordenacao, dados.dsei, dados.casai, dados.justificativa, existente.ID_SOLICITACAO]
+    );
+    return { id: Number(existente.ID_SOLICITACAO), atualizado: true };
+  }
+
+  const [res] = await conn.execute(
+    `INSERT INTO ${tabelaSolicitacoes()}
+       (\`EMAIL\`, \`NOME\`, \`CARGO\`, \`COORDENACAO\`, \`DSEI\`, \`CASAI\`, \`JUSTIFICATIVA\`, \`STATUS\`)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDENTE')`,
+    [emailNorm, dados.nome, dados.cargo, dados.coordenacao, dados.dsei, dados.casai, dados.justificativa]
+  );
+  return { id: res.insertId, atualizado: false };
+}
+
+// Situação de acesso do usuário: solicitação atual (mais recente) + histórico completo.
+async function obterSituacaoAcessoComConn(conn, email) {
+  const emailNorm = String(email || "").trim().toLowerCase();
+  const [rows] = await conn.query(
+    `SELECT ${COLS_SOLICITACAO} FROM ${tabelaSolicitacoes()}
+      WHERE \`EMAIL\` = ? ORDER BY \`CRIADO_EM\` DESC, \`ID_SOLICITACAO\` DESC`,
+    [emailNorm]
+  );
+  const historico = rows || [];
+  return { atual: historico[0] || null, historico };
+}
+
+// Lista para a tela de administração: pendentes + decididas (histórico).
+// Inclui (via JOIN) o nível e o status (ativo) atual do usuário, para o admin
+// poder gerenciar privilégios direto na tela.
+async function listarSolicitacoesComConn(conn) {
+  const tabU = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+  const sel = `s.\`ID_SOLICITACAO\`, s.\`EMAIL\`, s.\`NOME\`, s.\`CARGO\`, s.\`COORDENACAO\`, s.\`DSEI\`,
+    s.\`CASAI\`, s.\`JUSTIFICATIVA\`, s.\`STATUS\`, s.\`CRIADO_EM\`, s.\`DECIDIDO_POR\`, s.\`DECIDIDO_EM\`,
+    s.\`OBSERVACAO_DECISAO\`, u.\`NIVEL_AUTORIZACAO\` AS USUARIO_NIVEL, u.\`ATIVO\` AS USUARIO_ATIVO`;
+  const join = `FROM ${tabelaSolicitacoes()} s LEFT JOIN ${tabU} u ON u.\`EMAIL\` = s.\`EMAIL\``;
+
+  const [pendentes] = await conn.query(
+    `SELECT ${sel} ${join} WHERE s.\`STATUS\` = 'PENDENTE' ORDER BY s.\`CRIADO_EM\` ASC`
+  );
+  const [historico] = await conn.query(
+    `SELECT ${sel} ${join} WHERE s.\`STATUS\` <> 'PENDENTE' ORDER BY s.\`DECIDIDO_EM\` DESC, s.\`ID_SOLICITACAO\` DESC LIMIT 200`
+  );
+  return { pendentes: pendentes || [], historico: historico || [] };
+}
+
+// Define o nível de autorização (privilégio) de um usuário existente.
+// nível 0/1 = usuário comum; 2 = administrador (gerencia acessos).
+async function definirNivelUsuarioComConn(conn, email, nivel) {
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) throw new Error("E-mail inválido.");
+  const n = Number(nivel);
+  if (![0, 1, 2].includes(n)) throw new Error("Nível inválido.");
+  const tabU = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+  await conn.execute(`UPDATE ${tabU} SET \`NIVEL_AUTORIZACAO\` = ? WHERE \`EMAIL\` = ?`, [n, e]);
+  return { email: e, nivel: n };
+}
+
+// Aprova: marca APROVADO e libera o usuário (ATIVO=1 + nível) na mesma transação.
+async function aprovarSolicitacaoComConn(conn, idSolicitacao, adminEmail, opcoes = {}) {
+  const id = Number(idSolicitacao);
+  if (!id) throw new Error("Solicitação inválida.");
+
+  const [rows] = await conn.query(
+    `SELECT \`EMAIL\`, \`NOME\`, \`STATUS\` FROM ${tabelaSolicitacoes()} WHERE \`ID_SOLICITACAO\` = ? LIMIT 1`,
+    [id]
+  );
+  const sol = rows && rows[0] ? rows[0] : null;
+  if (!sol) throw new Error("Solicitação não encontrada.");
+  if (String(sol.STATUS) !== "PENDENTE") throw new Error("Esta solicitação já foi decidida.");
+
+  const nivel = Number(opcoes.nivel) > 0 ? Number(opcoes.nivel) : DASH_CONFIG.NIVEL_ACESSO_APROVADO;
+  const observacao = limparValorDash(opcoes.observacao) || null;
+  const email = String(sol.EMAIL).trim().toLowerCase();
+  const tabelaU = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+
+  await conn.beginTransaction();
+  try {
+    await conn.execute(
+      `UPDATE ${tabelaSolicitacoes()} SET
+         \`STATUS\` = 'APROVADO', \`DECIDIDO_POR\` = ?, \`DECIDIDO_EM\` = NOW(), \`OBSERVACAO_DECISAO\` = ?
+       WHERE \`ID_SOLICITACAO\` = ?`,
+      [adminEmail || null, observacao, id]
+    );
+
+    const [uRows] = await conn.query(`SELECT \`ID_USUARIO\` FROM ${tabelaU} WHERE \`EMAIL\` = ? LIMIT 1`, [email]);
+    if (uRows && uRows[0]) {
+      await conn.execute(`UPDATE ${tabelaU} SET \`ATIVO\` = 1, \`NIVEL_AUTORIZACAO\` = ? WHERE \`EMAIL\` = ?`, [nivel, email]);
+    } else {
+      await conn.execute(
+        `INSERT INTO ${tabelaU} (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
+         VALUES (?, '', ?, ?, ?, 1)`,
+        [email.split("@")[0], limparValorDash(sol.NOME) || email, email, nivel]
+      );
+    }
+
+    await conn.commit();
+    return { id, email, nivel, status: "APROVADO" };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  }
+}
+
+// Recusa: justificativa obrigatória. Marca RECUSADO e REVOGA o acesso (ATIVO=0),
+// garantindo que um usuário aprovado anteriormente perca o acesso ao ser recusado.
+async function recusarSolicitacaoComConn(conn, idSolicitacao, adminEmail, observacao) {
+  const id = Number(idSolicitacao);
+  if (!id) throw new Error("Solicitação inválida.");
+  const motivo = limparValorDash(observacao);
+  if (!motivo) throw new Error("A justificativa da recusa é obrigatória.");
+
+  const [rows] = await conn.query(
+    `SELECT \`EMAIL\`, \`STATUS\` FROM ${tabelaSolicitacoes()} WHERE \`ID_SOLICITACAO\` = ? LIMIT 1`, [id]
+  );
+  const sol = rows && rows[0] ? rows[0] : null;
+  if (!sol) throw new Error("Solicitação não encontrada.");
+  if (String(sol.STATUS) !== "PENDENTE") throw new Error("Esta solicitação já foi decidida.");
+
+  const email = String(sol.EMAIL || "").trim().toLowerCase();
+  const tabelaU = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+
+  await conn.beginTransaction();
+  try {
+    await conn.execute(
+      `UPDATE ${tabelaSolicitacoes()} SET
+         \`STATUS\` = 'RECUSADO', \`DECIDIDO_POR\` = ?, \`DECIDIDO_EM\` = NOW(), \`OBSERVACAO_DECISAO\` = ?
+       WHERE \`ID_SOLICITACAO\` = ?`,
+      [adminEmail || null, motivo, id]
+    );
+    if (email) {
+      await conn.execute(`UPDATE ${tabelaU} SET \`ATIVO\` = 0 WHERE \`EMAIL\` = ?`, [email]);
+    }
+    await conn.commit();
+    return { id, status: "RECUSADO" };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  }
+}
+
+// Exclui o usuário das DUAS tabelas (usuários do painel + solicitações de acesso),
+// removendo todas as suas informações e justificativas. Após isso, a próxima
+// revalidação de sessão derruba a sessão dele (ver /api/sessao).
+async function excluirUsuarioComConn(conn, email) {
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) throw new Error("E-mail inválido.");
+  const tabelaU = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
+
+  await conn.beginTransaction();
+  let solRes, usrRes;
+  try {
+    [solRes] = await conn.execute(`DELETE FROM ${tabelaSolicitacoes()} WHERE \`EMAIL\` = ?`, [e]);
+    [usrRes] = await conn.execute(`DELETE FROM ${tabelaU} WHERE \`EMAIL\` = ?`, [e]);
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  }
+
+  // Reaproveita o "buraco" do AUTO_INCREMENT: deixa o próximo id = MAX(id)+1
+  // (ALTER TABLE faz commit implícito, por isso vai depois da transação).
+  // Best-effort: se o usuário do banco não tiver privilégio de ALTER, a exclusão
+  // (que é o essencial) não deve falhar por causa disso.
+  try {
+    await resetarAutoIncrementComConn(conn, tabelaSolicitacoes(), "ID_SOLICITACAO");
+    await resetarAutoIncrementComConn(conn, tabelaU, "ID_USUARIO");
+  } catch (err) {
+    console.warn("Não foi possível reajustar o AUTO_INCREMENT após a exclusão:", err && err.message ? err.message : err);
+  }
+
+  return {
+    email: e,
+    solicitacoesRemovidas: (solRes && solRes.affectedRows) || 0,
+    usuariosRemovidos: (usrRes && usrRes.affectedRows) || 0
+  };
+}
+
+// Ajusta o AUTO_INCREMENT da tabela para MAX(coluna)+1, reaproveitando ids livres
+// no topo (ex.: após excluir o id mais alto, o próximo volta a reutilizá-lo).
+async function resetarAutoIncrementComConn(conn, tabela, coluna) {
+  const [rows] = await conn.query(`SELECT IFNULL(MAX(\`${coluna}\`), 0) + 1 AS n FROM ${tabela}`);
+  const proximo = (rows && rows[0] && Number(rows[0].n)) || 1;
+  // 'proximo' é um inteiro calculado pelo banco; seguro para interpolar.
+  await conn.query(`ALTER TABLE ${tabela} AUTO_INCREMENT = ${proximo}`);
 }
 
 async function getRemanejamentoListaData() {
@@ -2231,5 +2676,10 @@ Object.assign(module.exports, {
   _mapearCargoParaPrevistas: mapearCargoParaPrevistas,
   _mesesAteFimDoAno: mesesAteFimDoAno,
   _limparValorDash: limparValorDash,
-  _converterNumeroDash: converterNumeroDash
+  _converterNumeroDash: converterNumeroDash,
+  _salvarSolicitacaoAcessoComConn: salvarSolicitacaoAcessoComConn,
+  _aprovarSolicitacaoComConn: aprovarSolicitacaoComConn,
+  _recusarSolicitacaoComConn: recusarSolicitacaoComConn,
+  _excluirUsuarioComConn: excluirUsuarioComConn,
+  _definirNivelUsuarioComConn: definirNivelUsuarioComConn
 });

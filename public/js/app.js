@@ -1,6 +1,7 @@
 import { renderAlertasDaPagina, renderAlertasErro } from "./alertas.js";
 import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
+import { configurarAcesso } from "./acesso.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { AUTO_FULL_RELOAD_MS, AUTO_REFRESH_MS, COLORS } from "./constants.js";
 import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
@@ -28,6 +29,7 @@ export async function init() {
   configurarRemanejamento();
   configurarResponsividadePainel();
   configurarLogin();
+  configurarAcesso();
   await verificarSessaoInicial();
 }
 
