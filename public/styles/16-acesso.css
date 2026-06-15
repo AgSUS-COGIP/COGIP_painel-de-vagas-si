@@ -1,0 +1,273 @@
+/* =========================================================
+   Fluxo de solicitação/aprovação de acesso
+========================================================= */
+
+/* ---- Tela do usuário: acesso pendente ---- */
+.acessoCard {
+  width: min(94vw, 420px);
+  max-height: 94vh;
+  overflow-y: auto;
+}
+
+.acessoStatusBanner {
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #07346b;
+}
+.acessoStatusBanner.statusNovo { background: rgba(0, 109, 204, .10); }
+.acessoStatusBanner.statusPendente { background: rgba(243, 187, 24, .18); }
+.acessoStatusBanner.statusRecusado { background: rgba(220, 63, 63, .14); color: #8a1c1c; }
+
+.acessoRecusaMotivo {
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.35;
+  background: rgba(220, 63, 63, .10);
+  border: 1px solid rgba(220, 63, 63, .28);
+  color: #8a1c1c;
+}
+
+.acTextarea {
+  height: auto;
+  min-height: 70px;
+  padding: 9px 12px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.35;
+}
+
+/* Estado "solicitação pendente" (após o envio) */
+.acessoPendenteWrap {
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+.acessoPendenteIcon {
+  font-size: 34px;
+  color: #c8920a;
+}
+.acPendInfo {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  background: rgba(0, 83, 166, .05);
+  border: 1px solid rgba(0, 83, 166, .12);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.acPendInfo div { display: grid; gap: 1px; }
+.acPendInfo span { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
+.acPendInfo strong { color: #07346b; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+
+.loginBtnSecundario {
+  background: linear-gradient(135deg, #eff7ff, #d8ecff);
+  color: #07346b;
+  box-shadow: none;
+  border: 1px solid rgba(0, 83, 166, .18);
+}
+
+/* Caixa de recusa inline (admin) */
+.solRecusaBox {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(220, 63, 63, .06);
+  border: 1px solid rgba(220, 63, 63, .22);
+}
+.solRecusaLabel { color: #8a1c1c; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.solRecusaInput {
+  width: 100%;
+  min-height: 52px;
+  resize: vertical;
+  border: 1px solid rgba(220, 63, 63, .3);
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #07346b;
+  outline: none;
+}
+.solRecusaAcoes { display: flex; gap: 8px; }
+.solSecundario {
+  background: #eef2f7;
+  color: #46586f;
+  border: 1px solid rgba(0, 43, 93, .12);
+}
+
+/* Modal central de confirmação (sobrepõe tudo) */
+.acessoModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex; /* alternado p/ none via JS */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 30, 70, .55);
+  padding: 20px;
+}
+.acessoModalBox {
+  width: min(94vw, 380px);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 30, 70, .35);
+  padding: 22px;
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+.acessoModalTitulo { color: #07346b; font-size: 16px; font-weight: 900; }
+.acessoModalMsg { color: #315c8e; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.acessoModalAcoes { display: flex; gap: 10px; margin-top: 4px; }
+.acessoModalAcoes .solBtn { flex: 1; padding: 11px; }
+
+/* Campo de texto opcional do modal (ex.: justificativa da recusa) */
+.acessoModalInputWrap { display: grid; gap: 6px; text-align: left; }
+.acessoModalInputLabel { color: #07346b; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.acessoModalInput {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  border: 1px solid rgba(0, 83, 166, .25);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-family: inherit;
+  font-size: 13px;
+  color: #07346b;
+  outline: none;
+}
+.acessoModalErro { color: #b91c1c; font-size: 12px; font-weight: 800; min-height: 0; }
+
+/* Seletor de privilégio no card do admin */
+.solPrivilegio { display: grid; gap: 4px; }
+.solPrivilegio label { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
+.solNivelSelect {
+  width: 100%;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 9px;
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #07346b;
+  background: #fff;
+  outline: none;
+}
+
+.acLogoutLink {
+  margin-top: 4px;
+  background: none;
+  border: none;
+  color: #5c7190;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---- Tela do admin: gestão de solicitações ---- */
+.solSecaoTitulo {
+  margin: 18px 0 10px;
+  color: #07346b;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.solLista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.solCard {
+  background: #fff;
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 14px;
+  box-shadow: 0 10px 22px rgba(0, 43, 93, .10);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.solHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.solData { color: #5c7190; font-size: 11px; font-weight: 800; }
+.solHeadDir { display: inline-flex; align-items: center; gap: 8px; }
+.solExcluirBtn {
+  border: none;
+  background: rgba(220, 63, 63, .10);
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.solExcluirBtn:hover { background: rgba(220, 63, 63, .2); }
+
+.solTag {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.tagPendente { background: rgba(243, 187, 24, .22); color: #8a6d00; }
+.tagAprovado { background: rgba(73, 209, 141, .20); color: #047857; }
+.tagRecusado { background: rgba(220, 63, 63, .16); color: #b91c1c; }
+
+.solGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+}
+.solGrid div { display: grid; gap: 1px; min-width: 0; }
+.solGrid span { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
+.solGrid strong { color: #07346b; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+
+.solJustificativa span { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
+.solJustificativa p {
+  margin: 3px 0 0;
+  color: #07346b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.solDecisao { color: #5c7190; font-size: 11px; font-weight: 700; line-height: 1.35; }
+
+.solAcoes { display: flex; gap: 8px; }
+.solBtn {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.solAprovar { background: linear-gradient(135deg, #49d18d, #047857); color: #fff; }
+.solRecusar { background: rgba(220, 63, 63, .12); color: #b91c1c; border: 1px solid rgba(220, 63, 63, .3); }
+
+.solVazio {
+  grid-column: 1 / -1;
+  color: #5c7190;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 16px;
+  text-align: center;
+  background: rgba(0, 83, 166, .04);
+  border-radius: 12px;
+}

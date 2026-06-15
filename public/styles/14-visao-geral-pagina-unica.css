@@ -343,3 +343,41 @@
 .vagasSearchWrap .searchBox {
   width: 100%;
 }
+
+/* =========================================================
+   Aba Alertas: título + tabela unificados em um único
+   cartão.
+========================================================= */
+#view-alertas.tableView {
+  grid-template-rows: minmax(0, 1fr) !important;
+  overflow: hidden;
+}
+
+.alertasInfoCard {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+
+/* Cabeçalho e tabela perdem o fundo/sombra próprios dentro do cartão. */
+#view-alertas .alertasInfoCard .pageHeader {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+#view-alertas .alertasInfoCard .fullTableWrap {
+  box-shadow: none;
+  border: 1px solid rgba(0, 83, 166, .16);
+  border-radius: 14px;
+  min-height: 0;
+}
+
+.alertasInfoCard .tablePagination {
+  margin-bottom: 0;
+}

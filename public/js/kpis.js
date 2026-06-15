@@ -12,17 +12,17 @@ export function calcularIndicadores(data) {
   const substituicoes = soma(data, "contratadosSubstituicao");
   const temporarios = soma(data, "contratadosTemporario");
 
-      const contratados = deveUsarIndicadoresResumoBase() && state.indicadoresResumoBase
-        ? Number(state.indicadoresResumoBase.contratados || 0)
-        : contratadosCalculados;
-      // Vagas ociosas (déficit operacional) = previstas - contratados + afastados.
-      // Considera os negativos (excedente) abatendo — vale para todos os KPIs.
-      const vagasOciosas = vagasPrevistas - contratados + afastados;
-      // Vagas preenchidas = previstas - ociosas (mesma base da coluna % preenchimento).
-      const vagasPreenchidas = vagasPrevistas - vagasOciosas;
-      const vagasPreenchidasPerc = vagasPrevistas > 0
-        ? (vagasPreenchidas / vagasPrevistas) * 100
-        : 0;
+  const contratados = deveUsarIndicadoresResumoBase() && state.indicadoresResumoBase
+    ? Number(state.indicadoresResumoBase.contratados || 0)
+    : contratadosCalculados;
+  // Vagas ociosas (déficit operacional) = previstas - contratados + afastados.
+  // Considera os negativos (excedente) abatendo — vale para todos os KPIs.
+  const vagasOciosas = vagasPrevistas - contratados + afastados;
+  // Vagas preenchidas = trabalhadores contratados - afastados.
+  const vagasPreenchidas = contratados - afastados;
+  const vagasPreenchidasPerc = vagasPrevistas > 0
+    ? (vagasPreenchidas / vagasPrevistas) * 100
+    : 0;
 
   const coberturaAfastamentos = afastados > 0
     ? (substituicoes / afastados) * 100
