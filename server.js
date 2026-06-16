@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const path = require("path");
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const mysql = require("mysql2/promise");
 const multer = require("multer");
 const bcrypt = require("bcryptjs");
@@ -25,8 +26,36 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 
 
+// Atrás de proxy reverso (Nginx/Hostinger), o IP real vem em X-Forwarded-For.
+// Sem isto o rate limiter contaria todos os usuários como o mesmo IP (o do proxy).
+// TRUST_PROXY: número de saltos de proxy confiáveis (1 = um proxy à frente). 0 = sem proxy.
+app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
+
+// Rate limiting (proteção contra DoS / força bruta). Limita requisições por IP.
+// Os limites são generosos para não atrapalhar o uso normal (heartbeat + dashboards),
+// mas cortam rajadas abusivas. Ajustáveis por .env.
+const apiLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000),
+  max: Number(process.env.RATE_LIMIT_MAX || 300),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições. Tente novamente em instantes." }
+});
+
+// Limite mais rígido para o login (mitiga força bruta de senha).
+const loginLimiter = rateLimit({
+  windowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  max: Number(process.env.LOGIN_RATE_LIMIT_MAX || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas de login. Aguarde alguns minutos e tente novamente." }
+});
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+// Aplica o limite geral a toda a API (cobre as rotas que acessam o banco).
+app.use("/api", apiLimiter);
 
 app.get("/api/config", (req, res) => {
   res.json({
@@ -126,7 +155,7 @@ app.delete(
   })
 );
 
-app.post("/api/login", express.json(), asyncHandler(async (req, res) => {
+app.post("/api/login", loginLimiter, express.json(), asyncHandler(async (req, res) => {
   try {
     const resultado = await autenticarUsuario(req.body || {});
     res.json(resultado);
@@ -135,7 +164,7 @@ app.post("/api/login", express.json(), asyncHandler(async (req, res) => {
   }
 }));
 
-app.post("/api/login/google", express.json(), asyncHandler(async (req, res) => {
+app.post("/api/login/google", loginLimiter, express.json(), asyncHandler(async (req, res) => {
   try {
     const resultado = await autenticarUsuarioGoogle(req.body || {});
     res.json(resultado);
@@ -289,7 +318,9 @@ app.post("/api/cache/clear", asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.get("*", (req, res) => {
+// Catch-all do SPA: serve o index.html. Faz acesso ao filesystem, então também
+// passa pelo rate limiter geral (mitiga DoS por rajada de requisições).
+app.get("*", apiLimiter, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
@@ -304,7 +335,7 @@ if (require.main === module) {
   app.listen(port, () => {
     console.log(`Painel disponível em http://localhost:${port}`);
   });
-
+  
   garantirTabelaAlertasObservacoes().catch(err => {
     console.error("Não foi possível garantir a tabela de observações de alertas:", err && err.message ? err.message : err);
   });
