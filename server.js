@@ -254,8 +254,8 @@ app.post("/api/acesso/solicitacoes/:id/recusar", apiLimiter, autenticarFrescoMid
   }
 }));
 
-// Admin: exclui o usuário das duas tabelas (usuários + solicitações).
-app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+// Super admin: exclui o usuário das duas tabelas (usuários + solicitações).
+app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_SUPERADMIN), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const resultado = await excluirUsuarioComConn(conn, (req.body || {}).email);
@@ -267,8 +267,8 @@ app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, 
   }
 }));
 
-// Admin: define o privilégio (nível) de um usuário.
-app.post("/api/acesso/usuario/nivel", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+// Super admin: define o privilégio (nível) de um usuário.
+app.post("/api/acesso/usuario/nivel", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_SUPERADMIN), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = req.body || {};

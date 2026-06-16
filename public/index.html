@@ -83,27 +83,48 @@
         <div id="acessoStatusBanner" class="acessoStatusBanner statusNovo"></div>
         <div id="acessoRecusaMotivo" class="acessoRecusaMotivo" style="display:none;"></div>
 
-        <label class="loginLabel" for="acNome">Nome completo</label>
-        <input id="acNome" class="loginInput" type="text">
+        <!-- Tipo de unidade: define quais campos abaixo são exibidos -->
+        <div class="acTipoTabs" id="acTipoTabs" aria-label="Tipo de unidade">
+          <button type="button" class="acTipoTab active" data-actipo="dsei">DSEI/SESAI</button>
+          <button type="button" class="acTipoTab" data-actipo="sede">Sede AgSUS</button>
+          <button type="button" class="acTipoTab" data-actipo="distrital">Escritórios Distritais</button>
+        </div>
 
-        <label class="loginLabel" for="acEmail">E-mail institucional</label>
-        <input id="acEmail" class="loginInput" type="email" readonly>
+        <div class="acField" data-acfield="nome">
+          <label class="loginLabel" for="acNome">Nome completo</label>
+          <input id="acNome" class="loginInput" type="text">
+        </div>
 
-        <label class="loginLabel" for="acCargo">Cargo / Função</label>
-        <select id="acCargo" class="loginInput"></select>
+        <div class="acField" data-acfield="email">
+          <label class="loginLabel" for="acEmail">E-mail institucional</label>
+          <input id="acEmail" class="loginInput" type="email" readonly>
+        </div>
 
-        <label class="loginLabel" for="acCoordenacao">Coordenação</label>
-        <select id="acCoordenacao" class="loginInput"></select>
+        <div class="acField" data-acfield="cargo">
+          <label class="loginLabel" for="acCargo">Cargo / Função</label>
+          <select id="acCargo" class="loginInput"></select>
+        </div>
 
-        <label class="loginLabel" for="acDsei">DSEI</label>
-        <select id="acDsei" class="loginInput"></select>
+        <div class="acField" data-acfield="cargoOutro">
+          <label class="loginLabel" for="acCargoOutro">Informe o cargo / função</label>
+          <input id="acCargoOutro" class="loginInput" type="text" placeholder="Digite seu cargo / função">
+        </div>
 
-        <label class="loginLabel" for="acCasai">CASAI</label>
-        <select id="acCasai" class="loginInput"></select>
+        <div class="acField" data-acfield="coordenacao">
+          <label class="loginLabel" for="acCoordenacao">Coordenação</label>
+          <select id="acCoordenacao" class="loginInput"></select>
+        </div>
 
-        <label class="loginLabel" for="acJustificativa">Justificativa da necessidade de acesso *</label>
-        <textarea id="acJustificativa" class="loginInput acTextarea" rows="3"
-          placeholder="Explique por que você precisa acessar o painel."></textarea>
+        <div class="acField" data-acfield="unidade">
+          <label class="loginLabel" for="acUnidade">DSEI / CASAI</label>
+          <select id="acUnidade" class="loginInput"></select>
+        </div>
+
+        <div class="acField" data-acfield="justificativa">
+          <label class="loginLabel" for="acJustificativa">Justificativa da necessidade de acesso *</label>
+          <textarea id="acJustificativa" class="loginInput acTextarea" rows="3"
+            placeholder="Explique por que você precisa acessar o painel."></textarea>
+        </div>
 
         <button type="submit" class="loginBtn" id="acSubmitBtn">Enviar solicitação</button>
         <div id="acErro" class="loginErro"></div>
