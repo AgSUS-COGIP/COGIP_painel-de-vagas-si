@@ -1,6 +1,6 @@
 # Estrutura do CSS
 
-O `public/styles.css` é só um **índice de `@import`** que carrega as 14 partes desta pasta
+O `public/styles.css` é só um **índice de `@import`** que carrega as 18 partes desta pasta
 **na ordem da cascata**. Não reordene os imports: a ordem define a precedência.
 
 ⚠️ **Importante:** o CSS cresceu por ajustes acumulados, então o estilo de um componente
@@ -28,6 +28,10 @@ e "não pegar", provavelmente há um override num arquivo de número mais alto.
 | **14-visao-geral-pagina-unica.css** | Visão Geral em página única (sem rolagem): distribui os gráficos no espaço vertical. |
 | **17-gestao-ferias.css** | Aba **Gestão de Férias** (`gf*`): cartões, tabelas, badges, KPIs, toast da maquete. |
 | **18-entrega-cracha.css** | Aba **Entrega de Crachá** (`ec*`): KPIs, barra de filtros, tabela paginada, badges de status, painel de detalhe, modal de cadastro e toast. |
+| **15-painel-fixo-visao-geral.css** | Painel fixo/TV da Visão Geral (escala da base 1918x927). |
+| **16-acesso.css** | Página de Solicitações de Acesso e modal central reutilizável. |
+| **17-gestao-ferias.css** | Aba de Gestão de Férias (painéis, tabelas, badges, toast). |
+| **18-processos-seletivos.css** | Aba de Processos Seletivos (KPIs, tabela, badges de status, paginação, painel de detalhamento e modal de cadastro). |
 
 ## Onde mexer — referência rápida
 

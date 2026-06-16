@@ -10,6 +10,7 @@ import { configurarPainelExterno, configurarPainelFerias, configurarRemanejament
 import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { configurarEntregaCracha } from "./entrega-cracha.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
+import { configurarProcessosSeletivos } from "./processos-seletivos.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -33,6 +34,7 @@ export async function init() {
   configurarGestaoFerias();
   configurarEntregaCracha();
   configurarGestaoDisciplinar();
+  configurarProcessosSeletivos();
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();

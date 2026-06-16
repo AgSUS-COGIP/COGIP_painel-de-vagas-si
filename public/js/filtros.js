@@ -28,6 +28,7 @@ export function atualizarModoRolagem(view) {
   main.classList.toggle("view-gestao-active", view === "gestaoFerias");
   main.classList.toggle("view-cracha-active", view === "entregaCracha");
   main.classList.toggle("view-gestao-active", view === "gestaoDisciplinar");
+  main.classList.toggle("view-processos-active", view === "processosSeletivos");
   main.classList.toggle("view-remanejamento-active", view === "remanejamento" || view === "remanejamentoFormulario");
 
   if (isVisaoGeral) {

@@ -1,0 +1,754 @@
+/* =========================================================
+   Processos Seletivos
+   Aba de acompanhamento e cadastro de processos seletivos
+   (maquete com dados de exemplo). Mantém o visual do painel:
+   cartões claros translúcidos, cabeçalhos azul-profundo,
+   badges de status e rolagem de página.
+========================================================= */
+
+/* Ícone verde no menu lateral (identifica a aba de Processos Seletivos). */
+.nav .navItem[data-view="processosSeletivos"] .navIcon {
+  background: linear-gradient(135deg, #38c172, #1f9d57);
+  color: #fff;
+}
+
+/* Esta aba tem filtros próprios; esconde a barra de filtros do topo. */
+.main.view-processos-active .filtersBar {
+  display: none;
+}
+
+.main.view-processos-active .top {
+  grid-template-columns: minmax(330px, 1fr);
+}
+
+.processosSeletivosView {
+  height: auto;
+  padding-bottom: 28px;
+}
+
+.main.view-scroll .processosSeletivosView.active {
+  min-height: calc(100vh - 94px);
+  overflow: visible;
+}
+
+/* ---------- Cabeçalho da página ---------- */
+.psPageHeader {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, .9);
+  border-radius: 18px;
+  box-shadow: 0 14px 24px rgba(0, 43, 93, .16);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+
+.psPageHeader h2 {
+  margin: 0;
+  color: #07346b;
+  font-size: 21px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.psPageHeader p {
+  margin: 4px 0 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 720px;
+}
+
+.psHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.psSearchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.psSearchBox i {
+  position: absolute;
+  left: 12px;
+  color: #6b86a8;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.psSearch {
+  height: 38px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 10px;
+  background: #fff;
+  color: #0b2445;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 0 12px 0 32px;
+  width: 240px;
+  outline: none;
+}
+
+.psSearch:focus {
+  border-color: #0070d9;
+  box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+}
+
+/* ---------- Campos genéricos ---------- */
+.psInput,
+.psSelect {
+  height: 38px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 10px;
+  background: #fff;
+  color: #0b2445;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 0 11px;
+  width: 100%;
+  outline: none;
+}
+
+.psInput:focus,
+.psSelect:focus {
+  border-color: #0070d9;
+  box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+}
+
+/* ---------- Botões ---------- */
+.psBtn {
+  border: none;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  font-family: inherit;
+  padding: 10px 15px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  box-shadow: 0 12px 22px rgba(0, 43, 93, .18);
+  transition: .16s ease;
+}
+
+.psBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 26px rgba(0, 43, 93, .24);
+}
+
+.psBtn.psBtnGhost {
+  background: #fff;
+  color: #0b4488;
+  border: 1px solid rgba(0, 83, 166, .3);
+  box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
+}
+
+.psBtn.psBtnSm {
+  padding: 7px 12px;
+  font-size: 11px;
+  border-radius: 9px;
+  box-shadow: none;
+}
+
+.psIconBtn {
+  border: none;
+  background: transparent;
+  color: #a23b3b;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.psIconBtn:hover {
+  background: rgba(162, 59, 59, .1);
+}
+
+/* ---------- KPIs ---------- */
+.psKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.psKpi {
+  background: rgba(255, 255, 255, .92);
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 16px;
+  box-shadow: 0 12px 22px rgba(0, 43, 93, .14);
+  padding: 14px 16px;
+}
+
+.psKpiLabel {
+  color: #4a6a93;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.psKpiValue {
+  color: #07346b;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -.6px;
+  margin-top: 4px;
+}
+
+.psKpiValue.is-muted { color: #6b7d96; }
+.psKpiValue.is-green { color: #0a8a4d; }
+.psKpiValue.is-orange { color: #d98200; }
+.psKpiValue.is-red { color: #c0392b; }
+
+/* ---------- Painel / tabela principal ---------- */
+.psPanel {
+  position: relative;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .97), rgba(224, 244, 255, .94)),
+    radial-gradient(circle at 92% 10%, rgba(32, 178, 255, .14), transparent 34%);
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 20px;
+  box-shadow: 0 16px 30px rgba(0, 32, 74, .18);
+  padding: 16px 18px;
+}
+
+.psTableWrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 83, 166, .14);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 83, 166, .4) transparent;
+}
+
+.psTableWrap::-webkit-scrollbar { height: 9px; }
+.psTableWrap::-webkit-scrollbar-thumb { background: rgba(0, 83, 166, .4); border-radius: 999px; }
+
+.psTable {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+  table-layout: auto;
+}
+
+.psTable th,
+.psTable td {
+  vertical-align: middle;
+}
+
+.psTable th {
+  background: linear-gradient(135deg, #00457f, #006dcc);
+  color: #fff;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  position: sticky;
+  top: 0;
+}
+
+.psTable td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(0, 86, 167, .12);
+  color: #143a63;
+  font-weight: 700;
+}
+
+.psTable tbody tr:nth-child(even) td { background: rgba(232, 247, 255, .55); }
+.psTable tbody tr:hover td { background: rgba(0, 112, 217, .08); }
+.psTable tbody tr.is-expandido td { background: rgba(0, 112, 217, .12); }
+
+.psTable .psTd-center { text-align: center; }
+.psTable .psCelNome { font-weight: 900; color: #0b3568; }
+
+.psEmpty {
+  text-align: center;
+  color: #4a6a93;
+  font-weight: 800;
+  padding: 22px 12px !important;
+}
+
+/* ---------- Botão de ações da linha ---------- */
+.psAcaoBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(0, 83, 166, .26);
+  background: #fff;
+  color: #0b4488;
+  font-size: 11px;
+  font-weight: 900;
+  font-family: inherit;
+  padding: 6px 11px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: .16s ease;
+}
+
+.psAcaoBtn:hover { background: #eaf4ff; }
+.psAcaoBtn i { transition: transform .2s ease; font-size: 11px; }
+.psAcaoBtn.is-aberto { background: #0070d9; color: #fff; border-color: #0070d9; }
+.psAcaoBtn.is-aberto i { transform: rotate(180deg); }
+
+/* ---------- Rodapé / paginação ---------- */
+.psTableFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: #4a6a93;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.psPaginacao { display: flex; gap: 6px; }
+
+.psPagBtn {
+  min-width: 30px;
+  height: 30px;
+  border: 1px solid rgba(0, 83, 166, .24);
+  background: #fff;
+  color: #0b4488;
+  font-size: 12px;
+  font-weight: 900;
+  font-family: inherit;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: .14s ease;
+}
+
+.psPagBtn:hover:not(:disabled) { background: #eaf4ff; }
+.psPagBtn.is-ativo { background: #0070d9; color: #fff; border-color: #0070d9; }
+.psPagBtn:disabled { opacity: .4; cursor: default; }
+
+/* ---------- Badges de status ---------- */
+.psBadge {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+
+.psBadge.is-naoiniciado { background: #e7eefb; color: #41506b; }
+.psBadge.is-andamento { background: #d7f5e3; color: #0a7a44; }
+.psBadge.is-breve { background: #fff2d6; color: #8a5a00; }
+.psBadge.is-encerrado { background: #ffdcd7; color: #b5281a; }
+
+/* ---------- Painel de detalhamento ---------- */
+.psDetalhe {
+  margin-top: 14px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .98), rgba(224, 244, 255, .95));
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 20px;
+  box-shadow: 0 16px 30px rgba(0, 32, 74, .2);
+  padding: 16px 18px;
+  animation: psFadeIn .25s ease;
+}
+
+@keyframes psFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.psDetalheTopo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(0, 83, 166, .14);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.psDetalheTitulo h3 {
+  margin: 0;
+  color: #07346b;
+  font-size: 16px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.psDetalheTitulo p {
+  margin: 6px 0 0 0;
+  color: #4a6a93;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.psDetalheAcoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.psStatusInline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #2d537f;
+}
+
+.psStatusInline .psSelect { width: auto; min-width: 170px; }
+
+/* ---------- Tiles de resumo do processo ---------- */
+.psResumoTiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.psTile {
+  background: rgba(255, 255, 255, .72);
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+}
+
+.psTileValue {
+  color: #07346b;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.6px;
+}
+
+.psTileValue.is-green { color: #0a8a4d; }
+.psTileValue.is-red { color: #c0392b; }
+.psTileValue.is-blue { color: #0a5bb0; }
+
+.psTileLabel {
+  color: #4a6a93;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+/* ---------- Blocos de tabelas do detalhe ---------- */
+.psDetalheGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.psBloco + .psBloco { margin-top: 0; }
+
+.psBlocoTitulo {
+  margin: 0 0 9px 0;
+  color: #0b4488;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+/* Cabeçalho do acompanhamento: título + chips de cargo. */
+.psBlocoHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.psBlocoHead .psBlocoTitulo { margin: 0; }
+
+.psChips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.psChip {
+  border: 1px solid rgba(0, 83, 166, .26);
+  background: #fff;
+  color: #0b4488;
+  font-size: 10.5px;
+  font-weight: 900;
+  font-family: inherit;
+  padding: 5px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: .14s ease;
+}
+
+.psChip:hover { background: #eaf4ff; }
+
+.psChip.is-ativo {
+  background: #0070d9;
+  color: #fff;
+  border-color: #0070d9;
+}
+
+/* Botão de cargo em "Vagas Previstas" quando sua lista está ativa abaixo. */
+.psBtn.psBtnGhost.is-ativo {
+  background: #0070d9;
+  color: #fff;
+  border-color: #0070d9;
+}
+
+.psTableSub { font-size: 11.5px; }
+.psTableSub th { font-size: 10px; }
+
+.psTotalRow td {
+  background: rgba(0, 69, 127, .08) !important;
+  font-weight: 900;
+  color: #07346b;
+}
+
+.psDocLink {
+  color: #0070d9;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.psDocLink:hover { text-decoration: underline; }
+
+.psLegenda {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  color: #4a6a93;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.psLegenda span { display: inline-flex; align-items: center; gap: 7px; }
+
+.psDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.psDot.is-green { background: #0a8a4d; }
+.psDot.is-red { background: #c0392b; }
+
+/* ============================================================
+   Modal de cadastro de novo processo
+============================================================ */
+.psModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 22, 48, .55);
+  backdrop-filter: blur(2px);
+}
+
+.psModalOverlay[hidden] { display: none; }
+
+.psModalCard {
+  width: min(960px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(150deg, #ffffff, #eef6ff);
+  border-radius: 20px;
+  box-shadow: 0 30px 70px rgba(0, 24, 61, .5);
+  overflow: hidden;
+}
+
+.psModalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #00457f, #006dcc);
+  color: #fff;
+}
+
+.psModalHead h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.psModalClose {
+  border: none;
+  background: rgba(255, 255, 255, .18);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.psModalClose:hover { background: rgba(255, 255, 255, .32); }
+
+.psModalBody {
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+
+.psFormGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.psField {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.psField.psField2 { grid-column: span 2; }
+
+.psField > span {
+  color: #2d537f;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.psReq { color: #e0483b; font-style: normal; }
+
+.psFormSecao {
+  margin-top: 16px;
+  border-top: 1px dashed rgba(0, 83, 166, .2);
+  padding-top: 14px;
+}
+
+.psFormSecaoHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.psFormSecaoHead h4 {
+  margin: 0;
+  color: #0b4488;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.psFormSecaoHead small { color: #6b86a8; font-weight: 800; text-transform: none; }
+
+.psFormRow {
+  display: grid;
+  grid-template-columns: 1.4fr .7fr .8fr 1.1fr 1.1fr 1.2fr 36px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.psFormRow.psFormRowCand {
+  grid-template-columns: 1.2fr 1.6fr .8fr 1.1fr .9fr 36px;
+}
+
+.psFormRow.psFormRowHead {
+  margin-bottom: 6px;
+}
+
+.psFormRow.psFormRowHead span {
+  color: #6b86a8;
+  font-size: 9.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  padding-left: 2px;
+}
+
+.psCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #2d537f;
+}
+
+.psCheck input { width: 16px; height: 16px; }
+
+.psModalErro {
+  color: #c0392b;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 10px;
+  min-height: 16px;
+}
+
+.psModalFoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(0, 83, 166, .14);
+  background: rgba(255, 255, 255, .6);
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 1180px) {
+  .psKpiGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .psResumoTiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .psDetalheGrid { grid-template-columns: 1fr; }
+  .psFormGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .psField.psField2 { grid-column: span 2; }
+  .psFormRow,
+  .psFormRow.psFormRowCand { grid-template-columns: 1fr 1fr; }
+  .psFormRow.psFormRowHead { display: none; }
+}
+
+@media (max-width: 720px) {
+  .psKpiGrid,
+  .psResumoTiles { grid-template-columns: 1fr 1fr; }
+  .psHeaderActions { justify-content: stretch; }
+  .psSearch { width: 100%; }
+  .psFormGrid,
+  .psFormRow,
+  .psFormRow.psFormRowCand { grid-template-columns: 1fr; }
+  .psField.psField2 { grid-column: span 1; }
+}
