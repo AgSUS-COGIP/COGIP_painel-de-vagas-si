@@ -329,6 +329,7 @@ export function renderTabelaDetalheRemanejamento(titulo, itens) {
           <td>${formatCurrency(item.noturno)}</td>
           <td>${formatCurrency(item.encargos)}</td>
           <td>${formatCurrency(item.provisoes)}</td>
+          <td>${formatCurrency(item.valeAlimentacao)}</td>
           <td>${formatCurrency(item.mensal)}</td>
           <td>${formatCurrency(item.periodo)}</td>
         </tr>
@@ -344,12 +345,12 @@ export function renderTabelaDetalheRemanejamento(titulo, itens) {
             <thead>
               <tr>
                 <th>Cargo</th><th>Qtd.</th><th>Meses</th><th>Salário</th><th>Insal./Peric.</th>
-                <th>Grat. RT</th><th>Noturno</th><th>Encargos</th><th>Provisões</th><th>Mensal</th><th>Período</th>
+                <th>Grat. RT</th><th>Noturno</th><th>Encargos</th><th>Provisões</th><th>Vale Alim.</th><th>Mensal</th><th>Período</th>
               </tr>
             </thead>
-            <tbody>${linhas || '<tr><td colspan="11">Sem itens.</td></tr>'}</tbody>
+            <tbody>${linhas || '<tr><td colspan="12">Sem itens.</td></tr>'}</tbody>
             <tfoot>
-              <tr><td colspan="9">TOTAL</td><td>${formatCurrency(totalMensal)}</td><td>${formatCurrency(totalPeriodo)}</td></tr>
+              <tr><td colspan="10">TOTAL</td><td>${formatCurrency(totalMensal)}</td><td>${formatCurrency(totalPeriodo)}</td></tr>
             </tfoot>
           </table>
         </div>
@@ -445,6 +446,7 @@ function construirLinhaEdicaoRemanejamento(tipo, item) {
   linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
   linha.encargos = Number(cadastro?.encargos || 0);
   linha.provisoes = Number(cadastro?.provisoes || 0);
+  linha.valeAlimentacao = Number(cadastro?.valeAlimentacao || 0);
   linha.quantidade = Math.max(1, Number(item.quantidade || 1));
   return linha;
 }
@@ -628,7 +630,8 @@ export function criarLinhaRemanejamento(tipo, valores) {
     gratificacaoRt: Number(valores?.gratificacaoRt || 0),
     adicionalNoturno: Number(valores?.adicionalNoturno || 0),
     encargos: Number(valores?.encargos || 0),
-    provisoes: Number(valores?.provisoes || 0)
+    provisoes: Number(valores?.provisoes || 0),
+    valeAlimentacao: Number(valores?.valeAlimentacao || 0)
   };
 }
 
@@ -674,7 +677,8 @@ export function atualizarCampoLinhaRemanejamento(tipo, id, campo, valor) {
     linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
     linha.encargos = Number(cadastro?.encargos || 0);
     linha.provisoes = Number(cadastro?.provisoes || 0);
-  } else if (["quantidade", "meses", "salarioBase", "insalubridadePericulosidade", "gratificacaoRt", "adicionalNoturno", "encargos", "provisoes"].includes(campo)) {
+    linha.valeAlimentacao = Number(cadastro?.valeAlimentacao || 0);
+  } else if (["quantidade", "meses", "salarioBase", "insalubridadePericulosidade", "gratificacaoRt", "adicionalNoturno", "encargos", "provisoes", "valeAlimentacao"].includes(campo)) {
     linha[campo] = Number(valor || 0);
   } else {
     linha[campo] = valor;
@@ -747,7 +751,8 @@ export function calcularTotalLinhaRemanejamento(row) {
   const adicionalNoturno = Number(row.adicionalNoturno || 0) * quantidade;
   const encargos = Number(row.encargos || 0) * quantidade;
   const provisoes = Number(row.provisoes || 0) * quantidade;
-  const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes;
+  const valeAlimentacao = Number(row.valeAlimentacao || 0) * quantidade;
+  const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes + valeAlimentacao;
   return { mensal, total: mensal * meses };
 }
 
@@ -763,9 +768,10 @@ export function coletarLinhasRemanejamento(tipo) {
       gratificacaoRt: Number(item.gratificacaoRt || 0),
       adicionalNoturno: Number(item.adicionalNoturno || 0),
       encargos: Number(item.encargos || 0),
-      provisoes: Number(item.provisoes || 0)
+      provisoes: Number(item.provisoes || 0),
+      valeAlimentacao: Number(item.valeAlimentacao || 0)
     }))
-    .filter(item => item.idCargoFuncao || item.quantidade || item.salarioBase || item.encargos || item.provisoes);
+    .filter(item => item.idCargoFuncao || item.quantidade || item.salarioBase || item.encargos || item.provisoes || item.valeAlimentacao);
 }
 
 export function calcularResumoLinhasRemanejamento(items) {
@@ -778,17 +784,19 @@ export function calcularResumoLinhasRemanejamento(items) {
     const adicionalNoturno = Number(item.adicionalNoturno || 0) * quantidade;
     const encargos = Number(item.encargos || 0) * quantidade;
     const provisoes = Number(item.provisoes || 0) * quantidade;
-    const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes;
+    const valeAlimentacao = Number(item.valeAlimentacao || 0) * quantidade;
+    const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes + valeAlimentacao;
     acc.salarioBase += salarioBase;
     acc.insalubridadePericulosidade += insalubridadePericulosidade;
     acc.gratificacaoRt += gratificacaoRt;
     acc.adicionalNoturno += adicionalNoturno;
     acc.encargos += encargos;
     acc.provisoes += provisoes;
+    acc.valeAlimentacao += valeAlimentacao;
     acc.mensal += mensal;
     acc.total += mensal * meses;
     return acc;
-  }, { salarioBase: 0, insalubridadePericulosidade: 0, gratificacaoRt: 0, adicionalNoturno: 0, encargos: 0, provisoes: 0, mensal: 0, total: 0 });
+  }, { salarioBase: 0, insalubridadePericulosidade: 0, gratificacaoRt: 0, adicionalNoturno: 0, encargos: 0, provisoes: 0, valeAlimentacao: 0, mensal: 0, total: 0 });
 }
 
 export function atualizarResumoRemanejamentoPainel() {
@@ -829,6 +837,9 @@ export function atualizarResumoRemanejamentoPainel() {
   setText("remProvisaoRed", formatCurrency(red.provisoes));
   setText("remProvisaoAdd", formatCurrency(add.provisoes));
   setText("remProvisaoImpacto", formatCurrency(add.provisoes - red.provisoes));
+  setText("remValeRed", formatCurrency(red.valeAlimentacao));
+  setText("remValeAdd", formatCurrency(add.valeAlimentacao));
+  setText("remValeImpacto", formatCurrency(add.valeAlimentacao - red.valeAlimentacao));
   setText("remResumoTotalRed", formatCurrency(red.mensal));
   setText("remResumoTotalAdd", formatCurrency(add.mensal));
   setText("remResumoTotalImpacto", formatCurrency(impactoMensal));

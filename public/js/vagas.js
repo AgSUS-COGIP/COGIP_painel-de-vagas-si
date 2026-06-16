@@ -510,12 +510,14 @@ export function montarDistribuicaoVagasOciosas(rows) {
     return linhasPagina.map(row => ({
       dseiCasai: row.dseiCasai || "Não informado",
       cargo: row.cargo || "Não informado",
+      quantitativoPlano: Number(row.quantitativoPlano || 0),
       ...valoresDistribuicao(row)
     }));
   }
 
   return linhasPagina.map(row => ({
     label: row.label || "Não informado",
+    quantitativoPlano: Number(row.quantitativoPlano || 0),
     ...valoresDistribuicao(row)
   }));
 }
@@ -639,12 +641,24 @@ export function renderProcessoSeletivo(rows) {
 
   atualizarCabecalhoProcessoSeletivo();
   renderPaginacaoTabela("processoSeletivoPagination", rows);
-  // Exclui os cargos que não passam por processo seletivo (antes da agregação).
+  // Mantém as linhas com movimento de processo seletivo E, também, as que têm
+  // previsão de pelo menos 1 vaga no DSEI mas sem vaga ociosa (cargo totalmente
+  // preenchido). Estas últimas entram com 0 nas colunas e "CR" (Cadastro Reserva)
+  // na coluna "Total Processo Seletivo".
   const linhas = montarDistribuicaoVagasOciosas(filtrarCargosProcessoSeletivo(rows)).filter(item => {
     return Number(item.normalTemporario || 0) !== 0 ||
       Number(item.contratadosTemporario || 0) !== 0 ||
-      Number(item.processoSeletivo || 0) !== 0;
+      Number(item.processoSeletivo || 0) !== 0 ||
+      Number(item.quantitativoPlano || 0) >= 1;
   });
+
+  // Uma linha é "Cadastro Reserva" (CR) quando tem previsão (>= 1) mas nenhuma
+  // vaga para processo seletivo (sem ociosas e sem temporárias).
+  const ehCadastroReserva = row => Number(row.quantitativoPlano || 0) >= 1 &&
+    Number(row.normalTemporario || 0) === 0 &&
+    Number(row.contratadosTemporario || 0) === 0 &&
+    Number(row.processoSeletivo || 0) === 0;
+  const celulaTotalProcessoSeletivo = row => ehCadastroReserva(row) ? "CR" : formatNumber(row.processoSeletivo);
 
   const totalColunas = state.vagasViewAtual === "detalhado" ? 5 : 4;
   if (!linhas.length) {
@@ -666,7 +680,7 @@ export function renderProcessoSeletivo(rows) {
             <td>${escapeHtml(row.cargo)}</td>
             <td>${formatNumber(row.normalTemporario)}</td>
             <td>${formatNumber(row.contratadosTemporario)}</td>
-            <td>${formatNumber(row.processoSeletivo)}</td>
+            <td>${celulaTotalProcessoSeletivo(row)}</td>
           </tr>
         `).join("") + `
           <tr class="totalRow">
@@ -684,7 +698,7 @@ export function renderProcessoSeletivo(rows) {
           <td>${escapeHtml(row.label)}</td>
           <td>${formatNumber(row.normalTemporario)}</td>
           <td>${formatNumber(row.contratadosTemporario)}</td>
-          <td>${formatNumber(row.processoSeletivo)}</td>
+          <td>${celulaTotalProcessoSeletivo(row)}</td>
         </tr>
       `).join("") + `
         <tr class="totalRow">

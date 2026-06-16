@@ -8,6 +8,7 @@ import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, confi
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
 import { configurarGestaoFerias } from "./gestao-ferias.js";
+import { configurarProcessosSeletivos } from "./processos-seletivos.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -29,6 +30,7 @@ export async function init() {
   configurarPainelFerias();
   configurarRemanejamento();
   configurarGestaoFerias();
+  configurarProcessosSeletivos();
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();

@@ -206,6 +206,11 @@
           <span>Remanejamento</span>
         </div>
 
+        <div class="navItem" data-view="processosSeletivos">
+          <span class="navIcon"><i class="fa-solid fa-clipboard-list"></i></span>
+          <span>Processos Seletivos</span>
+        </div>
+
         <div class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
           <span class="navIcon"><i class="fa-solid fa-user-check"></i></span>
           <span>Solicitações</span>
@@ -1169,6 +1174,78 @@
         </section>
 
 
+        <section id="view-processosSeletivos" class="viewPanel processosSeletivosView">
+          <div class="psPageHeader">
+            <div>
+              <h2>Processos Seletivos em Aberto</h2>
+              <p>Acompanhe e cadastre os processos seletivos da Saúde Indígena, defina o status de cada um e
+                visualize vagas, convocados, desistentes e o detalhamento dos candidatos.</p>
+            </div>
+            <div class="psHeaderActions">
+              <select class="psSelect" id="psFiltroDsei" aria-label="Filtrar por DSEI">
+                <option value="">Todos os DSEIs</option>
+              </select>
+              <div class="psSearchBox">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input class="psSearch" id="psBusca" type="search" placeholder="Buscar processo seletivo...">
+              </div>
+              <button type="button" class="psBtn" id="psBtnNovo">
+                <i class="fa-solid fa-plus"></i> Novo Processo Seletivo
+              </button>
+            </div>
+          </div>
+
+          <div class="psKpiGrid">
+            <div class="psKpi">
+              <div class="psKpiLabel">Total de Processos</div>
+              <div class="psKpiValue" id="psKpiTotal">0</div>
+            </div>
+            <div class="psKpi">
+              <div class="psKpiLabel">Não Iniciados</div>
+              <div class="psKpiValue is-muted" id="psKpiNaoIniciado">0</div>
+            </div>
+            <div class="psKpi">
+              <div class="psKpiLabel">Em Andamento</div>
+              <div class="psKpiValue is-green" id="psKpiAndamento">0</div>
+            </div>
+            <div class="psKpi">
+              <div class="psKpiLabel">Encerrando em Breve</div>
+              <div class="psKpiValue is-orange" id="psKpiBreve">0</div>
+            </div>
+            <div class="psKpi">
+              <div class="psKpiLabel">Encerrados</div>
+              <div class="psKpiValue is-red" id="psKpiEncerrado">0</div>
+            </div>
+          </div>
+
+          <section class="psPanel">
+            <div class="psTableWrap">
+              <table class="psTable">
+                <thead>
+                  <tr>
+                    <th>Processo Seletivo</th>
+                    <th>DSEI</th>
+                    <th>Unidade</th>
+                    <th>Data Início</th>
+                    <th>Divulgação Resultado Final</th>
+                    <th>Data Fim (Vigência)</th>
+                    <th>Status</th>
+                    <th class="psTd-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="psTabelaBody"></tbody>
+              </table>
+            </div>
+            <div class="psTableFoot">
+              <span id="psContador">Nenhum processo cadastrado.</span>
+              <div class="psPaginacao" id="psPaginacao"></div>
+            </div>
+          </section>
+
+          <section class="psDetalhe" id="psDetalhe" hidden></section>
+        </section>
+
+
         <section id="view-remanejamento" class="viewPanel remanejamentoView remanejamentoPageFull">
           <div class="remPageTitleBar">
             <div>
@@ -1350,6 +1427,12 @@
                           <td id="remProvisaoRed">R$ 0,00</td>
                           <td id="remProvisaoAdd">R$ 0,00</td>
                           <td id="remProvisaoImpacto">R$ 0,00</td>
+                        </tr>
+                        <tr>
+                          <td>Vale Alimentação</td>
+                          <td id="remValeRed">R$ 0,00</td>
+                          <td id="remValeAdd">R$ 0,00</td>
+                          <td id="remValeImpacto">R$ 0,00</td>
                         </tr>
                         <tr class="remResumoTotal">
                           <td>Total</td>
