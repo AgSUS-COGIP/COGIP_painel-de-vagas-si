@@ -18,6 +18,7 @@ const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterL
 const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirNivelMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 
 const app = express();
+app.disable("x-powered-by"); // não revela o framework/versão
 
 // Tipos que o navegador renderiza na própria origem e poderiam executar script
 // (HTML/SVG/XML). Bloqueados no upload como defesa em profundidade — além disso o
@@ -51,27 +52,44 @@ app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
 // Cabeçalhos de segurança aplicados a todas as respostas (inclui estáticos).
 // A CSP libera explicitamente os CDNs usados pelo painel (Google Identity,
 // Chart.js via jsDelivr e Font Awesome via cdnjs) e bloqueia o resto.
+function origemDeUrl(valor) {
+  try { return new URL(String(valor || "").trim()).origin; } catch (e) { return ""; }
+}
+
+// frame-src: o painel embute em <iframe> o login do Google e os dashboards
+// externos configurados (Saúde Indígena / Férias). Liberamos exatamente essas
+// origens — trocar a URL de um dashboard exige reiniciar o servidor.
+const FRAME_SRC = [...new Set([
+  "'self'",
+  "https://accounts.google.com",
+  origemDeUrl(DASH_CONFIG.DASHBOARD_SAUDE_INDIGENA_URL),
+  origemDeUrl(DASH_CONFIG.DASHBOARD_FERIAS_URL)
+].filter(Boolean))];
+
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' https://accounts.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com https://cdnjs.cloudflare.com",
+  "img-src 'self' data: https:",
+  "font-src 'self' data: https://cdnjs.cloudflare.com",
+  "connect-src 'self' https://accounts.google.com",
+  `frame-src ${FRAME_SRC.join(" ")}`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'"
+].join("; ");
+
 function definirCabecalhosSeguranca(req, res, next) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
-  res.setHeader(
-    "Content-Security-Policy",
-    [
-      "default-src 'self'",
-      "script-src 'self' https://accounts.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-      "style-src 'self' 'unsafe-inline' https://accounts.google.com https://cdnjs.cloudflare.com",
-      "img-src 'self' data: https:",
-      "font-src 'self' data: https://cdnjs.cloudflare.com",
-      "connect-src 'self' https://accounts.google.com",
-      "frame-src https://accounts.google.com",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'self'"
-    ].join("; ")
-  );
+  // HSTS apenas sob HTTPS/produção (não enviar em http evita travar dev local).
+  if (req.secure || String(req.headers["x-forwarded-proto"] || "").toLowerCase().includes("https") || process.env.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  res.setHeader("Content-Security-Policy", CONTENT_SECURITY_POLICY);
   next();
 }
 app.use(definirCabecalhosSeguranca);
@@ -129,7 +147,7 @@ const loginLimiter = rateLimit({
   message: { error: "Muitas tentativas de login. Aguarde alguns minutos e tente novamente." }
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "256kb" })); // limita o corpo JSON (mitiga DoS por payload grande)
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/config", apiLimiter, (req, res) => {
@@ -144,27 +162,29 @@ app.get("/api/config", apiLimiter, (req, res) => {
   });
 });
 
-app.get("/api/dashboard", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
+// Dados do painel: exigem sessão fresca (lê o banco) E acesso aprovado, para que
+// usuários autenticados porém ainda pendentes/desativados não leiam os dados.
+app.get("/api/dashboard", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json(await getDashboardData());
 }));
 
-app.get("/api/dashboard/resumo", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/dashboard/resumo", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json(await getDashboardResumoData());
 }));
 
-app.get("/api/dashboard/apoio", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/dashboard/apoio", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json(await getDashboardApoioData());
 }));
 
-app.get("/api/vagas", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/vagas", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json(await getVagasData());
 }));
 
-app.get("/api/alertas", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/alertas", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json(await getAlertasData());
 }));
 
-app.get("/api/alertas/observacoes", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/alertas/observacoes", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json({ observacoes: await getAlertasObservacoesMap() });
 }));
 
@@ -211,6 +231,7 @@ app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, 
     const nomeArquivo = String(row.ANEXO_NOME_ARQUIVO || "anexo_remanejamento").replace(/[\r\n"]/g, "");
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "no-store"); // documento sensível: não cachear
     res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(nomeArquivo)}"`);
     res.send(row.ANEXO_PROCESSO);
   } finally {
