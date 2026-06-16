@@ -16,6 +16,7 @@ export function exportarVagas() {
     "Total de Trabalhadores": row.totalTrabalhadores,
     "Afastados": row.afastados,
     "Vagas Ociosas (Déficit Operacional)": row.ociosas,
+    "Normais": row.contratadosNormal,
     "Substituições": row.contratadosSubstituicao,
     "Temporárias": row.contratadosTemporario,
     "Percentual de preenchimento": formatPercent(row.preenchimento),
@@ -37,7 +38,7 @@ export function exportarDistribuicaoVagasOciosas() {
       return {
         "DSEI/CASAI": row.dseiCasai || "Não informado",
         "Cargo": row.cargo || "Não informado",
-        "Vagas não ocupadas": base.normalTemporario,
+        "Normais/Temporárias": base.normalTemporario,
         "Afastamento sem substituição": base.substituicaoTabela,
         "Vagas Ociosas": base.vagasOciosas
       };
@@ -48,7 +49,7 @@ export function exportarDistribuicaoVagasOciosas() {
       const base = valoresDistribuicao(row);
       return {
         [primeiraColuna]: row.label || "Não informado",
-        "Vagas não ocupadas": base.normalTemporario,
+        "Normais/Temporárias": base.normalTemporario,
         "Afastamento sem substituição": base.substituicaoTabela,
         "Vagas Ociosas": base.vagasOciosas
       };
@@ -58,7 +59,7 @@ export function exportarDistribuicaoVagasOciosas() {
   rows = rows.filter(item =>
     Number(item["Vagas Ociosas"] || 0) !== 0 ||
     Number(item["Afastamento sem substituição"] || 0) !== 0 ||
-    Number(item["Vagas não ocupadas"] || 0) !== 0
+    Number(item["Normais/Temporárias"] || 0) !== 0
   );
 
   baixarCsv("distribuicao_vagas_ociosas", rows, false);
@@ -76,7 +77,7 @@ export function exportarProcessoSeletivo() {
       return {
         "DSEI/CASAI": row.dseiCasai || "Não informado",
         "Cargo": row.cargo || "Não informado",
-        "Vagas não ocupadas": base.normalTemporario,
+        "Normais": base.normalTemporario,
         "Temporárias": base.contratadosTemporario,
         "Total Processo Seletivo": base.processoSeletivo
       };
@@ -87,7 +88,7 @@ export function exportarProcessoSeletivo() {
       const base = valoresDistribuicao(row);
       return {
         [primeiraColuna]: row.label || "Não informado",
-        "Vagas não ocupadas": base.normalTemporario,
+        "Normais": base.normalTemporario,
         "Temporárias": base.contratadosTemporario,
         "Total Processo Seletivo": base.processoSeletivo
       };
@@ -95,7 +96,7 @@ export function exportarProcessoSeletivo() {
   }
 
   rows = rows.filter(item =>
-    Number(item["Vagas não ocupadas"] || 0) !== 0 ||
+    Number(item["Normais"] || 0) !== 0 ||
     Number(item["Temporárias"] || 0) !== 0 ||
     Number(item["Total Processo Seletivo"] || 0) !== 0
   );

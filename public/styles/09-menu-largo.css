@@ -72,7 +72,7 @@
     .navItem>span:not(.navIcon) {
       white-space: nowrap !important;
       overflow: hidden !important;
-      text-overflow: clip !important;
+      text-overflow: ellipsis !important;
       min-width: 0 !important;
     }
 

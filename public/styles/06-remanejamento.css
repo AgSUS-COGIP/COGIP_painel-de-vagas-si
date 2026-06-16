@@ -290,6 +290,13 @@
       overflow: auto;
     }
 
+    /* O .fullTableWrap tem padding de 14px; o cabeçalho sticky gruda em top:0
+       (abaixo do padding), deixando a linha visível nesse espaço acima dele.
+       Subir o cabeçalho os 14px do padding faz ele encostar na borda da tabela. */
+    .remHistoryTable th {
+      top: -14px;
+    }
+
     .remTwinGrid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -415,7 +422,9 @@
 
     .remTable th {
       position: sticky;
-      top: 0;
+      /* -1px fecha a fresta entre a borda do container e o cabeçalho, por onde o
+         texto da linha aparecia ao rolar. */
+      top: -1px;
       z-index: 2;
       background: linear-gradient(135deg, #005aa9, #006dcc);
       color: #fff;
@@ -547,6 +556,54 @@
       color: #b91c1c !important;
     }
 
+    /* Cada vaga (cargo) do remanejamento em seu próprio card destacado. */
+    .remCargoItem {
+      display: block;
+      margin: 4px 0;
+      padding: 7px 10px;
+      background: rgba(0, 109, 204, .07);
+      border: 1px solid rgba(0, 86, 167, .18);
+      border-left: 3px solid #006dcc;
+      border-radius: 8px;
+      color: #07346b;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .remCargoItem:first-child {
+      margin-top: 0;
+    }
+
+    .remCargoItem:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Vagas reduzidas (saída) em vermelho; acrescentadas (entrada) em verde. */
+    .remCargoReduzido {
+      background: rgba(220, 63, 63, .08);
+      border-color: rgba(220, 63, 63, .22);
+      border-left-color: #c0392b;
+      color: #9b1c1c;
+    }
+
+    .remCargoAcrescentado {
+      background: rgba(4, 120, 87, .08);
+      border-color: rgba(4, 120, 87, .22);
+      border-left-color: #047857;
+      color: #065f46;
+    }
+
+    /* Valores (total no período): reduzido em vermelho, acrescentado em verde. */
+    .remValorReduzido {
+      color: #9b1c1c;
+      font-weight: 800;
+    }
+
+    .remValorAcrescentado {
+      color: #065f46;
+      font-weight: 800;
+    }
+
     /* Ações do histórico de remanejamento */
     .remAcoesCell {
       vertical-align: middle;
@@ -580,6 +637,43 @@
       border-color: rgba(185, 28, 28, .35);
     }
 
+    .remAcaoEditar {
+      border-color: rgba(202, 138, 4, .4);
+      color: #a16207;
+    }
+
+    /* Modo de edição: borda amarela + fundo amarelo claro translúcido. */
+    .remEditandoForm {
+      border: 3px solid #f5c518;
+      border-radius: 18px;
+      padding: 8px;
+      background: rgba(255, 240, 170, .35);
+      box-shadow: 0 0 0 4px rgba(245, 197, 24, .15);
+    }
+
+    /* Os cards internos são opacos e cobririam o fundo amarelo; recebem um tom
+       amarelo claro translúcido para o fundo de edição ser percebido no todo. */
+    .remEditandoForm .remBox {
+      background: linear-gradient(145deg, rgba(255, 253, 240, .96), rgba(255, 247, 205, .94));
+      border-color: rgba(245, 197, 24, .35);
+    }
+
+    .remEditandoBanner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: rgba(245, 197, 24, .16);
+      border: 1px solid rgba(245, 197, 24, .55);
+      border-radius: 12px;
+      color: #7a5c00;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
     /* Detalhe expandido do remanejamento */
     .remDetalheRow > .remDetalheCell {
       background: rgba(232, 247, 255, .5);
@@ -606,6 +700,14 @@
     .remDetalheTable {
       width: 100%;
       font-size: 11px;
+    }
+
+    /* Cabeçalho do detalhe NÃO deve grudar: senão ele empilha no topo junto com
+       o cabeçalho sticky da tabela principal (o "Data" sobre o "Cargo"). */
+    .remDetalheTable th {
+      position: static;
+      top: auto;
+      z-index: auto;
     }
 
     .remDetalheImpacto {
@@ -817,7 +919,7 @@
 
     .alertKpiGrid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -1147,7 +1249,13 @@
         margin: 12mm;
       }
 
+      aside.sidebar,
       .sidebar,
+      .brand,
+      .sidebarToggle,
+      .sidebarUsuario,
+      .sidebarSpacer,
+      .sidebarCoord,
       .top,
       .nav,
       .vagasNavCard,
@@ -1158,6 +1266,30 @@
       .tablePagination,
       .clearBtn {
         display: none !important;
+      }
+
+      /* Cabeçalho impresso: logo + identificação da unidade no topo da página. */
+      .printHeader {
+        display: flex !important;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 14px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #005aa9;
+      }
+
+      .printHeaderLogo {
+        width: 42px;
+        height: 42px;
+        object-fit: contain;
+      }
+
+      .printHeaderText {
+        color: #07346b;
+        font-weight: 900;
+        font-size: 13px;
+        letter-spacing: .02em;
+        text-transform: uppercase;
       }
 
       html,
@@ -1186,6 +1318,11 @@
         gap: 8px !important;
         margin-bottom: 12px !important;
         page-break-inside: avoid;
+      }
+
+      /* Alertas tem 5 cards — mantém todos na mesma linha. */
+      .alertKpiGrid {
+        grid-template-columns: repeat(5, 1fr) !important;
       }
 
       .kpi {
@@ -1220,6 +1357,43 @@
         page-break-inside: avoid;
       }
 
+      /* Força a impressão das cores de fundo (cards, cabeçalhos, etc.) mesmo sem
+         a opção "gráficos de plano de fundo" marcada no diálogo de impressão. */
+      .kpi,
+      .fullTable,
+      .fullTable th,
+      .fullTable td,
+      #view-vagas .fullTable td.colOciosas {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* Cabeçalho sólido: o gradiente "background-attachment: fixed" não imprime
+         de forma confiável; troca por uma cor sólida. */
+      #view-vagas .fullTable th,
+      #view-alertas .fullTable th {
+        background: #005aa9 !important;
+        background-image: none !important;
+        background-attachment: scroll !important;
+      }
+
+      /* "Vagas Ociosas" vira coluna normal no PDF: sem o fundo escuro de destaque
+         nem a borda lateral colorida — apenas a tabela normal. */
+      #view-vagas .fullTable th.colOciosasHead {
+        background: #005aa9 !important;
+        background-image: none !important;
+        border-right: 1px solid rgba(255, 255, 255, .25) !important;
+      }
+
+      #view-vagas .fullTable td.colOciosas,
+      #view-vagas .fullTable tr.totalRow td.colOciosas,
+      #view-vagas .fullTable td.colOciosas.negativo {
+        background: #ffffff !important;
+        background-image: none !important;
+        color: #0b2445 !important;
+        border-right: none !important;
+      }
+
       /* Coluna de observação (Alertas): vira texto puro na impressão. */
       .alertaObservacaoInput,
       .alertaObservacaoActions,
@@ -1238,6 +1412,11 @@
 
     /* Texto-espelho da observacao, visivel apenas na impressao. */
     .alertaObservacaoTextoPrint {
+      display: none;
+    }
+
+    /* Cabeçalho de impressão fica oculto na tela; só aparece no PDF/impressão. */
+    .printHeader {
       display: none;
     }
 

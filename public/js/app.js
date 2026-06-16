@@ -3,7 +3,7 @@ import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
 import { configurarAcesso } from "./acesso.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
-import { AUTO_FULL_RELOAD_MS, AUTO_REFRESH_MS, COLORS } from "./constants.js";
+import { COLORS } from "./constants.js";
 import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
@@ -114,6 +114,7 @@ export function onResumoDataLoaded(payload) {
     "fTipoAlerta",
     [
       { value: "AFASTAMENTO_SEM_SUBSTITUTO", label: "Afastamento sem substituto" },
+      { value: "SUBSTITUICAO_SEGURANDO_VAGA", label: "Substituição sem afastado" },
       { value: "TEMPORARIO_ATIVO", label: "Temporário ativo" },
       { value: "VAGA_EXCEDENTE", label: "Vaga excedente" },
       { value: "RT_EXCEDENTE", label: "RT excedente" }
@@ -285,37 +286,6 @@ export function renderResumoInicial(payload) {
     quantitativoPlano: 0,
     totalTrabalhadores: 0
   }]);
-}
-
-export function configurarAutoAtualizacao() {
-  if (state.autoRefreshTimer) clearInterval(state.autoRefreshTimer);
-  if (state.autoReloadTimer) clearInterval(state.autoReloadTimer);
-
-  state.autoRefreshTimer = setInterval(atualizarDadosEmSegundoPlano, AUTO_REFRESH_MS);
-  state.autoReloadTimer = setInterval(() => {
-    window.location.reload();
-  }, AUTO_FULL_RELOAD_MS);
-}
-
-export function atualizarDadosEmSegundoPlano() {
-  if (document.hidden) return;
-  if (state.isAutoRefreshing) return;
-  state.isAutoRefreshing = true;
-
-  apiGet("/api/dashboard/resumo")
-    .then(payload => {
-      state.isAutoRefreshing = false;
-      renderResumoInicial(payload || {});
-
-      if (pageLoadState.alertas) carregarAlertasEmSegundoPlano(true);
-      if (pageLoadState.remanejamentoLista) carregarRemanejamentoListaEmSegundoPlano(true);
-      if (pageLoadState.remanejamentoCadastro) carregarRemanejamentoCadastroEmSegundoPlano(true);
-      if (pageLoadState.vagas && state.activeView === "vagas") carregarVagasEmSegundoPlano(true);
-    })
-    .catch(error => {
-      state.isAutoRefreshing = false;
-      console.error("Falha na atualização automática do painel:", error);
-    });
 }
 
 export async function recarregarTodosOsDados(botao) {
@@ -494,6 +464,7 @@ export function onDataLoaded(payload) {
     "fTipoAlerta",
     [
       { value: "AFASTAMENTO_SEM_SUBSTITUTO", label: "Afastamento sem substituto" },
+      { value: "SUBSTITUICAO_SEGURANDO_VAGA", label: "Substituição sem afastado" },
       { value: "TEMPORARIO_ATIVO", label: "Temporário ativo" },
       { value: "VAGA_EXCEDENTE", label: "Vaga excedente" },
       { value: "RT_EXCEDENTE", label: "RT excedente" }

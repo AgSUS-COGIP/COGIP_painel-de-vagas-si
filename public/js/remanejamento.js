@@ -6,7 +6,7 @@ import { atualizarModoRolagem } from "./filtros.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
-import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, mesesAteFimDoAno, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
+import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
 
 export function configurarPainelExterno() {
   const iframe = document.getElementById("iframeDashboardSaudeIndigena");
@@ -226,7 +226,10 @@ export function renderRemanejamentoLista() {
     return;
   }
 
-  const podeExcluir = state.painelLoginUsuario && Number(state.painelLoginUsuario.nivelAutorizacao || 0) >= 2;
+  const nivelUsuario = state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
+  const podeExcluir = nivelUsuario >= 2;
+  // Alterar remanejamento: somente nível 3.
+  const podeEditar = nivelUsuario === 3;
 
   tbody.innerHTML = rows.map(row => {
     const impacto = Number(row.impactoMensal || 0);
@@ -234,6 +237,9 @@ export function renderRemanejamentoLista() {
     const idAttr = escapeAttr(row.idProcesso);
 
     const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-info"></i></button>`;
+    const btnEditar = podeEditar
+      ? `<button type="button" class="remAcaoBtn remAcaoEditar" title="Alterar remanejamento" data-click="editar-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-pen-to-square"></i></button>`
+      : "";
     const btnExcluir = podeExcluir
       ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" data-click="excluir-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-trash"></i></button>`
       : "";
@@ -243,16 +249,35 @@ export function renderRemanejamentoLista() {
             <td>${escapeHtml(row.dataCriacaoFormatada || row.dataCriacao)}</td>
             <td>${escapeHtml(row.dseiCasai || "-")}</td>
             <td>${escapeHtml(row.competencia || "-")}</td>
-            <td>${escapeHtml(row.cargosReduzidos || "-")}</td>
-            <td>${formatCurrency(row.totalReduzidoPeriodo)}</td>
-            <td>${escapeHtml(row.cargosAcrescentados || "-")}</td>
-            <td>${formatCurrency(row.totalAcrescentadoPeriodo)}</td>
+            <td>${formatarCargosRemanejamento(row.cargosReduzidos, "reduzido")}</td>
+            <td class="remValorReduzido">${formatCurrency(row.totalReduzidoPeriodo)}</td>
+            <td>${formatarCargosRemanejamento(row.cargosAcrescentados, "acrescentado")}</td>
+            <td class="remValorAcrescentado">${formatCurrency(row.totalAcrescentadoPeriodo)}</td>
             <td class="${impactoClass}">${formatCurrency(row.impactoMensal)}</td>
             <td>${escapeHtml(row.inseridoPorEmail || row.criadoPor || "-")}</td>
-            <td class="remAcoesCell">${btnDetalhe}${btnExcluir}</td>
+            <td class="remAcoesCell">${btnDetalhe}${btnEditar}${btnExcluir}</td>
           </tr>
         `;
   }).join("");
+}
+
+// Separa as vagas (vindas como "CARGO x2 | OUTRO x1") em divs distintos e troca
+// o sufixo "xN" por "- N un" em cada vaga.
+export function formatarCargosRemanejamento(texto, variante) {
+  const raw = String(texto || "").trim();
+  if (!raw || raw === "-") return "-";
+  const classeVariante = variante === "reduzido"
+    ? " remCargoReduzido"
+    : variante === "acrescentado"
+      ? " remCargoAcrescentado"
+      : "";
+  return raw
+    .split(" | ")
+    .map(item => {
+      const formatado = item.replace(/\s*x\s*(\d+)\s*$/i, " - $1 un");
+      return `<div class="remCargoItem${classeVariante}">${escapeHtml(formatado)}</div>`;
+    })
+    .join("");
 }
 
 export function classeValorImpacto(valor) {
@@ -350,6 +375,98 @@ export function renderDetalheRemanejamentoHtml(detalhe, rowLista) {
           </div>
         </div>
       `;
+}
+
+// Carrega um remanejamento existente no formulário para edição e ativa o modo edição.
+export async function editarRemanejamentoPainel(idProcesso) {
+  mostrarCarregando();
+  let dados;
+  try {
+    dados = await apiGet(`/api/remanejamento/edicao/${encodeURIComponent(idProcesso)}`);
+  } catch (error) {
+    ocultarCarregando();
+    await abrirAviso({
+      titulo: "Erro ao carregar",
+      msg: `Não foi possível carregar o remanejamento para edição: ${error && error.message ? error.message : error}`,
+      perigo: true
+    });
+    return;
+  }
+  ocultarCarregando();
+
+  // Garante que os selects (DSEI/cargos) já estão populados antes de preencher.
+  const dseis = montarOpcoesDseiRemanejamento();
+  preencherSelectRemanejamento("remanejamentoDsei", dseis, item => item.label);
+
+  // 1) DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo e meses).
+  setValue("remanejamentoDsei", String(dados.idDseiCasai || ""));
+  const mesEl = document.getElementById("remanejamentoMes");
+  if (mesEl) { mesEl.value = String(dados.mes || (new Date().getMonth() + 1)); mesEl.dataset.tocado = "1"; }
+
+  // 2) Linhas reduzido/acrescentado a partir dos IDs salvos.
+  state.remanejamentoLinhas.reduzido = (dados.reduzidos || []).map(item => construirLinhaEdicaoRemanejamento("reduzido", item));
+  state.remanejamentoLinhas.acrescentado = (dados.acrescentados || []).map(item => construirLinhaEdicaoRemanejamento("acrescentado", item));
+  if (!state.remanejamentoLinhas.reduzido.length) state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", {})];
+  if (!state.remanejamentoLinhas.acrescentado.length) state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", {})];
+
+  // 3) Documentação.
+  setValue("remanejamentoProcessoSei", dados.processoSei || "");
+  setValue("remObservacao", dados.observacao || "");
+  const anexo = document.getElementById("remAnexoArquivo");
+  if (anexo) anexo.value = "";
+
+  // 4) Ativa o modo edição (borda amarela + banner + botão "Atualizar").
+  state.remanejamentoEditandoId = dados.idProcesso;
+  aplicarModoEdicaoRemanejamento(true, dados.idProcesso);
+
+  renderLinhasRemanejamento("reduzido");
+  renderLinhasRemanejamento("acrescentado");
+  atualizarResumoRemanejamento();
+
+  document.getElementById("remPageShell")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Monta uma linha do formulário a partir de { idCargoFuncao, quantidade } salvos,
+// buscando os custos no cadastro do DSEI já selecionado.
+function construirLinhaEdicaoRemanejamento(tipo, item) {
+  const linha = criarLinhaRemanejamento(tipo, { quantidade: item.quantidade });
+  const cadastro = obterCadastroCargoRemanejamento(item.idCargoFuncao);
+  linha.idCargoFuncao = String(item.idCargoFuncao || "");
+  linha.cargo = cadastro?.cargo || "";
+  // Nas reduções, credita de volta a quantidade original: as vagas ociosas do
+  // cadastro já descontam esta redução, então sem o crédito a edição bloquearia.
+  const baseOciosas = Number(cadastro?.vagasOciosas || 0);
+  linha.vagasOciosas = tipo === "reduzido"
+    ? baseOciosas + Math.max(0, Number(item.quantidade || 0))
+    : baseOciosas;
+  linha.salarioBase = Number(cadastro?.salarioBase || 0);
+  linha.insalubridadePericulosidade = Number(cadastro?.insalubridadePericulosidade || 0);
+  linha.gratificacaoRt = Number(cadastro?.gratificacaoRt || 0);
+  linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
+  linha.encargos = Number(cadastro?.encargos || 0);
+  linha.provisoes = Number(cadastro?.provisoes || 0);
+  linha.quantidade = Math.max(1, Number(item.quantidade || 1));
+  return linha;
+}
+
+// Liga/desliga o indicador visual de edição (borda amarela, banner e label do botão).
+export function aplicarModoEdicaoRemanejamento(ativo, idProcesso) {
+  const shell = document.getElementById("remEditArea");
+  if (shell) shell.classList.toggle("remEditandoForm", !!ativo);
+
+  const banner = document.getElementById("remEditandoBanner");
+  if (banner) banner.style.display = ativo ? "" : "none";
+
+  setText("remEditandoId", ativo ? `#${idProcesso}` : "");
+
+  const botao = document.getElementById("remSaveBtn");
+  if (botao) botao.textContent = ativo ? "Atualizar Remanejamento" : "Salvar Remanejamento";
+}
+
+export function cancelarEdicaoRemanejamento() {
+  state.remanejamentoEditandoId = null;
+  aplicarModoEdicaoRemanejamento(false);
+  limparFormularioRemanejamento();
 }
 
 export async function excluirRemanejamentoPainel(idProcesso) {
@@ -467,6 +584,13 @@ export function atualizarIndicadoresRemanejamento() {
 }
 
 export function inicializarFormularioRemanejamento(resetar) {
+  // Padrão do mês = mês atual (mesmo cálculo já definido) ao abrir/resetar o form.
+  const mesEl = document.getElementById("remanejamentoMes");
+  if (mesEl && (resetar || !(Number(mesEl.value) >= 1 && Number(mesEl.value) <= 12) || !mesEl.dataset.tocado)) {
+    mesEl.value = String(new Date().getMonth() + 1);
+    mesEl.dataset.tocado = "1";
+  }
+
   if (resetar || !state.remanejamentoLinhas.reduzido.length) {
     state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
   }
@@ -480,6 +604,17 @@ export function inicializarFormularioRemanejamento(resetar) {
   atualizarResumoRemanejamentoPainel();
 }
 
+// Mês escolhido no formulário (1..12). Sem seleção válida, usa o mês atual.
+export function mesRemanejamentoSelecionado() {
+  const v = Number(document.getElementById("remanejamentoMes")?.value);
+  return v >= 1 && v <= 12 ? v : new Date().getMonth() + 1;
+}
+
+// Meses do mês escolhido até dezembro (mesma regra do servidor: 13 - mês).
+export function mesesRemanejamentoSelecionado() {
+  return Math.max(1, 13 - mesRemanejamentoSelecionado());
+}
+
 export function criarLinhaRemanejamento(tipo, valores) {
   return {
     id: `${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -487,7 +622,7 @@ export function criarLinhaRemanejamento(tipo, valores) {
     cargo: valores?.cargo || "",
     quantidade: Number(valores?.quantidade || 1),
     vagasOciosas: Number(valores?.vagasOciosas || 0),
-    meses: mesesAteFimDoAno(),
+    meses: mesesRemanejamentoSelecionado(),
     salarioBase: Number(valores?.salarioBase || 0),
     insalubridadePericulosidade: Number(valores?.insalubridadePericulosidade || 0),
     gratificacaoRt: Number(valores?.gratificacaoRt || 0),
@@ -495,6 +630,17 @@ export function criarLinhaRemanejamento(tipo, valores) {
     encargos: Number(valores?.encargos || 0),
     provisoes: Number(valores?.provisoes || 0)
   };
+}
+
+// Mês alterado: recalcula os meses de todas as linhas (reduzido/acrescentado) e
+// atualiza o resumo/impacto do período.
+export function alterarMesRemanejamento() {
+  const meses = mesesRemanejamentoSelecionado();
+  ["reduzido", "acrescentado"].forEach(tipo => {
+    (state.remanejamentoLinhas[tipo] || []).forEach(linha => { linha.meses = meses; });
+    renderLinhasRemanejamento(tipo);
+  });
+  atualizarResumoRemanejamento();
 }
 
 export function adicionarLinhaRemanejamento(tipo) {
@@ -663,7 +809,7 @@ export function atualizarResumoRemanejamentoPainel() {
   setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
   setText("remImpactoMensal2", formatCurrency(impactoMensal));
   setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
-  setText("remImpactoPeriodoMeses", String(mesesAteFimDoAno()));
+  setText("remImpactoPeriodoMeses", String(mesesRemanejamentoSelecionado()));
 
   setText("remSalarioRed", formatCurrency(red.salarioBase));
   setText("remSalarioAdd", formatCurrency(add.salarioBase));
@@ -706,6 +852,12 @@ export function limparFormularioRemanejamento() {
 
   setValue("remanejamentoProcessoSei", "");
   setValue("remObservacao", "");
+  // Padrão: mês atual (mesmo cálculo já definido).
+  setValue("remanejamentoMes", String(new Date().getMonth() + 1));
+
+  // Limpar também encerra o modo de edição, se estiver ativo.
+  state.remanejamentoEditandoId = null;
+  aplicarModoEdicaoRemanejamento(false);
 
   const anexo = document.getElementById("remAnexoArquivo");
   if (anexo) anexo.value = "";
@@ -756,13 +908,15 @@ export async function salvarRemanejamentoPainel() {
     return;
   }
 
+  const editandoId = state.remanejamentoEditandoId;
+
   // Confirmação extra para evitar remanejamentos errados — resume os dados principais.
   const dseiNome = document.getElementById("remanejamentoDsei")?.selectedOptions?.[0]?.text || idDseiCasai;
   const impactoMensalFmt = formatCurrency(resumo ? resumo.impactoMensal : 0);
   const confirmacao = await abrirModal({
-    titulo: "Confirmar remanejamento",
-    msg: `Confira os dados antes de registrar:\nDSEI/CASAI: ${dseiNome}\nProcesso SEI: ${processoSei}\nImpacto mensal: ${impactoMensalFmt}\n\nEsta ação altera as vagas ociosas e o monitoramento.`,
-    confirmarTexto: "Confirmar remanejamento"
+    titulo: editandoId ? "Confirmar alteração" : "Confirmar remanejamento",
+    msg: `${editandoId ? `Você está alterando o remanejamento #${editandoId}.\n\n` : ""}Confira os dados antes de ${editandoId ? "atualizar" : "registrar"}:\nDSEI/CASAI: ${dseiNome}\nProcesso SEI: ${processoSei}\nImpacto mensal: ${impactoMensalFmt}\n\nEsta ação altera as vagas ociosas e o monitoramento.`,
+    confirmarTexto: editandoId ? "Atualizar remanejamento" : "Confirmar remanejamento"
   });
   if (!confirmacao.ok) return;
 
@@ -770,32 +924,43 @@ export async function salvarRemanejamentoPainel() {
   formData.append("idDseiCasai", idDseiCasai);
   formData.append("processoSei", processoSei);
   formData.append("observacao", observacao);
+  formData.append("mes", String(mesRemanejamentoSelecionado()));
   formData.append("criadoPor", "painel");
   formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
   formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
   if (anexo) formData.append("anexo", anexo);
 
+  const url = editandoId
+    ? `/api/remanejamento/${encodeURIComponent(editandoId)}`
+    : "/api/remanejamento/salvar";
+  const metodo = editandoId ? "PUT" : "POST";
+
   mostrarCarregando();
   try {
-    const response = await fetch("/api/remanejamento/salvar", {
-      method: "POST",
+    const response = await fetch(url, {
+      method: metodo,
       headers: state.painelLoginToken ? { Authorization: `Bearer ${state.painelLoginToken}` } : {},
       body: formData
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
+    state.remanejamentoEditandoId = null;
+    aplicarModoEdicaoRemanejamento(false);
     limparFormularioRemanejamento();
     // Atualiza todos os dados afetados: lista de remanejamentos, vagas ociosas do
     // formulário, monitoramento, alertas e visão geral.
     await recarregarTodosOsDados();
     ocultarCarregando();
-    await abrirAviso({ titulo: "Remanejamento salvo", msg: "Remanejamento salvo com sucesso." });
+    await abrirAviso({
+      titulo: editandoId ? "Remanejamento atualizado" : "Remanejamento salvo",
+      msg: editandoId ? "Remanejamento atualizado com sucesso." : "Remanejamento salvo com sucesso."
+    });
   } catch (error) {
     ocultarCarregando();
     await abrirAviso({
-      titulo: "Erro ao salvar",
-      msg: `Erro ao salvar remanejamento: ${error && error.message ? error.message : error}`,
+      titulo: editandoId ? "Erro ao atualizar" : "Erro ao salvar",
+      msg: `Erro ao ${editandoId ? "atualizar" : "salvar"} remanejamento: ${error && error.message ? error.message : error}`,
       perigo: true
     });
   }

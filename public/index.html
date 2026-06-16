@@ -203,7 +203,7 @@
 
         <div class="navItem" data-view="remanejamento">
           <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
-          <span>Remanejo</span>
+          <span>Remanejamento</span>
         </div>
 
         <div class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
@@ -262,11 +262,6 @@
           <div class="updateLine">
             <span class="updateText"><i class="fa-solid fa-rotate"></i> Última atualização: <span
                 id="updatedAt">-</span></span>
-            <button type="button" class="refreshBtn" id="refreshBtn" data-click="recarregar"
-              title="Buscar os dados mais recentes do banco">
-              <span class="refreshBtnIcon"><i class="fa-solid fa-rotate"></i></span>
-              <span>Atualizar dados</span>
-            </button>
           </div>
         </div>
       </header>
@@ -274,6 +269,12 @@
       <div id="errorBox" class="errorBox"></div>
 
       <section class="content">
+        <!-- Cabeçalho exibido apenas na impressão/PDF (logo + identificação). -->
+        <div id="printHeader" class="printHeader" aria-hidden="true">
+          <img class="printHeaderLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+          <div class="printHeaderText">Unidade de Gestão de Pessoas | Diretoria de Operações</div>
+        </div>
+
         <section id="view-visaoGeral" class="viewPanel active">
           <div class="onePageDashboard visaoPrintLayout">
             <section class="kpiGrid">
@@ -509,8 +510,8 @@
               <div class="exportActions" id="vagasExportActions">
                 <button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i>
                   Exportar base filtrada</button>
-                <button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i>
-                  Salvar em PDF</button>
+                <button type="button" class="exportBtn" data-click="exportar-pdf"><i
+                    class="fa-solid fa-file-pdf"></i>Salvar em PDF</button>
               </div>
             </div>
 
@@ -569,7 +570,7 @@
                   <thead>
                     <tr id="distribuicaoHeaderRow">
                       <th>DSEI/CASAI</th>
-                      <th>Vagas não ocupadas</th>
+                      <th>Normais/Temporárias</th>
                       <th>Afastamento sem substituição</th>
                       <th>Vagas Ociosas</th>
                     </tr>
@@ -592,7 +593,7 @@
                   <thead>
                     <tr id="processoSeletivoHeaderRow">
                       <th>DSEI/CASAI</th>
-                      <th>Vagas não ocupadas</th>
+                      <th>Normais</th>
                       <th>Temporárias</th>
                       <th>Total Processo Seletivo</th>
                     </tr>
@@ -624,6 +625,14 @@
               </div>
             </div>
             <div class="kpi">
+              <div class="kpiIcon iYellow"><i class="fa-solid fa-user-slash"></i></div>
+              <div class="kpiText">
+                <div class="kpiLabel">Substituição sem afastado</div>
+                <div class="kpiValue" id="alertaKpiSubstituicaoSegurandoVaga">0</div>
+                <div class="kpiSub">Substituições sem afastado correspondente</div>
+              </div>
+            </div>
+            <div class="kpi">
               <div class="kpiIcon iPurple"><i class="fa-solid fa-user-doctor"></i></div>
               <div class="kpiText">
                 <div class="kpiLabel">Vaga excedente de RT</div>
@@ -648,9 +657,10 @@
                 <div class="pageSub">Afastamentos, temporários ativos e vagas excedentes conforme filtros selecionados.
                 </div>
               </div>
-              <div class="exportActions"><button type="button" class="exportBtn" data-click="exportar-alertas"><i
-                    class="fa-solid fa-download"></i> Exportar
-                  alertas</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i
+              <div class="exportActions">
+                <button type="button" class="exportBtn" data-click="exportar-alertas"><i
+                    class="fa-solid fa-download"></i> Exportar alertas</button>
+                <button type="button" class="exportBtn" data-click="exportar-pdf"><i
                     class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>
               </div>
             </div>
@@ -1167,12 +1177,34 @@
             </div>
           </div>
 
-          <div class="remPageShell">
+          <div class="remPageShell" id="remPageShell">
+            <div id="remEditArea" class="remEditArea">
+            <div id="remEditandoBanner" class="remEditandoBanner" style="display:none;">
+              <span><i class="fa-solid fa-pen-to-square"></i> Você está <strong>editando</strong> o remanejamento <strong id="remEditandoId"></strong>. As alterações substituirão o registro existente.</span>
+              <button type="button" class="remSecondaryBtn" data-click="cancelar-edicao-rem">Cancelar edição</button>
+            </div>
             <div class="remTopGrid">
               <section class="remBox remDseiBox">
                 <h3>1. SELECIONE O DSEI</h3>
                 <label for="remanejamentoDsei">DSEI</label>
                 <select id="remanejamentoDsei" data-change="atualizar-vagas-origem"></select>
+                <div id="remMesWrap" class="remMesWrap" style="display:none;">
+                  <label for="remanejamentoMes">Mês do remanejamento</label>
+                  <select id="remanejamentoMes" data-change="alterar-mes-rem">
+                    <option value="1">Janeiro</option>
+                    <option value="2">Fevereiro</option>
+                    <option value="3">Março</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Maio</option>
+                    <option value="6">Junho</option>
+                    <option value="7">Julho</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Setembro</option>
+                    <option value="10">Outubro</option>
+                    <option value="11">Novembro</option>
+                    <option value="12">Dezembro</option>
+                  </select>
+                </div>
               </section>
 
               <section class="remBox remResumoTopoBox">
@@ -1364,6 +1396,7 @@
                 <div class="remanejamentoResumoLabel">Quantidade movimentada</div>
                 <div id="remanejamentoResultadoTotal" class="remanejamentoResumoValor">0</div>
               </div>
+            </div>
             </div>
 
             <section class="remBox remHistoricoBox">

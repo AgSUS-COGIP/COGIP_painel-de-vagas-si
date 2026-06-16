@@ -140,6 +140,26 @@
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
     }
 
+    /* Rótulo do menu: corta com reticências quando passa da borda (o nome
+       completo aparece no tooltip definido via JS em configurarNavegacao).
+       Para a elipse funcionar, toda a cadeia precisa poder encolher abaixo do
+       conteúdo: a coluna do .nav, o .navItem (grid item) e o próprio rótulo. */
+    .nav {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .navItem {
+      min-width: 0;
+      grid-template-columns: 28px minmax(0, 1fr);
+    }
+
+    .navItem span:not(.navIcon) {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .navItem::before {
       content: "";
       position: absolute;

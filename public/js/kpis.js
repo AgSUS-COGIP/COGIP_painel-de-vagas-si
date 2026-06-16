@@ -208,11 +208,19 @@ export function renderAlertasKpis(data) {
   // Fonte de verdade: colunas já calculadas na view (consolidação RT incluída).
   const rtExcedente = soma(data, "qtdVagasArtExcedentes");
   const excedentes = soma(data, "qtdVagasExcedentes");
+  // Substituições sem afastado correspondente (por linha) — possível vaga segurada
+  // para gestante. Condição por DSEI/cargo, então não dá para somar uma só coluna.
+  const substituicaoSegurandoVaga = (data || []).reduce((acc, row) => {
+    const sub = Number(row.contratadosSubstituicao || 0);
+    const afast = Number(row.afastados || 0);
+    return acc + (sub > 0 && afast === 0 ? sub : 0);
+  }, 0);
 
   setText("alertaKpiTemporarios", formatNumber(temporarios));
   setText("alertaKpiAfastamentos", formatNumber(afastamentos));
   setText("alertaKpiRtExcedente", formatNumber(rtExcedente));
   setText("alertaKpiExcedentes", formatNumber(excedentes));
+  setText("alertaKpiSubstituicaoSegurandoVaga", formatNumber(substituicaoSegurandoVaga));
   setText("alertaKpiAfastamentosSemSubstituto", formatNumber(afastamentosSemSubstituto));
   setText(`alertaKpiAfastamentosSemSubstitutoSub`, `${formatNumber(afastamentosSemSubstituto)} de ${formatNumber(afastamentos)} afastamentos totais`);
 }

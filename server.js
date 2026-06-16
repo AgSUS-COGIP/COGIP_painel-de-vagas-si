@@ -10,7 +10,7 @@ const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const { DASH_CONFIG, getMysqlConfig, resolverPortaAplicacao, parseJdbcUrl } = require("./lib/config");
 const { DASH_SQL, montarCaseCargoSql } = require("./lib/sql");
-const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, salvarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, obterRemanejamentoListaComCache, obterRemanejamentoCadastroComCache, montarOpcoesRemanejamentoAPartirDasRows, obterUltimaAtualizacaoRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
+const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, obterRemanejamentoListaComCache, obterRemanejamentoCadastroComCache, montarOpcoesRemanejamentoAPartirDasRows, obterUltimaAtualizacaoRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
@@ -243,6 +243,28 @@ app.get("/api/remanejamento/detalhe/:id", apiLimiter, autenticarFrescoMiddleware
   res.json(await getRemanejamentoDetalheData(req.params.id));
 }));
 
+app.get("/api/remanejamento/edicao/:id", apiLimiter, asyncHandler(async (req, res) => {
+  res.json(await getRemanejamentoEdicaoData(req.params.id));
+}));
+
+app.put(
+  "/api/remanejamento/:id",
+  apiLimiter,
+  autenticarFrescoMiddleware,
+  exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
+  upload.single("anexo"),
+  asyncHandler(async (req, res) => {
+    const conn = await getMysqlConnection();
+    try {
+      const resultado = await atualizarRemanejamentoComConn(conn, req.params.id, req.body || {}, req.file || null);
+      limparCacheDashboard();
+      res.json({ ok: true, ...resultado });
+    } finally {
+      await fecharJdbc(conn);
+    }
+  })
+);
+
 app.delete(
   "/api/remanejamento/:id",
   apiLimiter,
@@ -467,6 +489,10 @@ if (require.main === module) {
 
   garantirTabelaMovimentacaoRemanejamento().catch(err => {
     console.error("Não foi possível garantir a tabela de movimentações de remanejamento:", err && err.message ? err.message : err);
+  });
+
+  garantirColunaMesesRemanejamento().catch(err => {
+    console.error("Não foi possível garantir a coluna N_MESES do remanejamento:", err && err.message ? err.message : err);
   });
 
   garantirTabelaSolicitacoesAcesso().catch(err => {

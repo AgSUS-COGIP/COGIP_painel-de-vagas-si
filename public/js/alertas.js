@@ -40,6 +40,21 @@ export function montarAlertas(data) {
     const temporario = Number(row.qtdTemporarioAtivo || 0);
     const excedente = Number(row.qtdVagasExcedentes || 0);
     const excedenteRt = Number(row.qtdVagasArtExcedentes || 0);
+    const substituicao = Number(row.contratadosSubstituicao || 0);
+    const afastados = Number(row.afastados || 0);
+
+    // Substituição sem afastado correspondente: indicador de substituição
+    // segurando vaga para gestante (não há campo de gestante na base).
+    if (substituicao > 0 && afastados === 0) {
+      rows.push({
+        tipoValor: "SUBSTITUICAO_SEGURANDO_VAGA",
+        tipo: "Substituição sem afastado",
+        dsei: row.dseiCasai,
+        cargo: row.cargo,
+        qtd: formatNumber(substituicao),
+        detalhe: `${formatNumber(substituicao)} substituição(ões) sem afastado correspondente`
+      });
+    }
 
     if (afastamento > 0) {
       rows.push({
