@@ -455,8 +455,9 @@ function iniciarPollSolicitacoes() {
 // ----------------------------------------------------------------------------
 // Inicialização (chamada no init do app)
 // ----------------------------------------------------------------------------
-function sair() {
-  try { localStorage.removeItem("painelLoginToken"); } catch (e) {}
+async function sair() {
+  try { await apiPost("/api/logout", {}); } catch (e) {} // limpa o cookie HttpOnly no servidor
+  try { localStorage.removeItem("painelLoginToken"); } catch (e) {} // resíduo de versões antigas
   window.location.reload();
 }
 

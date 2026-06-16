@@ -15,22 +15,15 @@ export function configurarLogin() {
 }
 
 export async function verificarSessaoInicial() {
+  // A sessão vive num cookie HttpOnly enviado automaticamente. Tenta validar
+  // direto no servidor: se o cookie existir e for válido, entra; senão, login.
   try {
-    state.painelLoginToken = localStorage.getItem("painelLoginToken") || "";
+    const payload = await apiGet("/api/sessao");
+    state.painelLoginUsuario = payload.usuario || null;
+    iniciarPainelAutenticado();
+    return;
   } catch (e) {
-    state.painelLoginToken = "";
-  }
-
-  if (state.painelLoginToken) {
-    try {
-      const payload = await apiGet("/api/sessao");
-      state.painelLoginUsuario = payload.usuario || null;
-      iniciarPainelAutenticado();
-      return;
-    } catch (e) {
-      state.painelLoginToken = "";
-      state.painelLoginUsuario = null;
-    }
+    state.painelLoginUsuario = null;
   }
 
   mostrarLoginOverlay();
@@ -74,9 +67,7 @@ async function onGoogleCredential(resposta) {
   if (erro) erro.innerText = "";
   try {
     const payload = await apiPost("/api/login/google", { credential: resposta && resposta.credential });
-    state.painelLoginToken = payload.token || "";
     state.painelLoginUsuario = payload.usuario || null;
-    try { localStorage.setItem("painelLoginToken", state.painelLoginToken); } catch (e) { }
 
     const login = document.getElementById("loginScreen");
     if (login) login.style.display = "none";
@@ -105,9 +96,7 @@ export async function realizarLoginPainel() {
 
   try {
     const payload = await apiPost("/api/login", { login: usuario, senha });
-    state.painelLoginToken = payload.token || "";
     state.painelLoginUsuario = payload.usuario || null;
-    try { localStorage.setItem("painelLoginToken", state.painelLoginToken); } catch (e) { }
 
     const senhaInput = document.getElementById("loginSenha");
     if (senhaInput) senhaInput.value = "";
@@ -231,9 +220,11 @@ async function verificarMudancaSessao() {
   }
 }
 
-export function logoutPainel() {
+export async function logoutPainel() {
   state.painelLoginToken = "";
   state.painelLoginUsuario = null;
-  try { localStorage.removeItem("painelLoginToken"); } catch (e) { }
+  // Limpa o cookie HttpOnly no servidor antes de recarregar.
+  try { await apiPost("/api/logout", {}); } catch (e) { }
+  try { localStorage.removeItem("painelLoginToken"); } catch (e) { } // limpa resíduo de versões antigas
   window.location.reload();
 }

@@ -76,6 +76,42 @@ function definirCabecalhosSeguranca(req, res, next) {
 }
 app.use(definirCabecalhosSeguranca);
 
+// ---- Cookie de sessão (JWT em cookie HttpOnly) ----
+// O token vai num cookie HttpOnly (não acessível a JS, mitiga roubo via XSS) com
+// SameSite=Lax (o cookie não acompanha requisições POST/DELETE de outros sites,
+// bloqueando CSRF nas mutações). Secure é ativado sob HTTPS/produção.
+const COOKIE_MAX_AGE_S = 8 * 60 * 60; // alinhado ao JWT_EXPIRES padrão (8h)
+
+function conexaoSegura(req) {
+  return req.secure
+    || String(req.headers["x-forwarded-proto"] || "").toLowerCase().includes("https")
+    || process.env.NODE_ENV === "production";
+}
+
+function definirCookieSessao(req, res, token) {
+  const partes = [
+    `${DASH_CONFIG.COOKIE_SESSAO}=${encodeURIComponent(token)}`,
+    "HttpOnly",
+    "Path=/",
+    "SameSite=Lax",
+    `Max-Age=${COOKIE_MAX_AGE_S}`
+  ];
+  if (conexaoSegura(req)) partes.push("Secure");
+  res.setHeader("Set-Cookie", partes.join("; "));
+}
+
+function limparCookieSessao(req, res) {
+  const partes = [
+    `${DASH_CONFIG.COOKIE_SESSAO}=`,
+    "HttpOnly",
+    "Path=/",
+    "SameSite=Lax",
+    "Max-Age=0"
+  ];
+  if (conexaoSegura(req)) partes.push("Secure");
+  res.setHeader("Set-Cookie", partes.join("; "));
+}
+
 const apiLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.RATE_LIMIT_MAX || 300),
@@ -206,7 +242,9 @@ app.delete(
 app.post("/api/login", loginLimiter, express.json(), asyncHandler(async (req, res) => {
   try {
     const resultado = await autenticarUsuario(req.body || {});
-    res.json(resultado);
+    definirCookieSessao(req, res, resultado.token);
+    // O token não é devolvido no corpo: vive só no cookie HttpOnly.
+    res.json({ usuario: resultado.usuario, aprovado: resultado.aprovado });
   } catch (err) {
     res.status(401).json({ error: err && err.message ? err.message : "Falha na autenticação." });
   }
@@ -215,14 +253,16 @@ app.post("/api/login", loginLimiter, express.json(), asyncHandler(async (req, re
 app.post("/api/login/google", loginLimiter, express.json(), asyncHandler(async (req, res) => {
   try {
     const resultado = await autenticarUsuarioGoogle(req.body || {});
-    res.json(resultado);
+    definirCookieSessao(req, res, resultado.token);
+    res.json({ usuario: resultado.usuario, aprovado: resultado.aprovado });
   } catch (err) {
     res.status(401).json({ error: err && err.message ? err.message : "Falha na autenticação Google." });
   }
 }));
 
 app.post("/api/logout", (req, res) => {
-  // Autenticação é stateless (JWT). O cliente apenas descarta o token.
+  // Autenticação é stateless (JWT). Encerra a sessão limpando o cookie.
+  limparCookieSessao(req, res);
   res.json({ ok: true });
 });
 
