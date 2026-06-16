@@ -1,7 +1,8 @@
 // =========================================================
 // Entrega de Crachá (maquete interativa)
-// Acompanha o fluxo solicitação -> confecção -> envio ->
-// entrega ao escritório -> entrega ao colaborador (e devolução).
+// Acompanha o fluxo de confecção do crachá em 5 etapas:
+//   Foto Pendente de Envio -> Envio à Gráfica Pendente ->
+//   Crachás em Confecção -> Aguardando Envio -> Crachá Confeccionado
 // É autocontido: registra os próprios ouvintes em
 // configurarEntregaCracha(), chamado no init do app.
 // Não há backend — as ações operam sobre os dados em memória.
@@ -11,8 +12,58 @@ import { apiGet } from "./api.js";
 
 const PAGE_SIZE = 10;
 
-// Lista de fallback de DSEIs (usada se o backend não responder). A lista real
-// é carregada de /api/acesso/listas — a MESMA fonte do formulário de
+// ---------- Status do crachá (funil de confecção) ----------
+const STATUS = {
+  FOTO: "Foto Pendente de Envio",
+  GRAFICA: "Envio à Gráfica Pendente",
+  CONFECCAO: "Crachás em Confecção",
+  AGUARDANDO: "Aguardando Envio",
+  CONFECCIONADO: "Crachá Confeccionado"
+};
+
+// Ordem do funil (índice = avanço da etapa).
+const STATUS_LISTA = [
+  STATUS.FOTO, STATUS.GRAFICA, STATUS.CONFECCAO, STATUS.AGUARDANDO, STATUS.CONFECCIONADO
+];
+
+const STATUS_CLASSE = {
+  [STATUS.FOTO]: "is-foto",
+  [STATUS.GRAFICA]: "is-grafica",
+  [STATUS.CONFECCAO]: "is-confeccao",
+  [STATUS.AGUARDANDO]: "is-aguardando",
+  [STATUS.CONFECCIONADO]: "is-confeccionado"
+};
+
+function badgeStatus(status) {
+  const cls = STATUS_CLASSE[status] || "is-foto";
+  return `<span class="ecBadge ${cls}">${escapeHtml(status)}</span>`;
+}
+
+function statusIndex(status) {
+  const i = STATUS_LISTA.indexOf(status);
+  return i < 0 ? 0 : i;
+}
+
+// Etapas do histórico (uma entrada por status alcançado até o atual).
+const ETAPAS = [
+  { evento: "Solicitação registrada — foto pendente de envio", ator: "ADMIN", hora: "09:12", campoData: "dataSolicitacao" },
+  { evento: "Foto recebida — aguardando envio à gráfica", ator: "ADMIN", hora: "10:05", campoData: "dataSolicitacao" },
+  { evento: "Crachá enviado à gráfica para confecção", ator: "GRÁFICA", hora: "14:30", campoData: "dataEnvio" },
+  { evento: "Confecção concluída — aguardando envio", ator: "GRÁFICA", hora: "16:20", campoData: "dataEnvio" },
+  { evento: "Crachá confeccionado e enviado", ator: "GRÁFICA", hora: "17:00", campoData: "dataEnvio" }
+];
+
+// Transições disparadas pelos botões de ação (avançam uma etapa).
+const TRANSICOES = {
+  foto: { de: STATUS.FOTO, para: STATUS.GRAFICA, msg: "Foto recebida.", aplicar: s => { s.possuiFoto = true; } },
+  grafica: { de: STATUS.GRAFICA, para: STATUS.CONFECCAO, msg: "Envio à gráfica registrado.", aplicar: s => { if (!s.dataEnvio) s.dataEnvio = hojeBR(); } },
+  confeccao: { de: STATUS.CONFECCAO, para: STATUS.AGUARDANDO, msg: "Confecção concluída." },
+  aguardando: { de: STATUS.AGUARDANDO, para: STATUS.CONFECCIONADO, msg: "Crachá enviado." }
+};
+
+// ---------- Unidades (DSEIs/CASAIs) ----------
+// Lista de fallback (usada se o backend não responder). A lista real é
+// carregada de /api/acesso/listas — a MESMA fonte do formulário de
 // solicitação de acesso (login Google) — em carregarUnidades().
 const DSEIS = [
   "DSEI Yanomami", "DSEI Alto Rio Negro", "DSEI Kayapó do Pará",
@@ -20,12 +71,8 @@ const DSEIS = [
   "DSEI Xingu", "DSEI Cuiabá do Norte", "DSEI Guamá-Tocantins", "DSEI Araguaia"
 ];
 
-// DSEIs/CASAIs efetivamente disponíveis nos selects (filtro + formulário).
-// Começa com o fallback e é substituída pela lista do servidor.
 let unidadesDisponiveis = DSEIS.slice();
 
-// Busca DSEIs e CASAIs do servidor (mesma combinação do form de acesso:
-// CASAIs antes dos DSEIs). Mantém o fallback se a requisição falhar.
 async function carregarUnidades() {
   try {
     const listas = await apiGet("/api/acesso/listas");
@@ -36,87 +83,47 @@ async function carregarUnidades() {
   }
 }
 
-// O escritório de um trabalhador deriva da unidade ("Escritório <unidade>").
 function escritorioDoDsei(dsei) {
   return (dsei || "").replace(/^(DSEI|CASAI)\s+/, "Escritório ");
 }
 
 // ---------- Dados de exemplo ----------
-// Guardamos apenas as datas + foto; o status e o histórico são derivados
-// a partir do estágio mais avançado já alcançado (datas preenchidas).
-function registro(id, dsei, nome, cargo, possuiFoto, dataSolic, dataEnvio, dataEscritorio, dataColaborador, dataDevolucao) {
+function registro(id, dsei, nome, cargo, status, dataSolic, dataEnvio) {
   return {
-    id, dsei, nome, cargo, possuiFoto,
+    id, dsei, nome, cargo, status,
+    possuiFoto: status !== STATUS.FOTO,
     dataSolicitacao: dataSolic || "",
     dataEnvio: dataEnvio || "",
-    dataEntregaEscritorio: dataEscritorio || "",
-    dataEntregaColaborador: dataColaborador || "",
-    dataDevolucao: dataDevolucao || "",
     observacao: ""
   };
 }
 
 let solicitacoes = [
-  registro(1, "DSEI Yanomami", "Maria Silva da Costa", "Enfermeiro", true, "10/04/2024", "15/04/2024", "16/04/2024", "18/04/2024", ""),
-  registro(2, "DSEI Alto Rio Negro", "João Pereira Lima", "Técnico de Enfermagem", true, "12/04/2024", "16/04/2024", "22/04/2024", "", ""),
-  registro(3, "DSEI Kayapó do Pará", "Carlos Mendes dos Santos", "Agente Indígena de Saúde", false, "15/04/2024", "", "", "", ""),
-  registro(4, "DSEI Leste de Roraima", "Ana Beatriz Souza", "Enfermeiro", true, "18/04/2024", "", "", "", ""),
-  registro(5, "DSEI Maranhão", "Rafael Oliveira", "Técnico de Enfermagem", true, "20/04/2024", "24/04/2024", "26/04/2024", "", ""),
-  registro(6, "DSEI Parintins", "Luana Ferreira", "Enfermeiro", true, "22/04/2024", "25/04/2024", "26/04/2024", "26/04/2024", ""),
-  registro(7, "DSEI Xingu", "Paulo Henrique Dias", "Agente Indígena de Saúde", false, "23/04/2024", "", "", "", ""),
-  registro(8, "DSEI Cuiabá do Norte", "Fernanda Lima", "Técnico de Enfermagem", true, "24/04/2024", "25/04/2024", "", "", ""),
-  registro(9, "DSEI Guamá-Tocantins", "Tiago Soares", "Enfermeiro", false, "25/04/2024", "", "", "", ""),
-  registro(10, "DSEI Araguaia", "Juliana Nunes", "Agente Indígena de Saúde", true, "26/04/2024", "29/04/2024", "29/04/2024", "", ""),
-  registro(11, "DSEI Yanomami", "Marcos Vinícius Alves", "Médico Clínico Geral", true, "27/04/2024", "02/05/2024", "05/05/2024", "07/05/2024", ""),
-  registro(12, "DSEI Alto Rio Negro", "Patrícia Gomes", "Enfermeiro", true, "28/04/2024", "03/05/2024", "", "", ""),
-  registro(13, "DSEI Maranhão", "Roberto Carlos Pinto", "Dentista", false, "29/04/2024", "", "", "", ""),
-  registro(14, "DSEI Xingu", "Camila Rodrigues", "Técnico de Enfermagem", true, "30/04/2024", "04/05/2024", "06/05/2024", "08/05/2024", ""),
-  registro(15, "DSEI Parintins", "Eduardo Santos", "Agente Indígena de Saúde", true, "02/05/2024", "06/05/2024", "08/05/2024", "", ""),
-  registro(16, "DSEI Leste de Roraima", "Beatriz Almeida", "Enfermeiro", true, "03/05/2024", "07/05/2024", "09/05/2024", "10/05/2024", "14/05/2024"),
-  registro(17, "DSEI Cuiabá do Norte", "Gustavo Henrique Reis", "Médico Clínico Geral", false, "04/05/2024", "", "", "", ""),
-  registro(18, "DSEI Araguaia", "Larissa Martins", "Técnico de Enfermagem", true, "05/05/2024", "09/05/2024", "11/05/2024", "", ""),
-  registro(19, "DSEI Guamá-Tocantins", "Felipe Andrade", "Agente Indígena de Saúde", true, "06/05/2024", "10/05/2024", "12/05/2024", "13/05/2024", ""),
-  registro(20, "DSEI Kayapó do Pará", "Vanessa Cardoso", "Enfermeiro", false, "07/05/2024", "", "", "", ""),
-  registro(21, "DSEI Yanomami", "Bruno Teixeira", "Técnico de Enfermagem", true, "08/05/2024", "12/05/2024", "", "", ""),
-  registro(22, "DSEI Maranhão", "Sabrina Lopes", "Agente Indígena de Saúde", true, "09/05/2024", "13/05/2024", "15/05/2024", "16/05/2024", "")
+  registro(1, "DSEI Yanomami", "Maria Silva da Costa", "Enfermeiro", STATUS.CONFECCIONADO, "10/04/2024", "15/04/2024"),
+  registro(2, "DSEI Alto Rio Negro", "João Pereira Lima", "Técnico de Enfermagem", STATUS.AGUARDANDO, "12/04/2024", "16/04/2024"),
+  registro(3, "DSEI Kayapó do Pará", "Carlos Mendes dos Santos", "Agente Indígena de Saúde", STATUS.FOTO, "15/04/2024", ""),
+  registro(4, "DSEI Leste de Roraima", "Ana Beatriz Souza", "Enfermeiro", STATUS.GRAFICA, "18/04/2024", ""),
+  registro(5, "DSEI Maranhão", "Rafael Oliveira", "Técnico de Enfermagem", STATUS.CONFECCAO, "20/04/2024", "24/04/2024"),
+  registro(6, "DSEI Parintins", "Luana Ferreira", "Enfermeiro", STATUS.CONFECCIONADO, "22/04/2024", "25/04/2024"),
+  registro(7, "DSEI Xingu", "Paulo Henrique Dias", "Agente Indígena de Saúde", STATUS.FOTO, "23/04/2024", ""),
+  registro(8, "DSEI Cuiabá do Norte", "Fernanda Lima", "Técnico de Enfermagem", STATUS.CONFECCAO, "24/04/2024", "25/04/2024"),
+  registro(9, "DSEI Guamá-Tocantins", "Tiago Soares", "Enfermeiro", STATUS.FOTO, "25/04/2024", ""),
+  registro(10, "DSEI Araguaia", "Juliana Nunes", "Agente Indígena de Saúde", STATUS.AGUARDANDO, "26/04/2024", "29/04/2024"),
+  registro(11, "DSEI Yanomami", "Marcos Vinícius Alves", "Médico Clínico Geral", STATUS.CONFECCIONADO, "27/04/2024", "02/05/2024"),
+  registro(12, "DSEI Alto Rio Negro", "Patrícia Gomes", "Enfermeiro", STATUS.CONFECCAO, "28/04/2024", "03/05/2024"),
+  registro(13, "DSEI Maranhão", "Roberto Carlos Pinto", "Dentista", STATUS.FOTO, "29/04/2024", ""),
+  registro(14, "DSEI Xingu", "Camila Rodrigues", "Técnico de Enfermagem", STATUS.CONFECCIONADO, "30/04/2024", "04/05/2024"),
+  registro(15, "DSEI Parintins", "Eduardo Santos", "Agente Indígena de Saúde", STATUS.AGUARDANDO, "02/05/2024", "06/05/2024"),
+  registro(16, "DSEI Leste de Roraima", "Beatriz Almeida", "Enfermeiro", STATUS.CONFECCIONADO, "03/05/2024", "07/05/2024"),
+  registro(17, "DSEI Cuiabá do Norte", "Gustavo Henrique Reis", "Médico Clínico Geral", STATUS.FOTO, "04/05/2024", ""),
+  registro(18, "DSEI Araguaia", "Larissa Martins", "Técnico de Enfermagem", STATUS.CONFECCAO, "05/05/2024", "09/05/2024"),
+  registro(19, "DSEI Guamá-Tocantins", "Felipe Andrade", "Agente Indígena de Saúde", STATUS.CONFECCIONADO, "06/05/2024", "10/05/2024"),
+  registro(20, "DSEI Kayapó do Pará", "Vanessa Cardoso", "Enfermeiro", STATUS.FOTO, "07/05/2024", ""),
+  registro(21, "DSEI Yanomami", "Bruno Teixeira", "Técnico de Enfermagem", STATUS.GRAFICA, "08/05/2024", ""),
+  registro(22, "DSEI Maranhão", "Sabrina Lopes", "Agente Indígena de Saúde", STATUS.AGUARDANDO, "09/05/2024", "13/05/2024")
 ];
 
 let proximoId = 23;
-
-// ---------- Derivações de status ----------
-// Ordem do funil; o status é o estágio mais avançado com data preenchida.
-function statusDe(s) {
-  if (s.dataDevolucao) return "Devolvido";
-  if (s.dataEntregaColaborador) return "Entregue ao Colaborador";
-  if (s.dataEntregaEscritorio) return "Entregue ao Escritório";
-  if (s.dataEnvio) return "Enviado";
-  if (s.dataSolicitacao) return "Solicitado à Gráfica";
-  return "Não Solicitado";
-}
-
-const STATUS_CLASSE = {
-  "Solicitado à Gráfica": "is-solicitado",
-  "Enviado": "is-enviado",
-  "Entregue ao Escritório": "is-escritorio",
-  "Entregue ao Colaborador": "is-colaborador",
-  "Devolvido": "is-devolvido",
-  "Não Solicitado": "is-pendente"
-};
-
-const STATUS_LISTA = [
-  "Não Solicitado", "Solicitado à Gráfica", "Enviado",
-  "Entregue ao Escritório", "Entregue ao Colaborador", "Devolvido"
-];
-
-function badgeStatus(status) {
-  const cls = STATUS_CLASSE[status] || "is-pendente";
-  return `<span class="ecBadge ${cls}">${escapeHtml(status)}</span>`;
-}
-
-// Confeccionado = a gráfica já enviou o crachá (qualquer estágio a partir de "Enviado").
-function foiConfeccionado(s) {
-  return Boolean(s.dataEnvio);
-}
 
 // ---------- Estado da view ----------
 let filtros = { dsei: "", status: "", escritorio: "", dataIni: "", dataFim: "", nome: "", cargo: "" };
@@ -133,6 +140,13 @@ function isoParaBR(iso) {
   return `${d}/${m}/${a}`;
 }
 
+function brParaISO(br) {
+  if (!br) return "";
+  const [d, m, a] = br.split("/");
+  if (!d || !m || !a) return "";
+  return `${a}-${m}-${d}`;
+}
+
 function brParaTime(br) {
   if (!br) return null;
   const [d, m, a] = br.split("/");
@@ -145,11 +159,6 @@ function hojeBR() {
   const dd = String(hoje.getDate()).padStart(2, "0");
   const mm = String(hoje.getMonth() + 1).padStart(2, "0");
   return `${dd}/${mm}/${hoje.getFullYear()}`;
-}
-
-function agoraHora() {
-  const agora = new Date();
-  return `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
 }
 
 // ---------- Toast ----------
@@ -169,22 +178,16 @@ function ecToast(mensagem, tipo) {
   toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
 }
 
-// ---------- KPIs ----------
+// ---------- KPIs (um por status do funil) ----------
 function renderKpis(lista) {
-  const total = lista.length;
-  const solicitados = lista.filter(s => statusDe(s) !== "Não Solicitado").length;
-  const confeccionados = lista.filter(foiConfeccionado).length;
-  const escritorio = lista.filter(s => s.dataEntregaEscritorio).length;
-  const colaborador = lista.filter(s => s.dataEntregaColaborador).length;
-  const semFoto = lista.filter(s => !s.possuiFoto).length;
-
+  const porStatus = st => lista.filter(s => s.status === st).length;
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-  set("ecKpiTrabalhadores", total);
-  set("ecKpiSolicitados", solicitados);
-  set("ecKpiConfeccionados", confeccionados);
-  set("ecKpiEscritorio", escritorio);
-  set("ecKpiColaborador", colaborador);
-  set("ecKpiSemFoto", semFoto);
+  set("ecKpiTrabalhadores", lista.length);
+  set("ecKpiFoto", porStatus(STATUS.FOTO));
+  set("ecKpiGrafica", porStatus(STATUS.GRAFICA));
+  set("ecKpiConfeccao", porStatus(STATUS.CONFECCAO));
+  set("ecKpiAguardando", porStatus(STATUS.AGUARDANDO));
+  set("ecKpiConfeccionado", porStatus(STATUS.CONFECCIONADO));
 }
 
 // ---------- Filtros ----------
@@ -206,7 +209,7 @@ function aplicarFiltros() {
 
   return solicitacoes.filter(s => {
     if (filtros.dsei && s.dsei !== filtros.dsei) return false;
-    if (filtros.status && statusDe(s) !== filtros.status) return false;
+    if (filtros.status && s.status !== filtros.status) return false;
     if (filtros.escritorio && escritorioDoDsei(s.dsei) !== filtros.escritorio) return false;
     if (filtros.nome && !s.nome.toLowerCase().includes(filtros.nome)) return false;
     if (filtros.cargo && !s.cargo.toLowerCase().includes(filtros.cargo)) return false;
@@ -236,9 +239,7 @@ function render() {
 
   const body = $("ecTabelaBody");
   if (body) {
-    body.innerHTML = pagina.map(s => {
-      const status = statusDe(s);
-      return `
+    body.innerHTML = pagina.map(s => `
       <tr${s.id === detalheId ? ' class="ecLinhaAtiva"' : ""}>
         <td>${escapeHtml(s.dsei)}</td>
         <td>${escapeHtml(s.nome)}</td>
@@ -246,18 +247,14 @@ function render() {
         <td>${celulaData(s.dataSolicitacao)}</td>
         <td class="ecTd-center">${s.possuiFoto ? '<span class="ecFotoSim">Sim</span>' : '<span class="ecFotoNao">Não</span>'}</td>
         <td>${celulaData(s.dataEnvio)}</td>
-        <td>${badgeStatus(status)}</td>
-        <td>${celulaData(s.dataEntregaEscritorio)}</td>
-        <td>${celulaData(s.dataEntregaColaborador)}</td>
-        <td>${celulaData(s.dataDevolucao)}</td>
+        <td>${badgeStatus(s.status)}</td>
         <td class="ecTd-center ecAcoesCol">
           <button class="ecIconBtn" data-ec-ver="${s.id}" title="Ver detalhes"><i class="fa-regular fa-eye"></i></button>
           <button class="ecIconBtn" data-ec-editar="${s.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
           <button class="ecIconBtn ecIconBtnDanger" data-ec-excluir="${s.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
         </td>
-      </tr>`;
-    }).join("") ||
-      `<tr><td colspan="11" class="ecVazio">Nenhuma solicitação encontrada para os filtros selecionados.</td></tr>`;
+      </tr>`).join("") ||
+      `<tr><td colspan="8" class="ecVazio">Nenhuma solicitação encontrada para os filtros selecionados.</td></tr>`;
   }
 
   const registros = $("ecRegistros");
@@ -297,14 +294,13 @@ function irParaPagina(valor) {
 
 // ---------- Painel de detalhe ----------
 function timelineDe(s) {
-  const itens = [];
-  const escritorio = escritorioDoDsei(s.dsei);
-  if (s.dataSolicitacao) itens.push({ data: s.dataSolicitacao, hora: "09:12", evento: "Solicitação enviada à gráfica", ator: "ADMIN" });
-  if (s.dataEnvio) itens.push({ data: s.dataEnvio, hora: "14:30", evento: "Crachá enviado pela gráfica", ator: "GRÁFICA" });
-  if (s.dataEntregaEscritorio) itens.push({ data: s.dataEntregaEscritorio, hora: "10:45", evento: "Crachá entregue ao escritório", ator: escritorio });
-  if (s.dataEntregaColaborador) itens.push({ data: s.dataEntregaColaborador, hora: "11:20", evento: "Crachá entregue ao colaborador", ator: escritorio });
-  if (s.dataDevolucao) itens.push({ data: s.dataDevolucao, hora: "16:05", evento: "Crachá devolvido", ator: escritorio });
-  return itens;
+  const ate = statusIndex(s.status);
+  return ETAPAS.slice(0, ate + 1).map(e => ({
+    data: s[e.campoData] || s.dataSolicitacao,
+    hora: e.hora,
+    evento: e.evento,
+    ator: e.ator
+  }));
 }
 
 function abrirDetalhe(id) {
@@ -314,7 +310,7 @@ function abrirDetalhe(id) {
 
   const set = (elId, v) => { const el = $(elId); if (el) el.textContent = v || "—"; };
   $("ecDetalheNome").textContent = s.nome;
-  $("ecDetalheBadge").innerHTML = badgeStatus(statusDe(s));
+  $("ecDetalheBadge").innerHTML = badgeStatus(s.status);
 
   set("ecDetDsei", s.dsei);
   set("ecDetCargo", s.cargo);
@@ -322,12 +318,9 @@ function abrirDetalhe(id) {
   set("ecDetFoto", s.possuiFoto ? "Sim" : "Não");
   set("ecDetDataEnvio", s.dataEnvio);
 
-  set("ecDetStatus", statusDe(s));
+  set("ecDetStatus", s.status);
   set("ecDetStatusSolic", s.dataSolicitacao);
   set("ecDetStatusEnvio", s.dataEnvio);
-  set("ecDetStatusEscritorio", s.dataEntregaEscritorio);
-  set("ecDetStatusColaborador", s.dataEntregaColaborador);
-  set("ecDetStatusDevolucao", s.dataDevolucao);
 
   const timeline = $("ecDetTimeline");
   if (timeline) {
@@ -335,12 +328,14 @@ function abrirDetalhe(id) {
       <li class="ecTimelineItem">
         <div class="ecTimelineDot"></div>
         <div class="ecTimelineConteudo">
-          <div class="ecTimelineQuando">${escapeHtml(i.data)} ${escapeHtml(i.hora)}</div>
+          <div class="ecTimelineQuando">${escapeHtml(i.data || "—")} ${escapeHtml(i.hora)}</div>
           <div class="ecTimelineEvento">${escapeHtml(i.evento)}</div>
           <div class="ecTimelineAtor">${escapeHtml(i.ator)}</div>
         </div>
       </li>`).join("") || `<li class="ecTimelineVazio">Sem histórico registrado.</li>`;
   }
+
+  atualizarBotoesAcao(s);
 
   const obs = $("ecDetObs");
   if (obs) obs.value = s.observacao || "";
@@ -353,6 +348,14 @@ function abrirDetalhe(id) {
   render();
 }
 
+// Habilita apenas o botão da próxima etapa válida.
+function atualizarBotoesAcao(s) {
+  document.querySelectorAll("#ecDetalhe [data-ec-acao]").forEach(btn => {
+    const t = TRANSICOES[btn.dataset.ecAcao];
+    btn.disabled = !t || s.status !== t.de;
+  });
+}
+
 function recolherDetalhe() {
   detalheId = null;
   const painel = $("ecDetalhe");
@@ -360,29 +363,19 @@ function recolherDetalhe() {
   render();
 }
 
-// ---------- Ações do escritório (registro de etapas) ----------
+// ---------- Ações: avançar etapa do funil ----------
 function registrarEtapa(tipo) {
   const s = solicitacoes.find(r => r.id === detalheId);
   if (!s) return;
-  const data = hojeBR();
-
-  if (tipo === "escritorio") {
-    if (!s.dataEnvio) { ecToast("O crachá ainda não foi enviado pela gráfica.", "erro"); return; }
-    if (s.dataEntregaEscritorio) { ecToast("Entrega ao escritório já registrada.", "erro"); return; }
-    s.dataEntregaEscritorio = data;
-    ecToast(`Entrega ao escritório registrada (${data}).`);
-  } else if (tipo === "colaborador") {
-    if (!s.dataEntregaEscritorio) { ecToast("Registre primeiro a entrega ao escritório.", "erro"); return; }
-    if (s.dataEntregaColaborador) { ecToast("Entrega ao colaborador já registrada.", "erro"); return; }
-    s.dataEntregaColaborador = data;
-    ecToast(`Entrega ao colaborador registrada (${data}).`);
-  } else if (tipo === "devolucao") {
-    if (!s.dataEntregaColaborador) { ecToast("Só é possível devolver após a entrega ao colaborador.", "erro"); return; }
-    if (s.dataDevolucao) { ecToast("Devolução já registrada.", "erro"); return; }
-    s.dataDevolucao = data;
-    ecToast(`Devolução registrada (${data}).`);
+  const t = TRANSICOES[tipo];
+  if (!t) return;
+  if (s.status !== t.de) {
+    ecToast("Esta ação não se aplica ao status atual.", "erro");
+    return;
   }
-
+  s.status = t.para;
+  if (t.aplicar) t.aplicar(s);
+  ecToast(t.msg);
   abrirDetalhe(s.id);
 }
 
@@ -424,13 +417,6 @@ function abrirModal(editId) {
   if (modal) modal.hidden = false;
 }
 
-function brParaISO(br) {
-  if (!br) return "";
-  const [d, m, a] = br.split("/");
-  if (!d || !m || !a) return "";
-  return `${a}-${m}-${d}`;
-}
-
 function fecharModal() {
   const modal = $("ecModal");
   if (modal) modal.hidden = true;
@@ -459,7 +445,9 @@ function salvarModal() {
     ecToast("Solicitação atualizada.");
     if (detalheId === modalEditId) abrirDetalhe(modalEditId);
   } else {
-    solicitacoes.unshift(registro(proximoId++, dsei, nome, cargo, foto, dataSolic, "", "", "", ""));
+    // Sem foto entra no funil em "Foto Pendente"; com foto, em "Envio à Gráfica Pendente".
+    const status = foto ? STATUS.GRAFICA : STATUS.FOTO;
+    solicitacoes.unshift(registro(proximoId++, dsei, nome, cargo, status, dataSolic, ""));
     paginaAtual = 1;
     ecToast("Nova solicitação registrada.");
   }
@@ -559,6 +547,6 @@ export function configurarEntregaCracha() {
     if (pagina && !pagina.disabled) { irParaPagina(pagina.dataset.ecPagina); return; }
 
     const acao = event.target.closest("[data-ec-acao]");
-    if (acao) { registrarEtapa(acao.dataset.ecAcao); return; }
+    if (acao && !acao.disabled) { registrarEtapa(acao.dataset.ecAcao); return; }
   });
 }

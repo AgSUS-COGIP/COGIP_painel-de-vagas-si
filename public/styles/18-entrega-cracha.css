@@ -294,12 +294,11 @@ select.ecInput {
   white-space: nowrap;
 }
 
-.ecBadge.is-pendente { background: #e7eefb; color: #2a4b80; }
-.ecBadge.is-solicitado { background: #fff2d6; color: #8a5a00; }
-.ecBadge.is-enviado { background: #d6ecff; color: #0a5bb0; }
-.ecBadge.is-escritorio { background: #d3f0ef; color: #0a7470; }
-.ecBadge.is-colaborador { background: #d7f5e3; color: #0a7a44; }
-.ecBadge.is-devolvido { background: #ffdcd7; color: #b5281a; }
+.ecBadge.is-foto { background: #ffdcd7; color: #b5281a; }
+.ecBadge.is-grafica { background: #fff2d6; color: #8a5a00; }
+.ecBadge.is-confeccao { background: #d6ecff; color: #0a5bb0; }
+.ecBadge.is-aguardando { background: #d3f0ef; color: #0a7470; }
+.ecBadge.is-confeccionado { background: #d7f5e3; color: #0a7a44; }
 
 /* ---------- Ações da linha ---------- */
 .ecAcoesCol { white-space: nowrap; }
@@ -511,6 +510,14 @@ select.ecInput {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Etapa indisponível (não é a próxima do funil) fica esmaecida. */
+.ecAcoesEscritorio .ecBtn:disabled {
+  opacity: .45;
+  cursor: default;
+  transform: none;
+  box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
 }
 
 .ecObsLabel {

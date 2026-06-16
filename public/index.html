@@ -1187,31 +1187,31 @@
             </div>
           </div>
 
-          <!-- KPIs do funil de crachás -->
+          <!-- KPIs do funil de crachás (um por status) -->
           <section class="ecKpiGrid">
             <div class="ecKpi">
               <div class="ecKpiLabel">Total de Trabalhadores</div>
               <div class="ecKpiValue is-blue" id="ecKpiTrabalhadores">0</div>
             </div>
             <div class="ecKpi">
-              <div class="ecKpiLabel">Total de Crachás Solicitados</div>
-              <div class="ecKpiValue is-blue" id="ecKpiSolicitados">0</div>
+              <div class="ecKpiLabel">Foto Pendente de Envio</div>
+              <div class="ecKpiValue is-red" id="ecKpiFoto">0</div>
             </div>
             <div class="ecKpi">
-              <div class="ecKpiLabel">Total de Crachás Confeccionados</div>
-              <div class="ecKpiValue is-orange" id="ecKpiConfeccionados">0</div>
+              <div class="ecKpiLabel">Envio à Gráfica Pendente</div>
+              <div class="ecKpiValue is-orange" id="ecKpiGrafica">0</div>
             </div>
             <div class="ecKpi">
-              <div class="ecKpiLabel">Entregues ao Escritório</div>
-              <div class="ecKpiValue is-teal" id="ecKpiEscritorio">0</div>
+              <div class="ecKpiLabel">Crachás em Confecção</div>
+              <div class="ecKpiValue is-blue" id="ecKpiConfeccao">0</div>
             </div>
             <div class="ecKpi">
-              <div class="ecKpiLabel">Entregues ao Colaborador</div>
-              <div class="ecKpiValue is-green" id="ecKpiColaborador">0</div>
+              <div class="ecKpiLabel">Aguardando Envio</div>
+              <div class="ecKpiValue is-teal" id="ecKpiAguardando">0</div>
             </div>
             <div class="ecKpi">
-              <div class="ecKpiLabel">Pendência de Fotos</div>
-              <div class="ecKpiValue is-red" id="ecKpiSemFoto">0</div>
+              <div class="ecKpiLabel">Crachá Confeccionado</div>
+              <div class="ecKpiValue is-green" id="ecKpiConfeccionado">0</div>
             </div>
           </section>
 
@@ -1259,9 +1259,6 @@
                     <th class="ecTd-center">Possui Foto</th>
                     <th>Data de Envio</th>
                     <th>Status</th>
-                    <th>Data Entrega Escritório</th>
-                    <th>Data Entrega Colaborador</th>
-                    <th>Data Devolução</th>
                     <th class="ecTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -1301,10 +1298,6 @@
                 <div class="ecKv"><span>Status atual</span><strong id="ecDetStatus">—</strong></div>
                 <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetStatusSolic">—</strong></div>
                 <div class="ecKv"><span>Data de Envio</span><strong id="ecDetStatusEnvio">—</strong></div>
-                <div class="ecKv"><span>Data Entrega Escritório</span><strong id="ecDetStatusEscritorio">—</strong></div>
-                <div class="ecKv"><span>Data Entrega Colaborador</span><strong id="ecDetStatusColaborador">—</strong>
-                </div>
-                <div class="ecKv"><span>Data Devolução</span><strong id="ecDetStatusDevolucao">—</strong></div>
               </section>
 
               <section class="ecDetalheBloco">
@@ -1313,16 +1306,19 @@
               </section>
 
               <section class="ecDetalheBloco">
-                <h4>Ações do Escritório</h4>
+                <h4>Atualizar Status</h4>
                 <div class="ecAcoesEscritorio">
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="escritorio">
-                    <i class="fa-solid fa-building"></i> Registrar Entrega ao Escritório
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="foto">
+                    <i class="fa-solid fa-camera"></i> Registrar Foto Recebida
                   </button>
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="colaborador">
-                    <i class="fa-solid fa-user-check"></i> Registrar Entrega ao Colaborador
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="grafica">
+                    <i class="fa-solid fa-paper-plane"></i> Registrar Envio à Gráfica
                   </button>
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="devolucao">
-                    <i class="fa-solid fa-rotate-left"></i> Registrar Devolução
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="confeccao">
+                    <i class="fa-solid fa-id-card"></i> Registrar Confecção Concluída
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="aguardando">
+                    <i class="fa-solid fa-truck-fast"></i> Registrar Envio do Crachá
                   </button>
                 </div>
                 <label class="ecObsLabel" for="ecDetObs">Observações</label>
