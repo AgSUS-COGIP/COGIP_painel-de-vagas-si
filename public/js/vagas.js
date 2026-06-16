@@ -1,15 +1,27 @@
 import { filtrarRowsBase } from "./app.js";
 import { CARGOS_FORA_PROCESSO_SELETIVO, VAGAS_TABELA_CONFIG } from "./constants.js";
+import { getSelectedValues } from "./filtros.js";
 import { calcularOciosas, calcularPreenchimento } from "./kpis.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, formatNumber, formatPercent, normalizarNomeCargo, setText, soma } from "./utils.js";
+
+let configTabelaVagasInicializada = false;
 
 export function renderVagasDaPagina() {
   const tbody = document.getElementById("vagasBody");
   const pagination = document.getElementById("vagasPagination");
   const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
   const processoSeletivoBody = document.getElementById("processoSeletivoBody");
+
+  // Aplica título/subtítulo/aviso/export da tabela atual no primeiro render, já que
+  // alterarTabelaVagas só roda ao clicar numa sub-aba. Sem isto, o aviso da tabela
+  // padrão ("vagas") não aparece na primeira entrada na aba. Feito antes do retorno
+  // de "carregando" para o aviso surgir mesmo enquanto os dados não chegaram.
+  if (!configTabelaVagasInicializada) {
+    configTabelaVagasInicializada = true;
+    alterarTabelaVagas(state.vagasTabelaAtual);
+  }
 
   if (!pageLoadState.vagas) {
     if (tbody) tbody.innerHTML = '<tr><td colspan="9">Carregando dados da aba Vagas...</td></tr>';
@@ -136,6 +148,7 @@ export function montarVagasAgrupadas(rows, campo, labelCampo) {
         totalTrabalhadores: 0,
         afastados: 0,
         ociosas: 0,
+        contratadosNormal: 0,
         contratadosSubstituicao: 0,
         contratadosTemporario: 0,
         preenchimento: 0,
@@ -152,6 +165,7 @@ export function montarVagasAgrupadas(rows, campo, labelCampo) {
     item.totalTrabalhadores += Number(row.totalTrabalhadores || 0);
     item.afastados += Number(row.afastados || 0);
     item.ociosas += Number(row.ociosas || 0);
+    item.contratadosNormal += Number(row.contratadosNormal || 0);
     item.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
     item.contratadosTemporario += Number(row.contratadosTemporario || 0);
     // Soma dos valores derivados por linha (já clampados) — total independe da visão.
@@ -190,14 +204,15 @@ export function atualizarCabecalhoVagas() {
   if (state.vagasViewAtual === "detalhado") {
     colgroup.innerHTML = `
           <col style="width: 14%;">
-          <col style="width: 20%;">
+          <col style="width: 18%;">
           <col style="width: 9%;">
+          <col style="width: 10%;">
+          <col style="width: 7%;">
           <col style="width: 11%;">
           <col style="width: 8%;">
-          <col style="width: 12%;">
-          <col style="width: 9%;">
           <col style="width: 9%;">
           <col style="width: 8%;">
+          <col style="width: 6%;">
         `;
 
     header.innerHTML = `
@@ -207,6 +222,7 @@ export function atualizarCabecalhoVagas() {
           ${th("Total de Trabalhadores", "totalTrabalhadores")}
           ${th("Afastados", "afastados")}
           ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
+          ${th("Normais", "contratadosNormal")}
           ${th("Substituições", "contratadosSubstituicao")}
           ${th("Temporárias", "contratadosTemporario")}
           ${th("% preenchimento", "preenchimento")}
@@ -217,13 +233,14 @@ export function atualizarCabecalhoVagas() {
   const primeiraColuna = state.vagasViewAtual === "dsei" ? "DSEI/CASAI" : "Cargo";
 
   colgroup.innerHTML = `
-        <col style="width: 25%;">
-        <col style="width: 11%;">
+        <col style="width: 22%;">
+        <col style="width: 10%;">
+        <col style="width: 12%;">
+        <col style="width: 9%;">
         <col style="width: 13%;">
         <col style="width: 9%;">
-        <col style="width: 14%;">
-        <col style="width: 10%;">
-        <col style="width: 10%;">
+        <col style="width: 9%;">
+        <col style="width: 8%;">
         <col style="width: 8%;">
       `;
 
@@ -233,6 +250,7 @@ export function atualizarCabecalhoVagas() {
         ${th("Total de Trabalhadores", "totalTrabalhadores")}
         ${th("Afastados", "afastados")}
         ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
+        ${th("Normais", "contratadosNormal")}
         ${th("Substituições", "contratadosSubstituicao")}
         ${th("Temporárias", "contratadosTemporario")}
         ${th("% preenchimento", "preenchimento")}
@@ -247,7 +265,7 @@ export function renderVagasTable(rows) {
   atualizarCabecalhoVagas();
 
   const linhas = obterRowsVagasPorVisualizacao(rows);
-  const totalColunas = state.vagasViewAtual === "detalhado" ? 9 : 8;
+  const totalColunas = state.vagasViewAtual === "detalhado" ? 10 : 9;
 
   if (!linhas.length) {
     tbody.innerHTML = `<tr><td colspan="${totalColunas}">Sem dados para os filtros selecionados.</td></tr>`;
@@ -267,6 +285,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(row.totalTrabalhadores)}</td>
             <td>${formatNumber(row.afastados)}</td>
             <td class="colOciosas ${Number(row.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(row.ociosas)}</td>
+            <td>${formatNumber(row.contratadosNormal)}</td>
             <td>${formatNumber(row.contratadosSubstituicao)}</td>
             <td>${formatNumber(row.contratadosTemporario)}</td>
             <td>${formatPercent(row.preenchimento)}</td>
@@ -279,6 +298,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(totalRow.totalTrabalhadores)}</td>
             <td>${formatNumber(totalRow.afastados)}</td>
             <td class="colOciosas ${Number(totalRow.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(totalRow.ociosas)}</td>
+            <td>${formatNumber(totalRow.contratadosNormal)}</td>
             <td>${formatNumber(totalRow.contratadosSubstituicao)}</td>
             <td>${formatNumber(totalRow.contratadosTemporario)}</td>
             <td>${formatPercent(totalRow.preenchimento)}</td>
@@ -292,6 +312,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(row.totalTrabalhadores)}</td>
             <td>${formatNumber(row.afastados)}</td>
             <td class="colOciosas ${Number(row.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(row.ociosas)}</td>
+            <td>${formatNumber(row.contratadosNormal)}</td>
             <td>${formatNumber(row.contratadosSubstituicao)}</td>
             <td>${formatNumber(row.contratadosTemporario)}</td>
             <td>${formatPercent(row.preenchimento)}</td>
@@ -303,6 +324,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(totalRow.totalTrabalhadores)}</td>
             <td>${formatNumber(totalRow.afastados)}</td>
             <td class="colOciosas ${Number(totalRow.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(totalRow.ociosas)}</td>
+            <td>${formatNumber(totalRow.contratadosNormal)}</td>
             <td>${formatNumber(totalRow.contratadosSubstituicao)}</td>
             <td>${formatNumber(totalRow.contratadosTemporario)}</td>
             <td>${formatPercent(totalRow.preenchimento)}</td>
@@ -321,6 +343,7 @@ export function calcularTotalVagasTabela(linhas) {
     acc.totalTrabalhadores += Number(row.totalTrabalhadores || 0);
     acc.afastados += Number(row.afastados || 0);
     acc.ociosas += Number(row.ociosas || 0);
+    acc.contratadosNormal += Number(row.contratadosNormal || 0);
     acc.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
     acc.contratadosTemporario += Number(row.contratadosTemporario || 0);
     return acc;
@@ -329,6 +352,7 @@ export function calcularTotalVagasTabela(linhas) {
     totalTrabalhadores: 0,
     afastados: 0,
     ociosas: 0,
+    contratadosNormal: 0,
     contratadosSubstituicao: 0,
     contratadosTemporario: 0,
     preenchimento: 0
@@ -355,7 +379,7 @@ export function atualizarCabecalhoDistribuicaoVagasOciosas() {
     header.innerHTML = `
           <th>DSEI/CASAI</th>
           <th>Cargo</th>
-          <th>Vagas não ocupadas</th>
+          <th>Normais/Temporárias</th>
           <th>Afastamento sem substituição</th>
           <th>Vagas Ociosas</th>
         `;
@@ -372,7 +396,7 @@ export function atualizarCabecalhoDistribuicaoVagasOciosas() {
       `;
   header.innerHTML = `
         <th>${primeiraColuna}</th>
-        <th>Vagas não ocupadas</th>
+        <th>Normais/Temporárias</th>
         <th>Afastamento sem substituição</th>
         <th>Vagas Ociosas</th>
       `;
@@ -578,7 +602,7 @@ export function atualizarCabecalhoProcessoSeletivo() {
     header.innerHTML = `
           <th>DSEI/CASAI</th>
           <th>Cargo</th>
-          <th>Vagas não ocupadas</th>
+          <th>Normais</th>
           <th>Temporárias</th>
           <th>Total Processo Seletivo</th>
         `;
@@ -595,14 +619,14 @@ export function atualizarCabecalhoProcessoSeletivo() {
       `;
   header.innerHTML = `
         <th>${primeiraColuna}</th>
-        <th>Vagas não ocupadas</th>
+        <th>Normais</th>
         <th>Temporárias</th>
         <th>Total Processo Seletivo</th>
       `;
   if (descricao) {
     descricao.textContent = state.vagasViewAtual === "cargo"
-      ? "Vagas não ocupadas somado às temporárias (total para processo seletivo) por cargo."
-      : "Vagas não ocupadas somado às temporárias (total para processo seletivo) por DSEI/CASAI.";
+      ? "Normais somado às temporárias (total para processo seletivo) por cargo."
+      : "Normais somado às temporárias (total para processo seletivo) por DSEI/CASAI.";
   }
 }
 
@@ -681,8 +705,19 @@ export function mudarPaginaVagas(delta) {
   renderProcessoSeletivo(state.vagasRows);
 }
 
+// Há pesquisa ou filtro (DSEI/cargo/gráfico) ativo? Usado para, no detalhamento
+// completo, mostrar todos os DSEIs juntos em vez de paginar um DSEI por página.
+export function vagasComFiltroOuPesquisaAtivos() {
+  if (state.vagasSearchTerm) return true;
+  if (getSelectedValues("fDsei").length) return true;
+  if (getSelectedValues("fCargo").length) return true;
+  if (state.activeChartFilter) return true;
+  return false;
+}
+
 export function obterPaginaVagas(linhas) {
-  if (state.vagasViewAtual !== "detalhado") {
+  // Sem detalhamento, ou com pesquisa/filtro ativo: lista completa com rolagem.
+  if (state.vagasViewAtual !== "detalhado" || vagasComFiltroOuPesquisaAtivos()) {
     return {
       linhasPagina: linhas,
       resumoPaginacao: `<span>Exibindo ${formatNumber(linhas.length)} registro(s) com rolagem.</span>`

@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from "./api.js";
-import { carregarDadosInicial, configurarAutoAtualizacao } from "./app.js";
+import { carregarDadosInicial } from "./app.js";
 import { state } from "./state.js";
 import { mostrarAcessoPendente } from "./acesso.js";
 
@@ -140,7 +140,6 @@ export function iniciarPainelAutenticado() {
   if (state.painelIniciado) return;
   state.painelIniciado = true;
 
-  configurarAutoAtualizacao();
   carregarDadosInicial();
 }
 
@@ -169,6 +168,11 @@ export function aplicarPermissoesUsuario() {
     btnSalvar.disabled = !podeSalvar;
     btnSalvar.title = podeSalvar ? "" : "Você não tem permissão para salvar remanejamentos.";
   }
+
+  // "Mês do remanejamento" só aparece para nível 3 (mesmo nível que pode alterar
+  // remanejamentos existentes — o botão de editar é controlado no render da lista).
+  const mesWrap = document.getElementById("remMesWrap");
+  if (mesWrap) mesWrap.style.display = nivel >= 3 ? "" : "none";
 
   // Se o usuário sem acesso estiver na aba de remanejamento, volta para a Visão Geral.
   if (nivel < 1 && state.activeView === "remanejamento") {

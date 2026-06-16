@@ -1,7 +1,3 @@
-export const AUTO_REFRESH_MS = 5 * 60 * 1000; // Atualiza os dados a cada 5 minutos.
-
-export const AUTO_FULL_RELOAD_MS = 60 * 60 * 1000; // Recarrega a página inteira a cada 60 minutos para manter estabilidade em tela fixa.
-
 export const COLORS = {
   blue: "#20b2ff",
   blue2: "#74d7ff",
@@ -36,22 +32,22 @@ export const VAGAS_TABELA_CONFIG = {
     bloco: "blocoTabelaVagas",
     titulo: "Vagas",
     subtitulo: "Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.",
-    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i> Exportar base filtrada</button><button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button>',
-    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Os campos <strong>Substituições</strong> e <strong>Temporárias</strong> são apenas para informação e já estão atribuídos ao cálculo de <strong>Total de Trabalhadores</strong>.</div>'
+    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i> Exportar base filtrada</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>',
+    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Os campos <strong>Normais</strong>, <strong>Substituições</strong> e <strong>Temporárias</strong> são apenas para informação e já estão atribuídos ao cálculo de <strong>Total de Trabalhadores</strong>.</div><div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> <strong>Substituições sem afastado correspondente</strong> podem indicar uma substituição segurando vaga para gestante. Verifique esses casos na aba <strong>Alertas</strong>.</div>'
   },
   ociosas: {
     bloco: "blocoTabelaOciosas",
     titulo: "Distribuição das Vagas Ociosas",
-    subtitulo: "Vagas não ocupadas, afastamento sem substituição e o total de vagas ociosas, conforme a visualização atual.",
-    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-distribuicao"><i class="fa-solid fa-download"></i> Exportar distribuição</button>',
-    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> O campo <strong>Vagas não ocupadas</strong> não considera os trabalhadores em substituições.</div>'
+    subtitulo: "Normais/Temporárias, afastamento sem substituição e o total de vagas ociosas, conforme a visualização atual.",
+    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-distribuicao"><i class="fa-solid fa-download"></i> Exportar distribuição</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>',
+    avisoHtml: ''
   },
   processo: {
     bloco: "blocoTabelaProcesso",
     titulo: "Vagas para Processo Seletivo",
-    subtitulo: "Vagas não ocupadas somadas às temporárias (total para processo seletivo).",
-    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-processo"><i class="fa-solid fa-download"></i> Exportar processo seletivo</button>',
-    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> O campo <strong>Vagas não ocupadas</strong> não considera os trabalhadores em substituições.</div><div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Não entram no cálculo do processo seletivo os cargos de provimento comunitário/indicação: <strong>Agente Indígena de Saúde</strong>, <strong>Agente Indígena de Saneamento</strong>, <strong>Assessor Técnico Indígena</strong> e <strong>Secretário do CONDISI</strong>.</div>'
+    subtitulo: "Normais somadas às temporárias (total para processo seletivo).",
+    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-processo"><i class="fa-solid fa-download"></i> Exportar processo seletivo</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>',
+    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Não entram no cálculo do processo seletivo os cargos de provimento comunitário/indicação: <strong>Agente Indígena de Saúde</strong>, <strong>Agente Indígena de Saneamento</strong>, <strong>Assessor Técnico Indígena</strong> e <strong>Secretário do CONDISI</strong>.</div><div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Os dados podem conter inconsistências. Recomenda-se considerar uma <strong>margem de erro de até 3 candidatos a menos</strong> ao abrir um processo seletivo.</div>'
   }
 };
 
