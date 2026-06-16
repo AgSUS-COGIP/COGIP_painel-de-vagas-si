@@ -9,6 +9,7 @@ import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, rende
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
 import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { configurarEntregaCracha } from "./entrega-cracha.js";
+import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -31,6 +32,7 @@ export async function init() {
   configurarRemanejamento();
   configurarGestaoFerias();
   configurarEntregaCracha();
+  configurarGestaoDisciplinar();
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();

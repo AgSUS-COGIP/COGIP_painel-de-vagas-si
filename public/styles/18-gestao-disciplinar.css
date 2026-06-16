@@ -1,0 +1,187 @@
+    /* =========================================================
+       Gestão Disciplinar
+       Maquete com dados de exemplo. Reaproveita os componentes da
+       Gestão de Férias (gfPanel, gfTable, gfBtn, gfBadge, gfKpi...)
+       e acrescenta apenas o que é específico desta aba: grade de
+       indicadores com 12 cartões, barra de filtros e o painel de
+       detalhamento do pedido selecionado.
+    ========================================================= */
+
+    .gestaoDisciplinarView {
+      height: auto;
+      padding-bottom: 28px;
+    }
+
+    .main.view-scroll .gestaoDisciplinarView.active {
+      min-height: calc(100vh - 94px);
+      overflow: visible;
+    }
+
+    /* ---------- Indicadores (12 cartões) ---------- */
+    .gdKpiGrid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    /* ---------- Formulário de novo registro ---------- */
+    .gdForm {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .gdForm .gdFieldWide {
+      grid-column: span 2;
+    }
+
+    @media (max-width: 1180px) {
+      .gdForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      .gdForm { grid-template-columns: 1fr; }
+      .gdForm .gdFieldWide { grid-column: auto; }
+    }
+
+    /* ---------- Barra de filtros / ações ---------- */
+    .gdToolbar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    .gdToolbar .gfBtn {
+      height: 38px;
+      white-space: nowrap;
+    }
+
+    .gdTableInfo {
+      margin-top: 10px;
+      color: #4a6a93;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    /* ---------- Linhas clicáveis da tabela ---------- */
+    .gdRow {
+      cursor: pointer;
+    }
+
+    .gfTable tbody tr.gdRow.is-selected td {
+      background: rgba(0, 112, 217, .16);
+      box-shadow: inset 3px 0 0 #0070d9;
+    }
+
+    /* ---------- Badges específicas de status / atendimento ---------- */
+    .gfBadge.is-analise { background: #fff2d6; color: #8a5a00; }
+    .gfBadge.is-aguardando { background: #d6ecff; color: #0a5bb0; }
+    .gfBadge.is-concluida { background: #d7f5e3; color: #0a7a44; }
+    .gfBadge.is-pendente { background: #e7eefb; color: #2a4b80; }
+
+    .gfBadge.is-total { background: #d7f5e3; color: #0a7a44; }
+    .gfBadge.is-parcial { background: #fff2d6; color: #8a5a00; }
+    .gfBadge.is-naoatendido { background: #ffdcd7; color: #b5281a; }
+
+    /* ---------- Painel de detalhamento ---------- */
+    .gdDetailGrid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, .9fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .gdDetailCol {
+      min-width: 0;
+    }
+
+    .gdDetailLabel {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px 0;
+      color: #0b4488;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    .gdDetailLabel i { color: #0070d9; }
+
+    .gdKv {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #2d537f;
+      padding: 6px 0;
+      border-bottom: 1px dashed rgba(0, 83, 166, .16);
+    }
+
+    .gdKv > span {
+      flex: 0 0 42%;
+      color: #4a6a93;
+    }
+
+    .gdKv > strong {
+      flex: 1 1 auto;
+      text-align: right;
+      color: #07346b;
+    }
+
+    .gdResumo {
+      margin-top: 12px;
+      background: rgba(255, 255, 255, .68);
+      border: 1px solid rgba(0, 83, 166, .14);
+      border-radius: 12px;
+      padding: 11px 13px;
+    }
+
+    .gdResumo > span {
+      display: block;
+      color: #0b4488;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      margin-bottom: 6px;
+    }
+
+    .gdResumo > p {
+      margin: 0;
+      color: #2d537f;
+      font-size: 11.5px;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    /* O chip de arquivo (gfFileChip) ganha uma segunda linha com tamanho/data. */
+    .gdDetailCol .gfFileChip {
+      align-items: flex-start;
+    }
+
+    .gdDetailCol .gfFileChip span {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.3;
+    }
+
+    .gdDetailCol .gfFileChip span small {
+      color: #5a7aa3;
+      font-size: 9.5px;
+      font-weight: 700;
+    }
+
+    /* ---------- Responsivo ---------- */
+    @media (max-width: 1180px) {
+      .gdKpiGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .gdToolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gdDetailGrid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      .gdKpiGrid { grid-template-columns: 1fr 1fr; }
+      .gdToolbar { grid-template-columns: 1fr; }
+    }
