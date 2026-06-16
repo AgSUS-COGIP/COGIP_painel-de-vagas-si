@@ -1,6 +1,6 @@
 # Painel Web — Monitoramento de Vagas (Saúde Indígena)
 
-Versão web do painel de monitoramento de vagas em Saúde Indígena, com **frontend estático modular** (ES Modules + CSS particionado) e **backend Node.js/Express** com MySQL, cache em memória e autenticação (senha local, Google OAuth e LDAP/AD).
+Versão web do painel de monitoramento de vagas em Saúde Indígena, com **frontend estático modular** (ES Modules + CSS particionado) e **backend Node.js/Express** com MySQL, cache em memória e autenticação (senha local e Google OAuth).
 
 ## Estrutura do projeto
 
@@ -86,7 +86,7 @@ Em geral: `01-base` define a fundação; os parciais seguintes tratam de áreas/
 API Express que serve o `public/` e expõe os endpoints de dados, com:
 
 - Consultas **MySQL** (pool via `mysql2`) e **cache em memória** por processo (`CACHE_SECONDS`).
-- **Autenticação** com sessão JWT e três formas de login: senha local (hash `bcryptjs`), **Google OAuth/OpenID** e **LDAP/Active Directory**.
+- **Autenticação** com sessão JWT e duas formas de login: senha local (hash `bcryptjs`) e **Google OAuth/OpenID**.
 - **Upload de anexos** de remanejamento (`multer`).
 - Compatibilidade com a configuração herdada do Apps Script (`MYSQL_JDBC_URL`, `MYSQL_USER`, `MYSQL_PASSWORD`).
 
@@ -125,7 +125,7 @@ SEED_ADMIN_LOGIN=admin
 SEED_ADMIN_SENHA=AgSUS@2026
 ```
 
-> O `.env.exemple` traz também a configuração opcional de **Google OAuth** (`GOOGLE_*`) e **LDAP/AD** (`LDAP_*`), com comentários explicando cada campo. Deixe `GOOGLE_CLIENT_ID` / `LDAP_URL` vazios para manter esses logins desativados.
+> O `.env.exemple` traz também a configuração opcional de **Google OAuth** (`GOOGLE_*`), com comentários explicando cada campo. Deixe `GOOGLE_CLIENT_ID` vazio para manter o login Google desativado.
 
 3. Inicie a aplicação:
 

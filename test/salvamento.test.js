@@ -10,7 +10,12 @@ const {
   _mapearCargoParaPrevistas: mapearCargo,
   _mesesAteFimDoAno: mesesAteFimDoAno,
   _limparValorDash: limpar,
-  _converterNumeroDash: numero
+  _converterNumeroDash: numero,
+  _salvarSolicitacaoAcessoComConn: solicitarAcesso,
+  _aprovarSolicitacaoComConn: aprovarAcesso,
+  _recusarSolicitacaoComConn: recusarAcesso,
+  _excluirUsuarioComConn: excluirUsuario,
+  _definirNivelUsuarioComConn: definirNivel
 } = srv;
 
 function fakeConn({ custos = [], ociosas = [], insertId = 1 } = {}) {
@@ -221,4 +226,134 @@ test("converterNumeroDash: lê formatos pt-BR e descarta lixo", () => {
   assert.equal(numero("abc"), 0);
   assert.equal(numero(42), 42);
   assert.equal(numero("1.000"), 1); // "1.000" (só ponto) é lido como decimal → 1, não 1000.
+});
+
+// ---------------------------------------------------------------------------
+// 4) Solicitação / aprovação de acesso
+// ---------------------------------------------------------------------------
+function acessoConn({ pendente = null, solicitacao = null, usuarioExiste = false, insertId = 10 } = {}) {
+  const calls = { query: [], execute: [], tx: [] };
+  return {
+    calls,
+    async query(sql, params) {
+      calls.query.push({ sql, params });
+      if (/`ID_SOLICITACAO` = \?/.test(sql)) return [solicitacao ? [solicitacao] : []];              // aprovar/recusar por id
+      if (/SELECT `ID_SOLICITACAO`[\s\S]*`EMAIL` = \?/.test(sql)) return [pendente ? [pendente] : []]; // salvar (1 linha por e-mail)
+      if (/`ID_USUARIO`[\s\S]*`EMAIL` = \?/.test(sql)) return [usuarioExiste ? [{ ID_USUARIO: 1 }] : []];
+      return [[]];
+    },
+    async execute(sql, params) { calls.execute.push({ sql, params }); return [{ insertId }]; },
+    async beginTransaction() { calls.tx.push("begin"); },
+    async commit() { calls.tx.push("commit"); },
+    async rollback() { calls.tx.push("rollback"); }
+  };
+}
+
+test("solicitar acesso: justificativa é obrigatória", async () => {
+  const conn = acessoConn();
+  await assert.rejects(() => solicitarAcesso(conn, "a@x.org", { justificativa: "  " }), /justificativa/i);
+  assert.equal(conn.calls.execute.length, 0);
+});
+
+test("solicitar acesso: sem pendente cria nova solicitação com e-mail normalizado", async () => {
+  const conn = acessoConn({ pendente: null, insertId: 55 });
+  const res = await solicitarAcesso(conn, "Fulano@AgSUS.org.BR", {
+    nome: "Fulano", cargo: "Analista", coordenacao: "COGIP", dsei: "DF", casai: "Brasília",
+    justificativa: "preciso acompanhar as vagas"
+  });
+  assert.equal(res.atualizado, false);
+  const ins = conn.calls.execute[0];
+  assert.match(ins.sql, /INSERT INTO/);
+  assert.match(ins.sql, /'PENDENTE'/);
+  assert.deepEqual(ins.params, ["fulano@agsus.org.br", "Fulano", "Analista", "COGIP", "DF", "Brasília", "preciso acompanhar as vagas"]);
+});
+
+test("solicitar acesso: com pendente existente atualiza (não cria nova)", async () => {
+  const conn = acessoConn({ pendente: { ID_SOLICITACAO: 7 } });
+  const res = await solicitarAcesso(conn, "a@x.org", { justificativa: "nova justificativa" });
+  assert.equal(res.atualizado, true);
+  assert.equal(res.id, 7);
+  assert.match(conn.calls.execute[0].sql, /UPDATE/);
+});
+
+test("aprovar acesso: marca APROVADO e libera usuário existente", async () => {
+  const conn = acessoConn({ solicitacao: { EMAIL: "a@x.org", NOME: "A", STATUS: "PENDENTE" }, usuarioExiste: true });
+  const res = await aprovarAcesso(conn, 9, "admin@x.org", {});
+  assert.equal(res.status, "APROVADO");
+  // 1ª execução: UPDATE da solicitação para APROVADO
+  assert.match(conn.calls.execute[0].sql, /STATUS` = 'APROVADO'/);
+  assert.deepEqual(conn.calls.execute[0].params, ["admin@x.org", null, 9]);
+  // 2ª execução: ativa o usuário (UPDATE ATIVO=1 + nível padrão 1)
+  assert.match(conn.calls.execute[1].sql, /UPDATE/);
+  assert.match(conn.calls.execute[1].sql, /`ATIVO` = 1/);
+  assert.deepEqual(conn.calls.execute[1].params, [1, "a@x.org"]);
+  assert.deepEqual(conn.calls.tx, ["begin", "commit"]);
+});
+
+test("aprovar acesso: cria usuário quando não existe", async () => {
+  const conn = acessoConn({ solicitacao: { EMAIL: "novo@x.org", NOME: "Novo", STATUS: "PENDENTE" }, usuarioExiste: false });
+  await aprovarAcesso(conn, 3, "admin@x.org", { nivel: 2 });
+  const insUser = conn.calls.execute.find(c => /INSERT INTO[\s\S]*`ATIVO`/.test(c.sql) || /VALUES \(\?, '', \?, \?, \?, 1\)/.test(c.sql));
+  assert.ok(insUser, "deve inserir o usuário");
+  assert.deepEqual(insUser.params, ["novo", "Novo", "novo@x.org", 2]);
+});
+
+test("aprovar acesso: solicitação já decidida é rejeitada", async () => {
+  const conn = acessoConn({ solicitacao: { EMAIL: "a@x.org", NOME: "A", STATUS: "APROVADO" } });
+  await assert.rejects(() => aprovarAcesso(conn, 9, "admin@x.org", {}), /já foi decidida/);
+});
+
+test("recusar acesso: justificativa é obrigatória", async () => {
+  const conn = acessoConn({ solicitacao: { STATUS: "PENDENTE" } });
+  await assert.rejects(() => recusarAcesso(conn, 9, "admin@x.org", "   "), /justificativa/i);
+  assert.equal(conn.calls.execute.length, 0);
+});
+
+test("recusar acesso: marca RECUSADO e revoga o acesso (ATIVO=0)", async () => {
+  const conn = acessoConn({ solicitacao: { EMAIL: "a@x.org", STATUS: "PENDENTE" } });
+  const res = await recusarAcesso(conn, 9, "admin@x.org", "fora do escopo");
+  assert.equal(res.status, "RECUSADO");
+  // 1ª execução: marca a solicitação como RECUSADO
+  assert.match(conn.calls.execute[0].sql, /STATUS` = 'RECUSADO'/);
+  assert.deepEqual(conn.calls.execute[0].params, ["admin@x.org", "fora do escopo", 9]);
+  // 2ª execução: revoga o acesso do usuário (ATIVO=0)
+  assert.match(conn.calls.execute[1].sql, /`ATIVO` = 0/);
+  assert.deepEqual(conn.calls.execute[1].params, ["a@x.org"]);
+  assert.deepEqual(conn.calls.tx, ["begin", "commit"]);
+});
+
+test("excluir usuário: remove das DUAS tabelas em transação (e-mail normalizado)", async () => {
+  const conn = acessoConn();
+  await excluirUsuario(conn, "Alguem@X.org");
+  assert.equal(conn.calls.execute.length, 2, "dois DELETE (solicitações + usuários)");
+  assert.match(conn.calls.execute[0].sql, /DELETE FROM/);
+  assert.match(conn.calls.execute[1].sql, /DELETE FROM/);
+  assert.deepEqual(conn.calls.execute[0].params, ["alguem@x.org"]);
+  assert.deepEqual(conn.calls.execute[1].params, ["alguem@x.org"]);
+  assert.deepEqual(conn.calls.tx, ["begin", "commit"]);
+  // Reaproveita o AUTO_INCREMENT (próximo id = MAX+1) nas duas tabelas.
+  const alters = conn.calls.query.filter(c => /ALTER TABLE[\s\S]*AUTO_INCREMENT/.test(c.sql));
+  assert.equal(alters.length, 2, "deve resetar o AUTO_INCREMENT das duas tabelas");
+});
+
+test("excluir usuário: e-mail vazio é rejeitado", async () => {
+  await assert.rejects(() => excluirUsuario(acessoConn(), "   "), /e-mail/i);
+});
+
+test("definir nível: atualiza o privilégio do usuário (e-mail normalizado)", async () => {
+  const conn = acessoConn();
+  const r = await definirNivel(conn, "Alguem@X.org", 2);
+  assert.equal(r.nivel, 2);
+  assert.equal(r.email, "alguem@x.org");
+  assert.match(conn.calls.execute[0].sql, /UPDATE/);
+  assert.match(conn.calls.execute[0].sql, /NIVEL_AUTORIZACAO/);
+  assert.deepEqual(conn.calls.execute[0].params, [2, "alguem@x.org"]);
+});
+
+test("definir nível: nível inválido é rejeitado", async () => {
+  await assert.rejects(() => definirNivel(acessoConn(), "a@x.org", 9), /n[íi]vel inv/i);
+});
+
+test("definir nível: e-mail vazio é rejeitado", async () => {
+  await assert.rejects(() => definirNivel(acessoConn(), "", 1), /e-mail/i);
 });

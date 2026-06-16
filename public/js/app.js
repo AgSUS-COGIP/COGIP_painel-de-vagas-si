@@ -1,11 +1,13 @@
 import { renderAlertasDaPagina, renderAlertasErro } from "./alertas.js";
 import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
+import { configurarAcesso } from "./acesso.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { AUTO_FULL_RELOAD_MS, AUTO_REFRESH_MS, COLORS } from "./constants.js";
 import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
+import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -26,8 +28,10 @@ export async function init() {
   configurarPainelExterno();
   configurarPainelFerias();
   configurarRemanejamento();
+  configurarGestaoFerias();
   configurarResponsividadePainel();
   configurarLogin();
+  configurarAcesso();
   await verificarSessaoInicial();
 }
 
