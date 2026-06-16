@@ -12,7 +12,7 @@ export function renderVagasDaPagina() {
   const processoSeletivoBody = document.getElementById("processoSeletivoBody");
 
   if (!pageLoadState.vagas) {
-    if (tbody) tbody.innerHTML = '<tr><td colspan="9">Carregando dados da aba Vagas...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="10">Carregando dados da aba Vagas...</td></tr>';
     if (distribuicaoBody) distribuicaoBody.innerHTML = '<tr><td colspan="4">Carregando distribuição de vagas ociosas...</td></tr>';
     if (processoSeletivoBody) processoSeletivoBody.innerHTML = '<tr><td colspan="4">Carregando vagas para processo seletivo...</td></tr>';
     if (pagination) pagination.innerHTML = "";
@@ -27,7 +27,7 @@ export function renderVagasDaPagina() {
 
 export function renderVagasErro(error) {
   const tbody = document.getElementById("vagasBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="9">Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="10">Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
   const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
   if (distribuicaoBody) distribuicaoBody.innerHTML = `<tr><td colspan="4">Erro ao carregar distribuição: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
   const processoSeletivoBody = document.getElementById("processoSeletivoBody");
@@ -136,6 +136,7 @@ export function montarVagasAgrupadas(rows, campo, labelCampo) {
         totalTrabalhadores: 0,
         afastados: 0,
         ociosas: 0,
+        contratadosNormal: 0,
         contratadosSubstituicao: 0,
         contratadosTemporario: 0,
         preenchimento: 0,
@@ -152,6 +153,7 @@ export function montarVagasAgrupadas(rows, campo, labelCampo) {
     item.totalTrabalhadores += Number(row.totalTrabalhadores || 0);
     item.afastados += Number(row.afastados || 0);
     item.ociosas += Number(row.ociosas || 0);
+    item.contratadosNormal += Number(row.contratadosNormal || 0);
     item.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
     item.contratadosTemporario += Number(row.contratadosTemporario || 0);
     // Soma dos valores derivados por linha (já clampados) — total independe da visão.
@@ -189,14 +191,15 @@ export function atualizarCabecalhoVagas() {
 
   if (state.vagasViewAtual === "detalhado") {
     colgroup.innerHTML = `
-          <col style="width: 14%;">
-          <col style="width: 20%;">
-          <col style="width: 9%;">
-          <col style="width: 11%;">
+          <col style="width: 13%;">
+          <col style="width: 18%;">
           <col style="width: 8%;">
-          <col style="width: 12%;">
+          <col style="width: 10%;">
+          <col style="width: 7%;">
+          <col style="width: 11%;">
           <col style="width: 9%;">
-          <col style="width: 9%;">
+          <col style="width: 8%;">
+          <col style="width: 8%;">
           <col style="width: 8%;">
         `;
 
@@ -207,6 +210,7 @@ export function atualizarCabecalhoVagas() {
           ${th("Total de Trabalhadores", "totalTrabalhadores")}
           ${th("Afastados", "afastados")}
           ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
+          ${th("Trabalhadores Normais", "contratadosNormal")}
           ${th("Substituições", "contratadosSubstituicao")}
           ${th("Temporárias", "contratadosTemporario")}
           ${th("% preenchimento", "preenchimento")}
@@ -217,14 +221,15 @@ export function atualizarCabecalhoVagas() {
   const primeiraColuna = state.vagasViewAtual === "dsei" ? "DSEI/CASAI" : "Cargo";
 
   colgroup.innerHTML = `
-        <col style="width: 25%;">
-        <col style="width: 11%;">
-        <col style="width: 13%;">
-        <col style="width: 9%;">
-        <col style="width: 14%;">
+        <col style="width: 22%;">
         <col style="width: 10%;">
-        <col style="width: 10%;">
+        <col style="width: 12%;">
         <col style="width: 8%;">
+        <col style="width: 13%;">
+        <col style="width: 10%;">
+        <col style="width: 9%;">
+        <col style="width: 9%;">
+        <col style="width: 7%;">
       `;
 
   header.innerHTML = `
@@ -233,6 +238,7 @@ export function atualizarCabecalhoVagas() {
         ${th("Total de Trabalhadores", "totalTrabalhadores")}
         ${th("Afastados", "afastados")}
         ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
+        ${th("Trabalhadores Normais", "contratadosNormal")}
         ${th("Substituições", "contratadosSubstituicao")}
         ${th("Temporárias", "contratadosTemporario")}
         ${th("% preenchimento", "preenchimento")}
@@ -247,7 +253,7 @@ export function renderVagasTable(rows) {
   atualizarCabecalhoVagas();
 
   const linhas = obterRowsVagasPorVisualizacao(rows);
-  const totalColunas = state.vagasViewAtual === "detalhado" ? 9 : 8;
+  const totalColunas = state.vagasViewAtual === "detalhado" ? 10 : 9;
 
   if (!linhas.length) {
     tbody.innerHTML = `<tr><td colspan="${totalColunas}">Sem dados para os filtros selecionados.</td></tr>`;
@@ -267,6 +273,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(row.totalTrabalhadores)}</td>
             <td>${formatNumber(row.afastados)}</td>
             <td class="colOciosas ${Number(row.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(row.ociosas)}</td>
+            <td>${formatNumber(row.contratadosNormal)}</td>
             <td>${formatNumber(row.contratadosSubstituicao)}</td>
             <td>${formatNumber(row.contratadosTemporario)}</td>
             <td>${formatPercent(row.preenchimento)}</td>
@@ -279,6 +286,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(totalRow.totalTrabalhadores)}</td>
             <td>${formatNumber(totalRow.afastados)}</td>
             <td class="colOciosas ${Number(totalRow.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(totalRow.ociosas)}</td>
+            <td>${formatNumber(totalRow.contratadosNormal)}</td>
             <td>${formatNumber(totalRow.contratadosSubstituicao)}</td>
             <td>${formatNumber(totalRow.contratadosTemporario)}</td>
             <td>${formatPercent(totalRow.preenchimento)}</td>
@@ -292,6 +300,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(row.totalTrabalhadores)}</td>
             <td>${formatNumber(row.afastados)}</td>
             <td class="colOciosas ${Number(row.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(row.ociosas)}</td>
+            <td>${formatNumber(row.contratadosNormal)}</td>
             <td>${formatNumber(row.contratadosSubstituicao)}</td>
             <td>${formatNumber(row.contratadosTemporario)}</td>
             <td>${formatPercent(row.preenchimento)}</td>
@@ -303,6 +312,7 @@ export function renderVagasTable(rows) {
             <td>${formatNumber(totalRow.totalTrabalhadores)}</td>
             <td>${formatNumber(totalRow.afastados)}</td>
             <td class="colOciosas ${Number(totalRow.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(totalRow.ociosas)}</td>
+            <td>${formatNumber(totalRow.contratadosNormal)}</td>
             <td>${formatNumber(totalRow.contratadosSubstituicao)}</td>
             <td>${formatNumber(totalRow.contratadosTemporario)}</td>
             <td>${formatPercent(totalRow.preenchimento)}</td>
@@ -321,6 +331,7 @@ export function calcularTotalVagasTabela(linhas) {
     acc.totalTrabalhadores += Number(row.totalTrabalhadores || 0);
     acc.afastados += Number(row.afastados || 0);
     acc.ociosas += Number(row.ociosas || 0);
+    acc.contratadosNormal += Number(row.contratadosNormal || 0);
     acc.contratadosSubstituicao += Number(row.contratadosSubstituicao || 0);
     acc.contratadosTemporario += Number(row.contratadosTemporario || 0);
     return acc;
@@ -329,6 +340,7 @@ export function calcularTotalVagasTabela(linhas) {
     totalTrabalhadores: 0,
     afastados: 0,
     ociosas: 0,
+    contratadosNormal: 0,
     contratadosSubstituicao: 0,
     contratadosTemporario: 0,
     preenchimento: 0
@@ -578,7 +590,7 @@ export function atualizarCabecalhoProcessoSeletivo() {
     header.innerHTML = `
           <th>DSEI/CASAI</th>
           <th>Cargo</th>
-          <th>Normais/Temporárias</th>
+          <th>Normais</th>
           <th>Temporárias</th>
           <th>Total Processo Seletivo</th>
         `;
@@ -595,14 +607,14 @@ export function atualizarCabecalhoProcessoSeletivo() {
       `;
   header.innerHTML = `
         <th>${primeiraColuna}</th>
-        <th>Normais/Temporárias</th>
+        <th>Normais</th>
         <th>Temporárias</th>
         <th>Total Processo Seletivo</th>
       `;
   if (descricao) {
     descricao.textContent = state.vagasViewAtual === "cargo"
-      ? "Normais/Temporárias somado às temporárias (total para processo seletivo) por cargo."
-      : "Normais/Temporárias somado às temporárias (total para processo seletivo) por DSEI/CASAI.";
+      ? "Normais somadas às temporárias (total para processo seletivo) por cargo."
+      : "Normais somadas às temporárias (total para processo seletivo) por DSEI/CASAI.";
   }
 }
 
