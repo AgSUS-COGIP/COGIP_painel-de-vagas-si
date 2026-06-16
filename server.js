@@ -18,9 +18,63 @@ const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterL
 const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirNivelMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Tipos que o navegador renderiza na própria origem e poderiam executar script
+// (HTML/SVG/XML). Bloqueados no upload como defesa em profundidade — além disso o
+// download é sempre forçado como anexo (ver rota do anexo).
+const MIME_ANEXO_BLOQUEADOS = new Set([
+  "text/html",
+  "application/xhtml+xml",
+  "image/svg+xml",
+  "application/xml",
+  "text/xml"
+]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mime = String(file.mimetype || "").toLowerCase();
+    if (MIME_ANEXO_BLOQUEADOS.has(mime)) {
+      const erro = new Error("Tipo de arquivo não permitido para anexo.");
+      erro.status = 400;
+      erro.expose = true;
+      cb(erro);
+      return;
+    }
+    cb(null, true);
+  }
+});
 
 app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
+
+// Cabeçalhos de segurança aplicados a todas as respostas (inclui estáticos).
+// A CSP libera explicitamente os CDNs usados pelo painel (Google Identity,
+// Chart.js via jsDelivr e Font Awesome via cdnjs) e bloqueia o resto.
+function definirCabecalhosSeguranca(req, res, next) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' https://accounts.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "style-src 'self' 'unsafe-inline' https://accounts.google.com https://cdnjs.cloudflare.com",
+      "img-src 'self' data: https:",
+      "font-src 'self' data: https://cdnjs.cloudflare.com",
+      "connect-src 'self' https://accounts.google.com",
+      "frame-src https://accounts.google.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'self'"
+    ].join("; ")
+  );
+  next();
+}
+app.use(definirCabecalhosSeguranca);
 
 const apiLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000),
@@ -54,51 +108,55 @@ app.get("/api/config", apiLimiter, (req, res) => {
   });
 });
 
-app.get("/api/dashboard", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/dashboard", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   res.json(await getDashboardData());
 }));
 
-app.get("/api/dashboard/resumo", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/dashboard/resumo", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   res.json(await getDashboardResumoData());
 }));
 
-app.get("/api/dashboard/apoio", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/dashboard/apoio", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   res.json(await getDashboardApoioData());
 }));
 
-app.get("/api/vagas", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/vagas", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   res.json(await getVagasData());
 }));
 
-app.get("/api/alertas", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/alertas", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   res.json(await getAlertasData());
 }));
 
-app.get("/api/alertas/observacoes", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/alertas/observacoes", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   res.json({ observacoes: await getAlertasObservacoesMap() });
 }));
 
-app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarOpcionalMiddleware, asyncHandler(async (req, res) => {
+// Escrita de observação: exige usuário autenticado e aprovado; o autor é sempre
+// derivado do token (nunca confiado a partir do corpo da requisição).
+app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = { ...(req.body || {}) };
-    if (req.usuario) body.usuario = req.usuario.email || req.usuario.login || body.usuario;
+    body.usuario = req.usuario.email || req.usuario.login || "painel";
     const resultado = await salvarObservacaoAlertaComConn(conn, body);
     res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar a observação." });
   } finally {
     await fecharJdbc(conn);
   }
 }));
 
-app.get("/api/remanejamento/lista", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/lista", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoListaData());
 }));
 
-app.get("/api/remanejamento/cadastro", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/cadastro", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoCadastroData());
 }));
 
-app.get("/api/remanejamento/anexo/:id", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const [rows] = await conn.query(
@@ -112,15 +170,19 @@ app.get("/api/remanejamento/anexo/:id", apiLimiter, asyncHandler(async (req, res
       return;
     }
 
-    res.setHeader("Content-Type", row.ANEXO_MIME_TYPE || "application/octet-stream");
-    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(row.ANEXO_NOME_ARQUIVO || "anexo_remanejamento")}"`);
+    // Download forçado (attachment) + nosniff: o navegador nunca renderiza o
+    // anexo na origem do painel, neutralizando XSS via arquivo malicioso.
+    const nomeArquivo = String(row.ANEXO_NOME_ARQUIVO || "anexo_remanejamento").replace(/[\r\n"]/g, "");
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(nomeArquivo)}"`);
     res.send(row.ANEXO_PROCESSO);
   } finally {
     await fecharJdbc(conn);
   }
 }));
 
-app.get("/api/remanejamento/detalhe/:id", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/detalhe/:id", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoDetalheData(req.params.id));
 }));
 
@@ -294,13 +356,15 @@ app.post(
       const resultado = await salvarRemanejamentoComConn(conn, body, req.file || null);
       limparCacheDashboard();
       res.json({ ok: true, ...resultado });
+    } catch (err) {
+      res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar o remanejamento." });
     } finally {
       await fecharJdbc(conn);
     }
   })
 );
 
-app.post("/api/cache/clear", apiLimiter, asyncHandler(async (req, res) => {
+app.post("/api/cache/clear", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   limparCacheDashboard();
   res.json({ ok: true });
 }));
@@ -312,9 +376,18 @@ app.get("*", apiLimiter, (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  const message = err && err.message ? err.message : "Erro interno.";
   console.error(err);
-  res.status(500).json({ error: message });
+  if (res.headersSent) return next(err);
+
+  // Erros do multer (ex.: arquivo acima do limite) viram 400 amigável.
+  const ehMulter = err && err.name === "MulterError";
+  const status = (err && Number(err.status)) || (ehMulter ? 400 : 500);
+
+  // Só devolve a mensagem real quando for um erro "seguro" (validação/operacional);
+  // erros internos (500) retornam mensagem genérica para não vazar detalhes.
+  const podeExpor = !!(err && err.expose) || status < 500 || ehMulter;
+  const message = podeExpor && err && err.message ? err.message : "Erro interno. Tente novamente mais tarde.";
+  res.status(status).json({ error: message });
 });
 
 if (require.main === module) {
