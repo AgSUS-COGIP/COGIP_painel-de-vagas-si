@@ -348,10 +348,16 @@ function abrirDetalhe(id) {
   render();
 }
 
-// Habilita apenas o botão da próxima etapa válida.
+// Habilita só o botão da próxima etapa válida; "voltar" fica ativo enquanto
+// não estiver na primeira etapa do funil.
 function atualizarBotoesAcao(s) {
   document.querySelectorAll("#ecDetalhe [data-ec-acao]").forEach(btn => {
-    const t = TRANSICOES[btn.dataset.ecAcao];
+    const tipo = btn.dataset.ecAcao;
+    if (tipo === "voltar") {
+      btn.disabled = statusIndex(s.status) <= 0;
+      return;
+    }
+    const t = TRANSICOES[tipo];
     btn.disabled = !t || s.status !== t.de;
   });
 }
@@ -376,6 +382,24 @@ function registrarEtapa(tipo) {
   s.status = t.para;
   if (t.aplicar) t.aplicar(s);
   ecToast(t.msg);
+  abrirDetalhe(s.id);
+}
+
+// Retrocede uma etapa no funil, desfazendo os efeitos colaterais da etapa
+// que está sendo revertida (espelha o `aplicar` das transições para frente).
+function voltarEtapa() {
+  const s = solicitacoes.find(r => r.id === detalheId);
+  if (!s) return;
+  const idx = statusIndex(s.status);
+  if (idx <= 0) {
+    ecToast("O crachá já está na primeira etapa.", "erro");
+    return;
+  }
+  if (s.status === STATUS.GRAFICA) s.possuiFoto = false; // desfaz "foto recebida"
+  if (s.status === STATUS.CONFECCAO) s.dataEnvio = "";     // desfaz "envio à gráfica"
+  const novoStatus = STATUS_LISTA[idx - 1];
+  s.status = novoStatus;
+  ecToast(`Status revertido para "${novoStatus}".`);
   abrirDetalhe(s.id);
 }
 
@@ -547,6 +571,10 @@ export function configurarEntregaCracha() {
     if (pagina && !pagina.disabled) { irParaPagina(pagina.dataset.ecPagina); return; }
 
     const acao = event.target.closest("[data-ec-acao]");
-    if (acao && !acao.disabled) { registrarEtapa(acao.dataset.ecAcao); return; }
+    if (acao && !acao.disabled) {
+      if (acao.dataset.ecAcao === "voltar") voltarEtapa();
+      else registrarEtapa(acao.dataset.ecAcao);
+      return;
+    }
   });
 }

@@ -520,6 +520,22 @@ select.ecInput {
   box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
 }
 
+/* Botão de retroceder etapa: tom de alerta, separado das ações de avanço. */
+.ecBtnVoltar {
+  margin-top: 4px;
+  background: #fff;
+  color: #b5281a;
+  border: 1px solid rgba(181, 40, 26, .35);
+  box-shadow: 0 8px 16px rgba(181, 40, 26, .08);
+}
+
+.ecBtnVoltar:hover { background: #fff3f1; }
+
+.ecAcoesEscritorio .ecBtnVoltar:disabled {
+  opacity: .45;
+  box-shadow: 0 8px 16px rgba(181, 40, 26, .08);
+}
+
 .ecObsLabel {
   display: block;
   color: #2d537f;
