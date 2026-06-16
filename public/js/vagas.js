@@ -355,7 +355,7 @@ export function atualizarCabecalhoDistribuicaoVagasOciosas() {
     header.innerHTML = `
           <th>DSEI/CASAI</th>
           <th>Cargo</th>
-          <th>Vagas não ocupadas</th>
+          <th>Normais/Temporárias</th>
           <th>Afastamento sem substituição</th>
           <th>Vagas Ociosas</th>
         `;
@@ -372,7 +372,7 @@ export function atualizarCabecalhoDistribuicaoVagasOciosas() {
       `;
   header.innerHTML = `
         <th>${primeiraColuna}</th>
-        <th>Vagas não ocupadas</th>
+        <th>Normais/Temporárias</th>
         <th>Afastamento sem substituição</th>
         <th>Vagas Ociosas</th>
       `;
@@ -578,7 +578,7 @@ export function atualizarCabecalhoProcessoSeletivo() {
     header.innerHTML = `
           <th>DSEI/CASAI</th>
           <th>Cargo</th>
-          <th>Vagas não ocupadas</th>
+          <th>Normais/Temporárias</th>
           <th>Temporárias</th>
           <th>Total Processo Seletivo</th>
         `;
@@ -595,14 +595,14 @@ export function atualizarCabecalhoProcessoSeletivo() {
       `;
   header.innerHTML = `
         <th>${primeiraColuna}</th>
-        <th>Vagas não ocupadas</th>
+        <th>Normais/Temporárias</th>
         <th>Temporárias</th>
         <th>Total Processo Seletivo</th>
       `;
   if (descricao) {
     descricao.textContent = state.vagasViewAtual === "cargo"
-      ? "Vagas não ocupadas somado às temporárias (total para processo seletivo) por cargo."
-      : "Vagas não ocupadas somado às temporárias (total para processo seletivo) por DSEI/CASAI.";
+      ? "Normais/Temporárias somado às temporárias (total para processo seletivo) por cargo."
+      : "Normais/Temporárias somado às temporárias (total para processo seletivo) por DSEI/CASAI.";
   }
 }
 

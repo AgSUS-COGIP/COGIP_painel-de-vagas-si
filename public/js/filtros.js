@@ -113,6 +113,12 @@ export function restaurarEstadoMenuLateral() {
 
 export function configurarNavegacao() {
   document.querySelectorAll(".navItem").forEach(item => {
+    // Tooltip com o nome completo: útil quando o texto é truncado (reticências)
+    // e quando o menu está recolhido (só ícone).
+    const label = item.querySelector("span:not(.navIcon)");
+    const texto = label ? label.textContent.trim() : "";
+    if (texto && !item.title) item.title = texto;
+
     item.addEventListener("click", () => {
       const view = item.dataset.view;
       if (!view) return;
