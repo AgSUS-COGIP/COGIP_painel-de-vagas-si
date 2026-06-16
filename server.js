@@ -20,20 +20,8 @@ const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, au
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// Pool de conexões MySQL (inicializado sob demanda). Declarado no topo para evitar TDZ,
-// já que a criação de tabelas no startup pode acessá-lo antes da posição original.
-
-
-
-
-// Atrás de proxy reverso (Nginx/Hostinger), o IP real vem em X-Forwarded-For.
-// Sem isto o rate limiter contaria todos os usuários como o mesmo IP (o do proxy).
-// TRUST_PROXY: número de saltos de proxy confiáveis (1 = um proxy à frente). 0 = sem proxy.
 app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
 
-// Rate limiting (proteção contra DoS / força bruta). Limita requisições por IP.
-// Os limites são generosos para não atrapalhar o uso normal (heartbeat + dashboards),
-// mas cortam rajadas abusivas. Ajustáveis por .env.
 const apiLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.RATE_LIMIT_MAX || 300),
@@ -54,10 +42,7 @@ const loginLimiter = rateLimit({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Aplica o limite geral a toda a API (cobre as rotas que acessam o banco).
-app.use("/api", apiLimiter);
-
-app.get("/api/config", (req, res) => {
+app.get("/api/config", apiLimiter, (req, res) => {
   res.json({
     logoAgsusUrl: getLogoAgsusUrl(),
     backgroundPainelUrl: getBackgroundPainelUrl(),
@@ -69,31 +54,31 @@ app.get("/api/config", (req, res) => {
   });
 });
 
-app.get("/api/dashboard", asyncHandler(async (req, res) => {
+app.get("/api/dashboard", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getDashboardData());
 }));
 
-app.get("/api/dashboard/resumo", asyncHandler(async (req, res) => {
+app.get("/api/dashboard/resumo", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getDashboardResumoData());
 }));
 
-app.get("/api/dashboard/apoio", asyncHandler(async (req, res) => {
+app.get("/api/dashboard/apoio", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getDashboardApoioData());
 }));
 
-app.get("/api/vagas", asyncHandler(async (req, res) => {
+app.get("/api/vagas", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getVagasData());
 }));
 
-app.get("/api/alertas", asyncHandler(async (req, res) => {
+app.get("/api/alertas", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getAlertasData());
 }));
 
-app.get("/api/alertas/observacoes", asyncHandler(async (req, res) => {
+app.get("/api/alertas/observacoes", apiLimiter, asyncHandler(async (req, res) => {
   res.json({ observacoes: await getAlertasObservacoesMap() });
 }));
 
-app.post("/api/alertas/observacao", express.json(), autenticarOpcionalMiddleware, asyncHandler(async (req, res) => {
+app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarOpcionalMiddleware, asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = { ...(req.body || {}) };
@@ -105,15 +90,15 @@ app.post("/api/alertas/observacao", express.json(), autenticarOpcionalMiddleware
   }
 }));
 
-app.get("/api/remanejamento/lista", asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/lista", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoListaData());
 }));
 
-app.get("/api/remanejamento/cadastro", asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/cadastro", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoCadastroData());
 }));
 
-app.get("/api/remanejamento/anexo/:id", asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/anexo/:id", apiLimiter, asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const [rows] = await conn.query(
@@ -135,12 +120,13 @@ app.get("/api/remanejamento/anexo/:id", asyncHandler(async (req, res) => {
   }
 }));
 
-app.get("/api/remanejamento/detalhe/:id", asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/detalhe/:id", apiLimiter, asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoDetalheData(req.params.id));
 }));
 
 app.delete(
   "/api/remanejamento/:id",
+  apiLimiter,
   autenticarFrescoMiddleware,
   exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
   asyncHandler(async (req, res) => {
@@ -178,7 +164,7 @@ app.post("/api/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/sessao", autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/sessao", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = await obterUsuarioAtualComConn(conn, req.usuario);
@@ -196,7 +182,7 @@ app.get("/api/sessao", autenticarMiddleware, asyncHandler(async (req, res) => {
 // ---- Fluxo de solicitação/aprovação de acesso ----
 
 // Usuário (mesmo sem acesso aprovado) envia/edita sua solicitação.
-app.post("/api/acesso/solicitar", autenticarMiddleware, express.json(), asyncHandler(async (req, res) => {
+app.post("/api/acesso/solicitar", apiLimiter, autenticarMiddleware, express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     // Se o acesso já foi aprovado nesse meio-tempo, não reabrir a solicitação:
@@ -215,12 +201,12 @@ app.post("/api/acesso/solicitar", autenticarMiddleware, express.json(), asyncHan
   }
 }));
 
-app.get("/api/acesso/listas", autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/acesso/listas", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   res.json(await obterListasAcesso());
 }));
 
 // Usuário acompanha a própria situação (status + histórico de recusas).
-app.get("/api/acesso/minha-solicitacao", autenticarMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/acesso/minha-solicitacao", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const situacao = await obterSituacaoAcessoComConn(conn, req.usuario.email);
@@ -231,7 +217,7 @@ app.get("/api/acesso/minha-solicitacao", autenticarMiddleware, asyncHandler(asyn
 }));
 
 // Admin: lista pendentes + histórico.
-app.get("/api/acesso/solicitacoes", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.get("/api/acesso/solicitacoes", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     res.json(await listarSolicitacoesComConn(conn));
@@ -241,7 +227,7 @@ app.get("/api/acesso/solicitacoes", autenticarFrescoMiddleware, exigirNivelMiddl
 }));
 
 // Admin: aprova (libera o acesso imediatamente).
-app.post("/api/acesso/solicitacoes/:id/aprovar", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+app.post("/api/acesso/solicitacoes/:id/aprovar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const adminEmail = (req.usuario && (req.usuario.email || req.usuario.login)) || "admin";
@@ -255,7 +241,7 @@ app.post("/api/acesso/solicitacoes/:id/aprovar", autenticarFrescoMiddleware, exi
 }));
 
 // Admin: recusa (justificativa obrigatória).
-app.post("/api/acesso/solicitacoes/:id/recusar", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+app.post("/api/acesso/solicitacoes/:id/recusar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const adminEmail = (req.usuario && (req.usuario.email || req.usuario.login)) || "admin";
@@ -269,7 +255,7 @@ app.post("/api/acesso/solicitacoes/:id/recusar", autenticarFrescoMiddleware, exi
 }));
 
 // Admin: exclui o usuário das duas tabelas (usuários + solicitações).
-app.post("/api/acesso/usuario/excluir", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const resultado = await excluirUsuarioComConn(conn, (req.body || {}).email);
@@ -282,7 +268,7 @@ app.post("/api/acesso/usuario/excluir", autenticarFrescoMiddleware, exigirNivelM
 }));
 
 // Admin: define o privilégio (nível) de um usuário.
-app.post("/api/acesso/usuario/nivel", autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+app.post("/api/acesso/usuario/nivel", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = req.body || {};
@@ -297,6 +283,7 @@ app.post("/api/acesso/usuario/nivel", autenticarFrescoMiddleware, exigirNivelMid
 
 app.post(
   "/api/remanejamento/salvar",
+  apiLimiter,
   autenticarFrescoMiddleware,
   exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
   upload.single("anexo"),
@@ -313,7 +300,7 @@ app.post(
   })
 );
 
-app.post("/api/cache/clear", asyncHandler(async (req, res) => {
+app.post("/api/cache/clear", apiLimiter, asyncHandler(async (req, res) => {
   limparCacheDashboard();
   res.json({ ok: true });
 }));
@@ -355,126 +342,6 @@ if (require.main === module) {
 
 module.exports = app;
 
-
-
-
-
-
-
-
-
-
-// ===================== Autenticação e níveis de acesso =====================
-
-
-// Orquestra o login por senha (validação local contra a tabela de usuários).
-
-
-// Login via Google (OpenID Connect). Recebe o ID token do cliente, valida com o
-// Google, confere o domínio permitido e reaproveita o mesmo JWT/permissões do painel.
-
-
-
-// Middleware: exige que o usuário esteja com acesso aprovado (ATIVO/aprovado no token).
-
-// Relê o usuário no banco a partir do token (fonte da verdade da sessão).
-// Retorna null se o usuário não existe mais (excluído) -> a sessão deve cair.
-// nível/aprovado vêm SEMPRE do banco (não do token), refletindo mudanças em tempo real.
-
-
-// Autenticação com REVALIDAÇÃO no banco: além de validar o token, relê nível/ativo
-// do usuário no banco e usa esses valores (frescos) em req.usuario. Assim, conceder
-// ou revogar privilégio passa a valer no PRÓXIMO request, sem o usuário precisar
-// relogar — e quem foi revogado não consegue mais agir com o token antigo.
-
-
-
-// ===================== Solicitações de acesso (fluxo de aprovação) =====================
-
-
-
-
-// Cria ou atualiza a solicitação de acesso do usuário.
-// Mantém UMA linha por usuário (por e-mail): se já existe, atualiza a mesma linha
-// e a reabre como PENDENTE (limpando a decisão anterior); senão, cria a linha.
-
-
-// Situação de acesso do usuário: solicitação atual (mais recente) + histórico completo.
-
-// Lista para a tela de administração: pendentes + decididas (histórico).
-// Inclui (via JOIN) o nível e o status (ativo) atual do usuário, para o admin
-// poder gerenciar privilégios direto na tela.
-
-// Define o nível de autorização (privilégio) de um usuário existente.
-// nível 0/1 = usuário comum; 2 = administrador (gerencia acessos).
-
-// Aprova: marca APROVADO e libera o usuário (ATIVO=1 + nível) na mesma transação.
-
-// Recusa: justificativa obrigatória. Marca RECUSADO e REVOGA o acesso (ATIVO=0),
-// garantindo que um usuário aprovado anteriormente perca o acesso ao ser recusado.
-
-// Exclui o usuário das DUAS tabelas (usuários do painel + solicitações de acesso),
-// removendo todas as suas informações e justificativas. Após isso, a próxima
-// revalidação de sessão derruba a sessão dele (ver /api/sessao).
-
-// Ajusta o AUTO_INCREMENT da tabela para MAX(coluna)+1, reaproveitando ids livres
-// no topo (ex.: após excluir o id mais alto, o próximo volta a reutilizá-lo).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Mapeia o ID_VAGA (cargo) para o mesmo agrupamento usado em vagas_previstas_agg da view,
-// para casar a redução solicitada com a linha consolidada de vagas ociosas.
-
-// Valida, contra a view de monitoramento, se cada cargo a ser reduzido possui vagas
-// ociosas suficientes no DSEI/CASAI. A view já desconta os remanejamentos anteriores,
-// portanto a verificação é cumulativa. Lança erro (bloqueando o salvamento) se faltar.
-
-// Número de meses do mês atual até dezembro do ano corrente (ex.: junho => 7, dezembro => 1).
-
-
-
-
-// Exclui um remanejamento: remove as movimentações (MOVIMENTACAO_REMANEJAMENTO) e o
-// processo (PROCESSO_REMANEJAMENTO), em transação.
-
-// CASE de nome de cargo (mesmo mapeamento usado nas demais consultas de remanejamento).
-
-// Monta a consulta de detalhe para um tipo de movimentação (DECRESCIMO ou ACRESCIMO).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function getBackgroundPainelUrl() {
   return DASH_CONFIG.BACKGROUND_FILE;
 }
@@ -491,25 +358,12 @@ function getLogoAgsusUrl() {
   return DASH_CONFIG.LOGO_AGSUS_FILE;
 }
 
-
-
-
-// Obtém uma conexão do pool, com novas tentativas em falhas transitórias de rede
-// (ex.: ETIMEDOUT no MySQL remoto), evitando que um soluço de conexão derrube a requisição.
-
-
-
-
-
 function asyncHandler(fn) {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
 
-// Exporta funções internas para os testes automatizados (test/*.test.js).
-// Não altera o uso de server.js como app Express (module.exports = app, acima);
-// apenas anexa referências para podermos testar a gravação de dados isoladamente.
 Object.assign(module.exports, {
   _salvarObservacaoAlertaComConn: salvarObservacaoAlertaComConn,
   _salvarRemanejamentoComConn: salvarRemanejamentoComConn,
