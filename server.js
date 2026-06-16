@@ -188,9 +188,9 @@ app.get("/api/alertas/observacoes", apiLimiter, autenticarFrescoMiddleware, exig
   res.json({ observacoes: await getAlertasObservacoesMap() });
 }));
 
-// Escrita de observação: exige usuário autenticado e aprovado; o autor é sempre
-// derivado do token (nunca confiado a partir do corpo da requisição).
-app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+// Escrita de observação: apenas administradores (nível >= 2) editam; demais
+// usuários só visualizam. O autor é sempre derivado do token (nunca do corpo).
+app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = { ...(req.body || {}) };
