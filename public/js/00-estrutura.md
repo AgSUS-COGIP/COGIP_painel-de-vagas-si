@@ -39,6 +39,8 @@ Existe **14 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas o en
 | **remanejamento.js** | Aba de Remanejamento (cadastro, linhas, cálculos, histórico, detalhe/exclusão) e os painéis externos (Saúde Indígena / Férias). |
 | **exportacao.js** | Exportações para CSV e PDF (vagas, distribuição, processo seletivo, alertas). |
 | **filtros.js** | Navegação entre abas, sidebar, multi-selects, filtros e a **delegação de eventos** (`data-click` / `data-change` / `data-input`) que substituiu os antigos handlers inline. |
+| **gestao-ferias.js** | Aba de Gestão de Férias: maquete autocontida (dados de exemplo, sem backend) com lote, resumo, histórico, consulta e toast próprios; ligada no init via `configurarGestaoFerias()`. |
+| **entrega-cracha.js** | Aba de Entrega de Crachá: maquete autocontida (dados de exemplo, sem backend) do fluxo solicitação → confecção → entrega; KPIs, filtros, tabela paginada, painel de detalhe, modal de cadastro e toast próprios; ligada no init via `configurarEntregaCracha()`. |
 
 ## Convenções
 

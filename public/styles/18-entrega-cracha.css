@@ -1,0 +1,718 @@
+/* =========================================================
+   Entrega de Crachá
+   Fluxo de solicitação, confecção e entrega de crachás
+   (maquete com dados de exemplo). Segue o visual do painel:
+   cartões claros, cabeçalhos azul-profundo, rolagem de página.
+========================================================= */
+
+/* Esta aba tem filtros próprios; esconde a barra de filtros do topo. */
+.main.view-cracha-active .filtersBar {
+  display: none;
+}
+
+.main.view-cracha-active .top {
+  grid-template-columns: minmax(330px, 1fr);
+}
+
+.ecView {
+  height: auto;
+  padding-bottom: 28px;
+}
+
+.main.view-scroll .ecView.active {
+  min-height: calc(100vh - 94px);
+  overflow: visible;
+}
+
+/* ---------- Cabeçalho da página ---------- */
+.ecPageHeader {
+  background: rgba(255, 255, 255, .9);
+  border-radius: 18px;
+  box-shadow: 0 14px 24px rgba(0, 43, 93, .16);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+
+.ecPageHeader h2 {
+  margin: 0;
+  color: #07346b;
+  font-size: 21px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.ecPageHeader p {
+  margin: 4px 0 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ---------- KPIs ---------- */
+.ecKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  margin-bottom: 14px;
+  background:
+    linear-gradient(145deg, rgba(0, 61, 122, .96), rgba(0, 104, 184, .9));
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 16px;
+  box-shadow: 0 14px 24px rgba(0, 32, 74, .26);
+  overflow: hidden;
+}
+
+.ecKpi {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 15px 18px;
+  /* Barra divisória entre indicadores. */
+  border-left: 1px solid rgba(255, 255, 255, .16);
+}
+
+/* O primeiro de cada linha não tem divisória à esquerda (6 colunas no topo). */
+.ecKpi:first-child { border-left: none; }
+
+.ecKpiLabel {
+  color: rgba(255, 255, 255, .85);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  line-height: 1.25;
+}
+
+.ecKpiValue {
+  margin-top: 8px;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.8px;
+  color: #fff;
+}
+
+.ecKpiValue.is-blue { color: #fff; }
+.ecKpiValue.is-orange { color: #ffcf6b; }
+.ecKpiValue.is-teal { color: #8fe3e1; }
+.ecKpiValue.is-green { color: #9be8b8; }
+.ecKpiValue.is-red { color: #ff9b8f; }
+
+/* ---------- Barra de filtros e ações ---------- */
+.ecToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, .92);
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 16px;
+  box-shadow: 0 12px 22px rgba(0, 43, 93, .12);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.ecSelect,
+.ecInput {
+  height: 38px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 10px;
+  background: #fff;
+  color: #0b2445;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 0 11px;
+  outline: none;
+}
+
+.ecSelect { flex: 1 1 150px; min-width: 140px; }
+
+/* Seta customizada nos dropdowns para controlar o espaçamento da borda
+   (a seta nativa do <select> ignora padding em vários navegadores). */
+select.ecSelect,
+select.ecInput {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230b4488' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.ecSelect:focus,
+.ecInput:focus {
+  border-color: #0070d9;
+  box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+}
+
+.ecField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 11px;
+}
+
+.ecField i {
+  color: #6f8bb0;
+  font-size: 12px;
+}
+
+.ecField .ecInput {
+  height: 100%;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+  flex: 1;
+}
+
+.ecFieldDate { flex: 1 1 150px; min-width: 140px; }
+.ecFieldSearch { flex: 2 1 200px; min-width: 180px; }
+
+/* Botões da toolbar não encolhem o texto em telas largas. */
+.ecToolbar .ecBtn { flex: 0 0 auto; }
+
+.ecBtn {
+  border: none;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  font-family: inherit;
+  padding: 10px 15px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 12px 22px rgba(0, 43, 93, .18);
+  transition: .16s ease;
+  white-space: nowrap;
+}
+
+.ecBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 26px rgba(0, 43, 93, .24);
+}
+
+.ecBtnGhost {
+  background: #fff;
+  color: #0b4488;
+  border: 1px solid rgba(0, 83, 166, .3);
+  box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
+}
+
+.ecBtnPrimary { margin-left: auto; }
+.ecBtnBlock { width: 100%; }
+.ecBtnPequeno { padding: 7px 12px; font-size: 11px; }
+
+/* ---------- Cartão da tabela ---------- */
+.ecCard {
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 18px;
+  box-shadow: 0 16px 30px rgba(0, 32, 74, .16);
+  padding: 8px 8px 12px;
+}
+
+.ecTableWrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 83, 166, .4) transparent;
+}
+
+.ecTableWrap::-webkit-scrollbar { height: 9px; }
+.ecTableWrap::-webkit-scrollbar-thumb {
+  background: rgba(0, 83, 166, .4);
+  border-radius: 999px;
+}
+
+.ecTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ecTable th {
+  background: linear-gradient(135deg, #00457f, #006dcc);
+  color: #fff;
+  text-align: left;
+  padding: 11px 12px;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  position: sticky;
+  top: 0;
+}
+
+.ecTable td {
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(0, 86, 167, .1);
+  color: #143a63;
+  font-weight: 700;
+}
+
+.ecTable tbody tr:hover td {
+  background: rgba(0, 112, 217, .06);
+}
+
+.ecTable tbody tr.ecLinhaAtiva td {
+  background: rgba(0, 112, 217, .1);
+}
+
+.ecTd-center { text-align: center; }
+
+.ecVazio {
+  text-align: center;
+  color: #6f8bb0;
+  font-weight: 800;
+  padding: 28px 12px;
+}
+
+.ecFotoSim { color: #0a8a4d; font-weight: 900; }
+.ecFotoNao { color: #c0392b; font-weight: 900; }
+
+/* ---------- Badges de status ---------- */
+.ecBadge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+
+.ecBadge.is-pendente { background: #e7eefb; color: #2a4b80; }
+.ecBadge.is-solicitado { background: #fff2d6; color: #8a5a00; }
+.ecBadge.is-enviado { background: #d6ecff; color: #0a5bb0; }
+.ecBadge.is-escritorio { background: #d3f0ef; color: #0a7470; }
+.ecBadge.is-colaborador { background: #d7f5e3; color: #0a7a44; }
+.ecBadge.is-devolvido { background: #ffdcd7; color: #b5281a; }
+
+/* ---------- Ações da linha ---------- */
+.ecAcoesCol { white-space: nowrap; }
+
+.ecIconBtn {
+  border: none;
+  background: transparent;
+  color: #0070d9;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 5px 6px;
+  border-radius: 8px;
+}
+
+.ecIconBtn:hover { background: rgba(0, 112, 217, .12); }
+.ecIconBtnDanger { color: #c0392b; }
+.ecIconBtnDanger:hover { background: rgba(192, 57, 43, .12); }
+
+/* ---------- Rodapé / paginação ---------- */
+.ecTableFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 10px 4px;
+}
+
+.ecRegistros {
+  color: #4a6a93;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.ecPagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ecPageBtn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 8px;
+  background: #fff;
+  color: #0b4488;
+  font-size: 12px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition: .14s ease;
+}
+
+.ecPageBtn:hover:not(:disabled) { background: rgba(0, 112, 217, .1); }
+.ecPageBtn.is-ativo {
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  border-color: transparent;
+  color: #fff;
+}
+.ecPageBtn:disabled { opacity: .45; cursor: default; }
+
+/* ---------- Painel de detalhe ---------- */
+.ecDetalhe {
+  margin-top: 14px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .97), rgba(224, 244, 255, .94));
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 20px;
+  box-shadow: 0 16px 30px rgba(0, 32, 74, .2);
+  padding: 16px 18px;
+}
+
+.ecDetalheHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 83, 166, .14);
+}
+
+.ecDetalheTitulo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ecDetalheTitulo h3 {
+  margin: 0;
+  color: #07346b;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.ecDetalheGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.ecDetalheBloco {
+  background: rgba(255, 255, 255, .68);
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 14px;
+  padding: 13px 14px;
+}
+
+.ecDetalheBloco h4 {
+  margin: 0 0 10px 0;
+  color: #0b4488;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.ecKv {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #2d537f;
+  padding: 5px 0;
+  border-bottom: 1px dashed rgba(0, 83, 166, .14);
+}
+
+.ecKv:last-child { border-bottom: none; }
+.ecKv strong { color: #07346b; text-align: right; }
+
+/* ---------- Linha do tempo (histórico) ---------- */
+.ecTimeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ecTimelineItem {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 9px;
+  padding-bottom: 12px;
+}
+
+.ecTimelineItem:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 14px;
+  bottom: 0;
+  width: 2px;
+  background: rgba(0, 112, 217, .25);
+}
+
+.ecTimelineDot {
+  width: 12px;
+  height: 12px;
+  margin-top: 3px;
+  border-radius: 50%;
+  background: #0070d9;
+  box-shadow: 0 0 0 3px rgba(0, 112, 217, .18);
+}
+
+.ecTimelineQuando {
+  color: #4a6a93;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.ecTimelineEvento {
+  color: #143a63;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+
+.ecTimelineAtor {
+  color: #6f8bb0;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+.ecTimelineVazio {
+  color: #6f8bb0;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* ---------- Ações do escritório ---------- */
+.ecAcoesEscritorio {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.ecAcoesEscritorio .ecBtn {
+  justify-content: flex-start;
+  text-align: left;
+  /* Texto longo quebra em vez de transbordar a coluna estreita. */
+  white-space: normal;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ecObsLabel {
+  display: block;
+  color: #2d537f;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  margin-bottom: 5px;
+}
+
+.ecTextarea {
+  width: 100%;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 10px;
+  background: #fff;
+  color: #0b2445;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 9px 11px;
+  outline: none;
+  resize: vertical;
+  margin-bottom: 9px;
+}
+
+.ecTextarea:focus {
+  border-color: #0070d9;
+  box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+}
+
+/* ---------- Modal de nova solicitação ---------- */
+.ecModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 24, 54, .55);
+  backdrop-filter: blur(2px);
+  padding: 18px;
+}
+
+.ecModalOverlay[hidden] { display: none; }
+
+.ecModalBox {
+  width: min(560px, 100%);
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 28px 60px rgba(0, 24, 61, .5);
+  padding: 18px 20px 20px;
+}
+
+.ecModalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ecModalHead h3 {
+  margin: 0;
+  color: #07346b;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.ecModalClose {
+  border: none;
+  background: transparent;
+  color: #6f8bb0;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.ecModalForm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ecModalForm .ecField {
+  display: grid;
+  align-items: stretch;
+  gap: 5px;
+  height: auto;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.ecModalForm .ecFieldFull { grid-column: 1 / -1; }
+
+.ecModalForm .ecField label {
+  color: #2d537f;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.ecModalForm .ecField label .req { color: #e0483b; }
+
+.ecModalForm .ecInput {
+  height: 38px;
+  width: 100%;
+  border: 1px solid rgba(0, 83, 166, .22);
+}
+
+.ecModalErro {
+  color: #c0392b;
+  font-size: 11.5px;
+  font-weight: 800;
+  min-height: 16px;
+  margin: 10px 0 0;
+}
+
+.ecModalAcoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ecModalAcoes .ecBtnPrimary { margin-left: 0; }
+
+/* ---------- Toast ---------- */
+.ecToast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 100002;
+  max-width: 90vw;
+  padding: 12px 20px;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  box-shadow: 0 18px 40px rgba(0, 24, 61, .4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+}
+
+.ecToast.is-ok { background: linear-gradient(135deg, #0e9f5d, #0a7a44); }
+.ecToast.is-erro { background: linear-gradient(135deg, #e0594b, #c0392b); }
+.ecToast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 1280px) {
+  .ecKpiGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ecDetalheGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* 3 colunas: divisória vertical reinicia a cada início de linha;
+     divisória horizontal entre as linhas. */
+  .ecKpi { border-left: 1px solid rgba(255, 255, 255, .16); }
+  .ecKpi:nth-child(3n + 1) { border-left: none; }
+  .ecKpi:nth-child(n + 4) { border-top: 1px solid rgba(255, 255, 255, .16); }
+}
+
+/* Tablets / telas médias: filtros em duas colunas e botões lado a lado,
+   ocupando a largura cheia da linha em que caírem. */
+@media (max-width: 980px) {
+  .ecBtnPrimary { margin-left: 0; }
+  .ecToolbar .ecSelect,
+  .ecToolbar .ecFieldDate { flex: 1 1 calc(50% - 10px); }
+  .ecToolbar .ecFieldSearch { flex: 1 1 100%; }
+  .ecToolbar .ecBtn { flex: 1 1 calc(50% - 10px); }
+}
+
+/* Celular: cada controle e cada botão ocupa a linha inteira. */
+@media (max-width: 720px) {
+  .ecKpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ecDetalheGrid,
+  .ecModalForm { grid-template-columns: 1fr; }
+  .ecBtnPrimary { margin-left: 0; }
+
+  /* 2 colunas. */
+  .ecKpi { border-left: 1px solid rgba(255, 255, 255, .16); border-top: none; }
+  .ecKpi:nth-child(2n + 1) { border-left: none; }
+  .ecKpi:nth-child(n + 3) { border-top: 1px solid rgba(255, 255, 255, .16); }
+
+  .ecToolbar .ecSelect,
+  .ecToolbar .ecFieldDate,
+  .ecToolbar .ecFieldSearch,
+  .ecToolbar .ecBtn { flex: 1 1 100%; min-width: 0; }
+
+  .ecModalAcoes { flex-direction: column-reverse; }
+  .ecModalAcoes .ecBtn { width: 100%; }
+
+  .ecDetalheHead { flex-wrap: wrap; }
+}
+
+/* Telas muito estreitas: KPIs em coluna única. */
+@media (max-width: 460px) {
+  .ecKpiGrid { grid-template-columns: 1fr; }
+  .ecKpi { border-left: none; border-top: 1px solid rgba(255, 255, 255, .16); }
+  .ecKpi:first-child { border-top: none; }
+}

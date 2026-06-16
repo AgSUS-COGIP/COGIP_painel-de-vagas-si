@@ -26,6 +26,7 @@ export function atualizarModoRolagem(view) {
   main.classList.toggle("view-alertas-active", view === "alertas");
   main.classList.toggle("view-iframe-active", view === "painelSaudeIndigena" || view === "ferias");
   main.classList.toggle("view-gestao-active", view === "gestaoFerias");
+  main.classList.toggle("view-cracha-active", view === "entregaCracha");
   main.classList.toggle("view-remanejamento-active", view === "remanejamento" || view === "remanejamentoFormulario");
 
   if (isVisaoGeral) {

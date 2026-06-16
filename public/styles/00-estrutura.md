@@ -26,6 +26,8 @@ e "não pegar", provavelmente há um override num arquivo de número mais alto.
 | **12-notebook.css** | Ajustes específicos para telas de notebook (evitar empurrar a página). |
 | **13-remanejamento-compacto.css** | Layout compacto do remanejamento **e os estilos de login** (`loginScreen`/`loginCard`) e do bloco usuário/sair da sidebar. Mexa no login aqui. |
 | **14-visao-geral-pagina-unica.css** | Visão Geral em página única (sem rolagem): distribui os gráficos no espaço vertical. |
+| **17-gestao-ferias.css** | Aba **Gestão de Férias** (`gf*`): cartões, tabelas, badges, KPIs, toast da maquete. |
+| **18-entrega-cracha.css** | Aba **Entrega de Crachá** (`ec*`): KPIs, barra de filtros, tabela paginada, badges de status, painel de detalhe, modal de cadastro e toast. |
 
 ## Onde mexer — referência rápida
 

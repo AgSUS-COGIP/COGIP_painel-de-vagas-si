@@ -201,6 +201,11 @@
           <span>Gestão de Férias</span>
         </div>
 
+        <div class="navItem" data-view="entregaCracha">
+          <span class="navIcon"><i class="fa-solid fa-id-card"></i></span>
+          <span>Entrega de Crachá</span>
+        </div>
+
         <div class="navItem" data-view="remanejamento">
           <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
           <span>Remanejo</span>
@@ -1158,6 +1163,206 @@
           </section>
         </section>
 
+
+        <!-- ====================== ENTREGA DE CRACHÁ ======================
+             Fluxo de solicitação, confecção e entrega de crachás dos
+             trabalhadores. Maquete interativa com dados de exemplo, no
+             mesmo padrão da Gestão de Férias (módulo entrega-cracha.js).
+        ============================================================== -->
+        <section id="view-entregaCracha" class="viewPanel ecView">
+          <div class="ecPageHeader">
+            <div>
+              <h2>ENTREGA DE CRACHÁ</h2>
+              <p>Acompanhe o fluxo de solicitação, confecção e entrega de crachás dos trabalhadores.</p>
+            </div>
+          </div>
+
+          <!-- KPIs do funil de crachás -->
+          <section class="ecKpiGrid">
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Total de Trabalhadores</div>
+              <div class="ecKpiValue is-blue" id="ecKpiTrabalhadores">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Total de Crachás Solicitados</div>
+              <div class="ecKpiValue is-blue" id="ecKpiSolicitados">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Total de Crachás Confeccionados</div>
+              <div class="ecKpiValue is-orange" id="ecKpiConfeccionados">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Entregues ao Escritório</div>
+              <div class="ecKpiValue is-teal" id="ecKpiEscritorio">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Entregues ao Colaborador</div>
+              <div class="ecKpiValue is-green" id="ecKpiColaborador">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Pendência de Fotos</div>
+              <div class="ecKpiValue is-red" id="ecKpiSemFoto">0</div>
+            </div>
+          </section>
+
+          <!-- Barra de filtros e ações -->
+          <div class="ecToolbar">
+            <select class="ecSelect" id="ecFiltroDsei" data-ec-filtro></select>
+            <select class="ecSelect" id="ecFiltroStatus" data-ec-filtro></select>
+            <select class="ecSelect" id="ecFiltroEscritorio" data-ec-filtro></select>
+            <div class="ecField ecFieldDate">
+              <i class="fa-regular fa-calendar"></i>
+              <input class="ecInput" type="date" id="ecFiltroDataInicial" data-ec-filtro aria-label="Data inicial">
+            </div>
+            <div class="ecField ecFieldDate">
+              <i class="fa-regular fa-calendar"></i>
+              <input class="ecInput" type="date" id="ecFiltroDataFinal" data-ec-filtro aria-label="Data final">
+            </div>
+            <button type="button" class="ecBtn ecBtnGhost" id="ecBtnLimpar">
+              <i class="fa-solid fa-filter-circle-xmark"></i> Limpar filtros
+            </button>
+            <div class="ecField ecFieldSearch">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input class="ecInput" type="search" id="ecBuscaNome" data-ec-filtro
+                placeholder="Buscar por nome do trabalhador...">
+            </div>
+            <div class="ecField ecFieldSearch">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input class="ecInput" type="search" id="ecBuscaCargo" data-ec-filtro placeholder="Buscar por cargo...">
+            </div>
+            
+            <button type="button" class="ecBtn ecBtnPrimary" id="ecBtnNova">
+              <i class="fa-solid fa-plus"></i> Nova Solicitação
+            </button>
+          </div>
+
+          <!-- Tabela principal -->
+          <div class="ecCard">
+            <div class="ecTableWrap">
+              <table class="ecTable">
+                <thead>
+                  <tr>
+                    <th>DSEI</th>
+                    <th>Nome</th>
+                    <th>Cargo</th>
+                    <th>Data da Solicitação</th>
+                    <th class="ecTd-center">Possui Foto</th>
+                    <th>Data de Envio</th>
+                    <th>Status</th>
+                    <th>Data Entrega Escritório</th>
+                    <th>Data Entrega Colaborador</th>
+                    <th>Data Devolução</th>
+                    <th class="ecTd-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="ecTabelaBody"></tbody>
+              </table>
+            </div>
+            <div class="ecTableFooter">
+              <span class="ecRegistros" id="ecRegistros">Mostrando 0 registros</span>
+              <div class="ecPagination" id="ecPagination"></div>
+            </div>
+          </div>
+
+          <!-- Painel de detalhamento (abre ao clicar em "Ver" numa linha) -->
+          <div class="ecDetalhe" id="ecDetalhe" hidden>
+            <div class="ecDetalheHead">
+              <div class="ecDetalheTitulo">
+                <h3 id="ecDetalheNome">—</h3>
+                <span id="ecDetalheBadge"></span>
+              </div>
+              <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecBtnRecolher">
+                <i class="fa-solid fa-chevron-up"></i> Recolher detalhes
+              </button>
+            </div>
+
+            <div class="ecDetalheGrid">
+              <section class="ecDetalheBloco">
+                <h4>Dados do Trabalhador</h4>
+                <div class="ecKv"><span>DSEI</span><strong id="ecDetDsei">—</strong></div>
+                <div class="ecKv"><span>Cargo</span><strong id="ecDetCargo">—</strong></div>
+                <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetDataSolic">—</strong></div>
+                <div class="ecKv"><span>Possui Foto</span><strong id="ecDetFoto">—</strong></div>
+                <div class="ecKv"><span>Data de Envio</span><strong id="ecDetDataEnvio">—</strong></div>
+              </section>
+
+              <section class="ecDetalheBloco">
+                <h4>Status do Crachá</h4>
+                <div class="ecKv"><span>Status atual</span><strong id="ecDetStatus">—</strong></div>
+                <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetStatusSolic">—</strong></div>
+                <div class="ecKv"><span>Data de Envio</span><strong id="ecDetStatusEnvio">—</strong></div>
+                <div class="ecKv"><span>Data Entrega Escritório</span><strong id="ecDetStatusEscritorio">—</strong></div>
+                <div class="ecKv"><span>Data Entrega Colaborador</span><strong id="ecDetStatusColaborador">—</strong>
+                </div>
+                <div class="ecKv"><span>Data Devolução</span><strong id="ecDetStatusDevolucao">—</strong></div>
+              </section>
+
+              <section class="ecDetalheBloco">
+                <h4>Histórico</h4>
+                <ul class="ecTimeline" id="ecDetTimeline"></ul>
+              </section>
+
+              <section class="ecDetalheBloco">
+                <h4>Ações do Escritório</h4>
+                <div class="ecAcoesEscritorio">
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="escritorio">
+                    <i class="fa-solid fa-building"></i> Registrar Entrega ao Escritório
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="colaborador">
+                    <i class="fa-solid fa-user-check"></i> Registrar Entrega ao Colaborador
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="devolucao">
+                    <i class="fa-solid fa-rotate-left"></i> Registrar Devolução
+                  </button>
+                </div>
+                <label class="ecObsLabel" for="ecDetObs">Observações</label>
+                <textarea class="ecTextarea" id="ecDetObs" rows="2" placeholder="Adicionar observação..."></textarea>
+                <button type="button" class="ecBtn ecBtnPrimary ecBtnBlock" id="ecBtnSalvarObs">Salvar observação</button>
+              </section>
+            </div>
+          </div>
+
+          <!-- Modal de nova solicitação / edição -->
+          <div class="ecModalOverlay" id="ecModal" hidden>
+            <div class="ecModalBox" role="dialog" aria-modal="true">
+              <div class="ecModalHead">
+                <h3 id="ecModalTitulo">Nova Solicitação de Crachá</h3>
+                <button type="button" class="ecModalClose" id="ecModalFechar" aria-label="Fechar"><i
+                    class="fa-solid fa-xmark"></i></button>
+              </div>
+              <div class="ecModalForm">
+                <div class="ecField ecFieldFull">
+                  <label>Nome do Trabalhador <span class="req">*</span></label>
+                  <input class="ecInput" type="text" id="ecFormNome" placeholder="Nome completo">
+                </div>
+                <div class="ecField">
+                  <label>DSEI <span class="req">*</span></label>
+                  <select class="ecInput" id="ecFormDsei"></select>
+                </div>
+                <div class="ecField">
+                  <label>Cargo <span class="req">*</span></label>
+                  <input class="ecInput" type="text" id="ecFormCargo" placeholder="Ex.: Enfermeiro">
+                </div>
+                <div class="ecField">
+                  <label>Data da Solicitação</label>
+                  <input class="ecInput" type="date" id="ecFormDataSolic">
+                </div>
+                <div class="ecField">
+                  <label>Possui Foto</label>
+                  <select class="ecInput" id="ecFormFoto">
+                    <option value="sim">Sim</option>
+                    <option value="nao">Não</option>
+                  </select>
+                </div>
+              </div>
+              <div class="ecModalErro" id="ecModalErro"></div>
+              <div class="ecModalAcoes">
+                <button type="button" class="ecBtn ecBtnGhost" id="ecModalCancelar">Cancelar</button>
+                <button type="button" class="ecBtn ecBtnPrimary" id="ecModalSalvar">Salvar Solicitação</button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section id="view-remanejamento" class="viewPanel remanejamentoView remanejamentoPageFull">
           <div class="remPageTitleBar">
