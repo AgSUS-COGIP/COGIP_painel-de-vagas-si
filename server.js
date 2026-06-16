@@ -336,29 +336,7 @@ module.exports = app;
 // ===================== Autenticação e níveis de acesso =====================
 
 
-// Orquestra o login por senha: se o LDAP estiver configurado, valida primeiro
-// no diretório; usuários que não existem no LDAP caem no login local (ex.: o
-// admin semente e contas locais avulsas). Senha errada no LDAP NÃO faz fallback.
-
-
-// ---------- Login via LDAP / Active Directory ----------
-
-// Carrega o cliente LDAP sob demanda para o servidor não quebrar quando o
-// pacote não está instalado e o LDAP está desativado.
-
-// Escapa valores usados dentro do filtro LDAP (evita injeção de filtro).
-
-// Primeiro valor de um atributo (ldapts pode retornar string ou array).
-
-// Resolve o nível de autorização a partir dos grupos (memberOf) do usuário.
-
-// Auto-cadastro/sincronização de usuário externo (LDAP) na tabela do painel.
-// Usuário NOVO é criado como PENDENTE (ATIVO=0): só vira ativo após aprovação de
-// um administrador (mesmo fluxo do Google). Usuário existente mantém seu ATIVO/nível.
-
-// Valida login/senha contra o LDAP em duas etapas (padrão "search + bind"):
-//   1) bind com a conta de serviço e busca o usuário (resgata os dados);
-//   2) bind com o DN do usuário + a senha digitada (valida a senha).
+// Orquestra o login por senha (validação local contra a tabela de usuários).
 
 
 // Login via Google (OpenID Connect). Recebe o ID token do cliente, valida com o
