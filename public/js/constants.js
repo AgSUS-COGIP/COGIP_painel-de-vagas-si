@@ -1,7 +1,3 @@
-export const AUTO_REFRESH_MS = 5 * 60 * 1000; // Atualiza os dados a cada 5 minutos.
-
-export const AUTO_FULL_RELOAD_MS = 60 * 60 * 1000; // Recarrega a página inteira a cada 60 minutos para manter estabilidade em tela fixa.
-
 export const COLORS = {
   blue: "#20b2ff",
   blue2: "#74d7ff",
@@ -36,8 +32,8 @@ export const VAGAS_TABELA_CONFIG = {
     bloco: "blocoTabelaVagas",
     titulo: "Vagas",
     subtitulo: "Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.",
-    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i> Exportar base filtrada</button><button type="button" class="exportBtn" data-click="exportar-pdf">Salvar em PDF</button>',
-    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Os campos <strong>Substituições</strong> e <strong>Temporárias</strong> são apenas para informação e já estão atribuídos ao cálculo de <strong>Total de Trabalhadores</strong>.</div>'
+    exportHtml: '<button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i> Exportar base filtrada</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>',
+    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Os campos <strong>Normais</strong>, <strong>Substituições</strong> e <strong>Temporárias</strong> são apenas para informação e já estão atribuídos ao cálculo de <strong>Total de Trabalhadores</strong>.</div><div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> <strong>Substituições sem afastado correspondente</strong> podem indicar uma substituição segurando vaga para gestante. Verifique esses casos na aba <strong>Alertas</strong>.</div>'
   },
   ociosas: {
     bloco: "blocoTabelaOciosas",

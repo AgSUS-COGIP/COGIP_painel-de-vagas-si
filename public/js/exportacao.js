@@ -69,28 +69,48 @@ export function exportarProcessoSeletivo() {
   // Exporta a tabela "Vagas para Processo Seletivo" conforme a visualização ativa
   // e respeitando os filtros superiores DSEI/CASAI e Cargo.
   const linhasBase = obterRowsVagasPorVisualizacao(filtrarCargosProcessoSeletivo(state.vagasRows));
-  let rows;
 
+  // Mantém linhas com movimento de processo seletivo E as que têm previsão de pelo
+  // menos 1 vaga sem vaga ociosa (cargo preenchido) — estas saem como "CR".
+  const visiveis = linhasBase.filter(row => {
+    const base = valoresDistribuicao(row);
+    return Number(base.normalTemporario || 0) !== 0 ||
+      Number(base.contratadosTemporario || 0) !== 0 ||
+      Number(base.processoSeletivo || 0) !== 0 ||
+      Number(row.quantitativoPlano || 0) >= 1;
+  });
+
+  // "CR" (Cadastro Reserva): previsão >= 1, mas sem vagas para processo seletivo.
+  const totalProcessoSeletivo = row => {
+    const base = valoresDistribuicao(row);
+    const cr = Number(row.quantitativoPlano || 0) >= 1 &&
+      Number(base.normalTemporario || 0) === 0 &&
+      Number(base.contratadosTemporario || 0) === 0 &&
+      Number(base.processoSeletivo || 0) === 0;
+    return cr ? "CR" : base.processoSeletivo;
+  };
+
+  let rows;
   if (state.vagasViewAtual === "detalhado") {
-    rows = linhasBase.map(row => {
+    rows = visiveis.map(row => {
       const base = valoresDistribuicao(row);
       return {
         "DSEI/CASAI": row.dseiCasai || "Não informado",
         "Cargo": row.cargo || "Não informado",
         "Normais": base.normalTemporario,
         "Temporárias": base.contratadosTemporario,
-        "Total Processo Seletivo": base.processoSeletivo
+        "Total Processo Seletivo": totalProcessoSeletivo(row)
       };
     });
   } else {
     const primeiraColuna = state.vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
-    rows = linhasBase.map(row => {
+    rows = visiveis.map(row => {
       const base = valoresDistribuicao(row);
       return {
         [primeiraColuna]: row.label || "Não informado",
         "Normais": base.normalTemporario,
         "Temporárias": base.contratadosTemporario,
-        "Total Processo Seletivo": base.processoSeletivo
+        "Total Processo Seletivo": totalProcessoSeletivo(row)
       };
     });
   }

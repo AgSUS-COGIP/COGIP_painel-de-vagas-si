@@ -9,6 +9,78 @@ import { escapeHtml } from "./utils.js";
 function el(id) { return document.getElementById(id); }
 function val(id) { const e = el(id); return e ? e.value : ""; }
 function setVal(id, v) { const e = el(id); if (e) e.value = v == null ? "" : v; }
+
+// ----------------------------------------------------------------------------
+// Tipo de unidade: define quais campos do formulário ficam visíveis.
+// ----------------------------------------------------------------------------
+const VALOR_OUTRO = "__outro__";
+const CAMPOS_POR_TIPO = {
+  dsei:      ["nome", "email", "cargo", "unidade", "justificativa"],
+  sede:      ["nome", "email", "cargo", "coordenacao", "justificativa"],
+  distrital: ["nome", "email", "cargo", "coordenacao", "unidade", "justificativa"],
+};
+let tipoAcessoAtual = "dsei";
+
+// Exibe o campo "Informe o cargo" quando o cargo selecionado é "Outro".
+function atualizarCargoOutro() {
+  const wrap = document.querySelector('.acField[data-acfield="cargoOutro"]');
+  if (!wrap) return;
+  const campos = CAMPOS_POR_TIPO[tipoAcessoAtual] || CAMPOS_POR_TIPO.dsei;
+  const ehOutro = val("acCargo") === VALOR_OUTRO;
+  wrap.hidden = !(campos.includes("cargo") && ehOutro);
+}
+
+// Marca o botão ativo e mostra/oculta os campos conforme o tipo escolhido.
+function aplicarTipoAcesso(tipo) {
+  if (!CAMPOS_POR_TIPO[tipo]) tipo = "dsei";
+  tipoAcessoAtual = tipo;
+  document.querySelectorAll(".acTipoTab").forEach(b => {
+    b.classList.toggle("active", b.dataset.actipo === tipo);
+  });
+  const visiveis = CAMPOS_POR_TIPO[tipo];
+  document.querySelectorAll(".acField").forEach(div => {
+    const campo = div.dataset.acfield;
+    if (campo === "cargoOutro") return; // controlado por atualizarCargoOutro()
+    div.hidden = !visiveis.includes(campo);
+  });
+  atualizarCargoOutro();
+}
+
+// Acrescenta a opção "Outro" ao <select> de cargo (uma única vez).
+function adicionarOpcaoOutro(id) {
+  const sel = el(id);
+  if (!sel || sel.querySelector(`option[value="${VALOR_OUTRO}"]`)) return;
+  const opt = document.createElement("option");
+  opt.value = VALOR_OUTRO;
+  opt.textContent = "Outro (não listado)";
+  sel.appendChild(opt);
+}
+
+// Define o cargo no select; se o valor não existir na lista, usa "Outro" + texto livre.
+function setCargo(valor) {
+  const sel = el("acCargo");
+  setVal("acCargoOutro", "");
+  if (!sel) return;
+  if (!valor) { sel.value = ""; return; }
+  const existe = Array.from(sel.options).some(o => o.value === valor);
+  if (existe) {
+    sel.value = valor;
+  } else {
+    sel.value = VALOR_OUTRO;
+    setVal("acCargoOutro", valor);
+  }
+}
+
+// Deduz o tipo a partir dos campos preenchidos (ao editar uma solicitação existente).
+function inferirTipo(atual) {
+  if (!atual) return tipoAcessoAtual || "dsei";
+  const temDsei = !!(atual.DSEI || atual.CASAI);
+  const temCoord = !!atual.COORDENACAO;
+  if (temDsei && temCoord) return "distrital";
+  if (temCoord) return "sede";
+  if (temDsei) return "dsei";
+  return tipoAcessoAtual || "dsei";
+}
 function fmtData(v) {
   if (!v) return "—";
   const s = String(v).replace("T", " ").slice(0, 16);
@@ -31,10 +103,12 @@ async function carregarListasAcesso() {
   if (listasAcessoCarregadas) return;
   let listas;
   try { listas = await apiGet("/api/acesso/listas"); } catch (e) { return; }
-  preencherSelectAcesso("acDsei", "Selecione o DSEI", listas.dsei);
-  preencherSelectAcesso("acCasai", "Selecione a CASAI", listas.casai);
+  // DSEI e CASAI num único dropdown — as CASAIs vêm antes dos DSEIs.
+  const unidades = [].concat(listas.casai || [], listas.dsei || []);
+  preencherSelectAcesso("acUnidade", "Selecione o DSEI / CASAI", unidades);
   preencherSelectAcesso("acCoordenacao", "Selecione a coordenação", listas.coordenacoes);
   preencherSelectAcesso("acCargo", "Selecione o cargo / função", listas.cargos);
+  adicionarOpcaoOutro("acCargo");
   listasAcessoCarregadas = true;
 }
 
@@ -69,11 +143,11 @@ function preencherForm(atual) {
   const u = state.painelLoginUsuario || {};
   setVal("acNome", (atual && atual.NOME) || u.nome || "");
   setVal("acEmail", u.email || (atual && atual.EMAIL) || "");
-  setVal("acCargo", (atual && atual.CARGO) || "");
+  setCargo((atual && atual.CARGO) || "");
   setVal("acCoordenacao", (atual && atual.COORDENACAO) || "");
-  setVal("acDsei", (atual && atual.DSEI) || "");
-  setVal("acCasai", (atual && atual.CASAI) || "");
+  setVal("acUnidade", (atual && (atual.CASAI || atual.DSEI)) || "");
   setVal("acJustificativa", (atual && atual.JUSTIFICATIVA) || "");
+  aplicarTipoAcesso(inferirTipo(atual));
 }
 
 function resumoSolicitacao(s) {
@@ -151,12 +225,32 @@ async function enviarSolicitacao(ev) {
   if (erro) erro.innerText = "";
   const btn = el("acSubmitBtn");
 
+  const campos = CAMPOS_POR_TIPO[tipoAcessoAtual] || CAMPOS_POR_TIPO.dsei;
+
+  // Resolve o cargo, considerando o caso "Outro" (texto livre).
+  let cargo = val("acCargo");
+  if (cargo === VALOR_OUTRO) cargo = val("acCargoOutro").trim();
+
+  // Campo unificado DSEI/CASAI: separa pelo prefixo da opção escolhida.
+  const unidade = campos.includes("unidade") ? val("acUnidade") : "";
+  const ehCasai = /^CASAI/i.test(unidade);
+
+  // Envia apenas os campos pertinentes ao tipo escolhido (os demais vão vazios).
   const body = {
-    nome: val("acNome"), cargo: val("acCargo"), coordenacao: val("acCoordenacao"),
-    dsei: val("acDsei"), casai: val("acCasai"), justificativa: val("acJustificativa")
+    tipo: tipoAcessoAtual,
+    nome: val("acNome"),
+    cargo: campos.includes("cargo") ? cargo : "",
+    coordenacao: campos.includes("coordenacao") ? val("acCoordenacao") : "",
+    dsei: ehCasai ? "" : unidade,
+    casai: ehCasai ? unidade : "",
+    justificativa: val("acJustificativa")
   };
   if (!body.justificativa.trim()) {
     if (erro) erro.innerText = "Informe a justificativa da necessidade de acesso.";
+    return;
+  }
+  if (campos.includes("cargo") && val("acCargo") === VALOR_OUTRO && !cargo) {
+    if (erro) erro.innerText = "Informe o cargo / função.";
     return;
   }
 
@@ -193,6 +287,10 @@ function cardSolicitacao(s, comAcoes) {
 
   const email = escapeHtml(String(s.EMAIL || ""));
 
+  // Conceder privilégios e excluir usuários são ações exclusivas do super
+  // administrador (nível >= 3). Esconde os controles para os demais.
+  const souSuperAdmin = Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= 3;
+
   const acoes = comAcoes
     ? `<div class="solAcoes">
          <button type="button" class="solBtn solAprovar" data-acesso-aprovar="${id}">Aprovar</button>
@@ -200,15 +298,20 @@ function cardSolicitacao(s, comAcoes) {
        </div>`
     : "";
 
-  // Privilégio: só para usuários ATIVOS (aprovados). Permite conceder/retirar admin.
+  const botaoExcluir = souSuperAdmin
+    ? `<button type="button" class="solExcluirBtn" title="Excluir usuário e suas solicitações" data-acesso-excluir="${email}"><i class="fa-solid fa-trash"></i></button>`
+    : "";
+
+  // Privilégio: só para usuários ATIVOS (aprovados) e gerenciável por super admin.
   const ativo = Number(s.USUARIO_ATIVO) === 1;
   const nivelAtual = Number(s.USUARIO_NIVEL || 0);
-  const privilegio = ativo
+  const privilegio = (ativo && souSuperAdmin)
     ? `<div class="solPrivilegio">
          <label>Privilégio</label>
          <select class="solNivelSelect" data-acesso-nivel="${email}">
-           <option value="1"${nivelAtual < 2 ? " selected" : ""}>Usuário comum</option>
-           <option value="2"${nivelAtual >= 2 ? " selected" : ""}>Administrador</option>
+           <option value="1"${nivelAtual <= 1 ? " selected" : ""}>Usuário comum</option>
+           <option value="2"${nivelAtual === 2 ? " selected" : ""}>Administrador</option>
+           <option value="3"${nivelAtual >= 3 ? " selected" : ""}>Super administrador</option>
          </select>
        </div>`
     : "";
@@ -219,7 +322,7 @@ function cardSolicitacao(s, comAcoes) {
         <span class="solTag ${statusClasse}">${escapeHtml(s.STATUS)}</span>
         <span class="solHeadDir">
           <span class="solData">${escapeHtml(fmtData(s.CRIADO_EM))}</span>
-          <button type="button" class="solExcluirBtn" title="Excluir usuário e suas solicitações" data-acesso-excluir="${email}"><i class="fa-solid fa-trash"></i></button>
+          ${botaoExcluir}
         </span>
       </div>
       <div class="solGrid">${linhas}</div>
@@ -317,7 +420,7 @@ async function onChangeAdmin(ev) {
   if (!sel) return;
   const email = sel.dataset.acessoNivel;
   const nivel = Number(sel.value);
-  const nomeNivel = nivel >= 2 ? "Administrador" : "Usuário comum";
+  const nomeNivel = nivel >= 3 ? "Super administrador" : (nivel === 2 ? "Administrador" : "Usuário comum");
   const r = await abrirModal({
     titulo: "Alterar privilégio",
     msg: `Definir "${email}" como ${nomeNivel}?`,
@@ -352,8 +455,9 @@ function iniciarPollSolicitacoes() {
 // ----------------------------------------------------------------------------
 // Inicialização (chamada no init do app)
 // ----------------------------------------------------------------------------
-function sair() {
-  try { localStorage.removeItem("painelLoginToken"); } catch (e) {}
+async function sair() {
+  try { await apiPost("/api/logout", {}); } catch (e) {} // limpa o cookie HttpOnly no servidor
+  try { localStorage.removeItem("painelLoginToken"); } catch (e) {} // resíduo de versões antigas
   window.location.reload();
 }
 
@@ -363,6 +467,20 @@ export function configurarAcesso() {
     form.dataset.bound = "1";
     form.addEventListener("submit", enviarSolicitacao);
   }
+
+  // Botões de tipo de unidade (DSEI/SESAI · Sede AgSUS · Escritórios Distritais).
+  document.querySelectorAll(".acTipoTab").forEach(btn => {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", () => aplicarTipoAcesso(btn.dataset.actipo));
+  });
+  // Mostra/oculta o campo de cargo livre quando "Outro" é selecionado.
+  const cargoSel = el("acCargo");
+  if (cargoSel && !cargoSel.dataset.bound) {
+    cargoSel.dataset.bound = "1";
+    cargoSel.addEventListener("change", atualizarCargoOutro);
+  }
+  aplicarTipoAcesso(tipoAcessoAtual);
   ["acLogoutBtn", "acLogoutBtn2"].forEach(idBtn => {
     const b = el(idBtn);
     if (b && !b.dataset.bound) { b.dataset.bound = "1"; b.addEventListener("click", sair); }

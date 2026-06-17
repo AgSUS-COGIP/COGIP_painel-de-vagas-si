@@ -34,6 +34,13 @@
   gap: 12px;
 }
 
+/* Área editável (form + resumo operacional) que recebe o destaque de edição.
+   Replica o gap do shell para os blocos internos não ficarem colados. */
+.remEditArea {
+  display: grid;
+  gap: 12px;
+}
+
 .remTopGrid {
   display: grid;
   grid-template-columns: minmax(260px, .33fr) minmax(0, 1fr);
@@ -175,6 +182,15 @@
 
 .remGreen { color: #047857 !important; }
 .remRed { color: #b91c1c !important; }
+
+/* Em telas intermediárias, a "5. Documentação" (bloco 5) desce para baixo do
+   "4. Impacto" (bloco 4), que passa a ocupar a largura toda — assim a tabela
+   "Resumo dos Valores (Mensal)" cabe inteira, sem rolagem horizontal. */
+@media (max-width: 1600px) {
+  .remBottomGridWide {
+    grid-template-columns: 1fr;
+  }
+}
 
 @media (max-width: 1280px) {
   .remTopGrid,
@@ -468,6 +484,23 @@
   color: #a32019;
   font-size: 13px;
   line-height: 1.4;
+}
+
+/* Bloqueio de redução por Processo Seletivo (PSS) ativo no DSEI. */
+.remPssBloqueioAviso {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  color: #8a5800;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.remLiberarPssBtn {
+  margin-left: 8px;
+  margin-top: 6px;
 }
 
 .remOciosasInfo {

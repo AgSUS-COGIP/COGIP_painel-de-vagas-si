@@ -40,6 +40,21 @@ export function montarAlertas(data) {
     const temporario = Number(row.qtdTemporarioAtivo || 0);
     const excedente = Number(row.qtdVagasExcedentes || 0);
     const excedenteRt = Number(row.qtdVagasArtExcedentes || 0);
+    const substituicao = Number(row.contratadosSubstituicao || 0);
+    const afastados = Number(row.afastados || 0);
+
+    // Substituição sem afastado correspondente: indicador de substituição
+    // segurando vaga para gestante (não há campo de gestante na base).
+    if (substituicao > 0 && afastados === 0) {
+      rows.push({
+        tipoValor: "SUBSTITUICAO_SEGURANDO_VAGA",
+        tipo: "Substituição sem afastado",
+        dsei: row.dseiCasai,
+        cargo: row.cargo,
+        qtd: formatNumber(substituicao),
+        detalhe: `${formatNumber(substituicao)} substituição(ões) sem afastado correspondente`
+      });
+    }
 
     if (afastamento > 0) {
       rows.push({
@@ -130,8 +145,12 @@ export function renderAlertasTable(rows) {
   }
 }
 
+// Só administradores (nível >= 2) podem editar observações de alertas.
+function podeEditarObservacaoAlerta() {
+  return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= 2;
+}
+
 export function renderObservacaoAlertaHtml(chave, obs, infoObs) {
-  const emEdicao = state.alertaObservacaoEditando === chave || !obs;
   const atualizadoEm = infoObs?.atualizadoEm || "";
   const usuarioEdicao = infoObs?.usuario || "";
   const metaPartes = [];
@@ -142,6 +161,18 @@ export function renderObservacaoAlertaHtml(chave, obs, infoObs) {
   const meta = metaPartes.length
     ? `<div class="alertaObservacaoMeta">${metaPartes.join("<br>")}</div>`
     : "";
+
+  // Usuário comum (nível < 2): somente leitura, sem botão/campo de edição.
+  if (!podeEditarObservacaoAlerta()) {
+    return `
+          <div class="alertaObservacaoWrap">
+            <div class="alertaObservacaoTexto">${obs ? escapeHtml(obs) : "—"}</div>
+            ${meta}
+          </div>
+        `;
+  }
+
+  const emEdicao = state.alertaObservacaoEditando === chave || !obs;
 
   if (!emEdicao) {
     return `
@@ -195,6 +226,7 @@ export function gerarChaveAlerta(row) {
 }
 
 export function editarObservacaoAlertaPainel(chave) {
+  if (!podeEditarObservacaoAlerta()) return;
   state.alertaObservacaoEditando = chave;
   renderAlertasTable(state.alertasRows);
 
@@ -214,6 +246,7 @@ export function cancelarEdicaoObservacaoAlertaPainel() {
 }
 
 export function salvarObservacaoAlertaPainel(chave) {
+  if (!podeEditarObservacaoAlerta()) return;
   const row = state.alertasRows.find(item => (item.chave || gerarChaveAlerta(item)) === chave);
   const campo = document.getElementById(idObservacaoAlerta(chave));
   const botao = document.getElementById(idBotaoObservacaoAlerta(chave));

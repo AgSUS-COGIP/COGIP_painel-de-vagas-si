@@ -1,9 +1,9 @@
 import { cancelarEdicaoObservacaoAlertaPainel, editarObservacaoAlertaPainel, renderAlertasDaPagina, salvarObservacaoAlertaPainel } from "./alertas.js";
-import { ajustarEscalaPainelFixo, filtrarRowsBase, garantirCarregamentoPagina, recarregarTodosOsDados, renderTudo } from "./app.js";
+import { ajustarEscalaPainelFixo, filtrarRowsBase, garantirCarregamentoPagina, renderTudo } from "./app.js";
 import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
-import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, excluirRemanejamentoPainel, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
+import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirRemanejamentoPainel, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
 import { charts, filterConfigs, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, normalizarTextoPainel } from "./utils.js";
@@ -26,6 +26,9 @@ export function atualizarModoRolagem(view) {
   main.classList.toggle("view-alertas-active", view === "alertas");
   main.classList.toggle("view-iframe-active", view === "painelSaudeIndigena" || view === "ferias");
   main.classList.toggle("view-gestao-active", view === "gestaoFerias");
+  main.classList.toggle("view-cracha-active", view === "entregaCracha");
+  main.classList.toggle("view-gestao-active", view === "gestaoDisciplinar");
+  main.classList.toggle("view-processos-active", view === "processosSeletivos");
   main.classList.toggle("view-remanejamento-active", view === "remanejamento" || view === "remanejamentoFormulario");
 
   if (isVisaoGeral) {
@@ -174,7 +177,6 @@ export function configurarDelegacaoEventos() {
       case "toggle-sidebar": toggleSidebar(); break;
       case "logout": logoutPainel(); break;
       case "limpar-filtros": limparFiltros(); break;
-      case "recarregar": recarregarTodosOsDados(el); break;
       case "alterar-tabela-vagas": alterarTabelaVagas(d.vagasTabela); break;
       case "alterar-visualizacao-vagas": alterarVisualizacaoVagas(d.vagasView); break;
       case "exportar-vagas": exportarVagas(); break;
@@ -194,8 +196,11 @@ export function configurarDelegacaoEventos() {
       case "salvar-obs": salvarObservacaoAlertaPainel(d.chave); break;
       case "cancelar-obs": cancelarEdicaoObservacaoAlertaPainel(); break;
       case "detalhe-rem": alternarDetalheRemanejamento(d.id); break;
+      case "editar-rem": editarRemanejamentoPainel(d.id); break;
+      case "cancelar-edicao-rem": cancelarEdicaoRemanejamento(); break;
       case "excluir-rem": excluirRemanejamentoPainel(d.id); break;
       case "remover-linha-rem": removerLinhaRemanejamento(d.tipo, d.id); break;
+      case "liberar-pss-rem": liberarBloqueioPSSRemanejamento(); break;
     }
   });
 
@@ -205,6 +210,7 @@ export function configurarDelegacaoEventos() {
     const d = el.dataset;
     switch (d.change) {
       case "atualizar-vagas-origem": atualizarVagasOrigemPorDsei(); break;
+      case "alterar-mes-rem": alterarMesRemanejamento(); break;
       case "atualizar-resumo-rem": atualizarResumoRemanejamento(); break;
       case "render-rem-lista": renderRemanejamentoLista(); break;
       case "campo-linha-rem": atualizarCampoLinhaRemanejamento(d.tipo, d.id, d.campo, event.target.value); break;

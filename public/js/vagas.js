@@ -1,15 +1,27 @@
 import { filtrarRowsBase } from "./app.js";
 import { CARGOS_FORA_PROCESSO_SELETIVO, VAGAS_TABELA_CONFIG } from "./constants.js";
+import { getSelectedValues } from "./filtros.js";
 import { calcularOciosas, calcularPreenchimento } from "./kpis.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, formatNumber, formatPercent, normalizarNomeCargo, setText, soma } from "./utils.js";
+
+let configTabelaVagasInicializada = false;
 
 export function renderVagasDaPagina() {
   const tbody = document.getElementById("vagasBody");
   const pagination = document.getElementById("vagasPagination");
   const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
   const processoSeletivoBody = document.getElementById("processoSeletivoBody");
+
+  // Aplica título/subtítulo/aviso/export da tabela atual no primeiro render, já que
+  // alterarTabelaVagas só roda ao clicar numa sub-aba. Sem isto, o aviso da tabela
+  // padrão ("vagas") não aparece na primeira entrada na aba. Feito antes do retorno
+  // de "carregando" para o aviso surgir mesmo enquanto os dados não chegaram.
+  if (!configTabelaVagasInicializada) {
+    configTabelaVagasInicializada = true;
+    alterarTabelaVagas(state.vagasTabelaAtual);
+  }
 
   if (!pageLoadState.vagas) {
     if (tbody) tbody.innerHTML = '<tr><td colspan="10">Carregando dados da aba Vagas...</td></tr>';
@@ -498,12 +510,14 @@ export function montarDistribuicaoVagasOciosas(rows) {
     return linhasPagina.map(row => ({
       dseiCasai: row.dseiCasai || "Não informado",
       cargo: row.cargo || "Não informado",
+      quantitativoPlano: Number(row.quantitativoPlano || 0),
       ...valoresDistribuicao(row)
     }));
   }
 
   return linhasPagina.map(row => ({
     label: row.label || "Não informado",
+    quantitativoPlano: Number(row.quantitativoPlano || 0),
     ...valoresDistribuicao(row)
   }));
 }
@@ -627,12 +641,24 @@ export function renderProcessoSeletivo(rows) {
 
   atualizarCabecalhoProcessoSeletivo();
   renderPaginacaoTabela("processoSeletivoPagination", rows);
-  // Exclui os cargos que não passam por processo seletivo (antes da agregação).
+  // Mantém as linhas com movimento de processo seletivo E, também, as que têm
+  // previsão de pelo menos 1 vaga no DSEI mas sem vaga ociosa (cargo totalmente
+  // preenchido). Estas últimas entram com 0 nas colunas e "CR" (Cadastro Reserva)
+  // na coluna "Total Processo Seletivo".
   const linhas = montarDistribuicaoVagasOciosas(filtrarCargosProcessoSeletivo(rows)).filter(item => {
     return Number(item.normalTemporario || 0) !== 0 ||
       Number(item.contratadosTemporario || 0) !== 0 ||
-      Number(item.processoSeletivo || 0) !== 0;
+      Number(item.processoSeletivo || 0) !== 0 ||
+      Number(item.quantitativoPlano || 0) >= 1;
   });
+
+  // Uma linha é "Cadastro Reserva" (CR) quando tem previsão (>= 1) mas nenhuma
+  // vaga para processo seletivo (sem ociosas e sem temporárias).
+  const ehCadastroReserva = row => Number(row.quantitativoPlano || 0) >= 1 &&
+    Number(row.normalTemporario || 0) === 0 &&
+    Number(row.contratadosTemporario || 0) === 0 &&
+    Number(row.processoSeletivo || 0) === 0;
+  const celulaTotalProcessoSeletivo = row => ehCadastroReserva(row) ? "CR" : formatNumber(row.processoSeletivo);
 
   const totalColunas = state.vagasViewAtual === "detalhado" ? 5 : 4;
   if (!linhas.length) {
@@ -654,7 +680,7 @@ export function renderProcessoSeletivo(rows) {
             <td>${escapeHtml(row.cargo)}</td>
             <td>${formatNumber(row.normalTemporario)}</td>
             <td>${formatNumber(row.contratadosTemporario)}</td>
-            <td>${formatNumber(row.processoSeletivo)}</td>
+            <td>${celulaTotalProcessoSeletivo(row)}</td>
           </tr>
         `).join("") + `
           <tr class="totalRow">
@@ -672,7 +698,7 @@ export function renderProcessoSeletivo(rows) {
           <td>${escapeHtml(row.label)}</td>
           <td>${formatNumber(row.normalTemporario)}</td>
           <td>${formatNumber(row.contratadosTemporario)}</td>
-          <td>${formatNumber(row.processoSeletivo)}</td>
+          <td>${celulaTotalProcessoSeletivo(row)}</td>
         </tr>
       `).join("") + `
         <tr class="totalRow">
@@ -693,8 +719,19 @@ export function mudarPaginaVagas(delta) {
   renderProcessoSeletivo(state.vagasRows);
 }
 
+// Há pesquisa ou filtro (DSEI/cargo/gráfico) ativo? Usado para, no detalhamento
+// completo, mostrar todos os DSEIs juntos em vez de paginar um DSEI por página.
+export function vagasComFiltroOuPesquisaAtivos() {
+  if (state.vagasSearchTerm) return true;
+  if (getSelectedValues("fDsei").length) return true;
+  if (getSelectedValues("fCargo").length) return true;
+  if (state.activeChartFilter) return true;
+  return false;
+}
+
 export function obterPaginaVagas(linhas) {
-  if (state.vagasViewAtual !== "detalhado") {
+  // Sem detalhamento, ou com pesquisa/filtro ativo: lista completa com rolagem.
+  if (state.vagasViewAtual !== "detalhado" || vagasComFiltroOuPesquisaAtivos()) {
     return {
       linhasPagina: linhas,
       resumoPaginacao: `<span>Exibindo ${formatNumber(linhas.length)} registro(s) com rolagem.</span>`

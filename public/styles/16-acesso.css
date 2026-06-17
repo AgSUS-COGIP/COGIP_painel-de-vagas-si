@@ -60,6 +60,85 @@
   line-height: 1.35;
 }
 
+/* ---- Seletor de tipo de unidade (mesmo estilo das abas "Navegação Principal" da página de vagas) ---- */
+.acTipoTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  background: rgba(0, 83, 166, .06);
+  border-radius: 16px;
+  padding: 8px;
+  margin: 2px 0 4px;
+  position: relative;
+  /* Largura de uma coluna (3 colunas, 2 gaps de 8px, padding 8px nas laterais). */
+  --tabCol: calc((100% - 16px - 16px) / 3);
+  --tabStep: calc(var(--tabCol) + 8px);
+}
+
+/* Pílula branca que desliza entre as abas (com leve bounce). */
+.acTipoTabs::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 8px;
+  width: var(--tabCol);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 22px rgba(0, 63, 143, .16);
+  z-index: 0;
+  transition: left .42s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Posições da pílula conforme a aba ativa. */
+.acTipoTabs:has(.acTipoTab:nth-child(2).active)::before {
+  left: calc(8px + var(--tabStep));
+}
+.acTipoTabs:has(.acTipoTab:nth-child(3).active)::before {
+  left: calc(8px + var(--tabStep) * 2);
+}
+
+/* Nas pontas (1ª e última aba) sem bounce, para a pílula não escapar da barra. */
+.acTipoTabs:has(.acTipoTab:nth-child(1).active)::before,
+.acTipoTabs:has(.acTipoTab:nth-child(3).active)::before {
+  transition: left .34s cubic-bezier(.4, 0, .2, 1);
+}
+
+.acTipoTab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #3a567d;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+  padding: 11px 8px;
+  min-width: 0;
+  cursor: pointer;
+  transition: color .25s ease;
+}
+.acTipoTab:not(.active):hover { color: #07346b; }
+.acTipoTab.active { color: #0064d6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .acTipoTabs::before { transition: none; }
+}
+
+/* Cada campo (rótulo + controle) é uma unidade que pode ser ocultada por tipo. */
+.acField {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.acField[hidden] { display: none !important; }
+
 /* Estado "solicitação pendente" (após o envio) */
 .acessoPendenteWrap {
   display: grid;

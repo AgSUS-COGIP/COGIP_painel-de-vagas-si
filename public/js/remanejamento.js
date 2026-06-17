@@ -4,9 +4,10 @@ import { garantirCarregamentoPagina, recarregarTodosOsDados } from "./app.js";
 import { REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
 import { atualizarModoRolagem } from "./filtros.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
+import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
-import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, mesesAteFimDoAno, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
+import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
 
 export function configurarPainelExterno() {
   const iframe = document.getElementById("iframeDashboardSaudeIndigena");
@@ -127,10 +128,63 @@ export function montarOpcoesDseiRemanejamento() {
   return lista.length ? lista : [REMANEJAMENTO_EMPTY_OPTION];
 }
 
-export function montarOpcoesCargosRemanejamento() {
+// ---------- Bloqueio por Processo Seletivo (PSS) ----------
+// Regra: enquanto um DSEI tiver processo seletivo em andamento/perto do término,
+// a REDUÇÃO de vagas daquele DSEI fica bloqueada na criação do remanejamento.
+// O super administrador (nível 3) pode liberar pontualmente os demais cargos do
+// DSEI, mas o(s) cargo(s) do próprio processo seletivo permanece(m) bloqueado(s).
+
+// Nível do usuário logado (0 se não autenticado). 3 = super administrador.
+function nivelUsuarioRemanejamento() {
+  return state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
+}
+
+// Nome (texto) do DSEI selecionado no formulário — usado para cruzar com o PSS.
+function nomeDseiSelecionadoRemanejamento() {
+  const sel = document.getElementById("remanejamentoDsei");
+  return sel?.options?.[sel.selectedIndex]?.text || "";
+}
+
+// Bloqueio de PSS para o DSEI selecionado (ou null). Compara pelo nome do DSEI.
+function bloqueioPSSDoDseiSelecionado() {
+  const nome = normalizarTextoPainel(nomeDseiSelecionadoRemanejamento());
+  if (!nome) return null;
+  return (obterBloqueiosRemanejamentoPSS() || [])
+    .find(b => normalizarTextoPainel(b.dsei) === nome) || null;
+}
+
+// O lado "reduzido" está liberado para o DSEI atual?
+//   - sem PSS no DSEI: liberado;
+//   - com PSS e usuário < super admin: bloqueado;
+//   - com PSS e super admin: bloqueado até confirmar "editar pontualmente".
+function reduzidoLiberadoRemanejamento() {
+  const bloqueio = bloqueioPSSDoDseiSelecionado();
+  if (!bloqueio) return true;
+  if (nivelUsuarioRemanejamento() < 3) return false;
+  return state.remanejamentoPssLiberadoDsei === normalizarTextoPainel(bloqueio.dsei);
+}
+
+export function montarOpcoesCargosRemanejamento(tipo) {
   const idDsei = String(document.getElementById("remanejamentoDsei")?.value || "");
-  return (state.remanejamentoCadastroRows || [])
-    .filter(row => !idDsei || String(row.idDseiCasai || "") === idDsei)
+  let rows = (state.remanejamentoCadastroRows || [])
+    .filter(row => !idDsei || String(row.idDseiCasai || "") === idDsei);
+
+  // Bloqueio por PSS afeta apenas o lado reduzido.
+  if (tipo === "reduzido") {
+    const bloqueio = bloqueioPSSDoDseiSelecionado();
+    if (bloqueio) {
+      // DSEI ainda bloqueado (admin comum ou super admin sem liberar): nenhuma opção.
+      if (!reduzidoLiberadoRemanejamento()) return [];
+      // Liberado pelo super admin: remove o(s) cargo(s) do próprio processo seletivo,
+      // que permanece(m) bloqueado(s) para todos.
+      const cargosPSS = (bloqueio.cargos || []).map(c => normalizarTextoPainel(c));
+      if (cargosPSS.length) {
+        rows = rows.filter(row => !cargosPSS.includes(normalizarTextoPainel(row.cargo || "")));
+      }
+    }
+  }
+
+  return rows
     .slice()
     .sort((a, b) => String(a.cargo || "").localeCompare(String(b.cargo || ""), "pt-BR"))
     .map(row => {
@@ -226,7 +280,10 @@ export function renderRemanejamentoLista() {
     return;
   }
 
-  const podeExcluir = state.painelLoginUsuario && Number(state.painelLoginUsuario.nivelAutorizacao || 0) >= 2;
+  const nivelUsuario = state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
+  const podeExcluir = nivelUsuario >= 2;
+  // Alterar remanejamento: somente nível 3.
+  const podeEditar = nivelUsuario === 3;
 
   tbody.innerHTML = rows.map(row => {
     const impacto = Number(row.impactoMensal || 0);
@@ -234,6 +291,9 @@ export function renderRemanejamentoLista() {
     const idAttr = escapeAttr(row.idProcesso);
 
     const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-info"></i></button>`;
+    const btnEditar = podeEditar
+      ? `<button type="button" class="remAcaoBtn remAcaoEditar" title="Alterar remanejamento" data-click="editar-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-pen-to-square"></i></button>`
+      : "";
     const btnExcluir = podeExcluir
       ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" data-click="excluir-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-trash"></i></button>`
       : "";
@@ -243,16 +303,35 @@ export function renderRemanejamentoLista() {
             <td>${escapeHtml(row.dataCriacaoFormatada || row.dataCriacao)}</td>
             <td>${escapeHtml(row.dseiCasai || "-")}</td>
             <td>${escapeHtml(row.competencia || "-")}</td>
-            <td>${escapeHtml(row.cargosReduzidos || "-")}</td>
-            <td>${formatCurrency(row.totalReduzidoPeriodo)}</td>
-            <td>${escapeHtml(row.cargosAcrescentados || "-")}</td>
-            <td>${formatCurrency(row.totalAcrescentadoPeriodo)}</td>
+            <td>${formatarCargosRemanejamento(row.cargosReduzidos, "reduzido")}</td>
+            <td class="remValorReduzido">${formatCurrency(row.totalReduzidoPeriodo)}</td>
+            <td>${formatarCargosRemanejamento(row.cargosAcrescentados, "acrescentado")}</td>
+            <td class="remValorAcrescentado">${formatCurrency(row.totalAcrescentadoPeriodo)}</td>
             <td class="${impactoClass}">${formatCurrency(row.impactoMensal)}</td>
             <td>${escapeHtml(row.inseridoPorEmail || row.criadoPor || "-")}</td>
-            <td class="remAcoesCell">${btnDetalhe}${btnExcluir}</td>
+            <td class="remAcoesCell">${btnDetalhe}${btnEditar}${btnExcluir}</td>
           </tr>
         `;
   }).join("");
+}
+
+// Separa as vagas (vindas como "CARGO x2 | OUTRO x1") em divs distintos e troca
+// o sufixo "xN" por "- N un" em cada vaga.
+export function formatarCargosRemanejamento(texto, variante) {
+  const raw = String(texto || "").trim();
+  if (!raw || raw === "-") return "-";
+  const classeVariante = variante === "reduzido"
+    ? " remCargoReduzido"
+    : variante === "acrescentado"
+      ? " remCargoAcrescentado"
+      : "";
+  return raw
+    .split(" | ")
+    .map(item => {
+      const formatado = item.replace(/\s*x\s*(\d+)\s*$/i, " - $1 un");
+      return `<div class="remCargoItem${classeVariante}">${escapeHtml(formatado)}</div>`;
+    })
+    .join("");
 }
 
 export function classeValorImpacto(valor) {
@@ -304,6 +383,7 @@ export function renderTabelaDetalheRemanejamento(titulo, itens) {
           <td>${formatCurrency(item.noturno)}</td>
           <td>${formatCurrency(item.encargos)}</td>
           <td>${formatCurrency(item.provisoes)}</td>
+          <td>${formatCurrency(item.valeAlimentacao)}</td>
           <td>${formatCurrency(item.mensal)}</td>
           <td>${formatCurrency(item.periodo)}</td>
         </tr>
@@ -319,12 +399,12 @@ export function renderTabelaDetalheRemanejamento(titulo, itens) {
             <thead>
               <tr>
                 <th>Cargo</th><th>Qtd.</th><th>Meses</th><th>Salário</th><th>Insal./Peric.</th>
-                <th>Grat. RT</th><th>Noturno</th><th>Encargos</th><th>Provisões</th><th>Mensal</th><th>Período</th>
+                <th>Grat. RT</th><th>Noturno</th><th>Encargos</th><th>Provisões</th><th>Vale Alim.</th><th>Mensal</th><th>Período</th>
               </tr>
             </thead>
-            <tbody>${linhas || '<tr><td colspan="11">Sem itens.</td></tr>'}</tbody>
+            <tbody>${linhas || '<tr><td colspan="12">Sem itens.</td></tr>'}</tbody>
             <tfoot>
-              <tr><td colspan="9">TOTAL</td><td>${formatCurrency(totalMensal)}</td><td>${formatCurrency(totalPeriodo)}</td></tr>
+              <tr><td colspan="10">TOTAL</td><td>${formatCurrency(totalMensal)}</td><td>${formatCurrency(totalPeriodo)}</td></tr>
             </tfoot>
           </table>
         </div>
@@ -350,6 +430,99 @@ export function renderDetalheRemanejamentoHtml(detalhe, rowLista) {
           </div>
         </div>
       `;
+}
+
+// Carrega um remanejamento existente no formulário para edição e ativa o modo edição.
+export async function editarRemanejamentoPainel(idProcesso) {
+  mostrarCarregando();
+  let dados;
+  try {
+    dados = await apiGet(`/api/remanejamento/edicao/${encodeURIComponent(idProcesso)}`);
+  } catch (error) {
+    ocultarCarregando();
+    await abrirAviso({
+      titulo: "Erro ao carregar",
+      msg: `Não foi possível carregar o remanejamento para edição: ${error && error.message ? error.message : error}`,
+      perigo: true
+    });
+    return;
+  }
+  ocultarCarregando();
+
+  // Garante que os selects (DSEI/cargos) já estão populados antes de preencher.
+  const dseis = montarOpcoesDseiRemanejamento();
+  preencherSelectRemanejamento("remanejamentoDsei", dseis, item => item.label);
+
+  // 1) DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo e meses).
+  setValue("remanejamentoDsei", String(dados.idDseiCasai || ""));
+  const mesEl = document.getElementById("remanejamentoMes");
+  if (mesEl) { mesEl.value = String(dados.mes || (new Date().getMonth() + 1)); mesEl.dataset.tocado = "1"; }
+
+  // 2) Linhas reduzido/acrescentado a partir dos IDs salvos.
+  state.remanejamentoLinhas.reduzido = (dados.reduzidos || []).map(item => construirLinhaEdicaoRemanejamento("reduzido", item));
+  state.remanejamentoLinhas.acrescentado = (dados.acrescentados || []).map(item => construirLinhaEdicaoRemanejamento("acrescentado", item));
+  if (!state.remanejamentoLinhas.reduzido.length) state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", {})];
+  if (!state.remanejamentoLinhas.acrescentado.length) state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", {})];
+
+  // 3) Documentação.
+  setValue("remanejamentoProcessoSei", dados.processoSei || "");
+  setValue("remObservacao", dados.observacao || "");
+  const anexo = document.getElementById("remAnexoArquivo");
+  if (anexo) anexo.value = "";
+
+  // 4) Ativa o modo edição (borda amarela + banner + botão "Atualizar").
+  state.remanejamentoEditandoId = dados.idProcesso;
+  aplicarModoEdicaoRemanejamento(true, dados.idProcesso);
+
+  renderLinhasRemanejamento("reduzido");
+  renderLinhasRemanejamento("acrescentado");
+  atualizarResumoRemanejamento();
+
+  document.getElementById("remPageShell")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Monta uma linha do formulário a partir de { idCargoFuncao, quantidade } salvos,
+// buscando os custos no cadastro do DSEI já selecionado.
+function construirLinhaEdicaoRemanejamento(tipo, item) {
+  const linha = criarLinhaRemanejamento(tipo, { quantidade: item.quantidade });
+  const cadastro = obterCadastroCargoRemanejamento(item.idCargoFuncao);
+  linha.idCargoFuncao = String(item.idCargoFuncao || "");
+  linha.cargo = cadastro?.cargo || "";
+  // Nas reduções, credita de volta a quantidade original: as vagas ociosas do
+  // cadastro já descontam esta redução, então sem o crédito a edição bloquearia.
+  const baseOciosas = Number(cadastro?.vagasOciosas || 0);
+  linha.vagasOciosas = tipo === "reduzido"
+    ? baseOciosas + Math.max(0, Number(item.quantidade || 0))
+    : baseOciosas;
+  linha.salarioBase = Number(cadastro?.salarioBase || 0);
+  linha.insalubridadePericulosidade = Number(cadastro?.insalubridadePericulosidade || 0);
+  linha.gratificacaoRt = Number(cadastro?.gratificacaoRt || 0);
+  linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
+  linha.encargos = Number(cadastro?.encargos || 0);
+  linha.provisoes = Number(cadastro?.provisoes || 0);
+  linha.valeAlimentacao = Number(cadastro?.valeAlimentacao || 0);
+  linha.quantidade = Math.max(1, Number(item.quantidade || 1));
+  return linha;
+}
+
+// Liga/desliga o indicador visual de edição (borda amarela, banner e label do botão).
+export function aplicarModoEdicaoRemanejamento(ativo, idProcesso) {
+  const shell = document.getElementById("remEditArea");
+  if (shell) shell.classList.toggle("remEditandoForm", !!ativo);
+
+  const banner = document.getElementById("remEditandoBanner");
+  if (banner) banner.style.display = ativo ? "" : "none";
+
+  setText("remEditandoId", ativo ? `#${idProcesso}` : "");
+
+  const botao = document.getElementById("remSaveBtn");
+  if (botao) botao.textContent = ativo ? "Atualizar Remanejamento" : "Salvar Remanejamento";
+}
+
+export function cancelarEdicaoRemanejamento() {
+  state.remanejamentoEditandoId = null;
+  aplicarModoEdicaoRemanejamento(false);
+  limparFormularioRemanejamento();
 }
 
 export async function excluirRemanejamentoPainel(idProcesso) {
@@ -394,6 +567,8 @@ export function renderRemanejamentoListaErro(error) {
 }
 
 export function atualizarVagasOrigemPorDsei() {
+  // Troca de DSEI cancela qualquer liberação pontual concedida pelo super admin.
+  state.remanejamentoPssLiberadoDsei = null;
   state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
   state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })];
   renderLinhasRemanejamento("reduzido");
@@ -437,6 +612,9 @@ export function atualizarAvisoOciosasRemanejamento() {
   const aviso = document.getElementById("remOciosasAviso");
   const botao = document.getElementById("remSaveBtn");
 
+  // Atualiza o banner de PSS e descobre se a redução do DSEI está bloqueada.
+  const pssBloqueado = atualizarBloqueioPSSRemanejamento();
+
   if (aviso) {
     if (erros.length) {
       aviso.hidden = false;
@@ -448,12 +626,71 @@ export function atualizarAvisoOciosasRemanejamento() {
   }
 
   if (botao) {
-    botao.disabled = erros.length > 0;
-    botao.classList.toggle("remSaveBtnBloqueado", erros.length > 0);
-    botao.title = erros.length ? "Ajuste as quantidades reduzidas: não há vagas ociosas suficientes." : "";
+    const bloqueado = erros.length > 0 || pssBloqueado;
+    botao.disabled = bloqueado;
+    botao.classList.toggle("remSaveBtnBloqueado", bloqueado);
+    botao.title = pssBloqueado
+      ? "Redução bloqueada: o DSEI possui processo seletivo em andamento."
+      : erros.length
+        ? "Ajuste as quantidades reduzidas: não há vagas ociosas suficientes."
+        : "";
   }
 
   return erros;
+}
+
+// Atualiza o banner de bloqueio por PSS no lado reduzido e habilita/desabilita o
+// botão "Adicionar Cargo" do reduzido. Retorna true quando a redução está bloqueada.
+export function atualizarBloqueioPSSRemanejamento() {
+  const aviso = document.getElementById("remPssBloqueioAviso");
+  const btnAddReduzido = document.querySelector('[data-click="adicionar-linha-rem"][data-tipo="reduzido"]');
+  const bloqueio = bloqueioPSSDoDseiSelecionado();
+
+  if (!bloqueio) {
+    if (aviso) { aviso.hidden = true; aviso.innerHTML = ""; }
+    if (btnAddReduzido) btnAddReduzido.disabled = false;
+    return false;
+  }
+
+  const liberado = reduzidoLiberadoRemanejamento();
+  const processosTxt = (bloqueio.processos || []).join(", ");
+  const cargosTxt = (bloqueio.cargos || []).join(", ");
+
+  let html = "";
+  if (!liberado) {
+    html = `🔒 <strong>Redução bloqueada:</strong> o DSEI <strong>${escapeHtml(bloqueio.dsei)}</strong> possui processo(s) seletivo(s) em andamento (${escapeHtml(processosTxt)}). Não é possível reduzir vagas deste DSEI enquanto o processo estiver ativo.`;
+    if (nivelUsuarioRemanejamento() >= 3) {
+      html += ` <button type="button" class="remSecondaryBtn remLiberarPssBtn" data-click="liberar-pss-rem">Editar pontualmente (liberar redução)</button>`;
+    }
+  } else {
+    html = `🔓 <strong>Redução liberada pontualmente pelo super administrador.</strong> O(s) cargo(s) do processo seletivo permanece(m) bloqueado(s): <strong>${escapeHtml(cargosTxt)}</strong>.`;
+  }
+
+  if (aviso) { aviso.hidden = false; aviso.innerHTML = html; }
+  // O botão de adicionar cargo reduzido só fica ativo quando a redução está liberada.
+  if (btnAddReduzido) btnAddReduzido.disabled = !liberado;
+
+  return !liberado;
+}
+
+// Ação do super administrador: liberar pontualmente a redução dos demais cargos
+// do DSEI (o cargo do processo seletivo continua bloqueado).
+export async function liberarBloqueioPSSRemanejamento() {
+  if (nivelUsuarioRemanejamento() < 3) return;
+  const bloqueio = bloqueioPSSDoDseiSelecionado();
+  if (!bloqueio) return;
+
+  const cargosTxt = (bloqueio.cargos || []).join(", ") || "—";
+  const confirmacao = await abrirModal({
+    titulo: "Liberar redução pontualmente",
+    msg: `O DSEI ${bloqueio.dsei} possui processo(s) seletivo(s) em andamento.\n\nComo super administrador, você pode liberar a redução de vagas dos demais cargos deste DSEI.\n\nO(s) cargo(s) do processo seletivo permanecerá(ão) bloqueado(s): ${cargosTxt}.\n\nDeseja liberar?`,
+    confirmarTexto: "Liberar redução"
+  });
+  if (!confirmacao.ok) return;
+
+  state.remanejamentoPssLiberadoDsei = normalizarTextoPainel(bloqueio.dsei);
+  renderLinhasRemanejamento("reduzido");
+  atualizarResumoRemanejamento();
 }
 
 export function obterRemanejamentoCadastroSelecionado() {
@@ -467,6 +704,13 @@ export function atualizarIndicadoresRemanejamento() {
 }
 
 export function inicializarFormularioRemanejamento(resetar) {
+  // Padrão do mês = mês atual (mesmo cálculo já definido) ao abrir/resetar o form.
+  const mesEl = document.getElementById("remanejamentoMes");
+  if (mesEl && (resetar || !(Number(mesEl.value) >= 1 && Number(mesEl.value) <= 12) || !mesEl.dataset.tocado)) {
+    mesEl.value = String(new Date().getMonth() + 1);
+    mesEl.dataset.tocado = "1";
+  }
+
   if (resetar || !state.remanejamentoLinhas.reduzido.length) {
     state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
   }
@@ -480,6 +724,17 @@ export function inicializarFormularioRemanejamento(resetar) {
   atualizarResumoRemanejamentoPainel();
 }
 
+// Mês escolhido no formulário (1..12). Sem seleção válida, usa o mês atual.
+export function mesRemanejamentoSelecionado() {
+  const v = Number(document.getElementById("remanejamentoMes")?.value);
+  return v >= 1 && v <= 12 ? v : new Date().getMonth() + 1;
+}
+
+// Meses do mês escolhido até dezembro (mesma regra do servidor: 13 - mês).
+export function mesesRemanejamentoSelecionado() {
+  return Math.max(1, 13 - mesRemanejamentoSelecionado());
+}
+
 export function criarLinhaRemanejamento(tipo, valores) {
   return {
     id: `${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -487,14 +742,26 @@ export function criarLinhaRemanejamento(tipo, valores) {
     cargo: valores?.cargo || "",
     quantidade: Number(valores?.quantidade || 1),
     vagasOciosas: Number(valores?.vagasOciosas || 0),
-    meses: mesesAteFimDoAno(),
+    meses: mesesRemanejamentoSelecionado(),
     salarioBase: Number(valores?.salarioBase || 0),
     insalubridadePericulosidade: Number(valores?.insalubridadePericulosidade || 0),
     gratificacaoRt: Number(valores?.gratificacaoRt || 0),
     adicionalNoturno: Number(valores?.adicionalNoturno || 0),
     encargos: Number(valores?.encargos || 0),
-    provisoes: Number(valores?.provisoes || 0)
+    provisoes: Number(valores?.provisoes || 0),
+    valeAlimentacao: Number(valores?.valeAlimentacao || 0)
   };
+}
+
+// Mês alterado: recalcula os meses de todas as linhas (reduzido/acrescentado) e
+// atualiza o resumo/impacto do período.
+export function alterarMesRemanejamento() {
+  const meses = mesesRemanejamentoSelecionado();
+  ["reduzido", "acrescentado"].forEach(tipo => {
+    (state.remanejamentoLinhas[tipo] || []).forEach(linha => { linha.meses = meses; });
+    renderLinhasRemanejamento(tipo);
+  });
+  atualizarResumoRemanejamento();
 }
 
 export function adicionarLinhaRemanejamento(tipo) {
@@ -528,7 +795,8 @@ export function atualizarCampoLinhaRemanejamento(tipo, id, campo, valor) {
     linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
     linha.encargos = Number(cadastro?.encargos || 0);
     linha.provisoes = Number(cadastro?.provisoes || 0);
-  } else if (["quantidade", "meses", "salarioBase", "insalubridadePericulosidade", "gratificacaoRt", "adicionalNoturno", "encargos", "provisoes"].includes(campo)) {
+    linha.valeAlimentacao = Number(cadastro?.valeAlimentacao || 0);
+  } else if (["quantidade", "meses", "salarioBase", "insalubridadePericulosidade", "gratificacaoRt", "adicionalNoturno", "encargos", "provisoes", "valeAlimentacao"].includes(campo)) {
     linha[campo] = Number(valor || 0);
   } else {
     linha[campo] = valor;
@@ -543,7 +811,7 @@ export function renderLinhasRemanejamento(tipo) {
   if (!body) return;
 
   const rows = state.remanejamentoLinhas[tipo] || [];
-  const opcoesCargo = montarOpcoesCargosRemanejamento();
+  const opcoesCargo = montarOpcoesCargosRemanejamento(tipo);
   const optionsHtml = ['<option value="">Selecione</option>'].concat(opcoesCargo.map(opt => `<option value="${escapeAttr(opt.value)}">${escapeHtml(opt.label)}</option>`)).join("");
 
   body.innerHTML = rows.map(row => {
@@ -601,7 +869,8 @@ export function calcularTotalLinhaRemanejamento(row) {
   const adicionalNoturno = Number(row.adicionalNoturno || 0) * quantidade;
   const encargos = Number(row.encargos || 0) * quantidade;
   const provisoes = Number(row.provisoes || 0) * quantidade;
-  const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes;
+  const valeAlimentacao = Number(row.valeAlimentacao || 0) * quantidade;
+  const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes + valeAlimentacao;
   return { mensal, total: mensal * meses };
 }
 
@@ -617,9 +886,10 @@ export function coletarLinhasRemanejamento(tipo) {
       gratificacaoRt: Number(item.gratificacaoRt || 0),
       adicionalNoturno: Number(item.adicionalNoturno || 0),
       encargos: Number(item.encargos || 0),
-      provisoes: Number(item.provisoes || 0)
+      provisoes: Number(item.provisoes || 0),
+      valeAlimentacao: Number(item.valeAlimentacao || 0)
     }))
-    .filter(item => item.idCargoFuncao || item.quantidade || item.salarioBase || item.encargos || item.provisoes);
+    .filter(item => item.idCargoFuncao || item.quantidade || item.salarioBase || item.encargos || item.provisoes || item.valeAlimentacao);
 }
 
 export function calcularResumoLinhasRemanejamento(items) {
@@ -632,17 +902,19 @@ export function calcularResumoLinhasRemanejamento(items) {
     const adicionalNoturno = Number(item.adicionalNoturno || 0) * quantidade;
     const encargos = Number(item.encargos || 0) * quantidade;
     const provisoes = Number(item.provisoes || 0) * quantidade;
-    const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes;
+    const valeAlimentacao = Number(item.valeAlimentacao || 0) * quantidade;
+    const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes + valeAlimentacao;
     acc.salarioBase += salarioBase;
     acc.insalubridadePericulosidade += insalubridadePericulosidade;
     acc.gratificacaoRt += gratificacaoRt;
     acc.adicionalNoturno += adicionalNoturno;
     acc.encargos += encargos;
     acc.provisoes += provisoes;
+    acc.valeAlimentacao += valeAlimentacao;
     acc.mensal += mensal;
     acc.total += mensal * meses;
     return acc;
-  }, { salarioBase: 0, insalubridadePericulosidade: 0, gratificacaoRt: 0, adicionalNoturno: 0, encargos: 0, provisoes: 0, mensal: 0, total: 0 });
+  }, { salarioBase: 0, insalubridadePericulosidade: 0, gratificacaoRt: 0, adicionalNoturno: 0, encargos: 0, provisoes: 0, valeAlimentacao: 0, mensal: 0, total: 0 });
 }
 
 export function atualizarResumoRemanejamentoPainel() {
@@ -663,7 +935,7 @@ export function atualizarResumoRemanejamentoPainel() {
   setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
   setText("remImpactoMensal2", formatCurrency(impactoMensal));
   setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
-  setText("remImpactoPeriodoMeses", String(mesesAteFimDoAno()));
+  setText("remImpactoPeriodoMeses", String(mesesRemanejamentoSelecionado()));
 
   setText("remSalarioRed", formatCurrency(red.salarioBase));
   setText("remSalarioAdd", formatCurrency(add.salarioBase));
@@ -683,6 +955,9 @@ export function atualizarResumoRemanejamentoPainel() {
   setText("remProvisaoRed", formatCurrency(red.provisoes));
   setText("remProvisaoAdd", formatCurrency(add.provisoes));
   setText("remProvisaoImpacto", formatCurrency(add.provisoes - red.provisoes));
+  setText("remValeRed", formatCurrency(red.valeAlimentacao));
+  setText("remValeAdd", formatCurrency(add.valeAlimentacao));
+  setText("remValeImpacto", formatCurrency(add.valeAlimentacao - red.valeAlimentacao));
   setText("remResumoTotalRed", formatCurrency(red.mensal));
   setText("remResumoTotalAdd", formatCurrency(add.mensal));
   setText("remResumoTotalImpacto", formatCurrency(impactoMensal));
@@ -699,6 +974,8 @@ export function atualizarResumoRemanejamentoPainel() {
 }
 
 export function limparFormularioRemanejamento() {
+  // Limpar também cancela qualquer liberação pontual de PSS concedida pelo super admin.
+  state.remanejamentoPssLiberadoDsei = null;
   state.remanejamentoLinhas = {
     reduzido: [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })],
     acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })]
@@ -706,6 +983,12 @@ export function limparFormularioRemanejamento() {
 
   setValue("remanejamentoProcessoSei", "");
   setValue("remObservacao", "");
+  // Padrão: mês atual (mesmo cálculo já definido).
+  setValue("remanejamentoMes", String(new Date().getMonth() + 1));
+
+  // Limpar também encerra o modo de edição, se estiver ativo.
+  state.remanejamentoEditandoId = null;
+  aplicarModoEdicaoRemanejamento(false);
 
   const anexo = document.getElementById("remAnexoArquivo");
   if (anexo) anexo.value = "";
@@ -736,6 +1019,30 @@ export async function salvarRemanejamentoPainel() {
     return;
   }
 
+  // Bloqueio por Processo Seletivo (frontend): impede reduzir vagas de DSEI com PSS ativo.
+  const bloqueioPSS = bloqueioPSSDoDseiSelecionado();
+  if (bloqueioPSS) {
+    if (!reduzidoLiberadoRemanejamento()) {
+      await abrirAviso({
+        titulo: "Remanejamento bloqueado",
+        msg: `O DSEI ${bloqueioPSS.dsei} possui processo seletivo em andamento (${bloqueioPSS.processos.join(", ")}). A redução de vagas deste DSEI está bloqueada enquanto o processo estiver ativo.`,
+        perigo: true
+      });
+      return;
+    }
+    // Mesmo liberado pelo super admin, o cargo do processo seletivo permanece bloqueado.
+    const cargosPSS = (bloqueioPSS.cargos || []).map(c => normalizarTextoPainel(c));
+    const conflito = linhasReduzido.find(item => cargosPSS.includes(normalizarTextoPainel(item.cargo || "")));
+    if (conflito) {
+      await abrirAviso({
+        titulo: "Remanejamento bloqueado",
+        msg: `O cargo "${conflito.cargo}" está vinculado a um processo seletivo em andamento e não pode ser reduzido.`,
+        perigo: true
+      });
+      return;
+    }
+  }
+
   const errosOciosas = atualizarAvisoOciosasRemanejamento();
   if (errosOciosas.length) {
     await abrirAviso({
@@ -756,13 +1063,15 @@ export async function salvarRemanejamentoPainel() {
     return;
   }
 
+  const editandoId = state.remanejamentoEditandoId;
+
   // Confirmação extra para evitar remanejamentos errados — resume os dados principais.
   const dseiNome = document.getElementById("remanejamentoDsei")?.selectedOptions?.[0]?.text || idDseiCasai;
   const impactoMensalFmt = formatCurrency(resumo ? resumo.impactoMensal : 0);
   const confirmacao = await abrirModal({
-    titulo: "Confirmar remanejamento",
-    msg: `Confira os dados antes de registrar:\nDSEI/CASAI: ${dseiNome}\nProcesso SEI: ${processoSei}\nImpacto mensal: ${impactoMensalFmt}\n\nEsta ação altera as vagas ociosas e o monitoramento.`,
-    confirmarTexto: "Confirmar remanejamento"
+    titulo: editandoId ? "Confirmar alteração" : "Confirmar remanejamento",
+    msg: `${editandoId ? `Você está alterando o remanejamento #${editandoId}.\n\n` : ""}Confira os dados antes de ${editandoId ? "atualizar" : "registrar"}:\nDSEI/CASAI: ${dseiNome}\nProcesso SEI: ${processoSei}\nImpacto mensal: ${impactoMensalFmt}\n\nEsta ação altera as vagas ociosas e o monitoramento.`,
+    confirmarTexto: editandoId ? "Atualizar remanejamento" : "Confirmar remanejamento"
   });
   if (!confirmacao.ok) return;
 
@@ -770,32 +1079,43 @@ export async function salvarRemanejamentoPainel() {
   formData.append("idDseiCasai", idDseiCasai);
   formData.append("processoSei", processoSei);
   formData.append("observacao", observacao);
+  formData.append("mes", String(mesRemanejamentoSelecionado()));
   formData.append("criadoPor", "painel");
   formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
   formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
   if (anexo) formData.append("anexo", anexo);
 
+  const url = editandoId
+    ? `/api/remanejamento/${encodeURIComponent(editandoId)}`
+    : "/api/remanejamento/salvar";
+  const metodo = editandoId ? "PUT" : "POST";
+
   mostrarCarregando();
   try {
-    const response = await fetch("/api/remanejamento/salvar", {
-      method: "POST",
+    const response = await fetch(url, {
+      method: metodo,
       headers: state.painelLoginToken ? { Authorization: `Bearer ${state.painelLoginToken}` } : {},
       body: formData
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
+    state.remanejamentoEditandoId = null;
+    aplicarModoEdicaoRemanejamento(false);
     limparFormularioRemanejamento();
     // Atualiza todos os dados afetados: lista de remanejamentos, vagas ociosas do
     // formulário, monitoramento, alertas e visão geral.
     await recarregarTodosOsDados();
     ocultarCarregando();
-    await abrirAviso({ titulo: "Remanejamento salvo", msg: "Remanejamento salvo com sucesso." });
+    await abrirAviso({
+      titulo: editandoId ? "Remanejamento atualizado" : "Remanejamento salvo",
+      msg: editandoId ? "Remanejamento atualizado com sucesso." : "Remanejamento salvo com sucesso."
+    });
   } catch (error) {
     ocultarCarregando();
     await abrirAviso({
-      titulo: "Erro ao salvar",
-      msg: `Erro ao salvar remanejamento: ${error && error.message ? error.message : error}`,
+      titulo: editandoId ? "Erro ao atualizar" : "Erro ao salvar",
+      msg: `Erro ao ${editandoId ? "atualizar" : "salvar"} remanejamento: ${error && error.message ? error.message : error}`,
       perigo: true
     });
   }

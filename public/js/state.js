@@ -23,6 +23,7 @@ export const state = {
     reduzido: [],
     acrescentado: []
   },
+  remanejamentoEditandoId: null,
 
   // Estado de visualização de vagas
   vagasViewAtual: "dsei",
@@ -36,10 +37,6 @@ export const state = {
   activeView: "visaoGeral",
   activeChartFilter: null,
 
-  // Auto atualização
-  autoRefreshTimer: null,
-  autoReloadTimer: null,
-  isAutoRefreshing: false,
   backgroundLoadStarted: false,
 
   // Painéis externos
