@@ -94,6 +94,35 @@
   line-height: 1.45;
 }
 
+/* Alertas em destaque (Processo Seletivo): maiores e mais evidentes que os avisos
+   comuns, em vermelho. Usados nos textos de "Sugestão:" e "ALERTA:". */
+.processoSeletivoSugestao {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: #fdecea;
+  border: 1px solid #f1b0ab;
+  border-left: 5px solid #c0392b;
+  color: #8a1f17;
+  font-size: 13.5px;
+  line-height: 1.65;
+  box-shadow: 0 6px 16px rgba(192, 57, 43, .14);
+}
+
+.processoSeletivoSugestao i {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #c0392b;
+  font-size: 20px;
+}
+
+.processoSeletivoSugestao strong {
+  color: #7a1611;
+}
+
 /* Aviso sobre vagas ociosas negativas (excedente) na tabela de Vagas */
 .vagasOciosasAviso {
   margin: 0 0 12px;

@@ -744,11 +744,15 @@ export function obterPaginaVagas(linhas) {
   const grupoAtual = grupos[state.vagasCurrentPage - 1] || "";
   const linhasPagina = linhas.filter(row => String(row.dseiCasai || "") === String(grupoAtual || ""));
 
+  // Texto do indicador central. Vai num span de largura fixa com reticências,
+  // para o nome variável do DSEI não empurrar os botões (Anterior/Próxima ficam parados).
+  const infoTexto = `Página ${formatNumber(state.vagasCurrentPage)} de ${formatNumber(totalPaginas)}${grupoAtual ? ` · ${grupoAtual}` : ""}`;
+
   return {
     linhasPagina,
     resumoPaginacao: `
           <button type="button" data-click="mudar-pagina-vagas" data-delta="-1" ${state.vagasCurrentPage <= 1 ? "disabled" : ""}>Anterior</button>
-          <span>Página ${formatNumber(state.vagasCurrentPage)} de ${formatNumber(totalPaginas)}${grupoAtual ? ` · ${escapeHtml(grupoAtual)}` : ""}</span>
+          <span class="tablePaginationInfo" title="${escapeAttr(infoTexto)}">${escapeHtml(infoTexto)}</span>
           <button type="button" data-click="mudar-pagina-vagas" data-delta="1" ${state.vagasCurrentPage >= totalPaginas ? "disabled" : ""}>Próxima</button>
         `
   };
