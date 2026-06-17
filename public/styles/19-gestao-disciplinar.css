@@ -86,9 +86,17 @@
     /* ---------- Painel de detalhamento ---------- */
     .gdDetailGrid {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, .9fr);
+      /* Linha de cima: Dados do Pedido | Status da Demanda + Sanção Aplicada. */
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
       gap: 18px;
       align-items: start;
+    }
+
+    /* Bloco "Dados do Trabalhador ... Atualizar Status" ocupa uma linha inteira
+       abaixo, evitando que os 4 quadros fiquem espremidos numa coluna estreita. */
+    .gdDetailGrid > .ecDetalheGrid {
+      grid-column: 1 / -1;
+      margin-top: 4px;
     }
 
     .gdDetailCol {
