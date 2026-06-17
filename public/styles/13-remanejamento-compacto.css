@@ -486,6 +486,23 @@
   line-height: 1.4;
 }
 
+/* Bloqueio de redução por Processo Seletivo (PSS) ativo no DSEI. */
+.remPssBloqueioAviso {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  color: #8a5800;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.remLiberarPssBtn {
+  margin-left: 8px;
+  margin-top: 6px;
+}
+
 .remOciosasInfo {
   margin-top: 4px;
   font-size: 11px;

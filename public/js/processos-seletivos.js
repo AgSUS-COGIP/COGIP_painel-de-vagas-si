@@ -27,6 +27,40 @@ const TIPOS_VAGA = ["Ampla Concorrência", "Reserva Indígena", "Pessoa com Defi
 
 const POR_PAGINA = 7;
 
+// Status que congelam o DSEI para fins de Remanejamento: enquanto houver um
+// processo seletivo "Em andamento" ou "Encerrando em breve", a redução de vagas
+// daquele DSEI fica bloqueada (ver remanejamento.js).
+const STATUS_BLOQUEIA_REMANEJAMENTO = ["Em andamento", "Encerrando em breve"];
+
+// Mapa de DSEIs com processo(s) seletivo(s) em andamento/perto do término.
+// O Remanejamento usa isto para bloquear o lado "reduzido" do DSEI. O cruzamento
+// é feito pelo NOME do DSEI/cargo, pois Processos Seletivos é uma maquete de
+// frontend (sem backend) e não compartilha IDs com o cadastro de remanejamento.
+// Retorna: [{ dsei, cargos: [string], processos: [string] }]
+export function obterBloqueiosRemanejamentoPSS() {
+  const mapa = new Map();
+  (processos || []).forEach(proc => {
+    if (!STATUS_BLOQUEIA_REMANEJAMENTO.includes(proc.status)) return;
+    const nomeDsei = String(proc.dsei || "").trim();
+    if (!nomeDsei) return;
+    const chave = nomeDsei.toLowerCase();
+    if (!mapa.has(chave)) {
+      mapa.set(chave, { dsei: nomeDsei, cargos: new Set(), processos: [] });
+    }
+    const item = mapa.get(chave);
+    item.processos.push(proc.nome || proc.id || "Processo seletivo");
+    (proc.vagas || []).forEach(vaga => {
+      const cargo = String(vaga.cargo || "").trim();
+      if (cargo) item.cargos.add(cargo);
+    });
+  });
+  return [...mapa.values()].map(item => ({
+    dsei: item.dsei,
+    cargos: [...item.cargos],
+    processos: item.processos
+  }));
+}
+
 // ---------- Dados de exemplo ----------
 // Cada vaga carrega também a quantidade do cadastro reserva (cadastroReserva)
 // daquele cargo. Os números de "convocados/desistências" do cadastro reserva

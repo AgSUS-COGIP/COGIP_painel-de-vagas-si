@@ -4,6 +4,7 @@ import { garantirCarregamentoPagina, recarregarTodosOsDados } from "./app.js";
 import { REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
 import { atualizarModoRolagem } from "./filtros.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
+import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
@@ -127,10 +128,63 @@ export function montarOpcoesDseiRemanejamento() {
   return lista.length ? lista : [REMANEJAMENTO_EMPTY_OPTION];
 }
 
-export function montarOpcoesCargosRemanejamento() {
+// ---------- Bloqueio por Processo Seletivo (PSS) ----------
+// Regra: enquanto um DSEI tiver processo seletivo em andamento/perto do término,
+// a REDUÇÃO de vagas daquele DSEI fica bloqueada na criação do remanejamento.
+// O super administrador (nível 3) pode liberar pontualmente os demais cargos do
+// DSEI, mas o(s) cargo(s) do próprio processo seletivo permanece(m) bloqueado(s).
+
+// Nível do usuário logado (0 se não autenticado). 3 = super administrador.
+function nivelUsuarioRemanejamento() {
+  return state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
+}
+
+// Nome (texto) do DSEI selecionado no formulário — usado para cruzar com o PSS.
+function nomeDseiSelecionadoRemanejamento() {
+  const sel = document.getElementById("remanejamentoDsei");
+  return sel?.options?.[sel.selectedIndex]?.text || "";
+}
+
+// Bloqueio de PSS para o DSEI selecionado (ou null). Compara pelo nome do DSEI.
+function bloqueioPSSDoDseiSelecionado() {
+  const nome = normalizarTextoPainel(nomeDseiSelecionadoRemanejamento());
+  if (!nome) return null;
+  return (obterBloqueiosRemanejamentoPSS() || [])
+    .find(b => normalizarTextoPainel(b.dsei) === nome) || null;
+}
+
+// O lado "reduzido" está liberado para o DSEI atual?
+//   - sem PSS no DSEI: liberado;
+//   - com PSS e usuário < super admin: bloqueado;
+//   - com PSS e super admin: bloqueado até confirmar "editar pontualmente".
+function reduzidoLiberadoRemanejamento() {
+  const bloqueio = bloqueioPSSDoDseiSelecionado();
+  if (!bloqueio) return true;
+  if (nivelUsuarioRemanejamento() < 3) return false;
+  return state.remanejamentoPssLiberadoDsei === normalizarTextoPainel(bloqueio.dsei);
+}
+
+export function montarOpcoesCargosRemanejamento(tipo) {
   const idDsei = String(document.getElementById("remanejamentoDsei")?.value || "");
-  return (state.remanejamentoCadastroRows || [])
-    .filter(row => !idDsei || String(row.idDseiCasai || "") === idDsei)
+  let rows = (state.remanejamentoCadastroRows || [])
+    .filter(row => !idDsei || String(row.idDseiCasai || "") === idDsei);
+
+  // Bloqueio por PSS afeta apenas o lado reduzido.
+  if (tipo === "reduzido") {
+    const bloqueio = bloqueioPSSDoDseiSelecionado();
+    if (bloqueio) {
+      // DSEI ainda bloqueado (admin comum ou super admin sem liberar): nenhuma opção.
+      if (!reduzidoLiberadoRemanejamento()) return [];
+      // Liberado pelo super admin: remove o(s) cargo(s) do próprio processo seletivo,
+      // que permanece(m) bloqueado(s) para todos.
+      const cargosPSS = (bloqueio.cargos || []).map(c => normalizarTextoPainel(c));
+      if (cargosPSS.length) {
+        rows = rows.filter(row => !cargosPSS.includes(normalizarTextoPainel(row.cargo || "")));
+      }
+    }
+  }
+
+  return rows
     .slice()
     .sort((a, b) => String(a.cargo || "").localeCompare(String(b.cargo || ""), "pt-BR"))
     .map(row => {
@@ -513,6 +567,8 @@ export function renderRemanejamentoListaErro(error) {
 }
 
 export function atualizarVagasOrigemPorDsei() {
+  // Troca de DSEI cancela qualquer liberação pontual concedida pelo super admin.
+  state.remanejamentoPssLiberadoDsei = null;
   state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
   state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })];
   renderLinhasRemanejamento("reduzido");
@@ -556,6 +612,9 @@ export function atualizarAvisoOciosasRemanejamento() {
   const aviso = document.getElementById("remOciosasAviso");
   const botao = document.getElementById("remSaveBtn");
 
+  // Atualiza o banner de PSS e descobre se a redução do DSEI está bloqueada.
+  const pssBloqueado = atualizarBloqueioPSSRemanejamento();
+
   if (aviso) {
     if (erros.length) {
       aviso.hidden = false;
@@ -567,12 +626,71 @@ export function atualizarAvisoOciosasRemanejamento() {
   }
 
   if (botao) {
-    botao.disabled = erros.length > 0;
-    botao.classList.toggle("remSaveBtnBloqueado", erros.length > 0);
-    botao.title = erros.length ? "Ajuste as quantidades reduzidas: não há vagas ociosas suficientes." : "";
+    const bloqueado = erros.length > 0 || pssBloqueado;
+    botao.disabled = bloqueado;
+    botao.classList.toggle("remSaveBtnBloqueado", bloqueado);
+    botao.title = pssBloqueado
+      ? "Redução bloqueada: o DSEI possui processo seletivo em andamento."
+      : erros.length
+        ? "Ajuste as quantidades reduzidas: não há vagas ociosas suficientes."
+        : "";
   }
 
   return erros;
+}
+
+// Atualiza o banner de bloqueio por PSS no lado reduzido e habilita/desabilita o
+// botão "Adicionar Cargo" do reduzido. Retorna true quando a redução está bloqueada.
+export function atualizarBloqueioPSSRemanejamento() {
+  const aviso = document.getElementById("remPssBloqueioAviso");
+  const btnAddReduzido = document.querySelector('[data-click="adicionar-linha-rem"][data-tipo="reduzido"]');
+  const bloqueio = bloqueioPSSDoDseiSelecionado();
+
+  if (!bloqueio) {
+    if (aviso) { aviso.hidden = true; aviso.innerHTML = ""; }
+    if (btnAddReduzido) btnAddReduzido.disabled = false;
+    return false;
+  }
+
+  const liberado = reduzidoLiberadoRemanejamento();
+  const processosTxt = (bloqueio.processos || []).join(", ");
+  const cargosTxt = (bloqueio.cargos || []).join(", ");
+
+  let html = "";
+  if (!liberado) {
+    html = `🔒 <strong>Redução bloqueada:</strong> o DSEI <strong>${escapeHtml(bloqueio.dsei)}</strong> possui processo(s) seletivo(s) em andamento (${escapeHtml(processosTxt)}). Não é possível reduzir vagas deste DSEI enquanto o processo estiver ativo.`;
+    if (nivelUsuarioRemanejamento() >= 3) {
+      html += ` <button type="button" class="remSecondaryBtn remLiberarPssBtn" data-click="liberar-pss-rem">Editar pontualmente (liberar redução)</button>`;
+    }
+  } else {
+    html = `🔓 <strong>Redução liberada pontualmente pelo super administrador.</strong> O(s) cargo(s) do processo seletivo permanece(m) bloqueado(s): <strong>${escapeHtml(cargosTxt)}</strong>.`;
+  }
+
+  if (aviso) { aviso.hidden = false; aviso.innerHTML = html; }
+  // O botão de adicionar cargo reduzido só fica ativo quando a redução está liberada.
+  if (btnAddReduzido) btnAddReduzido.disabled = !liberado;
+
+  return !liberado;
+}
+
+// Ação do super administrador: liberar pontualmente a redução dos demais cargos
+// do DSEI (o cargo do processo seletivo continua bloqueado).
+export async function liberarBloqueioPSSRemanejamento() {
+  if (nivelUsuarioRemanejamento() < 3) return;
+  const bloqueio = bloqueioPSSDoDseiSelecionado();
+  if (!bloqueio) return;
+
+  const cargosTxt = (bloqueio.cargos || []).join(", ") || "—";
+  const confirmacao = await abrirModal({
+    titulo: "Liberar redução pontualmente",
+    msg: `O DSEI ${bloqueio.dsei} possui processo(s) seletivo(s) em andamento.\n\nComo super administrador, você pode liberar a redução de vagas dos demais cargos deste DSEI.\n\nO(s) cargo(s) do processo seletivo permanecerá(ão) bloqueado(s): ${cargosTxt}.\n\nDeseja liberar?`,
+    confirmarTexto: "Liberar redução"
+  });
+  if (!confirmacao.ok) return;
+
+  state.remanejamentoPssLiberadoDsei = normalizarTextoPainel(bloqueio.dsei);
+  renderLinhasRemanejamento("reduzido");
+  atualizarResumoRemanejamento();
 }
 
 export function obterRemanejamentoCadastroSelecionado() {
@@ -693,7 +811,7 @@ export function renderLinhasRemanejamento(tipo) {
   if (!body) return;
 
   const rows = state.remanejamentoLinhas[tipo] || [];
-  const opcoesCargo = montarOpcoesCargosRemanejamento();
+  const opcoesCargo = montarOpcoesCargosRemanejamento(tipo);
   const optionsHtml = ['<option value="">Selecione</option>'].concat(opcoesCargo.map(opt => `<option value="${escapeAttr(opt.value)}">${escapeHtml(opt.label)}</option>`)).join("");
 
   body.innerHTML = rows.map(row => {
@@ -856,6 +974,8 @@ export function atualizarResumoRemanejamentoPainel() {
 }
 
 export function limparFormularioRemanejamento() {
+  // Limpar também cancela qualquer liberação pontual de PSS concedida pelo super admin.
+  state.remanejamentoPssLiberadoDsei = null;
   state.remanejamentoLinhas = {
     reduzido: [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })],
     acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })]
@@ -897,6 +1017,30 @@ export async function salvarRemanejamentoPainel() {
   if (!linhasReduzido.length || !linhasAcrescentado.length) {
     await abrirAviso({ titulo: "Remanejamento bloqueado", msg: "Informe ao menos um cargo reduzido e um cargo acrescentado.", perigo: true });
     return;
+  }
+
+  // Bloqueio por Processo Seletivo (frontend): impede reduzir vagas de DSEI com PSS ativo.
+  const bloqueioPSS = bloqueioPSSDoDseiSelecionado();
+  if (bloqueioPSS) {
+    if (!reduzidoLiberadoRemanejamento()) {
+      await abrirAviso({
+        titulo: "Remanejamento bloqueado",
+        msg: `O DSEI ${bloqueioPSS.dsei} possui processo seletivo em andamento (${bloqueioPSS.processos.join(", ")}). A redução de vagas deste DSEI está bloqueada enquanto o processo estiver ativo.`,
+        perigo: true
+      });
+      return;
+    }
+    // Mesmo liberado pelo super admin, o cargo do processo seletivo permanece bloqueado.
+    const cargosPSS = (bloqueioPSS.cargos || []).map(c => normalizarTextoPainel(c));
+    const conflito = linhasReduzido.find(item => cargosPSS.includes(normalizarTextoPainel(item.cargo || "")));
+    if (conflito) {
+      await abrirAviso({
+        titulo: "Remanejamento bloqueado",
+        msg: `O cargo "${conflito.cargo}" está vinculado a um processo seletivo em andamento e não pode ser reduzido.`,
+        perigo: true
+      });
+      return;
+    }
   }
 
   const errosOciosas = atualizarAvisoOciosasRemanejamento();

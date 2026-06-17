@@ -3,7 +3,7 @@ import { ajustarEscalaPainelFixo, filtrarRowsBase, garantirCarregamentoPagina, r
 import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
-import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirRemanejamentoPainel, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
+import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirRemanejamentoPainel, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
 import { charts, filterConfigs, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, normalizarTextoPainel } from "./utils.js";
@@ -200,6 +200,7 @@ export function configurarDelegacaoEventos() {
       case "cancelar-edicao-rem": cancelarEdicaoRemanejamento(); break;
       case "excluir-rem": excluirRemanejamentoPainel(d.id); break;
       case "remover-linha-rem": removerLinhaRemanejamento(d.tipo, d.id); break;
+      case "liberar-pss-rem": liberarBloqueioPSSRemanejamento(); break;
     }
   });
 
