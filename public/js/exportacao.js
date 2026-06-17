@@ -16,7 +16,7 @@ export function exportarVagas() {
     "Total de Trabalhadores": row.totalTrabalhadores,
     "Afastados": row.afastados,
     "Vagas Ociosas (Déficit Operacional)": row.ociosas,
-    "Normais": row.contratadosNormal,
+    "Trabalhadores Normais": row.contratadosNormal,
     "Substituições": row.contratadosSubstituicao,
     "Temporárias": row.contratadosTemporario,
     "Percentual de preenchimento": formatPercent(row.preenchimento),
@@ -114,6 +114,12 @@ export function exportarProcessoSeletivo() {
       };
     });
   }
+
+  rows = rows.filter(item =>
+    Number(item["Normais"] || 0) !== 0 ||
+    Number(item["Temporárias"] || 0) !== 0 ||
+    Number(item["Total Processo Seletivo"] || 0) !== 0
+  );
 
   baixarCsv("vagas_processo_seletivo", rows, false);
 }

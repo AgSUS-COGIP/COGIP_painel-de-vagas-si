@@ -57,6 +57,8 @@
       flex-shrink: 0 !important;
       gap: clamp(7px, 1.25vh, 11px) !important;
       margin-top: 0 !important;
+      /* Coluna que pode encolher abaixo do conteúdo, para o rótulo truncar. */
+      grid-template-columns: minmax(0, 1fr) !important;
     }
 
     .navItem {
@@ -67,6 +69,8 @@
       border-radius: 14px !important;
       font-size: clamp(12px, 1.65vh, 15px) !important;
       line-height: 1 !important;
+      /* Permite o item encolher (senão a palavra inteira estoura a sidebar). */
+      min-width: 0 !important;
     }
 
     .navItem>span:not(.navIcon) {

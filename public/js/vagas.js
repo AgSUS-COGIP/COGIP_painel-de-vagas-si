@@ -24,7 +24,7 @@ export function renderVagasDaPagina() {
   }
 
   if (!pageLoadState.vagas) {
-    if (tbody) tbody.innerHTML = '<tr><td colspan="9">Carregando dados da aba Vagas...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="10">Carregando dados da aba Vagas...</td></tr>';
     if (distribuicaoBody) distribuicaoBody.innerHTML = '<tr><td colspan="4">Carregando distribuição de vagas ociosas...</td></tr>';
     if (processoSeletivoBody) processoSeletivoBody.innerHTML = '<tr><td colspan="4">Carregando vagas para processo seletivo...</td></tr>';
     if (pagination) pagination.innerHTML = "";
@@ -39,7 +39,7 @@ export function renderVagasDaPagina() {
 
 export function renderVagasErro(error) {
   const tbody = document.getElementById("vagasBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="9">Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="10">Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
   const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
   if (distribuicaoBody) distribuicaoBody.innerHTML = `<tr><td colspan="4">Erro ao carregar distribuição: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
   const processoSeletivoBody = document.getElementById("processoSeletivoBody");
@@ -203,16 +203,16 @@ export function atualizarCabecalhoVagas() {
 
   if (state.vagasViewAtual === "detalhado") {
     colgroup.innerHTML = `
-          <col style="width: 14%;">
+          <col style="width: 13%;">
           <col style="width: 18%;">
-          <col style="width: 9%;">
+          <col style="width: 8%;">
           <col style="width: 10%;">
           <col style="width: 7%;">
           <col style="width: 11%;">
-          <col style="width: 8%;">
           <col style="width: 9%;">
           <col style="width: 8%;">
-          <col style="width: 6%;">
+          <col style="width: 8%;">
+          <col style="width: 8%;">
         `;
 
     header.innerHTML = `
@@ -222,7 +222,7 @@ export function atualizarCabecalhoVagas() {
           ${th("Total de Trabalhadores", "totalTrabalhadores")}
           ${th("Afastados", "afastados")}
           ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
-          ${th("Normais", "contratadosNormal")}
+          ${th("Trabalhadores Normais", "contratadosNormal")}
           ${th("Substituições", "contratadosSubstituicao")}
           ${th("Temporárias", "contratadosTemporario")}
           ${th("% preenchimento", "preenchimento")}
@@ -236,12 +236,12 @@ export function atualizarCabecalhoVagas() {
         <col style="width: 22%;">
         <col style="width: 10%;">
         <col style="width: 12%;">
-        <col style="width: 9%;">
+        <col style="width: 8%;">
         <col style="width: 13%;">
+        <col style="width: 10%;">
         <col style="width: 9%;">
         <col style="width: 9%;">
-        <col style="width: 8%;">
-        <col style="width: 8%;">
+        <col style="width: 7%;">
       `;
 
   header.innerHTML = `
@@ -250,7 +250,7 @@ export function atualizarCabecalhoVagas() {
         ${th("Total de Trabalhadores", "totalTrabalhadores")}
         ${th("Afastados", "afastados")}
         ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
-        ${th("Normais", "contratadosNormal")}
+        ${th("Trabalhadores Normais", "contratadosNormal")}
         ${th("Substituições", "contratadosSubstituicao")}
         ${th("Temporárias", "contratadosTemporario")}
         ${th("% preenchimento", "preenchimento")}
@@ -627,8 +627,8 @@ export function atualizarCabecalhoProcessoSeletivo() {
       `;
   if (descricao) {
     descricao.textContent = state.vagasViewAtual === "cargo"
-      ? "Normais somado às temporárias (total para processo seletivo) por cargo."
-      : "Normais somado às temporárias (total para processo seletivo) por DSEI/CASAI.";
+      ? "Normais somadas às temporárias (total para processo seletivo) por cargo."
+      : "Normais somadas às temporárias (total para processo seletivo) por DSEI/CASAI.";
   }
 }
 
