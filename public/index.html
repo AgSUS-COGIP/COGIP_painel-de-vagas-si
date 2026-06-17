@@ -209,12 +209,14 @@
           <span class="navIcon"><i class="fa-solid fa-gavel"></i></span>
           <span>Gestão Disciplinar</span>
         </div>
-
         <div class="navItem" data-view="remanejamento">
           <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
           <span>Remanejamento</span>
         </div>
-
+        <div class="navItem" data-view="processosSeletivos">
+          <span class="navIcon"><i class="fa-solid fa-clipboard-list"></i></span>
+          <span>Processos Seletivos</span>
+        </div>
         <div class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
           <span class="navIcon"><i class="fa-solid fa-user-check"></i></span>
           <span>Solicitações</span>
@@ -669,8 +671,8 @@
               <div class="exportActions">
                 <button type="button" class="exportBtn" data-click="exportar-alertas"><i
                     class="fa-solid fa-download"></i> Exportar alertas</button>
-                <button type="button" class="exportBtn" data-click="exportar-pdf"><i
-                    class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>
+                <button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i>
+                  Salvar em PDF</button>
               </div>
             </div>
 
@@ -1328,7 +1330,8 @@
                 </div>
                 <label class="ecObsLabel" for="ecDetObs">Observações</label>
                 <textarea class="ecTextarea" id="ecDetObs" rows="2" placeholder="Adicionar observação..."></textarea>
-                <button type="button" class="ecBtn ecBtnPrimary ecBtnBlock" id="ecBtnSalvarObs">Salvar observação</button>
+                <button type="button" class="ecBtn ecBtnPrimary ecBtnBlock" id="ecBtnSalvarObs">Salvar
+                  observação</button>
               </section>
             </div>
           </div>
@@ -1403,7 +1406,8 @@
               </div>
               <div class="gfField">
                 <label>Trabalhador <span class="req">*</span></label>
-                <input class="gfInput" type="text" id="gdFTrabalhador" list="gdListaTrabalhadores" placeholder="Selecione ou digite o nome">
+                <input class="gfInput" type="text" id="gdFTrabalhador" list="gdListaTrabalhadores"
+                  placeholder="Selecione ou digite o nome">
               </div>
               <div class="gfField">
                 <label>Cargo</label>
@@ -1471,8 +1475,10 @@
             </div>
 
             <div class="gfBtnRow gfBtnRow2" style="margin-top:14px; max-width:420px; margin-left:auto;">
-              <button type="button" class="gfBtn gfBtnGhost gfBtnBlock" id="gdBtnCancelar"><i class="fa-solid fa-xmark"></i> Cancelar</button>
-              <button type="button" class="gfBtn gfBtnBlock" id="gdBtnSalvarRegistro"><i class="fa-solid fa-floppy-disk"></i> Salvar Registro</button>
+              <button type="button" class="gfBtn gfBtnGhost gfBtnBlock" id="gdBtnCancelar"><i
+                  class="fa-solid fa-xmark"></i> Cancelar</button>
+              <button type="button" class="gfBtn gfBtnBlock" id="gdBtnSalvarRegistro"><i
+                  class="fa-solid fa-floppy-disk"></i> Salvar Registro</button>
             </div>
           </section>
 
@@ -1480,18 +1486,54 @@
           <section class="gfPanel">
             <h3 class="gfPanelTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores Gerais</h3>
             <div class="gdKpiGrid">
-              <div class="gfKpi"><div class="gfKpiValue">48</div><div class="gfKpiLabel">Total de Pedidos</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-green">18</div><div class="gfKpiLabel">Atendidos Totalmente</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-orange">9</div><div class="gfKpiLabel">Atendidos Parcialmente</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-red">12</div><div class="gfKpiLabel">Não Atendidos</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-yellow">9</div><div class="gfKpiLabel">Pendentes</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-green">27</div><div class="gfKpiLabel">Concluídos</div></div>
-              <div class="gfKpi"><div class="gfKpiValue">22</div><div class="gfKpiLabel">Advertências Aplicadas</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-orange">14</div><div class="gfKpiLabel">Suspensões Aplicadas</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-red">6</div><div class="gfKpiLabel">Justas Causas Executadas</div></div>
-              <div class="gfKpi"><div class="gfKpiValue">12 dias</div><div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-yellow">7</div><div class="gfKpiLabel">Pedidos Fora do Prazo</div></div>
-              <div class="gfKpi"><div class="gfKpiValue is-orange">4</div><div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div></div>
+              <div class="gfKpi">
+                <div class="gfKpiValue">48</div>
+                <div class="gfKpiLabel">Total de Pedidos</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-green">18</div>
+                <div class="gfKpiLabel">Atendidos Totalmente</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-orange">9</div>
+                <div class="gfKpiLabel">Atendidos Parcialmente</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-red">12</div>
+                <div class="gfKpiLabel">Não Atendidos</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-yellow">9</div>
+                <div class="gfKpiLabel">Pendentes</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-green">27</div>
+                <div class="gfKpiLabel">Concluídos</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue">22</div>
+                <div class="gfKpiLabel">Advertências Aplicadas</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-orange">14</div>
+                <div class="gfKpiLabel">Suspensões Aplicadas</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-red">6</div>
+                <div class="gfKpiLabel">Justas Causas Executadas</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue">12 dias</div>
+                <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-yellow">7</div>
+                <div class="gfKpiLabel">Pedidos Fora do Prazo</div>
+              </div>
+              <div class="gfKpi">
+                <div class="gfKpiValue is-orange">4</div>
+                <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
+              </div>
             </div>
           </section>
 
@@ -1524,7 +1566,8 @@
                 <label>Buscar por pedido / motivo</label>
                 <input class="gfInput" type="text" id="gdBuscaPedido" placeholder="Processo, pedido, motivo...">
               </div>
-              <button type="button" class="gfBtn gfBtnGhost" id="gdBtnLimpar"><i class="fa-solid fa-eraser"></i> Limpar filtros</button>
+              <button type="button" class="gfBtn gfBtnGhost" id="gdBtnLimpar"><i class="fa-solid fa-eraser"></i> Limpar
+                filtros</button>
             </div>
 
             <div class="gfTableWrap">
@@ -1563,74 +1606,76 @@
               <div class="gdDetailCol">
                 <div class="gdDetailLabel"><i class="fa-solid fa-circle-info"></i> Status da Demanda</div>
                 <div id="gdDetStatus"></div>
-                <div class="gdDetailLabel" style="margin-top:16px;"><i class="fa-solid fa-stamp"></i> Sanção Aplicada</div>
-                <div id="gdDetSancao"></div>
-              <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecBtnRecolher">
-                <i class="fa-solid fa-chevron-up"></i> Recolher detalhes
-              </button>
-            </div>
-
-            <div class="ecDetalheGrid">
-              <section class="ecDetalheBloco">
-                <h4>Dados do Trabalhador</h4>
-                <div class="ecKv"><span>DSEI</span><strong id="ecDetDsei">—</strong></div>
-                <div class="ecKv"><span>Cargo</span><strong id="ecDetCargo">—</strong></div>
-                <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetDataSolic">—</strong></div>
-                <div class="ecKv"><span>Possui Foto</span><strong id="ecDetFoto">—</strong></div>
-                <div class="ecKv"><span>Data de Envio</span><strong id="ecDetDataEnvio">—</strong></div>
-              </section>
-
-              <section class="ecDetalheBloco">
-                <h4>Status do Crachá</h4>
-                <div class="ecKv"><span>Status atual</span><strong id="ecDetStatus">—</strong></div>
-                <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetStatusSolic">—</strong></div>
-                <div class="ecKv"><span>Data de Envio</span><strong id="ecDetStatusEnvio">—</strong></div>
-              </section>
-
-              <section class="ecDetalheBloco">
-                <h4>Histórico</h4>
-                <ul class="ecTimeline" id="ecDetTimeline"></ul>
-              </section>
-
-              <section class="ecDetalheBloco">
-                <h4>Atualizar Status</h4>
-                <div class="ecAcoesEscritorio">
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="foto">
-                    <i class="fa-solid fa-camera"></i> Registrar Foto Recebida
-                  </button>
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="grafica">
-                    <i class="fa-solid fa-paper-plane"></i> Registrar Envio à Gráfica
-                  </button>
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="confeccao">
-                    <i class="fa-solid fa-id-card"></i> Registrar Confecção Concluída
-                  </button>
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="aguardando">
-                    <i class="fa-solid fa-truck-fast"></i> Registrar Envio do Crachá
-                  </button>
-                  <button type="button" class="ecBtn ecBtnVoltar ecBtnBlock" data-ec-acao="voltar">
-                    <i class="fa-solid fa-rotate-left"></i> Voltar Etapa
-                  </button>
+                <div class="gdDetailLabel" style="margin-top:16px;"><i class="fa-solid fa-stamp"></i> Sanção Aplicada
                 </div>
-                <label class="ecObsLabel" for="ecDetObs">Observações</label>
-                <textarea class="ecTextarea" id="ecDetObs" rows="2" placeholder="Adicionar observação..."></textarea>
-                <button type="button" class="ecBtn ecBtnPrimary ecBtnBlock" id="ecBtnSalvarObs">Salvar observação</button>
-              </section>
-            </div>
-          </div>
+                <div id="gdDetSancao"></div>
+                <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecBtnRecolher">
+                  <i class="fa-solid fa-chevron-up"></i> Recolher detalhes
+                </button>
+              </div>
 
-          <!-- Modal de nova solicitação / edição -->
-          <div class="ecModalOverlay" id="ecModal" hidden>
-            <div class="ecModalBox" role="dialog" aria-modal="true">
-              <div class="ecModalHead">
-                <h3 id="ecModalTitulo">Nova Solicitação de Crachá</h3>
-                <button type="button" class="ecModalClose" id="ecModalFechar" aria-label="Fechar"><i
-                    class="fa-solid fa-xmark"></i></button>
-              </div>
-              <div class="gdDetailCol">
-                <div class="gdDetailLabel"><i class="fa-solid fa-paperclip"></i> Anexos</div>
-                <div id="gdDetAnexos"></div>
+              <div class="ecDetalheGrid">
+                <section class="ecDetalheBloco">
+                  <h4>Dados do Trabalhador</h4>
+                  <div class="ecKv"><span>DSEI</span><strong id="ecDetDsei">—</strong></div>
+                  <div class="ecKv"><span>Cargo</span><strong id="ecDetCargo">—</strong></div>
+                  <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetDataSolic">—</strong></div>
+                  <div class="ecKv"><span>Possui Foto</span><strong id="ecDetFoto">—</strong></div>
+                  <div class="ecKv"><span>Data de Envio</span><strong id="ecDetDataEnvio">—</strong></div>
+                </section>
+
+                <section class="ecDetalheBloco">
+                  <h4>Status do Crachá</h4>
+                  <div class="ecKv"><span>Status atual</span><strong id="ecDetStatus">—</strong></div>
+                  <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetStatusSolic">—</strong></div>
+                  <div class="ecKv"><span>Data de Envio</span><strong id="ecDetStatusEnvio">—</strong></div>
+                </section>
+
+                <section class="ecDetalheBloco">
+                  <h4>Histórico</h4>
+                  <ul class="ecTimeline" id="ecDetTimeline"></ul>
+                </section>
+
+                <section class="ecDetalheBloco">
+                  <h4>Atualizar Status</h4>
+                  <div class="ecAcoesEscritorio">
+                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="foto">
+                      <i class="fa-solid fa-camera"></i> Registrar Foto Recebida
+                    </button>
+                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="grafica">
+                      <i class="fa-solid fa-paper-plane"></i> Registrar Envio à Gráfica
+                    </button>
+                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="confeccao">
+                      <i class="fa-solid fa-id-card"></i> Registrar Confecção Concluída
+                    </button>
+                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="aguardando">
+                      <i class="fa-solid fa-truck-fast"></i> Registrar Envio do Crachá
+                    </button>
+                    <button type="button" class="ecBtn ecBtnVoltar ecBtnBlock" data-ec-acao="voltar">
+                      <i class="fa-solid fa-rotate-left"></i> Voltar Etapa
+                    </button>
+                  </div>
+                  <label class="ecObsLabel" for="ecDetObs">Observações</label>
+                  <textarea class="ecTextarea" id="ecDetObs" rows="2" placeholder="Adicionar observação..."></textarea>
+                  <button type="button" class="ecBtn ecBtnPrimary ecBtnBlock" id="ecBtnSalvarObs">Salvar
+                    observação</button>
+                </section>
               </div>
             </div>
+
+            <!-- Modal de nova solicitação / edição -->
+            <div class="ecModalOverlay" id="ecModal" hidden>
+              <div class="ecModalBox" role="dialog" aria-modal="true">
+                <div class="ecModalHead">
+                  <h3 id="ecModalTitulo">Nova Solicitação de Crachá</h3>
+                  <button type="button" class="ecModalClose" id="ecModalFechar" aria-label="Fechar"><i
+                      class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="gdDetailCol">
+                  <div class="gdDetailLabel"><i class="fa-solid fa-paperclip"></i> Anexos</div>
+                  <div id="gdDetAnexos"></div>
+                </div>
+              </div>
           </section>
         </section>
 
@@ -1717,231 +1762,232 @@
 
           <div class="remPageShell" id="remPageShell">
             <div id="remEditArea" class="remEditArea">
-            <div id="remEditandoBanner" class="remEditandoBanner" style="display:none;">
-              <span><i class="fa-solid fa-pen-to-square"></i> Você está <strong>editando</strong> o remanejamento <strong id="remEditandoId"></strong>. As alterações substituirão o registro existente.</span>
-              <button type="button" class="remSecondaryBtn" data-click="cancelar-edicao-rem">Cancelar edição</button>
-            </div>
-            <div class="remTopGrid">
-              <section class="remBox remDseiBox">
-                <h3>1. SELECIONE O DSEI</h3>
-                <label for="remanejamentoDsei">DSEI</label>
-                <select id="remanejamentoDsei" data-change="atualizar-vagas-origem"></select>
-                <div id="remMesWrap" class="remMesWrap" style="display:none;">
-                  <label for="remanejamentoMes">Mês do remanejamento</label>
-                  <select id="remanejamentoMes" data-change="alterar-mes-rem">
-                    <option value="1">Janeiro</option>
-                    <option value="2">Fevereiro</option>
-                    <option value="3">Março</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Maio</option>
-                    <option value="6">Junho</option>
-                    <option value="7">Julho</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Setembro</option>
-                    <option value="10">Outubro</option>
-                    <option value="11">Novembro</option>
-                    <option value="12">Dezembro</option>
-                  </select>
-                </div>
-              </section>
+              <div id="remEditandoBanner" class="remEditandoBanner" style="display:none;">
+                <span><i class="fa-solid fa-pen-to-square"></i> Você está <strong>editando</strong> o remanejamento
+                  <strong id="remEditandoId"></strong>. As alterações substituirão o registro existente.</span>
+                <button type="button" class="remSecondaryBtn" data-click="cancelar-edicao-rem">Cancelar edição</button>
+              </div>
+              <div class="remTopGrid">
+                <section class="remBox remDseiBox">
+                  <h3>1. SELECIONE O DSEI</h3>
+                  <label for="remanejamentoDsei">DSEI</label>
+                  <select id="remanejamentoDsei" data-change="atualizar-vagas-origem"></select>
+                  <div id="remMesWrap" class="remMesWrap" style="display:none;">
+                    <label for="remanejamentoMes">Mês do remanejamento</label>
+                    <select id="remanejamentoMes" data-change="alterar-mes-rem">
+                      <option value="1">Janeiro</option>
+                      <option value="2">Fevereiro</option>
+                      <option value="3">Março</option>
+                      <option value="4">Abril</option>
+                      <option value="5">Maio</option>
+                      <option value="6">Junho</option>
+                      <option value="7">Julho</option>
+                      <option value="8">Agosto</option>
+                      <option value="9">Setembro</option>
+                      <option value="10">Outubro</option>
+                      <option value="11">Novembro</option>
+                      <option value="12">Dezembro</option>
+                    </select>
+                  </div>
+                </section>
 
-              <section class="remBox remResumoTopoBox">
-                <h3>RESUMO DO REMANEJAMENTO ⓘ</h3>
-                <div class="remResumoTopoGrid">
-                  <div>
-                    <span>Total Reduzido</span>
-                    <strong id="remTotalReduzidoTopo" class="remRed">R$ 0,00</strong>
+                <section class="remBox remResumoTopoBox">
+                  <h3>RESUMO DO REMANEJAMENTO ⓘ</h3>
+                  <div class="remResumoTopoGrid">
+                    <div>
+                      <span>Total Reduzido</span>
+                      <strong id="remTotalReduzidoTopo" class="remRed">R$ 0,00</strong>
+                    </div>
+                    <div>
+                      <span>Total Acrescentado</span>
+                      <strong id="remTotalAcrescentadoTopo" class="remGreen">R$ 0,00</strong>
+                    </div>
+                    <div>
+                      <span>Impacto Mensal</span>
+                      <strong id="remImpactoMensalTopo">R$ 0,00</strong>
+                    </div>
+                    <div>
+                      <span>Impacto do Período</span>
+                      <strong id="remImpactoPeriodoTopo">R$ 0,00</strong>
+                    </div>
                   </div>
-                  <div>
-                    <span>Total Acrescentado</span>
-                    <strong id="remTotalAcrescentadoTopo" class="remGreen">R$ 0,00</strong>
-                  </div>
-                  <div>
-                    <span>Impacto Mensal</span>
-                    <strong id="remImpactoMensalTopo">R$ 0,00</strong>
-                  </div>
-                  <div>
-                    <span>Impacto do Período</span>
-                    <strong id="remImpactoPeriodoTopo">R$ 0,00</strong>
-                  </div>
-                </div>
-              </section>
-            </div>
+                </section>
+              </div>
 
-            <div class="remTwinGrid remTwinGridWide">
-              <section class="remBox">
-                <div class="remBoxHeader">
-                  <h3>2. O QUE ESTÁ SENDO REDUZIDO</h3>
-                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="reduzido">+
-                    Adicionar Cargo</button>
-                </div>
-                <div id="remPssBloqueioAviso" class="remPssBloqueioAviso" hidden></div>
-                <div id="remOciosasAviso" class="remOciosasAviso" hidden></div>
-                <div class="remTableWrap">
-                  <table class="remTable remTableFinanceira">
-                    <thead>
-                      <tr>
-                        <th>Cargo</th>
-                        <th>Quantidade</th>
-                        <th>Nº de Meses</th>
-                        <th>Total</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody id="remReduzidoBody"></tbody>
-                    <tfoot>
-                      <tr>
-                        <td colspan="3">TOTAL REDUZIDO</td>
-                        <td id="remTotalReduzidoTabela">R$ 0,00</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </section>
-
-              <section class="remBox">
-                <div class="remBoxHeader">
-                  <h3>3. O QUE ESTÁ SENDO ACRESCENTADO</h3>
-                  <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="acrescentado">+
-                    Adicionar Cargo</button>
-                </div>
-                <div class="remTableWrap">
-                  <table class="remTable remTableFinanceira">
-                    <thead>
-                      <tr>
-                        <th>Cargo</th>
-                        <th>Quantidade</th>
-                        <th>Nº de Meses</th>
-                        <th>Total</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody id="remAcrescentadoBody"></tbody>
-                    <tfoot>
-                      <tr>
-                        <td colspan="3">TOTAL ACRESCENTADO</td>
-                        <td id="remTotalAcrescentadoTabela">R$ 0,00</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </section>
-            </div>
-
-            <div class="remBottomGrid remBottomGridWide">
-              <section class="remBox">
-                <h3>4. IMPACTO DO REMANEJAMENTO ⓘ</h3>
-                <div class="remImpactoGrid">
-                  <div class="remImpactoCards">
-                    <div><span>Total Reduzido (Mensal)</span><strong id="remTotalReduzidoMensal" class="remRed">R$
-                        0,00</strong></div>
-                    <div><span>Total Acrescentado (Mensal)</span><strong id="remTotalAcrescentadoMensal"
-                        class="remGreen">R$ 0,00</strong></div>
-                    <div><span>Impacto Mensal</span><strong id="remImpactoMensal2">R$ 0,00</strong></div>
-                    <div><span>Impacto do Período (<span id="remImpactoPeriodoMeses">0</span> meses)</span><strong
-                        id="remImpactoPeriodo2">R$ 0,00</strong></div>
+              <div class="remTwinGrid remTwinGridWide">
+                <section class="remBox">
+                  <div class="remBoxHeader">
+                    <h3>2. O QUE ESTÁ SENDO REDUZIDO</h3>
+                    <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="reduzido">+
+                      Adicionar Cargo</button>
                   </div>
-                  <div class="remResumoTableWrap">
-                    <table class="remResumoTable">
+                  <div id="remPssBloqueioAviso" class="remPssBloqueioAviso" hidden></div>
+                  <div id="remOciosasAviso" class="remOciosasAviso" hidden></div>
+                  <div class="remTableWrap">
+                    <table class="remTable remTableFinanceira">
                       <thead>
                         <tr>
-                          <th>Resumo dos Valores (Mensal)</th>
-                          <th>Reduzido</th>
-                          <th>Acrescentado</th>
-                          <th>Impacto</th>
+                          <th>Cargo</th>
+                          <th>Quantidade</th>
+                          <th>Nº de Meses</th>
+                          <th>Total</th>
+                          <th>Ações</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody id="remReduzidoBody"></tbody>
+                      <tfoot>
                         <tr>
-                          <td>Salários</td>
-                          <td id="remSalarioRed">R$ 0,00</td>
-                          <td id="remSalarioAdd">R$ 0,00</td>
-                          <td id="remSalarioImpacto">R$ 0,00</td>
+                          <td colspan="3">TOTAL REDUZIDO</td>
+                          <td id="remTotalReduzidoTabela">R$ 0,00</td>
+                          <td></td>
                         </tr>
-                        <tr>
-                          <td>Insalubridade/Periculosidade</td>
-                          <td id="remInsalRed">R$ 0,00</td>
-                          <td id="remInsalAdd">R$ 0,00</td>
-                          <td id="remInsalImpacto">R$ 0,00</td>
-                        </tr>
-                        <tr>
-                          <td>Gratificação RT</td>
-                          <td id="remRtRed">R$ 0,00</td>
-                          <td id="remRtAdd">R$ 0,00</td>
-                          <td id="remRtImpacto">R$ 0,00</td>
-                        </tr>
-                        <tr>
-                          <td>Adicional Noturno</td>
-                          <td id="remNoturnoRed">R$ 0,00</td>
-                          <td id="remNoturnoAdd">R$ 0,00</td>
-                          <td id="remNoturnoImpacto">R$ 0,00</td>
-                        </tr>
-                        <tr>
-                          <td>Encargos</td>
-                          <td id="remEncargoRed">R$ 0,00</td>
-                          <td id="remEncargoAdd">R$ 0,00</td>
-                          <td id="remEncargoImpacto">R$ 0,00</td>
-                        </tr>
-                        <tr>
-                          <td>Provisões</td>
-                          <td id="remProvisaoRed">R$ 0,00</td>
-                          <td id="remProvisaoAdd">R$ 0,00</td>
-                          <td id="remProvisaoImpacto">R$ 0,00</td>
-                        </tr>
-                        <tr>
-                          <td>Vale Alimentação</td>
-                          <td id="remValeRed">R$ 0,00</td>
-                          <td id="remValeAdd">R$ 0,00</td>
-                          <td id="remValeImpacto">R$ 0,00</td>
-                        </tr>
-                        <tr class="remResumoTotal">
-                          <td>Total</td>
-                          <td id="remResumoTotalRed">R$ 0,00</td>
-                          <td id="remResumoTotalAdd">R$ 0,00</td>
-                          <td id="remResumoTotalImpacto">R$ 0,00</td>
-                        </tr>
-                      </tbody>
+                      </tfoot>
                     </table>
                   </div>
-                </div>
-                <div class="remLegend"><span>Valores negativos indicam economia. Valores positivos indicam
-                    acréscimo.</span></div>
-              </section>
+                </section>
 
-              <section class="remBox remDocBox">
-                <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
-                <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
-                <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: AGSUS.000000/2026-00"
-                  data-input="atualizar-resumo-rem">
-                <label for="remObservacao">Observação</label>
-                <textarea id="remObservacao" rows="3"
-                  placeholder="Informe a justificativa do remanejamento."></textarea>
-                <label for="remAnexoArquivo">Anexar Ofício ou Documento (PDF)</label>
-                <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf"
-                  data-change="atualizar-resumo-rem">
-                <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar.
-                  PDF até 10MB.</div>
-                <div class="remDocActions">
-                  <button type="button" class="remSecondaryBtn" data-click="limpar-form-rem">Limpar</button>
-                  <button type="button" class="remSaveBtn" id="remSaveBtn" data-click="salvar-rem">Salvar
-                    Remanejamento</button>
-                </div>
-              </section>
-            </div>
+                <section class="remBox">
+                  <div class="remBoxHeader">
+                    <h3>3. O QUE ESTÁ SENDO ACRESCENTADO</h3>
+                    <button type="button" class="remAddBtn" data-click="adicionar-linha-rem" data-tipo="acrescentado">+
+                      Adicionar Cargo</button>
+                  </div>
+                  <div class="remTableWrap">
+                    <table class="remTable remTableFinanceira">
+                      <thead>
+                        <tr>
+                          <th>Cargo</th>
+                          <th>Quantidade</th>
+                          <th>Nº de Meses</th>
+                          <th>Total</th>
+                          <th>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody id="remAcrescentadoBody"></tbody>
+                      <tfoot>
+                        <tr>
+                          <td colspan="3">TOTAL ACRESCENTADO</td>
+                          <td id="remTotalAcrescentadoTabela">R$ 0,00</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </section>
+              </div>
 
-            <div class="remanejamentoCalculoBox">
-              <div>
-                <div class="remanejamentoCalculoLabel">Resumo operacional</div>
-                <div id="remanejamentoCalculoTexto" class="remanejamentoCalculoFormula">Selecione o DSEI e os cargos
-                  para montar o resumo do remanejamento.</div>
+              <div class="remBottomGrid remBottomGridWide">
+                <section class="remBox">
+                  <h3>4. IMPACTO DO REMANEJAMENTO ⓘ</h3>
+                  <div class="remImpactoGrid">
+                    <div class="remImpactoCards">
+                      <div><span>Total Reduzido (Mensal)</span><strong id="remTotalReduzidoMensal" class="remRed">R$
+                          0,00</strong></div>
+                      <div><span>Total Acrescentado (Mensal)</span><strong id="remTotalAcrescentadoMensal"
+                          class="remGreen">R$ 0,00</strong></div>
+                      <div><span>Impacto Mensal</span><strong id="remImpactoMensal2">R$ 0,00</strong></div>
+                      <div><span>Impacto do Período (<span id="remImpactoPeriodoMeses">0</span> meses)</span><strong
+                          id="remImpactoPeriodo2">R$ 0,00</strong></div>
+                    </div>
+                    <div class="remResumoTableWrap">
+                      <table class="remResumoTable">
+                        <thead>
+                          <tr>
+                            <th>Resumo dos Valores (Mensal)</th>
+                            <th>Reduzido</th>
+                            <th>Acrescentado</th>
+                            <th>Impacto</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>Salários</td>
+                            <td id="remSalarioRed">R$ 0,00</td>
+                            <td id="remSalarioAdd">R$ 0,00</td>
+                            <td id="remSalarioImpacto">R$ 0,00</td>
+                          </tr>
+                          <tr>
+                            <td>Insalubridade/Periculosidade</td>
+                            <td id="remInsalRed">R$ 0,00</td>
+                            <td id="remInsalAdd">R$ 0,00</td>
+                            <td id="remInsalImpacto">R$ 0,00</td>
+                          </tr>
+                          <tr>
+                            <td>Gratificação RT</td>
+                            <td id="remRtRed">R$ 0,00</td>
+                            <td id="remRtAdd">R$ 0,00</td>
+                            <td id="remRtImpacto">R$ 0,00</td>
+                          </tr>
+                          <tr>
+                            <td>Adicional Noturno</td>
+                            <td id="remNoturnoRed">R$ 0,00</td>
+                            <td id="remNoturnoAdd">R$ 0,00</td>
+                            <td id="remNoturnoImpacto">R$ 0,00</td>
+                          </tr>
+                          <tr>
+                            <td>Encargos</td>
+                            <td id="remEncargoRed">R$ 0,00</td>
+                            <td id="remEncargoAdd">R$ 0,00</td>
+                            <td id="remEncargoImpacto">R$ 0,00</td>
+                          </tr>
+                          <tr>
+                            <td>Provisões</td>
+                            <td id="remProvisaoRed">R$ 0,00</td>
+                            <td id="remProvisaoAdd">R$ 0,00</td>
+                            <td id="remProvisaoImpacto">R$ 0,00</td>
+                          </tr>
+                          <tr>
+                            <td>Vale Alimentação</td>
+                            <td id="remValeRed">R$ 0,00</td>
+                            <td id="remValeAdd">R$ 0,00</td>
+                            <td id="remValeImpacto">R$ 0,00</td>
+                          </tr>
+                          <tr class="remResumoTotal">
+                            <td>Total</td>
+                            <td id="remResumoTotalRed">R$ 0,00</td>
+                            <td id="remResumoTotalAdd">R$ 0,00</td>
+                            <td id="remResumoTotalImpacto">R$ 0,00</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div class="remLegend"><span>Valores negativos indicam economia. Valores positivos indicam
+                      acréscimo.</span></div>
+                </section>
+
+                <section class="remBox remDocBox">
+                  <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
+                  <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
+                  <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: AGSUS.000000/2026-00"
+                    data-input="atualizar-resumo-rem">
+                  <label for="remObservacao">Observação</label>
+                  <textarea id="remObservacao" rows="3"
+                    placeholder="Informe a justificativa do remanejamento."></textarea>
+                  <label for="remAnexoArquivo">Anexar Ofício ou Documento (PDF)</label>
+                  <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf"
+                    data-change="atualizar-resumo-rem">
+                  <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar.
+                    PDF até 10MB.</div>
+                  <div class="remDocActions">
+                    <button type="button" class="remSecondaryBtn" data-click="limpar-form-rem">Limpar</button>
+                    <button type="button" class="remSaveBtn" id="remSaveBtn" data-click="salvar-rem">Salvar
+                      Remanejamento</button>
+                  </div>
+                </section>
               </div>
-              <div class="remanejamentoCalculoTotal">
-                <div class="remanejamentoResumoLabel">Quantidade movimentada</div>
-                <div id="remanejamentoResultadoTotal" class="remanejamentoResumoValor">0</div>
+
+              <div class="remanejamentoCalculoBox">
+                <div>
+                  <div class="remanejamentoCalculoLabel">Resumo operacional</div>
+                  <div id="remanejamentoCalculoTexto" class="remanejamentoCalculoFormula">Selecione o DSEI e os cargos
+                    para montar o resumo do remanejamento.</div>
+                </div>
+                <div class="remanejamentoCalculoTotal">
+                  <div class="remanejamentoResumoLabel">Quantidade movimentada</div>
+                  <div id="remanejamentoResultadoTotal" class="remanejamentoResumoValor">0</div>
+                </div>
               </div>
-            </div>
             </div>
 
             <section class="remBox remHistoricoBox">
