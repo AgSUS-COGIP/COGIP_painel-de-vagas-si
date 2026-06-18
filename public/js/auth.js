@@ -4,14 +4,8 @@ import { state } from "./state.js";
 import { mostrarAcessoPendente } from "./acesso.js";
 
 export function configurarLogin() {
-  const form = document.getElementById("loginForm");
-  if (form && !form.dataset.bound) {
-    form.dataset.bound = "1";
-    form.addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      realizarLoginPainel();
-    });
-  }
+  // O acesso ao painel é exclusivamente por conta institucional (Google).
+  // O botão é renderizado pelo Google Identity Services em configurarLoginGoogle().
 }
 
 export async function verificarSessaoInicial() {
@@ -54,7 +48,15 @@ function configurarLoginGoogle() {
     gid.initialize({ client_id: clientId, callback: onGoogleCredential });
     const btn = document.getElementById("googleBtn");
     if (btn) {
-      gid.renderButton(btn, { theme: "outline", size: "large", text: "signin_with", locale: "pt-BR" });
+      gid.renderButton(btn, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular",
+        logo_alignment: "left",
+        locale: "pt-BR",
+        width: 340
+      });
     }
     wrap.dataset.bound = "1";
     wrap.style.display = "";

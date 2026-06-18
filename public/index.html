@@ -30,29 +30,35 @@
 
 
   <div id="loginScreen" class="loginScreen" style="display:none;">
-    <div class="loadingDecorLeft" aria-hidden="true"></div>
-    <div class="loadingDecorRight" aria-hidden="true"></div>
-    <form id="loginForm" class="loginCard" autocomplete="on">
-      <div class="loadingBrand">
-        <img class="loadingBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
-        <div class="loadingBrandTitle">AgSUS</div>
-        <div class="loadingBrandSubtitle">SAÚDE INDÍGENA</div>
-      </div>
-      <div class="loginTitle">Acesso ao painel</div>
-      <label class="loginLabel" for="loginUsuario">Usuário</label>
-      <input id="loginUsuario" class="loginInput" type="text" name="username" autocomplete="username" required>
-      <label class="loginLabel" for="loginSenha">Senha</label>
-      <input id="loginSenha" class="loginInput" type="password" name="password" autocomplete="current-password"
-        required>
-      <button type="submit" class="loginBtn" id="loginBtn">Entrar</button>
-      <div id="loginErro" class="loginErro"></div>
+    <div class="loginLayout">
+      <!-- Coluna esquerda: acesso institucional (somente Google) -->
+      <div class="loginPane">
+        <div id="loginForm" class="loginCard">
+          <div class="loginBrand">
+            <img class="loginBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+            <div class="loginBrandTitle">Ag<strong>SUS</strong></div>
+            <div class="loginBrandSubtitle">EGO - Ecossistema de Gerenciamento Organizacional</div>
+          </div>
 
-      <!-- Login com Google (aparece só quando GOOGLE_CLIENT_ID está configurado) -->
-      <div id="loginGoogleWrap" class="loginGoogleWrap" style="display:none;">
-        <div class="loginGoogleSep"><span>ou</span></div>
-        <div id="googleBtn"></div>
+          <div class="loginHeading">
+            <div class="loginTitle">Bem-vindo ao AgSUS</div>
+            <div class="loginSubtitle">Acesse o sistema com sua conta institucional.</div>
+          </div>
+
+          <!-- Login com Google (aparece quando GOOGLE_CLIENT_ID está configurado) -->
+          <div id="loginGoogleWrap" class="loginGoogleWrap" style="display:none;">
+            <div id="googleBtn"></div>
+          </div>
+          <div id="loginErro" class="loginErro"></div>
+
+          <div class="loginSecure"><i class="fa-solid fa-lock" aria-hidden="true"></i> Acesso seguro e institucional
+          </div>
+        </div>
       </div>
-    </form>
+
+      <!-- Coluna direita: imagem de fundo (definir bg-Login.png em assets/images) -->
+      <div class="loginHero" aria-hidden="true"></div>
+    </div>
   </div>
 
   <!-- Tela de acesso pendente: usuário autenticado, mas ainda sem liberação -->
