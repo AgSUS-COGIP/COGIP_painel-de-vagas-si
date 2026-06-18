@@ -51,7 +51,7 @@
 /* ---------- KPIs ---------- */
 .ecKpiGrid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
   margin-bottom: 14px;
   background:
@@ -361,6 +361,20 @@ select.ecInput {
   color: #fff;
 }
 .ecPageBtn:disabled { opacity: .45; cursor: default; }
+
+.ecPageEllipsis {
+  padding: 0 4px;
+  color: #6f8bb0;
+  font-weight: 800;
+  align-self: center;
+}
+
+/* Modo somente leitura (usuário sem nível de admin): esconde controles de escrita. */
+.ec-readonly #ecBtnNova,
+.ec-readonly .ecAcoesEscritorio,
+.ec-readonly .ecObsLabel,
+.ec-readonly #ecDetObs,
+.ec-readonly #ecBtnSalvarObs { display: none; }
 
 /* ---------- Painel de detalhe ---------- */
 .ecDetalhe {
