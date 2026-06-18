@@ -30,29 +30,35 @@
 
 
   <div id="loginScreen" class="loginScreen" style="display:none;">
-    <div class="loadingDecorLeft" aria-hidden="true"></div>
-    <div class="loadingDecorRight" aria-hidden="true"></div>
-    <form id="loginForm" class="loginCard" autocomplete="on">
-      <div class="loadingBrand">
-        <img class="loadingBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
-        <div class="loadingBrandTitle">AgSUS</div>
-        <div class="loadingBrandSubtitle">SAÚDE INDÍGENA</div>
-      </div>
-      <div class="loginTitle">Acesso ao painel</div>
-      <label class="loginLabel" for="loginUsuario">Usuário</label>
-      <input id="loginUsuario" class="loginInput" type="text" name="username" autocomplete="username" required>
-      <label class="loginLabel" for="loginSenha">Senha</label>
-      <input id="loginSenha" class="loginInput" type="password" name="password" autocomplete="current-password"
-        required>
-      <button type="submit" class="loginBtn" id="loginBtn">Entrar</button>
-      <div id="loginErro" class="loginErro"></div>
+    <div class="loginLayout">
+      <!-- Coluna esquerda: acesso institucional (somente Google) -->
+      <div class="loginPane">
+        <div id="loginForm" class="loginCard">
+          <div class="loginBrand">
+            <img class="loginBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+            <div class="loginBrandTitle">Ag<strong>SUS</strong></div>
+            <div class="loginBrandSubtitle">EGO - Ecossistema de Gerenciamento Organizacional</div>
+          </div>
 
-      <!-- Login com Google (aparece só quando GOOGLE_CLIENT_ID está configurado) -->
-      <div id="loginGoogleWrap" class="loginGoogleWrap" style="display:none;">
-        <div class="loginGoogleSep"><span>ou</span></div>
-        <div id="googleBtn"></div>
+          <div class="loginHeading">
+            <div class="loginTitle">Bem-vindo ao AgSUS</div>
+            <div class="loginSubtitle">Acesse o sistema com sua conta institucional.</div>
+          </div>
+
+          <!-- Login com Google (aparece quando GOOGLE_CLIENT_ID está configurado) -->
+          <div id="loginGoogleWrap" class="loginGoogleWrap" style="display:none;">
+            <div id="googleBtn"></div>
+          </div>
+          <div id="loginErro" class="loginErro"></div>
+
+          <div class="loginSecure"><i class="fa-solid fa-lock" aria-hidden="true"></i> Acesso seguro e institucional
+          </div>
+        </div>
       </div>
-    </form>
+
+      <!-- Coluna direita: imagem de fundo (definir bg-Login.png em assets/images) -->
+      <div class="loginHero" aria-hidden="true"></div>
+    </div>
   </div>
 
   <!-- Tela de acesso pendente: usuário autenticado, mas ainda sem liberação -->
@@ -1208,11 +1214,7 @@
             </div>
             <div class="ecKpi">
               <div class="ecKpiLabel">Crachás em Confecção</div>
-              <div class="ecKpiValue is-blue" id="ecKpiConfeccao">0</div>
-            </div>
-            <div class="ecKpi">
-              <div class="ecKpiLabel">Aguardando Envio</div>
-              <div class="ecKpiValue is-teal" id="ecKpiAguardando">0</div>
+              <div class="ecKpiValue is-teal" id="ecKpiConfeccao">0</div>
             </div>
             <div class="ecKpi">
               <div class="ecKpiLabel">Crachá Confeccionado</div>
@@ -1245,9 +1247,6 @@
               <i class="fa-solid fa-magnifying-glass"></i>
               <input class="ecInput" type="search" id="ecBuscaCargo" data-ec-filtro placeholder="Buscar por cargo...">
             </div>
-            <button type="button" class="ecBtn ecBtnPrimary" id="ecBtnNova">
-              <i class="fa-solid fa-plus"></i> Nova Solicitação
-            </button>
           </div>
 
           <!-- Tabela principal -->
@@ -1256,6 +1255,7 @@
               <table class="ecTable">
                 <thead>
                   <tr>
+                    <th>Matrícula</th>
                     <th>DSEI</th>
                     <th>Nome</th>
                     <th>Cargo</th>
@@ -1290,11 +1290,11 @@
             <div class="ecDetalheGrid">
               <section class="ecDetalheBloco">
                 <h4>Dados do Trabalhador</h4>
+                <div class="ecKv"><span>Matrícula</span><strong id="ecDetMatricula">—</strong></div>
                 <div class="ecKv"><span>DSEI</span><strong id="ecDetDsei">—</strong></div>
                 <div class="ecKv"><span>Cargo</span><strong id="ecDetCargo">—</strong></div>
-                <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetDataSolic">—</strong></div>
+                <div class="ecKv"><span>Situação Funcional</span><strong id="ecDetSituacao">—</strong></div>
                 <div class="ecKv"><span>Possui Foto</span><strong id="ecDetFoto">—</strong></div>
-                <div class="ecKv"><span>Data de Envio</span><strong id="ecDetDataEnvio">—</strong></div>
               </section>
 
               <section class="ecDetalheBloco">
@@ -1302,6 +1302,8 @@
                 <div class="ecKv"><span>Status atual</span><strong id="ecDetStatus">—</strong></div>
                 <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetStatusSolic">—</strong></div>
                 <div class="ecKv"><span>Data de Envio</span><strong id="ecDetStatusEnvio">—</strong></div>
+                <div class="ecKv"><span>Motivo (sem crachá)</span><strong id="ecDetMotivo">—</strong></div>
+                <div class="ecKv"><span>Última atualização</span><strong id="ecDetAtualizado">—</strong></div>
               </section>
 
               <section class="ecDetalheBloco">
@@ -1321,9 +1323,6 @@
                   <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="confeccao">
                     <i class="fa-solid fa-id-card"></i> Registrar Confecção Concluída
                   </button>
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="aguardando">
-                    <i class="fa-solid fa-truck-fast"></i> Registrar Envio do Crachá
-                  </button>
                   <button type="button" class="ecBtn ecBtnVoltar ecBtnBlock" data-ec-acao="voltar">
                     <i class="fa-solid fa-rotate-left"></i> Voltar Etapa
                   </button>
@@ -1340,21 +1339,25 @@
           <div class="ecModalOverlay" id="ecModal" hidden>
             <div class="ecModalBox" role="dialog" aria-modal="true">
               <div class="ecModalHead">
-                <h3 id="ecModalTitulo">Nova Solicitação de Crachá</h3>
+                <h3 id="ecModalTitulo">Editar Datas do Crachá</h3>
                 <button type="button" class="ecModalClose" id="ecModalFechar" aria-label="Fechar"><i
                     class="fa-solid fa-xmark"></i></button>
               </div>
               <div class="ecModalForm">
-                <div class="ecField ecFieldFull">
+                <div class="ecField">
+                  <label>Matrícula <span class="req">*</span></label>
+                  <input class="ecInput" type="text" id="ecFormMatricula" placeholder="Matrícula do trabalhador">
+                </div>
+                <div class="ecField">
                   <label>Nome do Trabalhador <span class="req">*</span></label>
                   <input class="ecInput" type="text" id="ecFormNome" placeholder="Nome completo">
                 </div>
                 <div class="ecField">
-                  <label>DSEI <span class="req">*</span></label>
+                  <label>DSEI</label>
                   <select class="ecInput" id="ecFormDsei"></select>
                 </div>
                 <div class="ecField">
-                  <label>Cargo <span class="req">*</span></label>
+                  <label>Cargo</label>
                   <input class="ecInput" type="text" id="ecFormCargo" placeholder="Ex.: Enfermeiro">
                 </div>
                 <div class="ecField">
@@ -1362,6 +1365,10 @@
                   <input class="ecInput" type="date" id="ecFormDataSolic">
                 </div>
                 <div class="ecField">
+                  <label>Data de Envio</label>
+                  <input class="ecInput" type="date" id="ecFormDataEnvio">
+                </div>
+                <div class="ecField" id="ecFormFotoWrap">
                   <label>Possui Foto</label>
                   <select class="ecInput" id="ecFormFoto">
                     <option value="sim">Sim</option>
@@ -1372,7 +1379,7 @@
               <div class="ecModalErro" id="ecModalErro"></div>
               <div class="ecModalAcoes">
                 <button type="button" class="ecBtn ecBtnGhost" id="ecModalCancelar">Cancelar</button>
-                <button type="button" class="ecBtn ecBtnPrimary" id="ecModalSalvar">Salvar Solicitação</button>
+                <button type="button" class="ecBtn ecBtnPrimary" id="ecModalSalvar">Salvar</button>
               </div>
             </div>
           </div>
@@ -1609,73 +1616,13 @@
                 <div class="gdDetailLabel" style="margin-top:16px;"><i class="fa-solid fa-stamp"></i> Sanção Aplicada
                 </div>
                 <div id="gdDetSancao"></div>
-                <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecBtnRecolher">
-                  <i class="fa-solid fa-chevron-up"></i> Recolher detalhes
-                </button>
               </div>
 
-              <div class="ecDetalheGrid">
-                <section class="ecDetalheBloco">
-                  <h4>Dados do Trabalhador</h4>
-                  <div class="ecKv"><span>DSEI</span><strong id="ecDetDsei">—</strong></div>
-                  <div class="ecKv"><span>Cargo</span><strong id="ecDetCargo">—</strong></div>
-                  <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetDataSolic">—</strong></div>
-                  <div class="ecKv"><span>Possui Foto</span><strong id="ecDetFoto">—</strong></div>
-                  <div class="ecKv"><span>Data de Envio</span><strong id="ecDetDataEnvio">—</strong></div>
-                </section>
-
-                <section class="ecDetalheBloco">
-                  <h4>Status do Crachá</h4>
-                  <div class="ecKv"><span>Status atual</span><strong id="ecDetStatus">—</strong></div>
-                  <div class="ecKv"><span>Data da Solicitação</span><strong id="ecDetStatusSolic">—</strong></div>
-                  <div class="ecKv"><span>Data de Envio</span><strong id="ecDetStatusEnvio">—</strong></div>
-                </section>
-
-                <section class="ecDetalheBloco">
-                  <h4>Histórico</h4>
-                  <ul class="ecTimeline" id="ecDetTimeline"></ul>
-                </section>
-
-                <section class="ecDetalheBloco">
-                  <h4>Atualizar Status</h4>
-                  <div class="ecAcoesEscritorio">
-                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="foto">
-                      <i class="fa-solid fa-camera"></i> Registrar Foto Recebida
-                    </button>
-                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="grafica">
-                      <i class="fa-solid fa-paper-plane"></i> Registrar Envio à Gráfica
-                    </button>
-                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="confeccao">
-                      <i class="fa-solid fa-id-card"></i> Registrar Confecção Concluída
-                    </button>
-                    <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="aguardando">
-                      <i class="fa-solid fa-truck-fast"></i> Registrar Envio do Crachá
-                    </button>
-                    <button type="button" class="ecBtn ecBtnVoltar ecBtnBlock" data-ec-acao="voltar">
-                      <i class="fa-solid fa-rotate-left"></i> Voltar Etapa
-                    </button>
-                  </div>
-                  <label class="ecObsLabel" for="ecDetObs">Observações</label>
-                  <textarea class="ecTextarea" id="ecDetObs" rows="2" placeholder="Adicionar observação..."></textarea>
-                  <button type="button" class="ecBtn ecBtnPrimary ecBtnBlock" id="ecBtnSalvarObs">Salvar
-                    observação</button>
-                </section>
+              <div class="gdDetailCol">
+                <div class="gdDetailLabel"><i class="fa-solid fa-paperclip"></i> Anexos</div>
+                <div id="gdDetAnexos"></div>
               </div>
             </div>
-
-            <!-- Modal de nova solicitação / edição -->
-            <div class="ecModalOverlay" id="ecModal" hidden>
-              <div class="ecModalBox" role="dialog" aria-modal="true">
-                <div class="ecModalHead">
-                  <h3 id="ecModalTitulo">Nova Solicitação de Crachá</h3>
-                  <button type="button" class="ecModalClose" id="ecModalFechar" aria-label="Fechar"><i
-                      class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="gdDetailCol">
-                  <div class="gdDetailLabel"><i class="fa-solid fa-paperclip"></i> Anexos</div>
-                  <div id="gdDetAnexos"></div>
-                </div>
-              </div>
           </section>
         </section>
 

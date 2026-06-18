@@ -42,7 +42,7 @@ Existe **18 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas o en
 | **exportacao.js** | Exportações para CSV e PDF (vagas, distribuição, processo seletivo, alertas). |
 | **filtros.js** | Navegação entre abas, sidebar, multi-selects, filtros e a **delegação de eventos** (`data-click` / `data-change` / `data-input`) que substituiu os antigos handlers inline. |
 | **gestao-ferias.js** | Aba de Gestão de Férias: maquete autocontida (dados de exemplo, sem backend) com lote, resumo, histórico, consulta e toast próprios; ligada no init via `configurarGestaoFerias()`. |
-| **entrega-cracha.js** | Aba de Entrega de Crachá: maquete autocontida (dados de exemplo, sem backend) do fluxo solicitação → confecção → entrega; KPIs, filtros, tabela paginada, painel de detalhe, modal de cadastro e toast próprios; ligada no init via `configurarEntregaCracha()`. |
+| **entrega-cracha.js** | Aba de Entrega de Crachá: consome dados reais via API (`/api/cracha`). A base `UGP_CONTROLE_CRACHAS_SI` é recriada por ETL diário, então os dados manuais (status/datas/observação) ficam numa tabela-companheira (`UGP_CRACHAS_CONTROLE_MANUAL`, por matrícula) — leitura é base + overlay. Funil de 4 status, KPIs, filtros, tabela paginada, detalhe e edição do overlay (avançar/voltar status, datas, observação, reverter), só para admin (nível ≥ 2). Carregamento sob demanda; chave = matrícula; ligada no init via `configurarEntregaCracha()`. |
 | **modal.js** | Modal central reutilizável (confirmação/aviso/entrada de texto) e overlays de carregamento. |
 | **acesso.js** | Página de Solicitações de Acesso: aprovação/recusa de pedidos e níveis de autorização. |
 

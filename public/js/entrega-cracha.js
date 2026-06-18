@@ -1,37 +1,36 @@
 // =========================================================
-// Entrega de Crachá (maquete interativa)
-// Acompanha o fluxo de confecção do crachá em 5 etapas:
+// Entrega de Crachá
+// Consome os dados reais da tabela UGP_CONTROLE_CRACHAS_SI via API
+// (/api/cracha). Funil de status (4 etapas):
 //   Foto Pendente de Envio -> Envio à Gráfica Pendente ->
-//   Crachás em Confecção -> Aguardando Envio -> Crachá Confeccionado
-// É autocontido: registra os próprios ouvintes em
-// configurarEntregaCracha(), chamado no init do app.
-// Não há backend — as ações operam sobre os dados em memória.
+//   Crachás em Confecção -> Crachá Confeccionado
+// CRUD persistido no banco (criar/editar/excluir/avançar/voltar status),
+// disponível apenas para administradores (nível >= 2).
 // =========================================================
 import { escapeHtml } from "./utils.js";
-import { apiGet } from "./api.js";
+import { apiGet, apiPost } from "./api.js";
+import { state } from "./state.js";
 
 const PAGE_SIZE = 10;
+const NIVEL_ADMIN = 2;
 
-// ---------- Status do crachá (funil de confecção) ----------
-const STATUS = {
-  FOTO: "Foto Pendente de Envio",
-  GRAFICA: "Envio à Gráfica Pendente",
-  CONFECCAO: "Crachás em Confecção",
-  AGUARDANDO: "Aguardando Envio",
-  CONFECCIONADO: "Crachá Confeccionado"
-};
-
-// Ordem do funil (índice = avanço da etapa).
-const STATUS_LISTA = [
-  STATUS.FOTO, STATUS.GRAFICA, STATUS.CONFECCAO, STATUS.AGUARDANDO, STATUS.CONFECCIONADO
+// Funil de status (rótulos amigáveis; o de-para para o banco é feito no backend).
+let STATUS_LISTA = [
+  "Foto Pendente de Envio", "Envio à Gráfica Pendente", "Crachás em Confecção", "Crachá Confeccionado"
 ];
 
 const STATUS_CLASSE = {
-  [STATUS.FOTO]: "is-foto",
-  [STATUS.GRAFICA]: "is-grafica",
-  [STATUS.CONFECCAO]: "is-confeccao",
-  [STATUS.AGUARDANDO]: "is-aguardando",
-  [STATUS.CONFECCIONADO]: "is-confeccionado"
+  "Foto Pendente de Envio": "is-foto",
+  "Envio à Gráfica Pendente": "is-grafica",
+  "Crachás em Confecção": "is-confeccao",
+  "Crachá Confeccionado": "is-confeccionado"
+};
+
+// Transições de avanço (botões "Registrar ...").
+const TRANSICOES = {
+  foto: { de: "Foto Pendente de Envio", para: "Envio à Gráfica Pendente", msg: "Foto recebida." },
+  grafica: { de: "Envio à Gráfica Pendente", para: "Crachás em Confecção", msg: "Envio à gráfica registrado." },
+  confeccao: { de: "Crachás em Confecção", para: "Crachá Confeccionado", msg: "Confecção concluída." }
 };
 
 function badgeStatus(status) {
@@ -44,88 +43,20 @@ function statusIndex(status) {
   return i < 0 ? 0 : i;
 }
 
-// Etapas do histórico (uma entrada por status alcançado até o atual).
-const ETAPAS = [
-  { evento: "Solicitação registrada — foto pendente de envio", ator: "ADMIN", hora: "09:12", campoData: "dataSolicitacao" },
-  { evento: "Foto recebida — aguardando envio à gráfica", ator: "ADMIN", hora: "10:05", campoData: "dataSolicitacao" },
-  { evento: "Crachá enviado à gráfica para confecção", ator: "GRÁFICA", hora: "14:30", campoData: "dataEnvio" },
-  { evento: "Confecção concluída — aguardando envio", ator: "GRÁFICA", hora: "16:20", campoData: "dataEnvio" },
-  { evento: "Crachá confeccionado e enviado", ator: "GRÁFICA", hora: "17:00", campoData: "dataEnvio" }
-];
-
-// Transições disparadas pelos botões de ação (avançam uma etapa).
-const TRANSICOES = {
-  foto: { de: STATUS.FOTO, para: STATUS.GRAFICA, msg: "Foto recebida.", aplicar: s => { s.possuiFoto = true; } },
-  grafica: { de: STATUS.GRAFICA, para: STATUS.CONFECCAO, msg: "Envio à gráfica registrado.", aplicar: s => { if (!s.dataEnvio) s.dataEnvio = hojeBR(); } },
-  confeccao: { de: STATUS.CONFECCAO, para: STATUS.AGUARDANDO, msg: "Confecção concluída." },
-  aguardando: { de: STATUS.AGUARDANDO, para: STATUS.CONFECCIONADO, msg: "Crachá enviado." }
-};
-
-// ---------- Unidades (DSEIs/CASAIs) ----------
-// Lista de fallback (usada se o backend não responder). A lista real é
-// carregada de /api/acesso/listas — a MESMA fonte do formulário de
-// solicitação de acesso (login Google) — em carregarUnidades().
-const DSEIS = [
-  "DSEI Yanomami", "DSEI Alto Rio Negro", "DSEI Kayapó do Pará",
-  "DSEI Leste de Roraima", "DSEI Maranhão", "DSEI Parintins",
-  "DSEI Xingu", "DSEI Cuiabá do Norte", "DSEI Guamá-Tocantins", "DSEI Araguaia"
-];
-
-let unidadesDisponiveis = DSEIS.slice();
-
-async function carregarUnidades() {
-  try {
-    const listas = await apiGet("/api/acesso/listas");
-    const unidades = [].concat(listas.casai || [], listas.dsei || []);
-    if (unidades.length) unidadesDisponiveis = unidades;
-  } catch (e) {
-    // Mantém a lista de fallback (mockup continua utilizável offline).
-  }
-}
-
 function escritorioDoDsei(dsei) {
   return (dsei || "").replace(/^(DSEI|CASAI)\s+/, "Escritório ");
 }
 
-// ---------- Dados de exemplo ----------
-function registro(id, dsei, nome, cargo, status, dataSolic, dataEnvio) {
-  return {
-    id, dsei, nome, cargo, status,
-    possuiFoto: status !== STATUS.FOTO,
-    dataSolicitacao: dataSolic || "",
-    dataEnvio: dataEnvio || "",
-    observacao: ""
-  };
+function podeEditar() {
+  return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL_ADMIN;
 }
 
-let solicitacoes = [
-  registro(1, "DSEI Yanomami", "Maria Silva da Costa", "Enfermeiro", STATUS.CONFECCIONADO, "10/04/2024", "15/04/2024"),
-  registro(2, "DSEI Alto Rio Negro", "João Pereira Lima", "Técnico de Enfermagem", STATUS.AGUARDANDO, "12/04/2024", "16/04/2024"),
-  registro(3, "DSEI Kayapó do Pará", "Carlos Mendes dos Santos", "Agente Indígena de Saúde", STATUS.FOTO, "15/04/2024", ""),
-  registro(4, "DSEI Leste de Roraima", "Ana Beatriz Souza", "Enfermeiro", STATUS.GRAFICA, "18/04/2024", ""),
-  registro(5, "DSEI Maranhão", "Rafael Oliveira", "Técnico de Enfermagem", STATUS.CONFECCAO, "20/04/2024", "24/04/2024"),
-  registro(6, "DSEI Parintins", "Luana Ferreira", "Enfermeiro", STATUS.CONFECCIONADO, "22/04/2024", "25/04/2024"),
-  registro(7, "DSEI Xingu", "Paulo Henrique Dias", "Agente Indígena de Saúde", STATUS.FOTO, "23/04/2024", ""),
-  registro(8, "DSEI Cuiabá do Norte", "Fernanda Lima", "Técnico de Enfermagem", STATUS.CONFECCAO, "24/04/2024", "25/04/2024"),
-  registro(9, "DSEI Guamá-Tocantins", "Tiago Soares", "Enfermeiro", STATUS.FOTO, "25/04/2024", ""),
-  registro(10, "DSEI Araguaia", "Juliana Nunes", "Agente Indígena de Saúde", STATUS.AGUARDANDO, "26/04/2024", "29/04/2024"),
-  registro(11, "DSEI Yanomami", "Marcos Vinícius Alves", "Médico Clínico Geral", STATUS.CONFECCIONADO, "27/04/2024", "02/05/2024"),
-  registro(12, "DSEI Alto Rio Negro", "Patrícia Gomes", "Enfermeiro", STATUS.CONFECCAO, "28/04/2024", "03/05/2024"),
-  registro(13, "DSEI Maranhão", "Roberto Carlos Pinto", "Dentista", STATUS.FOTO, "29/04/2024", ""),
-  registro(14, "DSEI Xingu", "Camila Rodrigues", "Técnico de Enfermagem", STATUS.CONFECCIONADO, "30/04/2024", "04/05/2024"),
-  registro(15, "DSEI Parintins", "Eduardo Santos", "Agente Indígena de Saúde", STATUS.AGUARDANDO, "02/05/2024", "06/05/2024"),
-  registro(16, "DSEI Leste de Roraima", "Beatriz Almeida", "Enfermeiro", STATUS.CONFECCIONADO, "03/05/2024", "07/05/2024"),
-  registro(17, "DSEI Cuiabá do Norte", "Gustavo Henrique Reis", "Médico Clínico Geral", STATUS.FOTO, "04/05/2024", ""),
-  registro(18, "DSEI Araguaia", "Larissa Martins", "Técnico de Enfermagem", STATUS.CONFECCAO, "05/05/2024", "09/05/2024"),
-  registro(19, "DSEI Guamá-Tocantins", "Felipe Andrade", "Agente Indígena de Saúde", STATUS.CONFECCIONADO, "06/05/2024", "10/05/2024"),
-  registro(20, "DSEI Kayapó do Pará", "Vanessa Cardoso", "Enfermeiro", STATUS.FOTO, "07/05/2024", ""),
-  registro(21, "DSEI Yanomami", "Bruno Teixeira", "Técnico de Enfermagem", STATUS.GRAFICA, "08/05/2024", ""),
-  registro(22, "DSEI Maranhão", "Sabrina Lopes", "Agente Indígena de Saúde", STATUS.AGUARDANDO, "09/05/2024", "13/05/2024")
-];
-
-let proximoId = 23;
-
 // ---------- Estado da view ----------
+let solicitacoes = [];
+let carregado = false;
+let carregando = false;
+let erroCarregamento = "";
+
 let filtros = { dsei: "", status: "", escritorio: "", dataIni: "", dataFim: "", nome: "", cargo: "" };
 let paginaAtual = 1;
 let detalheId = null;
@@ -133,13 +64,6 @@ let detalheId = null;
 const $ = id => document.getElementById(id);
 
 // ---------- Datas ----------
-function isoParaBR(iso) {
-  if (!iso) return "";
-  const [a, m, d] = iso.split("-");
-  if (!a || !m || !d) return "";
-  return `${d}/${m}/${a}`;
-}
-
 function brParaISO(br) {
   if (!br) return "";
   const [d, m, a] = br.split("/");
@@ -147,18 +71,18 @@ function brParaISO(br) {
   return `${a}-${m}-${d}`;
 }
 
+function isoParaBR(iso) {
+  if (!iso) return "";
+  const [a, m, d] = iso.split("-");
+  if (!a || !m || !d) return "";
+  return `${d}/${m}/${a}`;
+}
+
 function brParaTime(br) {
   if (!br) return null;
   const [d, m, a] = br.split("/");
   if (!d || !m || !a) return null;
   return new Date(Number(a), Number(m) - 1, Number(d)).getTime();
-}
-
-function hojeBR() {
-  const hoje = new Date();
-  const dd = String(hoje.getDate()).padStart(2, "0");
-  const mm = String(hoje.getMonth() + 1).padStart(2, "0");
-  return `${dd}/${mm}/${hoje.getFullYear()}`;
 }
 
 // ---------- Toast ----------
@@ -183,11 +107,10 @@ function renderKpis(lista) {
   const porStatus = st => lista.filter(s => s.status === st).length;
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
   set("ecKpiTrabalhadores", lista.length);
-  set("ecKpiFoto", porStatus(STATUS.FOTO));
-  set("ecKpiGrafica", porStatus(STATUS.GRAFICA));
-  set("ecKpiConfeccao", porStatus(STATUS.CONFECCAO));
-  set("ecKpiAguardando", porStatus(STATUS.AGUARDANDO));
-  set("ecKpiConfeccionado", porStatus(STATUS.CONFECCIONADO));
+  set("ecKpiFoto", porStatus("Foto Pendente de Envio"));
+  set("ecKpiGrafica", porStatus("Envio à Gráfica Pendente"));
+  set("ecKpiConfeccao", porStatus("Crachás em Confecção"));
+  set("ecKpiConfeccionado", porStatus("Crachá Confeccionado"));
 }
 
 // ---------- Filtros ----------
@@ -211,8 +134,8 @@ function aplicarFiltros() {
     if (filtros.dsei && s.dsei !== filtros.dsei) return false;
     if (filtros.status && s.status !== filtros.status) return false;
     if (filtros.escritorio && escritorioDoDsei(s.dsei) !== filtros.escritorio) return false;
-    if (filtros.nome && !s.nome.toLowerCase().includes(filtros.nome)) return false;
-    if (filtros.cargo && !s.cargo.toLowerCase().includes(filtros.cargo)) return false;
+    if (filtros.nome && !(s.nome || "").toLowerCase().includes(filtros.nome) && !(s.matricula || "").toLowerCase().includes(filtros.nome)) return false;
+    if (filtros.cargo && !(s.cargo || "").toLowerCase().includes(filtros.cargo)) return false;
     if (iniT !== null || fimT !== null) {
       const t = brParaTime(s.dataSolicitacao);
       if (t === null) return false;
@@ -229,6 +152,11 @@ function celulaData(valor) {
 }
 
 function render() {
+  // Reavalia a permissão a cada render: no init o usuário ainda não está
+  // logado (nível 0); após o login/carregamento isto reflete o nível real.
+  const raiz = $("view-entregaCracha");
+  if (raiz) raiz.classList.toggle("ec-readonly", !podeEditar());
+
   renderKpis(solicitacoes);
 
   const lista = aplicarFiltros();
@@ -236,31 +164,46 @@ function render() {
   if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
   const inicio = (paginaAtual - 1) * PAGE_SIZE;
   const pagina = lista.slice(inicio, inicio + PAGE_SIZE);
+  const editar = podeEditar();
 
   const body = $("ecTabelaBody");
   if (body) {
-    body.innerHTML = pagina.map(s => `
-      <tr${s.id === detalheId ? ' class="ecLinhaAtiva"' : ""}>
-        <td>${escapeHtml(s.dsei)}</td>
-        <td>${escapeHtml(s.nome)}</td>
-        <td>${escapeHtml(s.cargo)}</td>
-        <td>${celulaData(s.dataSolicitacao)}</td>
-        <td class="ecTd-center">${s.possuiFoto ? '<span class="ecFotoSim">Sim</span>' : '<span class="ecFotoNao">Não</span>'}</td>
-        <td>${celulaData(s.dataEnvio)}</td>
-        <td>${badgeStatus(s.status)}</td>
-        <td class="ecTd-center ecAcoesCol">
-          <button class="ecIconBtn" data-ec-ver="${s.id}" title="Ver detalhes"><i class="fa-regular fa-eye"></i></button>
-          <button class="ecIconBtn" data-ec-editar="${s.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
-          <button class="ecIconBtn ecIconBtnDanger" data-ec-excluir="${s.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      </tr>`).join("") ||
-      `<tr><td colspan="8" class="ecVazio">Nenhuma solicitação encontrada para os filtros selecionados.</td></tr>`;
+    if (carregando && !carregado) {
+      body.innerHTML = `<tr><td colspan="9" class="ecVazio">Carregando dados de crachás...</td></tr>`;
+    } else if (erroCarregamento) {
+      body.innerHTML = `<tr><td colspan="9" class="ecVazio">${escapeHtml(erroCarregamento)}</td></tr>`;
+    } else {
+      body.innerHTML = pagina.map(s => {
+        const reverter = s.statusManual || s.dataSolicitacao || s.dataEnvio || s.observacao
+          ? `<button class="ecIconBtn ecIconBtnDanger" data-ec-reverter="${escapeHtml(s.id)}" title="Reverter alterações manuais"><i class="fa-solid fa-rotate-left"></i></button>`
+          : "";
+        const acoesEdicao = editar
+          ? `<button class="ecIconBtn" data-ec-editar="${escapeHtml(s.id)}" title="Editar datas/observação"><i class="fa-solid fa-pen"></i></button>${reverter}`
+          : "";
+        return `
+        <tr${s.id === detalheId ? ' class="ecLinhaAtiva"' : ""}>
+          <td>${celulaData(s.matricula)}</td>
+          <td>${escapeHtml(s.dsei || "—")}</td>
+          <td>${escapeHtml(s.nome || "—")}</td>
+          <td>${escapeHtml(s.cargo || "—")}</td>
+          <td>${celulaData(s.dataSolicitacao)}</td>
+          <td class="ecTd-center">${s.possuiFoto ? '<span class="ecFotoSim">Sim</span>' : '<span class="ecFotoNao">Não</span>'}</td>
+          <td>${celulaData(s.dataEnvio)}</td>
+          <td>${badgeStatus(s.status)}</td>
+          <td class="ecTd-center ecAcoesCol">
+            <button class="ecIconBtn" data-ec-ver="${escapeHtml(s.id)}" title="Ver detalhes"><i class="fa-regular fa-eye"></i></button>
+            ${acoesEdicao}
+          </td>
+        </tr>`;
+      }).join("") ||
+        `<tr><td colspan="9" class="ecVazio">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
+    }
   }
 
   const registros = $("ecRegistros");
   if (registros) {
     if (!lista.length) {
-      registros.textContent = "Mostrando 0 registros";
+      registros.textContent = carregado ? "Mostrando 0 registros" : "";
     } else {
       const fim = Math.min(inicio + PAGE_SIZE, lista.length);
       registros.textContent = `Mostrando ${inicio + 1} a ${fim} de ${lista.length} registros`;
@@ -275,9 +218,24 @@ function renderPaginacao(totalPaginas) {
   if (!wrap) return;
   if (totalPaginas <= 1) { wrap.innerHTML = ""; return; }
 
+  // Janela de páginas em torno da atual (a base é grande: até ~1879 páginas).
+  const janela = 2;
+  let ini = Math.max(1, paginaAtual - janela);
+  let fim = Math.min(totalPaginas, paginaAtual + janela);
+  if (paginaAtual <= janela) fim = Math.min(totalPaginas, 1 + janela * 2);
+  if (paginaAtual > totalPaginas - janela) ini = Math.max(1, totalPaginas - janela * 2);
+
   let html = `<button class="ecPageBtn ecPageNav" data-ec-pagina="prev" ${paginaAtual === 1 ? "disabled" : ""} title="Anterior"><i class="fa-solid fa-angle-left"></i></button>`;
-  for (let p = 1; p <= totalPaginas; p++) {
+  if (ini > 1) {
+    html += `<button class="ecPageBtn" data-ec-pagina="1">1</button>`;
+    if (ini > 2) html += `<span class="ecPageEllipsis">…</span>`;
+  }
+  for (let p = ini; p <= fim; p++) {
     html += `<button class="ecPageBtn${p === paginaAtual ? " is-ativo" : ""}" data-ec-pagina="${p}">${p}</button>`;
+  }
+  if (fim < totalPaginas) {
+    if (fim < totalPaginas - 1) html += `<span class="ecPageEllipsis">…</span>`;
+    html += `<button class="ecPageBtn" data-ec-pagina="${totalPaginas}">${totalPaginas}</button>`;
   }
   html += `<button class="ecPageBtn ecPageNav" data-ec-pagina="next" ${paginaAtual === totalPaginas ? "disabled" : ""} title="Próxima"><i class="fa-solid fa-angle-right"></i></button>`;
   wrap.innerHTML = html;
@@ -294,13 +252,11 @@ function irParaPagina(valor) {
 
 // ---------- Painel de detalhe ----------
 function timelineDe(s) {
-  const ate = statusIndex(s.status);
-  return ETAPAS.slice(0, ate + 1).map(e => ({
-    data: s[e.campoData] || s.dataSolicitacao,
-    hora: e.hora,
-    evento: e.evento,
-    ator: e.ator
-  }));
+  const itens = [];
+  if (s.dataSolicitacao) itens.push({ data: s.dataSolicitacao, evento: "Solicitação registrada", ator: "" });
+  if (s.dataEnvio) itens.push({ data: s.dataEnvio, evento: "Enviado à gráfica", ator: "" });
+  itens.push({ data: s.atualizadoEm || "—", evento: `Status: ${s.status}`, ator: s.atualizadoPor || "" });
+  return itens;
 }
 
 function abrirDetalhe(id) {
@@ -309,18 +265,20 @@ function abrirDetalhe(id) {
   detalheId = id;
 
   const set = (elId, v) => { const el = $(elId); if (el) el.textContent = v || "—"; };
-  $("ecDetalheNome").textContent = s.nome;
+  $("ecDetalheNome").textContent = s.nome || "—";
   $("ecDetalheBadge").innerHTML = badgeStatus(s.status);
 
+  set("ecDetMatricula", s.matricula);
   set("ecDetDsei", s.dsei);
   set("ecDetCargo", s.cargo);
-  set("ecDetDataSolic", s.dataSolicitacao);
+  set("ecDetSituacao", s.situacaoDetalhada);
   set("ecDetFoto", s.possuiFoto ? "Sim" : "Não");
-  set("ecDetDataEnvio", s.dataEnvio);
 
   set("ecDetStatus", s.status);
   set("ecDetStatusSolic", s.dataSolicitacao);
   set("ecDetStatusEnvio", s.dataEnvio);
+  set("ecDetMotivo", s.motivo);
+  set("ecDetAtualizado", s.atualizadoEm ? `${s.atualizadoEm}${s.atualizadoPor ? " · " + s.atualizadoPor : ""}` : "");
 
   const timeline = $("ecDetTimeline");
   if (timeline) {
@@ -328,11 +286,11 @@ function abrirDetalhe(id) {
       <li class="ecTimelineItem">
         <div class="ecTimelineDot"></div>
         <div class="ecTimelineConteudo">
-          <div class="ecTimelineQuando">${escapeHtml(i.data || "—")} ${escapeHtml(i.hora)}</div>
+          <div class="ecTimelineQuando">${escapeHtml(i.data || "—")}</div>
           <div class="ecTimelineEvento">${escapeHtml(i.evento)}</div>
-          <div class="ecTimelineAtor">${escapeHtml(i.ator)}</div>
+          ${i.ator ? `<div class="ecTimelineAtor">${escapeHtml(i.ator)}</div>` : ""}
         </div>
-      </li>`).join("") || `<li class="ecTimelineVazio">Sem histórico registrado.</li>`;
+      </li>`).join("");
   }
 
   atualizarBotoesAcao(s);
@@ -348,8 +306,7 @@ function abrirDetalhe(id) {
   render();
 }
 
-// Habilita só o botão da próxima etapa válida; "voltar" fica ativo enquanto
-// não estiver na primeira etapa do funil.
+// Habilita só o botão da próxima etapa válida; "voltar" enquanto não for a 1ª.
 function atualizarBotoesAcao(s) {
   document.querySelectorAll("#ecDetalhe [data-ec-acao]").forEach(btn => {
     const tipo = btn.dataset.ecAcao;
@@ -369,73 +326,88 @@ function recolherDetalhe() {
   render();
 }
 
-// ---------- Ações: avançar etapa do funil ----------
-function registrarEtapa(tipo) {
+// ---------- Persistência (API) ----------
+function aplicarRegistro(reg) {
+  if (!reg) return;
+  const i = solicitacoes.findIndex(r => r.id === reg.id);
+  if (i >= 0) solicitacoes[i] = reg;
+  else solicitacoes.unshift(reg);
+}
+
+async function registrarEtapa(tipo) {
   const s = solicitacoes.find(r => r.id === detalheId);
   if (!s) return;
   const t = TRANSICOES[tipo];
-  if (!t) return;
-  if (s.status !== t.de) {
+  if (!t || s.status !== t.de) {
     ecToast("Esta ação não se aplica ao status atual.", "erro");
     return;
   }
-  s.status = t.para;
-  if (t.aplicar) t.aplicar(s);
-  ecToast(t.msg);
-  abrirDetalhe(s.id);
+  await mudarStatus(s.id, t.para, t.msg);
 }
 
-// Retrocede uma etapa no funil, desfazendo os efeitos colaterais da etapa
-// que está sendo revertida (espelha o `aplicar` das transições para frente).
-function voltarEtapa() {
+async function voltarEtapa() {
   const s = solicitacoes.find(r => r.id === detalheId);
   if (!s) return;
   const idx = statusIndex(s.status);
-  if (idx <= 0) {
-    ecToast("O crachá já está na primeira etapa.", "erro");
-    return;
-  }
-  if (s.status === STATUS.GRAFICA) s.possuiFoto = false; // desfaz "foto recebida"
-  if (s.status === STATUS.CONFECCAO) s.dataEnvio = "";     // desfaz "envio à gráfica"
-  const novoStatus = STATUS_LISTA[idx - 1];
-  s.status = novoStatus;
-  ecToast(`Status revertido para "${novoStatus}".`);
-  abrirDetalhe(s.id);
+  if (idx <= 0) { ecToast("O crachá já está na primeira etapa.", "erro"); return; }
+  const novo = STATUS_LISTA[idx - 1];
+  await mudarStatus(s.id, novo, `Status revertido para "${novo}".`);
 }
 
-function salvarObservacao() {
+async function mudarStatus(matricula, status, msgOk) {
+  try {
+    const resp = await apiPost("/api/cracha/status", { matricula, status });
+    aplicarRegistro(resp.registro);
+    ecToast(msgOk);
+    abrirDetalhe(matricula);
+  } catch (e) {
+    ecToast(e && e.message ? e.message : "Falha ao atualizar o status.", "erro");
+  }
+}
+
+async function salvarObservacao() {
   const s = solicitacoes.find(r => r.id === detalheId);
   if (!s) return;
-  s.observacao = $("ecDetObs")?.value || "";
-  ecToast("Observação salva.");
+  try {
+    const resp = await apiPost("/api/cracha/salvar", {
+      matricula: s.matricula,
+      observacao: $("ecDetObs")?.value || ""
+    });
+    aplicarRegistro(resp.registro);
+    ecToast("Observação salva.");
+    abrirDetalhe(s.id);
+  } catch (e) {
+    ecToast(e && e.message ? e.message : "Falha ao salvar a observação.", "erro");
+  }
 }
 
-// ---------- Modal de nova solicitação / edição ----------
+// ---------- Modal de edição do overlay (datas) ----------
+// A identidade (matrícula/nome/DSEI/cargo) vem do ETL e é só leitura; o status
+// é gerido pelos botões de etapa. Aqui só editamos as datas de controle.
 let modalEditId = null;
 
 function abrirModal(editId) {
-  modalEditId = editId || null;
+  const s = solicitacoes.find(r => r.id === editId);
+  if (!s) return;
+  modalEditId = s.id;
+
   const erro = $("ecModalErro");
   if (erro) erro.textContent = "";
-
   const titulo = $("ecModalTitulo");
-  if (modalEditId) {
-    const s = solicitacoes.find(r => r.id === modalEditId);
-    if (!s) return;
-    if (titulo) titulo.textContent = "Editar Solicitação de Crachá";
-    $("ecFormNome").value = s.nome;
-    $("ecFormDsei").value = s.dsei;
-    $("ecFormCargo").value = s.cargo;
-    $("ecFormFoto").value = s.possuiFoto ? "sim" : "nao";
-    $("ecFormDataSolic").value = brParaISO(s.dataSolicitacao);
-  } else {
-    if (titulo) titulo.textContent = "Nova Solicitação de Crachá";
-    $("ecFormNome").value = "";
-    $("ecFormDsei").value = unidadesDisponiveis[0] || "";
-    $("ecFormCargo").value = "";
-    $("ecFormFoto").value = "sim";
-    $("ecFormDataSolic").value = "";
-  }
+  if (titulo) titulo.textContent = "Editar Datas do Crachá";
+
+  const matInput = $("ecFormMatricula");
+  if (matInput) { matInput.value = s.matricula || ""; matInput.disabled = true; }
+  const nomeInput = $("ecFormNome");
+  if (nomeInput) { nomeInput.value = s.nome || ""; nomeInput.disabled = true; }
+  const cargoInput = $("ecFormCargo");
+  if (cargoInput) { cargoInput.value = s.cargo || ""; cargoInput.disabled = true; }
+  const dseiInput = $("ecFormDsei");
+  if (dseiInput) { dseiInput.value = s.dsei || ""; dseiInput.disabled = true; }
+  $("ecFormDataSolic").value = brParaISO(s.dataSolicitacao);
+  $("ecFormDataEnvio").value = brParaISO(s.dataEnvio);
+  const fotoWrap = $("ecFormFotoWrap");
+  if (fotoWrap) fotoWrap.hidden = true;
 
   const modal = $("ecModal");
   if (modal) modal.hidden = false;
@@ -447,52 +419,48 @@ function fecharModal() {
   modalEditId = null;
 }
 
-function salvarModal() {
-  const nome = ($("ecFormNome")?.value || "").trim();
-  const dsei = $("ecFormDsei")?.value || "";
-  const cargo = ($("ecFormCargo")?.value || "").trim();
-  const foto = $("ecFormFoto")?.value === "sim";
-  const dataSolic = isoParaBR($("ecFormDataSolic")?.value || "") || hojeBR();
-
+async function salvarModal() {
   const erro = $("ecModalErro");
-  if (!nome || !cargo || !dsei) {
-    if (erro) erro.textContent = "Preencha nome, DSEI e cargo.";
-    return;
-  }
-
-  if (modalEditId) {
-    const s = solicitacoes.find(r => r.id === modalEditId);
-    if (s) {
-      s.nome = nome; s.dsei = dsei; s.cargo = cargo;
-      s.possuiFoto = foto; s.dataSolicitacao = dataSolic;
-    }
-    ecToast("Solicitação atualizada.");
-    if (detalheId === modalEditId) abrirDetalhe(modalEditId);
-  } else {
-    // Sem foto entra no funil em "Foto Pendente"; com foto, em "Envio à Gráfica Pendente".
-    const status = foto ? STATUS.GRAFICA : STATUS.FOTO;
-    solicitacoes.unshift(registro(proximoId++, dsei, nome, cargo, status, dataSolic, ""));
-    paginaAtual = 1;
-    ecToast("Nova solicitação registrada.");
-  }
-
-  fecharModal();
-  render();
-}
-
-function excluirSolicitacao(id) {
-  const s = solicitacoes.find(r => r.id === id);
+  if (erro) erro.textContent = "";
+  const s = solicitacoes.find(r => r.id === modalEditId);
   if (!s) return;
-  if (!window.confirm(`Excluir a solicitação de "${s.nome}"?`)) return;
-  solicitacoes = solicitacoes.filter(r => r.id !== id);
-  if (detalheId === id) recolherDetalhe();
-  ecToast("Solicitação excluída.");
-  render();
+
+  try {
+    const resp = await apiPost("/api/cracha/salvar", {
+      matricula: s.matricula,
+      dataSolicitacao: $("ecFormDataSolic")?.value || "",
+      dataEnvio: $("ecFormDataEnvio")?.value || ""
+    });
+    aplicarRegistro(resp.registro);
+    ecToast("Datas atualizadas.");
+    fecharModal();
+    render();
+    if (detalheId === s.id) abrirDetalhe(s.id);
+  } catch (e) {
+    if (erro) erro.textContent = e && e.message ? e.message : "Falha ao salvar.";
+  }
 }
 
-// ---------- Preenchimento dos selects ----------
+// "Reverter": remove o overlay manual (datas/observação/status), voltando o
+// registro aos valores do ETL. O trabalhador continua na lista.
+async function reverterSolicitacao(matricula) {
+  const s = solicitacoes.find(r => r.id === matricula);
+  if (!s) return;
+  if (!window.confirm(`Reverter as alterações manuais de "${s.nome}" (matrícula ${s.matricula})?`)) return;
+  try {
+    const resp = await apiPost("/api/cracha/reverter", { matricula });
+    aplicarRegistro(resp.registro);
+    ecToast("Alterações manuais revertidas.");
+    render();
+    if (detalheId === matricula) abrirDetalhe(matricula);
+  } catch (e) {
+    ecToast(e && e.message ? e.message : "Falha ao reverter.", "erro");
+  }
+}
+
+// ---------- Selects (DSEIs vêm dos próprios dados) ----------
 function preencherSelects() {
-  // Preserva o valor selecionado ao repopular (a lista do servidor chega async).
+  const dseis = [...new Set(solicitacoes.map(s => s.dsei).filter(Boolean))].sort();
   const opcoes = (id, valores, rotuloTodos) => {
     const el = $(id);
     if (!el) return;
@@ -501,15 +469,16 @@ function preencherSelects() {
       valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
     if (atual && valores.includes(atual)) el.value = atual;
   };
-  opcoes("ecFiltroDsei", unidadesDisponiveis, "Todos os DSEIs");
+  opcoes("ecFiltroDsei", dseis, "Todos os DSEIs");
   opcoes("ecFiltroStatus", STATUS_LISTA, "Todos os Status");
-  opcoes("ecFiltroEscritorio", unidadesDisponiveis.map(escritorioDoDsei), "Todos os Escritórios");
+  opcoes("ecFiltroEscritorio", dseis.map(escritorioDoDsei), "Todos os Escritórios");
 
   const formDsei = $("ecFormDsei");
   if (formDsei) {
     const atual = formDsei.value;
-    formDsei.innerHTML = unidadesDisponiveis.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-    if (atual && unidadesDisponiveis.includes(atual)) formDsei.value = atual;
+    formDsei.innerHTML = `<option value="">Selecione…</option>` +
+      dseis.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    if (atual && dseis.includes(atual)) formDsei.value = atual;
   }
 }
 
@@ -521,6 +490,28 @@ function limparFiltros() {
   render();
 }
 
+// ---------- Carregamento dos dados reais ----------
+async function carregarDados() {
+  if (carregando) return;
+  carregando = true;
+  erroCarregamento = "";
+  render();
+  try {
+    const payload = await apiGet("/api/cracha");
+    solicitacoes = payload.rows || [];
+    if (Array.isArray(payload.statusFunil) && payload.statusFunil.length) {
+      STATUS_LISTA = payload.statusFunil;
+    }
+    carregado = true;
+  } catch (e) {
+    erroCarregamento = e && e.message ? e.message : "Falha ao carregar os dados de crachás.";
+  } finally {
+    carregando = false;
+    preencherSelects();
+    render();
+  }
+}
+
 // ---------- Inicialização ----------
 let entregaCrachaConfigurada = false;
 
@@ -530,12 +521,16 @@ export function configurarEntregaCracha() {
   if (!raiz) return;
   entregaCrachaConfigurada = true;
 
+  raiz.classList.toggle("ec-readonly", !podeEditar());
+
   preencherSelects();
   render();
 
-  // Carrega a lista real de DSEIs/CASAIs (mesma do formulário de acesso) e
-  // repopula os selects quando chegar.
-  carregarUnidades().then(preencherSelects);
+  // Carregamento sob demanda: a base tem ~18k linhas; só busca quando a aba é
+  // aberta pela primeira vez (evita baixar tudo em todo load do painel).
+  const navItem = document.querySelector('.navItem[data-view="entregaCracha"]');
+  if (navItem) navItem.addEventListener("click", () => { if (!carregado && !carregando) carregarDados(); });
+  if (state.activeView === "entregaCracha") carregarDados();
 
   // Filtros reagem na hora (change para selects/datas, input para buscas).
   raiz.querySelectorAll("[data-ec-filtro]").forEach(el => {
@@ -544,7 +539,6 @@ export function configurarEntregaCracha() {
   });
 
   $("ecBtnLimpar")?.addEventListener("click", limparFiltros);
-  $("ecBtnNova")?.addEventListener("click", () => abrirModal(null));
   $("ecBtnRecolher")?.addEventListener("click", recolherDetalhe);
   $("ecBtnSalvarObs")?.addEventListener("click", salvarObservacao);
 
@@ -556,16 +550,16 @@ export function configurarEntregaCracha() {
     if (event.target === $("ecModal")) fecharModal();
   });
 
-  // Delegação para elementos gerados dinamicamente (linhas, paginação, ações).
+  // Delegação para elementos gerados dinamicamente.
   raiz.addEventListener("click", event => {
     const ver = event.target.closest("[data-ec-ver]");
-    if (ver) { abrirDetalhe(Number(ver.dataset.ecVer)); return; }
+    if (ver) { abrirDetalhe(ver.dataset.ecVer); return; }
 
     const editar = event.target.closest("[data-ec-editar]");
-    if (editar) { abrirModal(Number(editar.dataset.ecEditar)); return; }
+    if (editar) { abrirModal(editar.dataset.ecEditar); return; }
 
-    const excluir = event.target.closest("[data-ec-excluir]");
-    if (excluir) { excluirSolicitacao(Number(excluir.dataset.ecExcluir)); return; }
+    const reverter = event.target.closest("[data-ec-reverter]");
+    if (reverter) { reverterSolicitacao(reverter.dataset.ecReverter); return; }
 
     const pagina = event.target.closest("[data-ec-pagina]");
     if (pagina && !pagina.disabled) { irParaPagina(pagina.dataset.ecPagina); return; }

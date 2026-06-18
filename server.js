@@ -12,6 +12,7 @@ const { DASH_CONFIG, getMysqlConfig, resolverPortaAplicacao, parseJdbcUrl } = re
 const { DASH_SQL, montarCaseCargoSql } = require("./lib/sql");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, obterRemanejamentoListaComCache, obterRemanejamentoCadastroComCache, montarOpcoesRemanejamentoAPartirDasRows, obterUltimaAtualizacaoRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
+const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, reverterControleComConn, garantirTabelaCrachasControle } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
@@ -199,6 +200,62 @@ app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFresco
     res.json({ ok: true, ...resultado });
   } catch (err) {
     res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar a observação." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// ---- Entrega de Crachá ----
+app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+  res.json(await getCrachaData());
+}));
+
+// Editar overlay manual (datas / observação) — escrita: administradores.
+// Grava só os campos presentes no corpo, na tabela-companheira (por matrícula).
+app.post("/api/cracha/salvar", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const campos = {};
+    if (body.status !== undefined) campos.statusManual = body.status;
+    if (body.dataSolicitacao !== undefined) campos.dataSolicitacao = body.dataSolicitacao;
+    if (body.dataEnvio !== undefined) campos.dataEnvio = body.dataEnvio;
+    if (body.observacao !== undefined) campos.observacao = body.observacao;
+    const registro = await salvarControleComConn(conn, body.matricula, campos, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar o crachá." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Atualizar somente o status (avançar/voltar etapa) — grava no overlay.
+app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const registro = await atualizarStatusCrachaComConn(conn, (req.body || {}).matricula, (req.body || {}).status, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao atualizar o status." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Reverter alterações manuais (remove o overlay; volta aos valores do ETL).
+app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const registro = await reverterControleComConn(conn, (req.body || {}).matricula);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao reverter o crachá." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -489,6 +546,10 @@ if (require.main === module) {
 
   garantirTabelaMovimentacaoRemanejamento().catch(err => {
     console.error("Não foi possível garantir a tabela de movimentações de remanejamento:", err && err.message ? err.message : err);
+  });
+
+  garantirTabelaCrachasControle().catch(err => {
+    console.error("Não foi possível garantir a tabela de controle de crachás:", err && err.message ? err.message : err);
   });
 
   garantirColunaMesesRemanejamento().catch(err => {
