@@ -627,6 +627,18 @@
       padding: 7px 10px;
     }
 
+    /* Indicador "Página X de Y · DSEI": largura fixa + reticências, para o nome
+       variável do DSEI não empurrar/jogar os botões Anterior/Próxima de lugar. */
+    .tablePagination span.tablePaginationInfo {
+      flex: 0 0 auto;
+      width: 240px;
+      box-sizing: border-box;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
 
 
     /* Ajuste solicitado: somente abas de detalhe com rolagem de página; Visão Geral permanece sem rolagem */
