@@ -126,13 +126,15 @@ function lerFiltros() {
   };
 }
 
-function aplicarFiltros() {
+// `ignorarStatus` é usado pelos KPIs: os cards de status já são a quebra por
+// status, então o filtro de status não deve zerar os demais cards.
+function aplicarFiltros(ignorarStatus) {
   const iniT = filtros.dataIni ? new Date(filtros.dataIni + "T00:00:00").getTime() : null;
   const fimT = filtros.dataFim ? new Date(filtros.dataFim + "T00:00:00").getTime() : null;
 
   return solicitacoes.filter(s => {
     if (filtros.dsei && s.dsei !== filtros.dsei) return false;
-    if (filtros.status && s.status !== filtros.status) return false;
+    if (!ignorarStatus && filtros.status && s.status !== filtros.status) return false;
     if (filtros.escritorio && escritorioDoDsei(s.dsei) !== filtros.escritorio) return false;
     if (filtros.nome && !(s.nome || "").toLowerCase().includes(filtros.nome) && !(s.matricula || "").toLowerCase().includes(filtros.nome)) return false;
     if (filtros.cargo && !(s.cargo || "").toLowerCase().includes(filtros.cargo)) return false;
@@ -157,7 +159,7 @@ function render() {
   const raiz = $("view-entregaCracha");
   if (raiz) raiz.classList.toggle("ec-readonly", !podeEditar());
 
-  renderKpis(solicitacoes);
+  renderKpis(aplicarFiltros(true));
 
   const lista = aplicarFiltros();
   const totalPaginas = Math.max(1, Math.ceil(lista.length / PAGE_SIZE));
