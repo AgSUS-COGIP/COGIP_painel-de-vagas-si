@@ -97,8 +97,8 @@
   max-height: 94vh;
   overflow-y: auto;
   overflow-x: hidden; /* nunca rolar horizontalmente */
-  padding: 30px 30px 26px;
-  border-radius: 24px;
+  padding: 22px 24px 20px;
+  border-radius: 22px;
   background:
     linear-gradient(180deg, rgba(15, 38, 74, .82), rgba(8, 24, 52, .88));
   border: 1px solid rgba(255, 255, 255, .12);
@@ -132,13 +132,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
-.acessoCardLogo { width: 52px; height: 52px; object-fit: contain; }
+.acessoCardLogo { width: 42px; height: 42px; object-fit: contain; }
 .acessoCardBrandText {
   color: #ffffff;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: -1px;
   line-height: 1;
@@ -159,10 +159,10 @@
   justify-self: center;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 16px;
+  gap: 6px;
+  padding: 5px 13px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 800;
   letter-spacing: .01em;
 }
@@ -176,23 +176,23 @@
 .acessoCard .loginTitle {
   text-align: center;
   color: #ffffff;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 900;
-  margin: 8px 0 2px;
+  margin: 4px 0 0;
 }
 
 /* O formulário precisa empilhar rótulos e campos em coluna única. */
 .acessoFormWrap,
 .acessoPendenteWrap {
   display: grid;
-  gap: 11px;
+  gap: 9px;
   min-width: 0; /* permite o conteúdo encolher dentro do card */
 }
 
 /* ---- Rótulos e campos (tema escuro) ---- */
 .acessoCard .loginLabel {
   color: #a7c1e3;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
 }
 
@@ -202,9 +202,9 @@
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  height: 44px;
+  height: 40px;
   border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 12px;
+  border-radius: 11px;
   background: rgba(255, 255, 255, .06);
   color: #eaf2ff;
   font-weight: 700;
@@ -376,11 +376,11 @@
 
 .acTextarea {
   height: auto;
-  min-height: 74px;
-  padding: 10px 12px;
+  min-height: 58px;
+  padding: 9px 12px;
   resize: vertical;
   font-family: inherit;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 /* ---- Seletor de tipo de unidade (abas) — tema escuro ---- */
@@ -435,10 +435,10 @@
   border-radius: 11px;
   background: transparent;
   color: #9db9dd;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
-  padding: 10px 6px;
+  padding: 8px 6px;
   min-width: 0;
   cursor: pointer;
   transition: color .25s ease;
@@ -453,7 +453,7 @@
 /* Cada campo (rótulo + controle) é uma unidade que pode ser ocultada por tipo. */
 .acField {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 .acField[hidden] { display: none !important; }
@@ -464,8 +464,9 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  height: 48px;
-  border-radius: 12px;
+  height: 44px;
+  margin-top: 4px;
+  border-radius: 11px;
 }
 .acessoCard .loginBtn i { font-size: 13px; }
 
@@ -480,17 +481,17 @@
 /* ---- Estado "solicitação pendente" (após o envio) ---- */
 .acessoPendenteWrap {
   display: grid;
-  gap: 11px;
+  gap: 9px;
   text-align: center;
 }
 .acPendInfo {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   text-align: left;
   background: rgba(255, 255, 255, .05);
   border: 1px solid rgba(255, 255, 255, .10);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 .acPendInfo div { display: grid; gap: 2px; }
 .acPendInfo span { color: #8fb0d8; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
