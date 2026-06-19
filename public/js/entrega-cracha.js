@@ -10,6 +10,10 @@
 import { escapeHtml } from "./utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
+import { ordenarLista, registrarOrdenacao } from "./ordenacao.js";
+
+// Getters de ordenação (Possui Foto exibido como Sim/Não).
+const EC_ORDENACAO_GETTERS = { possuiFoto: s => (s.possuiFoto ? "Sim" : "Não") };
 
 const PAGE_SIZE = 10;
 const NIVEL_ADMIN = 2;
@@ -161,7 +165,7 @@ function render() {
 
   renderKpis(aplicarFiltros(true));
 
-  const lista = aplicarFiltros();
+  const lista = ordenarLista("ec", aplicarFiltros(), EC_ORDENACAO_GETTERS);
   const totalPaginas = Math.max(1, Math.ceil(lista.length / PAGE_SIZE));
   if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
   const inicio = (paginaAtual - 1) * PAGE_SIZE;
@@ -522,6 +526,8 @@ export function configurarEntregaCracha() {
   const raiz = $("view-entregaCracha");
   if (!raiz) return;
   entregaCrachaConfigurada = true;
+
+  registrarOrdenacao("ec", () => { paginaAtual = 1; render(); });
 
   raiz.classList.toggle("ec-readonly", !podeEditar());
 

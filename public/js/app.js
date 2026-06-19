@@ -11,6 +11,7 @@ import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { configurarEntregaCracha } from "./entrega-cracha.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
+import { inicializarOrdenacao, marcarTabelasDOM } from "./ordenacao.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -35,6 +36,10 @@ export async function init() {
   configurarEntregaCracha();
   configurarGestaoDisciplinar();
   configurarProcessosSeletivos();
+  // Ordenação por clique no cabeçalho (um listener global para todas as tabelas).
+  inicializarOrdenacao();
+  // Gestão de Férias é maquete (sem render próprio): ordenação direta no DOM.
+  marcarTabelasDOM("#view-gestaoFerias table.gfTable");
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();

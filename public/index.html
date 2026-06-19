@@ -710,11 +710,11 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>DSEI/CASAI</th>
-                    <th>Cargo</th>
-                    <th>Tipo de Alerta</th>
-                    <th>Detalhe</th>
-                    <th>Observação</th>
+                    <th class="sortable" data-ordenar="alertas" data-key="dsei">DSEI/CASAI</th>
+                    <th class="sortable" data-ordenar="alertas" data-key="cargo">Cargo</th>
+                    <th class="sortable" data-ordenar="alertas" data-key="tipo">Tipo de Alerta</th>
+                    <th class="sortable" data-ordenar="alertas" data-key="detalhe">Detalhe</th>
+                    <th class="sortable" data-ordenar="alertas" data-key="observacao">Observação</th>
                   </tr>
                 </thead>
                 <tbody id="alertasBody"></tbody>
@@ -1272,14 +1272,14 @@
               <table class="ecTable">
                 <thead>
                   <tr>
-                    <th>Matrícula</th>
-                    <th>DSEI</th>
-                    <th>Nome</th>
-                    <th>Cargo</th>
-                    <th>Data da Solicitação</th>
-                    <th class="ecTd-center">Possui Foto</th>
-                    <th>Data de Envio</th>
-                    <th>Status</th>
+                    <th class="sortable" data-ordenar="ec" data-key="matricula">Matrícula</th>
+                    <th class="sortable" data-ordenar="ec" data-key="dsei">DSEI</th>
+                    <th class="sortable" data-ordenar="ec" data-key="nome">Nome</th>
+                    <th class="sortable" data-ordenar="ec" data-key="cargo">Cargo</th>
+                    <th class="sortable" data-ordenar="ec" data-key="dataSolicitacao">Data da Solicitação</th>
+                    <th class="ecTd-center sortable" data-ordenar="ec" data-key="possuiFoto">Possui Foto</th>
+                    <th class="sortable" data-ordenar="ec" data-key="dataEnvio">Data de Envio</th>
+                    <th class="sortable" data-ordenar="ec" data-key="status">Status</th>
                     <th class="ecTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -1598,18 +1598,18 @@
               <table class="gfTable">
                 <thead>
                   <tr>
-                    <th>Nº Processo SEI</th>
-                    <th>DSEI</th>
-                    <th>Trabalhador</th>
-                    <th>Cargo</th>
-                    <th>Polo Base / CASAI</th>
-                    <th>Data da Ocorrência</th>
-                    <th>Pedido</th>
-                    <th>Status da Demanda</th>
-                    <th>Atendimento</th>
-                    <th>Decisão</th>
-                    <th>Data de Aplicação da Sanção</th>
-                    <th>Data do Pedido</th>
+                    <th class="sortable" data-ordenar="gd" data-key="processo">Nº Processo SEI</th>
+                    <th class="sortable" data-ordenar="gd" data-key="dsei">DSEI</th>
+                    <th class="sortable" data-ordenar="gd" data-key="trabalhador">Trabalhador</th>
+                    <th class="sortable" data-ordenar="gd" data-key="cargo">Cargo</th>
+                    <th class="sortable" data-ordenar="gd" data-key="polo">Polo Base / CASAI</th>
+                    <th class="sortable" data-ordenar="gd" data-key="ocorrencia">Data da Ocorrência</th>
+                    <th class="sortable" data-ordenar="gd" data-key="pedido">Pedido</th>
+                    <th class="sortable" data-ordenar="gd" data-key="status">Status da Demanda</th>
+                    <th class="sortable" data-ordenar="gd" data-key="atendimento">Atendimento</th>
+                    <th class="sortable" data-ordenar="gd" data-key="decisao">Decisão</th>
+                    <th class="sortable" data-ordenar="gd" data-key="dataSancao">Data de Aplicação da Sanção</th>
+                    <th class="sortable" data-ordenar="gd" data-key="dataPedido">Data do Pedido</th>
                     <th class="gfTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -1647,44 +1647,44 @@
         <section id="view-processosSeletivos" class="viewPanel processosSeletivosView">
           <div class="psPageHeader">
             <div>
-              <h2>Processos Seletivos em Aberto</h2>
-              <p>Acompanhe e cadastre os processos seletivos da Saúde Indígena, defina o status de cada um e
-                visualize vagas, convocados, desistentes e o detalhamento dos candidatos.</p>
+              <h2>Processos Seletivos</h2>
+              <p>Acompanhamento dos editais de Processo Seletivo Simplificado (PSS) da Saúde Indígena por unidade,
+                com situação, etapa e os números de vagas, contratações e inscrições.</p>
             </div>
             <div class="psHeaderActions">
-              <select class="psSelect" id="psFiltroDsei" aria-label="Filtrar por DSEI">
-                <option value="">Todos os DSEIs</option>
+              <select class="psSelect" id="psFiltroUnidade" aria-label="Filtrar por unidade">
+                <option value="">Todas as unidades</option>
+              </select>
+              <select class="psSelect" id="psFiltroStatus" aria-label="Filtrar por status">
+                <option value="">Todos os status</option>
               </select>
               <div class="psSearchBox">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input class="psSearch" id="psBusca" type="search" placeholder="Buscar processo seletivo...">
+                <input class="psSearch" id="psBusca" type="search" placeholder="Buscar por unidade, edital, etapa...">
               </div>
-              <button type="button" class="psBtn" id="psBtnNovo">
-                <i class="fa-solid fa-plus"></i> Novo Processo Seletivo
-              </button>
             </div>
           </div>
 
           <div class="psKpiGrid">
             <div class="psKpi">
-              <div class="psKpiLabel">Total de Processos</div>
+              <div class="psKpiLabel">Total de Editais</div>
               <div class="psKpiValue" id="psKpiTotal">0</div>
             </div>
             <div class="psKpi">
-              <div class="psKpiLabel">Não Iniciados</div>
-              <div class="psKpiValue is-muted" id="psKpiNaoIniciado">0</div>
-            </div>
-            <div class="psKpi">
               <div class="psKpiLabel">Em Andamento</div>
-              <div class="psKpiValue is-green" id="psKpiAndamento">0</div>
+              <div class="psKpiValue is-orange" id="psKpiAndamento">0</div>
             </div>
             <div class="psKpi">
-              <div class="psKpiLabel">Encerrando em Breve</div>
-              <div class="psKpiValue is-orange" id="psKpiBreve">0</div>
+              <div class="psKpiLabel">Concluídos</div>
+              <div class="psKpiValue is-green" id="psKpiConcluido">0</div>
             </div>
             <div class="psKpi">
-              <div class="psKpiLabel">Encerrados</div>
-              <div class="psKpiValue is-red" id="psKpiEncerrado">0</div>
+              <div class="psKpiLabel">Cancelados</div>
+              <div class="psKpiValue is-red" id="psKpiCancelado">0</div>
+            </div>
+            <div class="psKpi">
+              <div class="psKpiLabel">Vagas Previstas</div>
+              <div class="psKpiValue is-muted" id="psKpiVagas">0</div>
             </div>
           </div>
 
@@ -1693,13 +1693,13 @@
               <table class="psTable">
                 <thead>
                   <tr>
-                    <th>Processo Seletivo</th>
-                    <th>DSEI</th>
-                    <th>Unidade</th>
-                    <th>Data Início</th>
-                    <th>Divulgação Resultado Final</th>
-                    <th>Data Fim (Vigência)</th>
-                    <th>Status</th>
+                    <th class="sortable" data-ordenar="ps" data-key="unidade">Unidade</th>
+                    <th class="psTd-center sortable" data-ordenar="ps" data-key="uf">UF</th>
+                    <th class="psTd-center sortable" data-ordenar="ps" data-key="edital">Edital</th>
+                    <th class="psTd-center sortable" data-ordenar="ps" data-key="dataInicio">Data de Início</th>
+                    <th class="psTd-center sortable" data-ordenar="ps" data-key="dataEncerramento">Data de Encerramento</th>
+                    <th class="sortable" data-ordenar="ps" data-key="status">Status</th>
+                    <th class="sortable" data-ordenar="ps" data-key="responsavel">Responsável</th>
                     <th class="psTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -1707,7 +1707,7 @@
               </table>
             </div>
             <div class="psTableFoot">
-              <span id="psContador">Nenhum processo cadastrado.</span>
+              <span id="psContador">Nenhum edital cadastrado.</span>
               <div class="psPaginacao" id="psPaginacao"></div>
             </div>
           </section>
@@ -1982,15 +1982,15 @@
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>Data</th>
-                      <th>DSEI</th>
-                      <th>Competência</th>
-                      <th>Vaga Reduzida</th>
-                      <th>Valor Reduzido</th>
-                      <th>Vaga Acrescentada</th>
-                      <th>Valor Acrescentado</th>
-                      <th>Impacto Mensal</th>
-                      <th>Responsável</th>
+                      <th class="sortable" data-ordenar="rem" data-key="data">Data</th>
+                      <th class="sortable" data-ordenar="rem" data-key="dseiCasai">DSEI</th>
+                      <th class="sortable" data-ordenar="rem" data-key="competencia">Competência</th>
+                      <th class="sortable" data-ordenar="rem" data-key="cargosReduzidos">Vaga Reduzida</th>
+                      <th class="sortable" data-ordenar="rem" data-key="totalReduzidoPeriodo">Valor Reduzido</th>
+                      <th class="sortable" data-ordenar="rem" data-key="cargosAcrescentados">Vaga Acrescentada</th>
+                      <th class="sortable" data-ordenar="rem" data-key="totalAcrescentadoPeriodo">Valor Acrescentado</th>
+                      <th class="sortable" data-ordenar="rem" data-key="impactoMensal">Impacto Mensal</th>
+                      <th class="sortable" data-ordenar="rem" data-key="responsavel">Responsável</th>
                       <th>Ações</th>
                     </tr>
                   </thead>

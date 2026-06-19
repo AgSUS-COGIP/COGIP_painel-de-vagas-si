@@ -700,9 +700,19 @@ body:not(.modoPainelFixo) .app {
   transform: none !important;
 }
 
-/* Sidebar: nas demais abas (sem escala) o menu pode rolar para nunca
-   cortar a assinatura da Coordenação em telas/zoom mais baixos. */
+/* Sidebar: nas demais abas (sem escala) a SIDEBAR INTEIRA rola como uma única
+   área (marca + menu + assinatura), com uma única barra cobrindo tudo. O .nav
+   não rola sozinho — assume a altura total dos seus itens — para não criar uma
+   segunda barra restrita só ao menu. overscroll-behavior: contain impede que a
+   rolagem "vaze" para o conteúdo da aba. */
 body:not(.modoPainelFixo) .sidebar {
   overflow-y: auto !important;
   overflow-x: hidden !important;
+  overscroll-behavior: contain;
+}
+
+body:not(.modoPainelFixo) .nav {
+  flex: 0 0 auto !important;
+  min-height: auto !important;
+  overflow: visible !important;
 }

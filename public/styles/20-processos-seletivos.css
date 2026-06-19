@@ -476,6 +476,53 @@
   letter-spacing: .4px;
 }
 
+/* Detalhe do edital: lista de campos (rótulo + valor) e observações. */
+.psInfoGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.psInfoItem {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(0, 83, 166, .10);
+}
+
+.psInfoLabel {
+  color: #4a6a93;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.psInfoValor {
+  color: #07346b;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.psObservacoes {
+  margin: 0;
+  color: #0b2445;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.psSemObs {
+  color: #6b7d96;
+  font-weight: 700;
+  font-style: italic;
+}
+
 /* Cabeçalho do acompanhamento: título + chips de cargo. */
 .psBlocoHead {
   display: flex;
@@ -524,6 +571,18 @@
 
 .psTableSub { font-size: 11.5px; }
 .psTableSub th { font-size: 10px; }
+.psTableSub td { white-space: normal; }
+
+/* Bloco do quadro de vagas ocupa a largura toda (abaixo do grid 2 colunas). */
+.psBlocoFull { margin-top: 4px; }
+.psBlocoFull .psTableWrap { margin-top: 2px; }
+
+.psBlocoMeta {
+  color: #6b86a8;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: none;
+}
 
 .psTotalRow td {
   background: rgba(0, 69, 127, .08) !important;

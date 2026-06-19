@@ -1,0 +1,34 @@
+/* =========================================================
+   CABEÇALHOS DE TABELA UNIFICADOS (padrão da aba Vagas)
+   Em vez de um gradiente reiniciando em cada coluna, aplica um
+   ÚNICO fade contínuo no fundo do cabeçalho (fixo em relação à
+   viewport, como na aba Vagas) e separa as colunas por barras
+   verticais (border-right). A aba Vagas já segue este padrão e
+   não é alterada aqui.
+========================================================= */
+
+.gfTable th,
+.ecTable th,
+.psTable th,
+.remTable th,
+.remHistoryTable th,
+#view-alertas .fullTable th {
+  /* Fade único e contínuo: cada célula amostra a mesma faixa do
+     gradiente fixo na viewport, sem reiniciar por coluna. */
+  background-image: linear-gradient(90deg, #005aa9, #006dcc) !important;
+  background-attachment: fixed !important;
+  background-size: 100vw 100% !important;
+  background-color: transparent !important;
+  background-repeat: no-repeat !important;
+  /* Barra de separação entre colunas. */
+  border-right: 1px solid rgba(255, 255, 255, .25) !important;
+}
+
+.gfTable th:last-child,
+.ecTable th:last-child,
+.psTable th:last-child,
+.remTable th:last-child,
+.remHistoryTable th:last-child,
+#view-alertas .fullTable th:last-child {
+  border-right: none !important;
+}

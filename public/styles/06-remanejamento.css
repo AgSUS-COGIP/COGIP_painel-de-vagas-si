@@ -868,23 +868,30 @@
       flex-wrap: wrap;
     }
 
-    .fullTable th.sortable {
+    .fullTable th.sortable,
+    th.sortable {
       cursor: pointer;
       user-select: none;
+      white-space: nowrap;
     }
 
-    .fullTable th.sortable::after {
+    .fullTable th.sortable::after,
+    th.sortable::after {
       content: " \2195";
       font-size: 10px;
-      opacity: .75;
+      opacity: .55;
     }
 
-    .fullTable th.sortable.sortAsc::after {
+    .fullTable th.sortable.sortAsc::after,
+    th.sortable.sortAsc::after {
       content: " \2191";
+      opacity: 1;
     }
 
-    .fullTable th.sortable.sortDesc::after {
+    .fullTable th.sortable.sortDesc::after,
+    th.sortable.sortDesc::after {
       content: " \2193";
+      opacity: 1;
     }
 
     #view-vagas .fullTable th.colOciosasHead,
@@ -923,8 +930,11 @@
       gap: 10px;
     }
 
+    /* Apenas 2 filhos: a grade de KPIs (auto) e o cartão de informações.
+       O cartão recebe 1fr para preencher a altura restante — sem isso sobra
+       uma faixa vazia embaixo do cartão. */
     #view-alertas.tableView {
-      grid-template-rows: auto auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 14px;
       overflow: hidden;
       min-height: 0;

@@ -8,6 +8,7 @@
 // Obs.: por padrão do painel, as pessoas são sempre "trabalhadores".
 // =========================================================
 import { escapeHtml } from "./utils.js";
+import { ordenarLista, registrarOrdenacao } from "./ordenacao.js";
 
 // ---------- Dados de exemplo ----------
 // Cada item é um pedido disciplinar encaminhado por um DSEI. Os campos
@@ -245,7 +246,7 @@ function renderTabela() {
   const body = $("gdTableBody");
   const info = $("gdTableInfo");
   if (!body) return;
-  const linhas = registrosFiltrados();
+  const linhas = ordenarLista("gd", registrosFiltrados());
 
   body.innerHTML = linhas.map(r => `
     <tr class="gdRow${r.processo === processoSelecionado ? " is-selected" : ""}" data-gd-processo="${escapeHtml(r.processo)}">
@@ -449,6 +450,8 @@ export function configurarGestaoDisciplinar() {
   const raiz = $("view-gestaoDisciplinar");
   if (!raiz) return;
   gestaoDisciplinarConfigurada = true;
+
+  registrarOrdenacao("gd", () => renderTabela());
 
   preencherFiltros();
   preencherDatalists();

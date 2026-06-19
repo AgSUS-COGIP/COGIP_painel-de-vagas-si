@@ -3,7 +3,11 @@ import { filtrarRowsBase } from "./app.js";
 import { getSelectedValues } from "./filtros.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
+import { ordenarLista, registrarOrdenacao } from "./ordenacao.js";
 import { escapeAttr, escapeHtml, formatNumber, normalizarTextoPainel } from "./utils.js";
+
+// Re-renderiza a tabela ao clicar num cabeçalho ordenável.
+registrarOrdenacao("alertas", () => renderAlertasTable(state.alertasRows || []));
 
 export function renderAlertasDaPagina() {
   const tbody = document.getElementById("alertasBody");
@@ -123,6 +127,8 @@ export function renderAlertasTable(rows) {
     if (pagination) pagination.innerHTML = "";
     return;
   }
+
+  rows = ordenarLista("alertas", rows);
 
   tbody.innerHTML = rows.map(row => {
     const chave = row.chave || gerarChaveAlerta(row);
