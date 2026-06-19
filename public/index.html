@@ -41,7 +41,7 @@
           </div>
 
           <div class="loginHeading">
-            <div class="loginTitle">Bem-vindo ao AgSUS</div>
+            <div class="loginTitle">Seja bem-vindo(a) à AgSUS</div>
             <div class="loginSubtitle">Acesse o sistema com sua conta institucional.</div>
           </div>
 
@@ -63,18 +63,32 @@
 
   <!-- Tela de acesso pendente: usuário autenticado, mas ainda sem liberação -->
   <div id="acessoPendenteScreen" class="loginScreen acessoScreen" style="display:none;">
-    <div class="loadingDecorLeft" aria-hidden="true"></div>
-    <div class="loadingDecorRight" aria-hidden="true"></div>
+    <!-- Marca institucional (lado esquerdo, sobre o fundo) -->
+    <aside class="acessoBrandPane" aria-hidden="true">
+      <img class="acessoBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+      <div class="acessoBrandTitle">Ag<strong>SUS</strong></div>
+      <div class="acessoBrandSubtitle">EGO - Ecossistema de Gerenciamento<br>Organizacional</div>
+      <div class="acessoBrandTagline">ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ</div>
+      <div class="acessoBrandSecure">
+        <i class="fa-solid fa-shield-halved fa-xs" aria-hidden="true"></i>
+        <div>
+          <strong>Acesso seguro e institucional</strong>
+          <span>Seus dados estão protegidos</span>
+        </div>
+      </div>
+    </aside>
+
     <div class="loginCard acessoCard">
-      <div class="loadingBrand">
-        <img class="loadingBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
-        <div class="loadingBrandTitle">AgSUS</div>
-        <div class="loadingBrandSubtitle">SAÚDE INDÍGENA</div>
+      <div class="acessoCardBrand">
+        <img class="acessoCardLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+        <div class="acessoCardBrandText">Ag<strong>SUS</strong><span>SAÚDE INDÍGENA</span></div>
       </div>
 
       <!-- Estado: solicitação pendente (exibido após o envio) -->
       <div id="acessoPendenteWrap" class="acessoPendenteWrap" style="display:none;">
-        <div class="acessoPendenteIcon"><i class="fa-solid fa-hourglass-half"></i></div>
+        <div class="acessoBadge acessoBadgeWarn">
+          <i class="fa-regular fa-clock" aria-hidden="true"></i> Aguardando validação
+        </div>
         <div class="loginTitle">Solicitação pendente</div>
         <div id="acPendBanner" class="acessoStatusBanner statusPendente"></div>
         <div id="acPendInfo" class="acPendInfo"></div>
@@ -84,6 +98,9 @@
 
       <!-- Estado: formulário (novo pedido ou reenvio após recusa) -->
       <form id="acessoForm" class="acessoFormWrap" autocomplete="off">
+        <div class="acessoBadge acessoBadgeWarn">
+          <i class="fa-regular fa-clock" aria-hidden="true"></i> Ação necessária
+        </div>
         <div class="loginTitle">Solicitação de acesso</div>
 
         <div id="acessoStatusBanner" class="acessoStatusBanner statusNovo"></div>

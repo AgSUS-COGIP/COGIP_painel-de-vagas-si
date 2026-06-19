@@ -2,6 +2,7 @@
 // - Usuário sem acesso aprovado: envia/acompanha a solicitação (formulário <-> tela pendente).
 // - Administradores (nível >= 2): gerenciam solicitações (aprovar via modal, recusar via caixa inline).
 import { apiGet, apiPost } from "./api.js";
+import { configurarGlassDropdowns } from "./dropdown.js";
 import { abrirModal } from "./modal.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
@@ -481,6 +482,10 @@ export function configurarAcesso() {
     cargoSel.addEventListener("change", atualizarCargoOutro);
   }
   aplicarTipoAcesso(tipoAcessoAtual);
+
+  // Substitui os <select> da tela de acesso por dropdowns customizados
+  // (glassmorphism no menu de opções). O <select> nativo segue como fonte de dados.
+  configurarGlassDropdowns();
   ["acLogoutBtn", "acLogoutBtn2"].forEach(idBtn => {
     const b = el(idBtn);
     if (b && !b.dataset.bound) { b.dataset.bound = "1"; b.addEventListener("click", sair); }

@@ -2,104 +2,423 @@
    Fluxo de solicitação/aprovação de acesso
 ========================================================= */
 
-/* ---- Tela do usuário: acesso pendente ---- */
+/* =========================================================
+   TELA DO USUÁRIO: acesso pendente / solicitação de acesso
+   Layout dividido (marca à esquerda + card central) sobre a
+   imagem institucional, no estilo da tela de login.
+   Tema escuro/glassmorphism — escopo restrito a .acessoScreen
+   para não afetar o painel admin (.solCard) nem o #loginScreen.
+========================================================= */
+
+/* ---- Container: fundo institucional + overlay navy ---- */
+.acessoScreen {
+  padding: 24px;
+  background-color: #03152f;
+  background-image:
+    linear-gradient(105deg, rgba(3, 17, 41, .96) 0%, rgba(4, 26, 65, .80) 42%, rgba(5, 30, 74, .34) 100%),
+    url("../assets/images/bg-login.png");
+  background-size: cover, cover;
+  background-position: center, right center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+/* ---- Marca institucional (coluna esquerda, sobre o fundo) ---- */
+.acessoBrandPane {
+  position: fixed;
+  left: clamp(40px, 7vw, 120px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 4px;
+  max-width: 300px;
+  pointer-events: none;
+}
+.acessoBrandLogo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .45));
+  margin-bottom: 6px;
+}
+.acessoBrandTitle {
+  color: #ffffff;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+.acessoBrandTitle strong { color: #4aa8ff; font-weight: 900; }
+.acessoBrandSubtitle {
+  margin-top: 4px;
+  color: #9db9dd;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.acessoBrandTagline {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+  color: #eef5ff;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.acessoBrandSecure {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.acessoBrandSecure i { color: #57d98a; font-size: 14px; }
+.acessoBrandSecure strong { display: block; color: #cfe0f5; font-size: 12.5px; font-weight: 800; }
+.acessoBrandSecure span { display: block; color: #7e98ba; font-size: 11.5px; font-weight: 600; }
+
+/* ---- Rodapé institucional (canto inferior esquerdo) ---- */
+.acessoFooter {
+  position: fixed;
+  left: clamp(40px, 7vw, 120px);
+  bottom: 28px;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  color: #6f88aa;
+  font-size: 11.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ---- Card central (glassmorphism escuro) ---- */
 .acessoCard {
-  width: min(94vw, 420px);
+  width: min(94vw, 440px);
   max-height: 94vh;
   overflow-y: auto;
   overflow-x: hidden; /* nunca rolar horizontalmente */
+  padding: 30px 30px 26px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(15, 38, 74, .82), rgba(8, 24, 52, .88));
+  border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 30px 80px rgba(0, 12, 36, .55), inset 0 1px 0 rgba(255, 255, 255, .08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  /* Barra de rolagem fina e clara (Firefox). */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .28) transparent;
 }
 
-/* O formulário precisa empilhar rótulos e campos em coluna única
-   (o .loginCard que tinha o grid agora é o container externo). */
+/* Barra de rolagem vertical do card (Chrome/Edge/Safari) — combina com o tema escuro. */
+.acessoCard::-webkit-scrollbar { width: 10px; }
+.acessoCard::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 14px 0;
+}
+.acessoCard::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .22);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.acessoCard::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, .38);
+  background-clip: padding-box;
+}
+
+/* Marca no topo do card (logo + AgSUS Saúde Indígena) */
+.acessoCardBrand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.acessoCardLogo { width: 52px; height: 52px; object-fit: contain; }
+.acessoCardBrandText {
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.acessoCardBrandText strong { color: #4aa8ff; font-weight: 900; }
+.acessoCardBrandText span {
+  display: block;
+  margin-top: 3px;
+  color: #8fb0d8;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* Badge âmbar "Aguardando validação" / "Ação necessária" */
+.acessoBadge {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+.acessoBadgeWarn {
+  background: rgba(243, 187, 24, .14);
+  border: 1px solid rgba(243, 187, 24, .42);
+  color: #f3c233;
+}
+
+/* Título e mensagem no tema escuro */
+.acessoCard .loginTitle {
+  text-align: center;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 900;
+  margin: 8px 0 2px;
+}
+
+/* O formulário precisa empilhar rótulos e campos em coluna única. */
 .acessoFormWrap,
 .acessoPendenteWrap {
   display: grid;
-  gap: 10px;
+  gap: 11px;
   min-width: 0; /* permite o conteúdo encolher dentro do card */
 }
 
-/* Campos e dropdowns nunca ultrapassam a largura do card:
-   sem isso, um <option> longo força a coluna a crescer e gera scroll horizontal. */
+/* ---- Rótulos e campos (tema escuro) ---- */
+.acessoCard .loginLabel {
+  color: #a7c1e3;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* Campos e dropdowns nunca ultrapassam a largura do card. */
 .acessoCard .loginInput {
   width: 100%;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .06);
+  color: #eaf2ff;
+  font-weight: 700;
 }
-.acessoCard select.loginInput { text-overflow: ellipsis; }
+.acessoCard .loginInput::placeholder { color: #7e96b8; font-weight: 600; }
+.acessoCard .loginInput:focus {
+  border-color: rgba(74, 168, 255, .7);
+  box-shadow: 0 0 0 3px rgba(74, 168, 255, .16);
+  background-color: rgba(255, 255, 255, .1);
+}
+.acessoCard .loginInput[readonly] { color: #b9cce6; opacity: .85; }
+/* <select> nativo: mantém o visual de campo (fallback caso o JS do dropdown
+   customizado não rode). Quando aprimorado, fica oculto (.glassSelectNative). */
+.acessoCard select.loginInput {
+  text-overflow: ellipsis;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237e96b8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+}
+.acessoCard select.loginInput option,
+.acessoCard select.loginInput optgroup {
+  background: #0b2347;
+  color: #eaf2ff;
+  font-weight: 700;
+}
+.acessoCard select.loginInput option[value=""] { color: #8fb0d8; }
+
+/* =========================================================
+   Dropdown customizado (glassmorphism) — usado na tela de acesso.
+   O <select> nativo permanece como fonte de dados (oculto) e a
+   lista de opções é renderizada aqui, com vidro translúcido.
+========================================================= */
+.glassSelect { position: relative; min-width: 0; }
+
+/* <select> nativo escondido, mas presente no DOM (value/options/change). */
+.glassSelectNative {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Botão (campo fechado) — herda o visual de .loginInput. */
+.glassSelectTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  /* Mesma tipografia dos demais campos (.loginInput), sem o reset do atalho `font`. */
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.glassSelectLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.glassSelectTrigger[data-placeholder] .glassSelectLabel {
+  color: #7e96b8;
+  font-weight: 600;
+}
+.glassSelectArrow {
+  flex: 0 0 auto;
+  color: #7e96b8;
+  font-size: 11px;
+  transition: transform .25s ease;
+}
+.glassSelect.open .glassSelectArrow { transform: rotate(180deg); }
+.glassSelect.open .glassSelectTrigger {
+  border-color: rgba(74, 168, 255, .7);
+  box-shadow: 0 0 0 3px rgba(74, 168, 255, .16);
+  background-color: rgba(255, 255, 255, .1);
+}
+
+/* Menu de opções — o glassmorphism de verdade vive aqui. */
+.glassSelectMenu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  max-height: 244px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(22, 48, 90, .55), rgba(9, 26, 56, .62));
+  border: 1px solid rgba(255, 255, 255, .18);
+  box-shadow: 0 22px 54px rgba(0, 10, 32, .55), inset 0 1px 0 rgba(255, 255, 255, .12);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  opacity: 0;
+  transform: translateY(-6px) scale(.99);
+  transform-origin: top;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.glassSelect.open .glassSelectMenu {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.glassSelectOption {
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  color: #dce9fb;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  transition: background-color .15s ease;
+}
+.glassSelectOption:hover { background: rgba(255, 255, 255, .1); }
+.glassSelectOption.isSelected { background: rgba(74, 168, 255, .22); color: #ffffff; }
+.glassSelectOption.isPlaceholder { color: #8fb0d8; font-weight: 600; }
+
+.glassSelectMenu::-webkit-scrollbar { width: 8px; }
+.glassSelectMenu::-webkit-scrollbar-track { background: transparent; margin: 6px 0; }
+.glassSelectMenu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .22);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.glassSelectMenu::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .38); background-clip: padding-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  .glassSelectMenu { transition: none; }
+  .glassSelectArrow { transition: none; }
+}
 
 .acessoStatusBanner {
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 12px;
   font-weight: 700;
-  line-height: 1.35;
-  color: #07346b;
+  line-height: 1.4;
+  color: #dce9fb;
 }
-.acessoStatusBanner.statusNovo { background: rgba(0, 109, 204, .10); }
-.acessoStatusBanner.statusPendente { background: rgba(243, 187, 24, .18); }
-.acessoStatusBanner.statusRecusado { background: rgba(220, 63, 63, .14); color: #8a1c1c; }
+.acessoStatusBanner b { color: #ffffff; }
+.acessoStatusBanner.statusNovo { background: rgba(74, 168, 255, .12); border: 1px solid rgba(74, 168, 255, .26); }
+.acessoStatusBanner.statusPendente { background: rgba(243, 187, 24, .12); border: 1px solid rgba(243, 187, 24, .30); color: #f6e6bf; }
+.acessoStatusBanner.statusRecusado { background: rgba(255, 99, 99, .12); border: 1px solid rgba(255, 99, 99, .32); color: #ffd2d2; }
 
 .acessoRecusaMotivo {
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 12px;
-  line-height: 1.35;
-  background: rgba(220, 63, 63, .10);
-  border: 1px solid rgba(220, 63, 63, .28);
-  color: #8a1c1c;
+  line-height: 1.4;
+  background: rgba(255, 99, 99, .10);
+  border: 1px solid rgba(255, 99, 99, .30);
+  color: #ffd2d2;
 }
+.acessoRecusaMotivo strong { color: #ffffff; }
 
 .acTextarea {
   height: auto;
-  min-height: 70px;
-  padding: 9px 12px;
+  min-height: 74px;
+  padding: 10px 12px;
   resize: vertical;
   font-family: inherit;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
-/* ---- Seletor de tipo de unidade (mesmo estilo das abas "Navegação Principal" da página de vagas) ---- */
+/* ---- Seletor de tipo de unidade (abas) — tema escuro ---- */
 .acTipoTabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
   gap: 8px;
-  background: rgba(0, 83, 166, .06);
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .10);
   border-radius: 16px;
-  padding: 8px;
+  padding: 6px;
   margin: 2px 0 4px;
   position: relative;
-  /* Largura de uma coluna (3 colunas, 2 gaps de 8px, padding 8px nas laterais). */
-  --tabCol: calc((100% - 16px - 16px) / 3);
+  --tabCol: calc((100% - 12px - 16px) / 3);
   --tabStep: calc(var(--tabCol) + 8px);
 }
 
-/* Pílula branca que desliza entre as abas (com leve bounce). */
+/* Pílula que desliza entre as abas (com leve bounce). */
 .acTipoTabs::before {
   content: "";
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 8px;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
   width: var(--tabCol);
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 12px 22px rgba(0, 63, 143, .16);
+  background: linear-gradient(135deg, #2f7fe0, #1a5bb5);
+  border-radius: 11px;
+  box-shadow: 0 8px 18px rgba(0, 40, 100, .4);
   z-index: 0;
   transition: left .42s cubic-bezier(.34, 1.56, .64, 1);
 }
-
-/* Posições da pílula conforme a aba ativa. */
 .acTipoTabs:has(.acTipoTab:nth-child(2).active)::before {
-  left: calc(8px + var(--tabStep));
+  left: calc(6px + var(--tabStep));
 }
 .acTipoTabs:has(.acTipoTab:nth-child(3).active)::before {
-  left: calc(8px + var(--tabStep) * 2);
+  left: calc(6px + var(--tabStep) * 2);
 }
-
-/* Nas pontas (1ª e última aba) sem bounce, para a pílula não escapar da barra. */
 .acTipoTabs:has(.acTipoTab:nth-child(1).active)::before,
 .acTipoTabs:has(.acTipoTab:nth-child(3).active)::before {
   transition: left .34s cubic-bezier(.4, 0, .2, 1);
@@ -113,19 +432,19 @@
   position: relative;
   z-index: 1;
   border: none;
-  border-radius: 12px;
+  border-radius: 11px;
   background: transparent;
-  color: #3a567d;
-  font-size: 12px;
-  font-weight: 900;
+  color: #9db9dd;
+  font-size: 11.5px;
+  font-weight: 800;
   line-height: 1.2;
-  padding: 11px 8px;
+  padding: 10px 6px;
   min-width: 0;
   cursor: pointer;
   transition: color .25s ease;
 }
-.acTipoTab:not(.active):hover { color: #07346b; }
-.acTipoTab.active { color: #0064d6; }
+.acTipoTab:not(.active):hover { color: #dce9fb; }
+.acTipoTab.active { color: #ffffff; }
 
 @media (prefers-reduced-motion: reduce) {
   .acTipoTabs::before { transition: none; }
@@ -139,34 +458,88 @@
 }
 .acField[hidden] { display: none !important; }
 
-/* Estado "solicitação pendente" (após o envio) */
+/* ---- Botões (tema escuro) ---- */
+.acessoCard .loginBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 48px;
+  border-radius: 12px;
+}
+.acessoCard .loginBtn i { font-size: 13px; }
+
+.loginBtnSecundario {
+  background: rgba(255, 255, 255, .07);
+  color: #dce9fb;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, .16);
+}
+.loginBtnSecundario:hover { background: rgba(255, 255, 255, .12); }
+
+/* ---- Estado "solicitação pendente" (após o envio) ---- */
 .acessoPendenteWrap {
   display: grid;
-  gap: 10px;
+  gap: 11px;
   text-align: center;
-}
-.acessoPendenteIcon {
-  font-size: 34px;
-  color: #c8920a;
 }
 .acPendInfo {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   text-align: left;
-  background: rgba(0, 83, 166, .05);
-  border: 1px solid rgba(0, 83, 166, .12);
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .10);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
-.acPendInfo div { display: grid; gap: 1px; }
-.acPendInfo span { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
-.acPendInfo strong { color: #07346b; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+.acPendInfo div { display: grid; gap: 2px; }
+.acPendInfo span { color: #8fb0d8; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
+.acPendInfo strong { color: #eaf2ff; font-size: 12.5px; font-weight: 800; overflow-wrap: anywhere; }
 
-.loginBtnSecundario {
-  background: linear-gradient(135deg, #eff7ff, #d8ecff);
-  color: #07346b;
-  box-shadow: none;
-  border: 1px solid rgba(0, 83, 166, .18);
+/* ---- Divisor "ou" ---- */
+.acessoDivisor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 2px;
+  color: #7e96b8;
+  font-size: 12px;
+  font-weight: 700;
+}
+.acessoDivisor::before,
+.acessoDivisor::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, .12);
+}
+
+/* ---- Bloco de suporte ("Precisa de ajuda?") ---- */
+.acessoSuporte {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  text-align: left;
+}
+.acessoSuporte i { color: #4aa8ff; font-size: 17px; }
+.acessoSuporte strong { display: block; color: #6db2ff; font-size: 12.5px; font-weight: 800; }
+.acessoSuporte span { display: block; color: #7e96b8; font-size: 11px; font-weight: 600; }
+
+.acessoCard .loginErro { color: #ff9a9a; }
+
+/* ---- Link "Sair" (tema escuro) ---- */
+.acessoCard .acLogoutLink {
+  justify-self: center;
+  color: #8fb0d8;
+}
+.acessoCard .acLogoutLink:hover { color: #cfe0f5; }
+
+/* ---- Responsivo: oculta a marca lateral e o rodapé ---- */
+@media (max-width: 900px) {
+  .acessoBrandPane,
+  .acessoFooter { display: none; }
+  .acessoScreen { background-position: center, center; }
 }
 
 /* Caixa de recusa inline (admin) */
