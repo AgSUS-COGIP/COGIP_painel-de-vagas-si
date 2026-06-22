@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell($p = \"c:\\\\Users\\\\iara.costa_agenciasu\\\\Documents\\\\GitHub\\\\COGIP_painel-de-vagas-si\\\\public\\\\js\\\\entrega-cracha.js\"; $t = [System.IO.File]::ReadAllText\\($p, [System.Text.Encoding]::UTF8\\); $bom = [char]0xFEFF; $find = 'const csv = \"' + $bom + '\"'; $repl = 'const csv = \"' + '﻿' + '\"'; $t = $t.Replace\\($find, $repl\\); [System.IO.File]::WriteAllText\\($p, $t, \\(New-Object System.Text.UTF8Encoding\\($false\\)\\)\\); \\(\\(Get-Content $p\\)[523]\\))",
-      "PowerShell($p = \"c:\\\\Users\\\\iara.costa_agenciasu\\\\Documents\\\\GitHub\\\\COGIP_painel-de-vagas-si\\\\public\\\\js\\\\entrega-cracha.js\"; $t = [System.IO.File]::ReadAllText\\($p, [System.Text.Encoding]::UTF8\\); $bom = [char]0xFEFF; $find = 'const csv = \"' + $bom + '\"'; $esc = [string]::Concat\\([char]0x5C,[char]0x75,[char]0x46,[char]0x45,[char]0x46,[char]0x46\\); $repl = 'const csv = \"' + $esc + '\"'; $t = $t.Replace\\($find, $repl\\); [System.IO.File]::WriteAllText\\($p, $t, \\(New-Object System.Text.UTF8Encoding\\($false\\)\\)\\); \\(\\(Get-Content $p\\)[523]\\))"
-    ]
-  }
-}
