@@ -203,6 +203,11 @@
           <span>Vagas</span>
         </div>
 
+        <div class="navItem" data-view="remanejamento">
+          <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
+          <span>Remanejamento</span>
+        </div>
+
         <div class="navItem" data-view="alertas">
           <span class="navIcon"><i class="fa-solid fa-circle-exclamation"></i></span>
           <span>Alertas</span>
@@ -212,11 +217,6 @@
         <div class="navItem" data-view="painelSaudeIndigena">
           <span class="navIcon"><i class="fa-solid fa-chart-column"></i></span>
           <span>Dashboard SI</span>
-        </div>
-
-        <div class="navItem" data-view="ferias">
-          <span class="navIcon"><i class="fa-solid fa-umbrella-beach"></i></span>
-          <span>Férias</span>
         </div>
 
         <div class="navItem" data-view="gestaoFerias">
@@ -231,10 +231,6 @@
         <div class="navItem" data-view="gestaoDisciplinar">
           <span class="navIcon"><i class="fa-solid fa-gavel"></i></span>
           <span>Gestão Disciplinar</span>
-        </div>
-        <div class="navItem" data-view="remanejamento">
-          <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
-          <span>Remanejamento</span>
         </div>
         <div class="navItem" data-view="processosSeletivos">
           <span class="navIcon"><i class="fa-solid fa-clipboard-list"></i></span>
@@ -256,13 +252,6 @@
         </button>
       </div>
 
-      <div class="sidebarCoord">
-        <div class="sidebarCoordImgWrap">
-          <img class="sidebarCoordImg" src="./assets/images/logo-cogip.png"
-            alt="Coordenação de Gestão da Informação de Pessoal">
-        </div>
-        <div class="sidebarCoordTitle">Coordenação de Gestão da Informação de Pessoal - COGIP</div>
-      </div>
     </aside>
 
     <main class="main">
@@ -750,36 +739,6 @@
 
             <iframe id="iframeDashboardSaudeIndigena" class="externalDashboardIframe" title="Dashboard Saúde Indígena"
               loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade">
-            </iframe>
-          </div>
-        </section>
-
-
-        <section id="view-ferias" class="viewPanel panelIframeView">
-          <div class="pageHeader">
-            <div>
-              <h2 class="pageTitle">Férias - Saúde Indígena</h2>
-              <div class="pageSub">Área reservada para incorporar o painel de férias específico desta página.</div>
-            </div>
-            <button id="btnAbrirPainelFerias" type="button" class="exportBtn" data-click="abrir-painel-ferias">
-              Abrir painel em nova aba
-            </button>
-          </div>
-
-          <div class="externalDashboardCard">
-            <div id="dashboardFeriasPlaceholder" class="externalDashboardPlaceholder">
-              <div class="externalDashboardPlaceholderBox">
-                <h3 class="externalDashboardPlaceholderTitle">Painel ainda não configurado</h3>
-                <p class="externalDashboardPlaceholderText">
-                  Esta categoria já está pronta. Para exibir o dashboard, informe o link de incorporação na
-                  configuração abaixo:
-                </p>
-                <span class="externalDashboardPlaceholderCode">DASHBOARD_FERIAS_URL</span>
-              </div>
-            </div>
-
-            <iframe id="iframeDashboardFerias" class="externalDashboardIframe" title="Dashboard Férias" loading="lazy"
-              allowfullscreen referrerpolicy="no-referrer-when-downgrade">
             </iframe>
           </div>
         </section>
