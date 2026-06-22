@@ -254,11 +254,28 @@ function irParaPagina(valor) {
 
 // ---------- Painel de detalhe ----------
 function timelineDe(s) {
-  const itens = [];
-  if (s.dataSolicitacao) itens.push({ data: s.dataSolicitacao, evento: "Solicitação registrada", ator: "" });
-  if (s.dataEnvio) itens.push({ data: s.dataEnvio, evento: "Enviado à gráfica", ator: "" });
-  itens.push({ data: s.atualizadoEm || "—", evento: `Status: ${s.status}`, ator: s.atualizadoPor || "" });
-  return itens;
+  const atualIdx = statusIndex(s.status);
+  const idxConfeccao = STATUS_LISTA.indexOf("Crachás em Confecção");
+
+  return STATUS_LISTA.map((etapa, idx) => {
+    const estado = idx < atualIdx ? "done" : (idx === atualIdx ? "atual" : "pendente");
+
+    let data = "";
+    let ator = "";
+    if (idx === 0 && s.dataSolicitacao) data = s.dataSolicitacao;          // entrada no funil
+    if (idx === idxConfeccao && s.dataEnvio) data = s.dataEnvio;           // envio à gráfica
+    if (idx === atualIdx) {                                                // última mudança registrada
+      if (s.atualizadoEm) data = s.atualizadoEm;
+      ator = s.atualizadoPor || "";
+    }
+
+    return {
+      estado,
+      data,
+      evento: idx === atualIdx ? `${etapa} (atual)` : etapa,
+      ator
+    };
+  });
 }
 
 function abrirDetalhe(id) {
@@ -285,8 +302,8 @@ function abrirDetalhe(id) {
   const timeline = $("ecDetTimeline");
   if (timeline) {
     timeline.innerHTML = timelineDe(s).map(i => `
-      <li class="ecTimelineItem">
-        <div class="ecTimelineDot"></div>
+      <li class="ecTimelineItem is-${i.estado}">
+        <div class="ecTimelineDot is-${i.estado}"></div>
         <div class="ecTimelineConteudo">
           <div class="ecTimelineQuando">${escapeHtml(i.data || "—")}</div>
           <div class="ecTimelineEvento">${escapeHtml(i.evento)}</div>
