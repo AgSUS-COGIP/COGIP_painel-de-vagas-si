@@ -10,7 +10,7 @@
 const aprimorados = [];
 
 function fecharTodos(exceto) {
-  aprimorados.forEach(w => { if (w !== exceto) w.classList.remove("open"); });
+  aprimorados.forEach(w => { if (w !== exceto && w._glassFechar) w._glassFechar(); });
 }
 
 function montarGlassSelect(select) {
@@ -39,7 +39,9 @@ function montarGlassSelect(select) {
   const menu = document.createElement("div");
   menu.className = "glassSelectMenu";
   menu.setAttribute("role", "listbox");
-  wrap.appendChild(menu);
+  // Portal: o menu vive no <body>, fora do card, para não ser recortado pelo
+  // overflow/backdrop-filter do .acessoCard. É posicionado via JS (position:fixed).
+  document.body.appendChild(menu);
 
   const label = trigger.querySelector(".glassSelectLabel");
 
@@ -76,28 +78,69 @@ function montarGlassSelect(select) {
           select.dispatchEvent(new Event("change", { bubbles: true }));
         }
         sincronizar();
-        wrap.classList.remove("open");
+        fechar();
       });
       menu.appendChild(item);
     });
   }
 
+  // Posiciona o menu como `position: fixed` ancorado ao gatilho, para que ele
+  // escape do recorte (overflow) do card. Abre para cima quando falta espaço abaixo.
+  const ALTURA_MAX = 244;
+  function posicionarMenu() {
+    const r = trigger.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const espacoAbaixo = vh - r.bottom;
+    const espacoAcima = r.top;
+    menu.style.position = "fixed";
+    menu.style.left = r.left + "px";
+    menu.style.width = r.width + "px";
+    menu.style.right = "auto";
+    const abrirAcima = espacoAbaixo < Math.min(ALTURA_MAX, 180) && espacoAcima > espacoAbaixo;
+    if (abrirAcima) {
+      menu.style.maxHeight = Math.min(ALTURA_MAX, espacoAcima - 12) + "px";
+      menu.style.top = "auto";
+      menu.style.bottom = (vh - r.top + 6) + "px";
+      menu.style.transformOrigin = "bottom";
+    } else {
+      menu.style.maxHeight = Math.min(ALTURA_MAX, espacoAbaixo - 12) + "px";
+      menu.style.bottom = "auto";
+      menu.style.top = (r.bottom + 6) + "px";
+      menu.style.transformOrigin = "top";
+    }
+  }
+
+  function reposicionar() { if (wrap.classList.contains("open")) posicionarMenu(); }
+
   function abrir() {
     fecharTodos(wrap);
     construirMenu();
-    wrap.classList.add("open");
+    wrap.classList.add("open");   // arrow girada / foco no gatilho
+    menu.classList.add("open");   // visibilidade do menu (no body)
+    posicionarMenu();
+    // Mantém o menu colado ao gatilho enquanto o card/janela rolam ou redimensionam.
+    window.addEventListener("scroll", reposicionar, true);
+    window.addEventListener("resize", reposicionar);
     const sel = menu.querySelector(".isSelected");
     if (sel) sel.scrollIntoView({ block: "nearest" });
   }
 
+  function fechar() {
+    wrap.classList.remove("open");
+    menu.classList.remove("open");
+    window.removeEventListener("scroll", reposicionar, true);
+    window.removeEventListener("resize", reposicionar);
+  }
+  wrap._glassFechar = fechar;
+
   trigger.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (wrap.classList.contains("open")) wrap.classList.remove("open");
+    if (wrap.classList.contains("open")) fechar();
     else abrir();
   });
   trigger.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); trigger.click(); }
-    else if (e.key === "Escape") wrap.classList.remove("open");
+    else if (e.key === "Escape") fechar();
   });
 
   // Mudanças de valor (usuário ou programáticas que disparem 'change') atualizam o rótulo.

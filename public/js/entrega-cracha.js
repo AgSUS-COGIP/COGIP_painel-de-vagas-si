@@ -7,7 +7,7 @@
 // CRUD persistido no banco (criar/editar/excluir/avançar/voltar status),
 // disponível apenas para administradores (nível >= 2).
 // =========================================================
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, valorCsv } from "./utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 
@@ -492,6 +492,48 @@ function limparFiltros() {
   render();
 }
 
+// ---------- Exportação (Excel / CSV) ----------
+// Exporta a lista atualmente filtrada (todas as páginas, não só a visível).
+// Gera CSV com BOM + separador ";" — abre direto no Excel, seguindo o padrão
+// usado nas demais abas do painel (exportacao.js).
+function exportarExcel() {
+  const lista = aplicarFiltros();
+  if (!lista.length) {
+    ecToast("Nenhum registro para exportar com os filtros atuais.", "erro");
+    return;
+  }
+
+  const rows = lista.map(s => ({
+    "Matrícula": s.matricula || "",
+    "DSEI": s.dsei || "",
+    "Escritório": escritorioDoDsei(s.dsei),
+    "Nome": s.nome || "",
+    "Cargo": s.cargo || "",
+    "Situação Funcional": s.situacaoDetalhada || "",
+    "Data da Solicitação": s.dataSolicitacao || "",
+    "Possui Foto": s.possuiFoto ? "Sim" : "Não",
+    "Data de Envio": s.dataEnvio || "",
+    "Status": s.status || "",
+    "Motivo (sem crachá)": s.motivo || "",
+    "Observação": s.observacao || "",
+    "Última atualização": s.atualizadoEm ? `${s.atualizadoEm}${s.atualizadoPor ? " · " + s.atualizadoPor : ""}` : ""
+  }));
+
+  const headers = Object.keys(rows[0]);
+  const linhas = [headers, ...rows.map(r => headers.map(h => r[h]))];
+  const csv = "\uFEFF" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "entrega_crachas.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ---------- Carregamento dos dados reais ----------
 async function carregarDados() {
   if (carregando) return;
@@ -541,6 +583,7 @@ export function configurarEntregaCracha() {
   });
 
   $("ecBtnLimpar")?.addEventListener("click", limparFiltros);
+  $("ecBtnExportar")?.addEventListener("click", exportarExcel);
   $("ecBtnRecolher")?.addEventListener("click", recolherDetalhe);
   $("ecBtnSalvarObs")?.addEventListener("click", salvarObservacao);
 
