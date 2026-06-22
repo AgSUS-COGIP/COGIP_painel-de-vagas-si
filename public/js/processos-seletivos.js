@@ -14,6 +14,7 @@
 import { escapeAttr, escapeHtml } from "./utils.js";
 import { PROCESSOS_SELETIVOS_DADOS } from "./processos-seletivos-dados.js";
 import { EDITAIS_VAGAS_DADOS } from "./editais-vagas-dados.js";
+import { CRONOGRAMA_EDITAIS_DADOS } from "./cronograma-editais-dados.js";
 import { ordenarLista, registrarOrdenacao, thOrdenavel } from "./ordenacao.js";
 
 // ---------- Status (conforme o CSV) e badges ----------
@@ -282,6 +283,63 @@ function renderQuadroVagas(proc) {
     </div>`;
 }
 
+// ---------- Cronograma do edital (atividades e datas) ----------
+// Cruza o processo (unidade/uf/edital) com o CSV consolidado de cronograma
+// (cronograma-editais-dados.js).
+function cronogramaDoEdital(proc) {
+  if (!proc) return [];
+  const chave = `${normChave(proc.unidade)}|${normChave(proc.uf)}|${normChave(proc.edital)}`;
+  return CRONOGRAMA_EDITAIS_DADOS[chave] || [];
+}
+
+// Destaca a etapa atual do processo no cronograma (casa pelo nome da atividade).
+function ehEtapaAtual(proc, atividade) {
+  const etapa = normChave(proc?.etapa);
+  if (!etapa) return false;
+  const alvo = normChave(atividade);
+  return alvo === etapa || alvo.includes(etapa) || etapa.includes(alvo);
+}
+
+function renderCronograma(proc) {
+  const etapas = cronogramaDoEdital(proc);
+  if (!etapas.length) {
+    return `
+      <div class="psBloco psBlocoFull">
+        <h4 class="psBlocoTitulo">Cronograma do Edital</h4>
+        <p class="psObservacoes"><span class="psSemObs">Cronograma não disponível para este edital.</span></p>
+      </div>`;
+  }
+
+  const linhas = etapas.map(e => {
+    const atual = ehEtapaAtual(proc, e.atividade);
+    return `<tr class="${atual ? "is-etapa-atual" : ""}">
+        <td class="psTd-center">${escapeHtml(String(e.ordem))}</td>
+        <td class="psCelNome">${escapeHtml(e.atividade || "—")}${atual ? ` <span class="psBadge is-breve">Etapa atual</span>` : ""}</td>
+        <td>${escapeHtml(e.data || "—")}</td>
+      </tr>`;
+  }).join("");
+
+  return `
+    <div class="psBloco psBlocoFull">
+      <div class="psBlocoHead">
+        <h4 class="psBlocoTitulo">Cronograma do Edital</h4>
+        <span class="psBlocoMeta">${etapas.length} etapa(s)</span>
+      </div>
+      <div class="psTableWrap">
+        <table class="psTable psTableSub">
+          <thead>
+            <tr>
+              <th class="psTd-center">#</th>
+              <th>Atividade</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 function renderDetalhe() {
   const painel = $("psDetalhe");
   if (!painel) return;
@@ -340,6 +398,8 @@ function renderDetalhe() {
         <p class="psObservacoes">${observacoes}</p>
       </div>
     </div>
+
+    ${renderCronograma(proc)}
 
     ${renderQuadroVagas(proc)}`;
 

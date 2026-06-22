@@ -573,6 +573,10 @@
 .psTableSub th { font-size: 10px; }
 .psTableSub td { white-space: normal; }
 
+/* Linha da etapa atual no cronograma do edital. */
+.psTableSub tbody tr.is-etapa-atual td { background: rgba(255, 153, 0, .14); }
+.psTableSub tbody tr.is-etapa-atual .psCelNome { font-weight: 800; color: #8a5200; }
+
 /* Bloco do quadro de vagas ocupa a largura toda (abaixo do grid 2 colunas). */
 .psBlocoFull { margin-top: 4px; }
 .psBlocoFull .psTableWrap { margin-top: 2px; }
