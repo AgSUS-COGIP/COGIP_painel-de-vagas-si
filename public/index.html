@@ -1181,6 +1181,10 @@
               <div class="ecKpiValue is-blue" id="ecKpiTrabalhadores">0</div>
             </div>
             <div class="ecKpi">
+              <div class="ecKpiLabel">Trabalhadores Ativos</div>
+              <div class="ecKpiValue is-green" id="ecKpiAtivos">0</div>
+            </div>
+            <div class="ecKpi">
               <div class="ecKpiLabel">Foto Pendente de Envio</div>
               <div class="ecKpiValue is-red" id="ecKpiFoto">0</div>
             </div>
@@ -1195,6 +1199,14 @@
             <div class="ecKpi">
               <div class="ecKpiLabel">Crachá Confeccionado</div>
               <div class="ecKpiValue is-green" id="ecKpiConfeccionado">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Entregue ao Escritório</div>
+              <div class="ecKpiValue is-cyan" id="ecKpiEntregueEsc">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Entregue ao Trabalhador</div>
+              <div class="ecKpiValue is-lilac" id="ecKpiEntregueTrab">0</div>
             </div>
           </section>
 
@@ -1228,12 +1240,25 @@
             </button>
           </div>
 
+          <!-- Barra de ação em lote (aparece quando há linhas selecionadas; só admin) -->
+          <div class="ecLoteBar" id="ecLoteBar" hidden>
+            <span class="ecLoteInfo"><strong id="ecLoteQtd">0</strong> selecionado(s)</span>
+            <select class="ecSelect" id="ecLoteStatus" aria-label="Novo status"></select>
+            <button type="button" class="ecBtn ecBtnPrimary" id="ecLoteAplicar">
+              <i class="fa-solid fa-check-double"></i> Aplicar status
+            </button>
+            <button type="button" class="ecBtn ecBtnGhost" id="ecLoteLimpar">
+              <i class="fa-solid fa-xmark"></i> Limpar seleção
+            </button>
+          </div>
+
           <!-- Tabela principal -->
           <div class="ecCard">
             <div class="ecTableWrap">
               <table class="ecTable">
                 <thead>
                   <tr>
+                    <th class="ecColSelect ecTd-center"><input type="checkbox" id="ecSelecionarPagina" aria-label="Selecionar página"></th>
                     <th>Matrícula</th>
                     <th>DSEI</th>
                     <th>Nome</th>
@@ -1293,14 +1318,17 @@
               <section class="ecDetalheBloco">
                 <h4>Atualizar Status</h4>
                 <div class="ecAcoesEscritorio">
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="foto">
-                    <i class="fa-solid fa-camera"></i> Registrar Foto Recebida
-                  </button>
                   <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="grafica">
                     <i class="fa-solid fa-paper-plane"></i> Registrar Envio à Gráfica
                   </button>
                   <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="confeccao">
                     <i class="fa-solid fa-id-card"></i> Registrar Confecção Concluída
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="escritorio">
+                    <i class="fa-solid fa-building"></i> Registrar Entrega ao Escritório
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="trabalhador">
+                    <i class="fa-solid fa-user-check"></i> Registrar Entrega ao Trabalhador
                   </button>
                   <button type="button" class="ecBtn ecBtnVoltar ecBtnBlock" data-ec-acao="voltar">
                     <i class="fa-solid fa-rotate-left"></i> Voltar Etapa

@@ -12,7 +12,7 @@ const { DASH_CONFIG, getMysqlConfig, resolverPortaAplicacao, parseJdbcUrl } = re
 const { DASH_SQL, montarCaseCargoSql } = require("./lib/sql");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, obterRemanejamentoListaComCache, obterRemanejamentoCadastroComCache, montarOpcoesRemanejamentoAPartirDasRows, obterUltimaAtualizacaoRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
-const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, reverterControleComConn, garantirTabelaCrachasControle } = require("./lib/cracha");
+const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, reverterControleComConn, garantirTabelaCrachasControle } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
@@ -242,6 +242,22 @@ app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddl
     res.json({ ok: true, registro });
   } catch (err) {
     res.status(400).json({ error: err && err.message ? err.message : "Falha ao atualizar o status." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Atualizar o status de várias matrículas de uma vez (ação em lote) — overlay.
+app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const { matriculas, status } = req.body || {};
+    const { registros, erros } = await atualizarStatusLoteComConn(conn, matriculas, status, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registros, erros });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao atualizar os status em lote." });
   } finally {
     await fecharJdbc(conn);
   }

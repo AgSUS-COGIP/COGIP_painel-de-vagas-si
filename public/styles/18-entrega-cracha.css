@@ -51,7 +51,7 @@
 /* ---------- KPIs ---------- */
 .ecKpiGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin-bottom: 14px;
   background:
@@ -72,8 +72,9 @@
   border-left: 1px solid rgba(255, 255, 255, .16);
 }
 
-/* O primeiro de cada linha não tem divisória à esquerda (6 colunas no topo). */
-.ecKpi:first-child { border-left: none; }
+/* O primeiro de cada linha (grade de 4 colunas) não tem divisória à esquerda. */
+.ecKpi:first-child,
+.ecKpi:nth-child(4n + 1) { border-left: none; }
 
 .ecKpiLabel {
   color: rgba(255, 255, 255, .85);
@@ -98,6 +99,8 @@
 .ecKpiValue.is-teal { color: #8fe3e1; }
 .ecKpiValue.is-green { color: #9be8b8; }
 .ecKpiValue.is-red { color: #ff9b8f; }
+.ecKpiValue.is-cyan { color: #7fd4ff; }
+.ecKpiValue.is-lilac { color: #c9b6ff; }
 
 /* ---------- Barra de filtros e ações ---------- */
 .ecToolbar {
@@ -299,6 +302,8 @@ select.ecInput {
 .ecBadge.is-confeccao { background: #d6ecff; color: #0a5bb0; }
 .ecBadge.is-aguardando { background: #d3f0ef; color: #0a7470; }
 .ecBadge.is-confeccionado { background: #d7f5e3; color: #0a7a44; }
+.ecBadge.is-entregue-esc { background: #dcefff; color: #0a5bb0; }
+.ecBadge.is-entregue-trab { background: #e7defb; color: #5b3aa6; }
 
 /* ---------- Ações da linha ---------- */
 .ecAcoesCol { white-space: nowrap; }
@@ -374,7 +379,29 @@ select.ecInput {
 .ec-readonly .ecAcoesEscritorio,
 .ec-readonly .ecObsLabel,
 .ec-readonly #ecDetObs,
-.ec-readonly #ecBtnSalvarObs { display: none; }
+.ec-readonly #ecBtnSalvarObs,
+.ec-readonly .ecColSelect,
+.ec-readonly #ecLoteBar { display: none; }
+
+/* ---------- Seleção em lote ---------- */
+.ecColSelect { width: 38px; }
+.ecCheck,
+#ecSelecionarPagina { width: 16px; height: 16px; cursor: pointer; accent-color: #0070d9; }
+
+.ecLoteBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(145deg, rgba(0, 61, 122, .08), rgba(0, 104, 184, .12));
+  border: 1px solid rgba(0, 112, 217, .28);
+  border-radius: 12px;
+}
+.ecLoteInfo { color: #07346b; font-weight: 800; font-size: 12.5px; }
+.ecLoteInfo strong { font-size: 15px; }
+.ecLoteBar .ecSelect { min-width: 220px; }
 
 /* ---------- Painel de detalhe ---------- */
 .ecDetalhe {
