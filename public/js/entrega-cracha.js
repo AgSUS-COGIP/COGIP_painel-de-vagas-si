@@ -342,9 +342,12 @@ async function aplicarStatusLote() {
 function timelineDe(s) {
   const atualIdx = statusIndex(s.status);
   const idxConfeccao = STATUS_LISTA.indexOf("Crachás em Confecção");
+  // Chegou à última fase do funil: todas as etapas (inclusive a atual) ficam
+  // verdes, indicando que o fluxo foi concluído.
+  const concluido = atualIdx === STATUS_LISTA.length - 1;
 
   return STATUS_LISTA.map((etapa, idx) => {
-    const estado = idx < atualIdx ? "done" : (idx === atualIdx ? "atual" : "pendente");
+    const estado = idx < atualIdx ? "done" : (idx === atualIdx ? (concluido ? "done" : "atual") : "pendente");
 
     let data = "";
     let ator = "";
@@ -358,7 +361,7 @@ function timelineDe(s) {
     return {
       estado,
       data,
-      evento: idx === atualIdx ? `${etapa} (atual)` : etapa,
+      evento: idx === atualIdx ? `${etapa}${concluido ? " (concluído)" : " (atual)"}` : etapa,
       ator
     };
   });
