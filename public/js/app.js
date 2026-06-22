@@ -11,6 +11,7 @@ import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { configurarEntregaCracha } from "./entrega-cracha.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
+import { configurarOrdenacaoTabelas } from "./ordenacao-tabelas.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -35,6 +36,7 @@ export async function init() {
   configurarEntregaCracha();
   configurarGestaoDisciplinar();
   configurarProcessosSeletivos();
+  configurarOrdenacaoTabelas();
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();
