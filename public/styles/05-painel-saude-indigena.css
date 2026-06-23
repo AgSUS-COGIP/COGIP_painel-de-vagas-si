@@ -1,98 +1,833 @@
-    /* =========================================================
-       Dashboard Saúde Indígena externo
-       Página preparada para receber link de painel incorporado.
-    ========================================================= */
+/* =========================================================
+   Dashboard Saúde Indígena (nativo)
+   Painel da força de trabalho dos DSEIs/CASAIs. Tema com grafismos
+   indígenas (urucum, ocre, mata, rio) + referência ao SUS / AgSUS.
+   Markup em index.html (#view-painelSaudeIndigena), lógica em saude-indigena.js.
+========================================================= */
 
-    .main.view-iframe-active .filtersBar {
-      display: none;
-    }
+/* Esconde a barra de filtros global nesta aba (filtros próprios no painel). */
+.main.view-iframe-active .filtersBar { display: none; }
+.main.view-iframe-active .top { grid-template-columns: minmax(330px, 1fr); }
 
-    .main.view-iframe-active .top {
-      grid-template-columns: minmax(330px, 1fr);
-    }
+/* Paleta do painel */
+#view-painelSaudeIndigena.siDash {
+  --si-urucum: #C8472B;
+  --si-terra: #9C4221;
+  --si-ocre: #E2872E;
+  --si-amarelo: #E7B93D;
+  --si-mata: #2E8B57;
+  --si-rio: #1F7A8C;
+  --si-sus-azul: #0a66b0;
+  --si-sus-verde: #1f8a53;
+  --si-jenipapo: #3a241c;
+  --si-creme: #FBF4E9;
+  --si-texto: #4a2418;
 
-    #view-painelSaudeIndigena.viewPanel.active {
-      display: grid;
-    }
+  display: block;
+  height: auto;
+  padding: 0 4px 40px;
+  color: var(--si-texto);
+  font-family: inherit;
+}
 
-    .panelIframeView {
-      height: 100%;
-      min-height: 0;
-      grid-template-rows: auto minmax(0, 1fr);
-      gap: 14px;
-    }
+/* ---------------- Cabeçalho temático ---------------- */
+.siHero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  margin-bottom: 18px;
+  background: linear-gradient(125deg, #B23A22 0%, #C8472B 38%, #9C4221 100%);
+  box-shadow: 0 20px 38px rgba(120, 40, 20, .28);
+  isolation: isolate;
+}
 
-    .externalDashboardCard {
-      position: relative;
-      min-height: calc(100vh - 176px);
-      background: rgba(255, 255, 255, .96);
-      border: 1px solid rgba(0, 83, 166, .16);
-      border-radius: 18px;
-      box-shadow: 0 16px 30px rgba(0, 50, 113, .16);
-      overflow: hidden;
-    }
+/* Grafismo (losangos/triângulos) sobre o cabeçalho */
+.siHeroPattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: .5;
+  background-image:
+    linear-gradient(135deg, rgba(0, 0, 0, .14) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(0, 0, 0, .14) 25%, transparent 25%),
+    linear-gradient(45deg, rgba(255, 255, 255, .12) 25%, transparent 25%),
+    linear-gradient(315deg, rgba(255, 255, 255, .12) 25%, transparent 25%);
+  background-position: 13px 0, 13px 0, 0 0, 0 0;
+  background-size: 26px 26px;
+}
 
-    .externalDashboardIframe {
-      display: block;
-      width: 100%;
-      height: calc(100vh - 176px);
-      min-height: 560px;
-      border: 0;
-      background: #ffffff;
-    }
+/* Faixa étnica colorida na base do cabeçalho */
+.siHero::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 8px;
+  z-index: 2;
+  background: repeating-linear-gradient(90deg,
+    var(--si-amarelo) 0 18px, var(--si-ocre) 18px 36px,
+    var(--si-mata) 36px 54px, var(--si-rio) 54px 72px, var(--si-jenipapo) 72px 90px);
+}
 
-    .externalDashboardPlaceholder {
-      min-height: calc(100vh - 176px);
-      display: none;
-      place-items: center;
-      padding: 28px;
-      text-align: center;
-      background:
-        linear-gradient(145deg, rgba(255, 255, 255, .98), rgba(232, 247, 255, .94)),
-        radial-gradient(circle at 90% 16%, rgba(0, 126, 220, .10), transparent 32%);
-    }
+.siHeroContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 28px 28px;
+}
 
-    .externalDashboardPlaceholderBox {
-      max-width: 720px;
-      border-radius: 22px;
-      padding: 28px 30px;
-      background: rgba(255, 255, 255, .92);
-      border: 1px solid rgba(0, 83, 166, .16);
-      box-shadow: 0 16px 30px rgba(0, 50, 113, .14);
-      color: #07346b;
-    }
+.siHeroKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .35);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
 
-    .externalDashboardPlaceholderTitle {
-      margin: 0 0 10px;
-      font-size: 22px;
-      font-weight: 900;
-      text-transform: uppercase;
-      color: #07346b;
-    }
+.siHeroTitle {
+  margin: 12px 0 6px;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(60, 20, 10, .35);
+}
 
-    .externalDashboardPlaceholderText {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 800;
-      line-height: 1.45;
-      color: #315c8e;
-    }
+.siHeroSub {
+  margin: 0;
+  max-width: 620px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, .92);
+}
 
-    .externalDashboardPlaceholderCode {
-      display: inline-block;
-      margin-top: 14px;
-      padding: 8px 11px;
-      border-radius: 10px;
-      background: rgba(0, 83, 166, .08);
-      color: #07346b;
-      font-size: 12px;
-      font-weight: 900;
-    }
+.siHeroBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 14px;
+}
 
-    .exportBtn:disabled {
-      cursor: not-allowed;
-      opacity: .55;
-      box-shadow: none;
-    }
+.siChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(255, 255, 255, .14);
+  border: 1px solid rgba(255, 255, 255, .3);
+  backdrop-filter: blur(2px);
+}
 
+.siChipSus { background: rgba(31, 138, 83, .92); border-color: rgba(255, 255, 255, .4); }
+.siChipAgsus { background: rgba(10, 102, 176, .92); border-color: rgba(255, 255, 255, .4); }
+.siChipUpd { background: rgba(58, 36, 28, .55); }
+.siChipUpd strong { margin-left: 4px; }
 
+.siHeroAside {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.siHeroLogo {
+  height: 62px;
+  width: auto;
+  filter: drop-shadow(0 6px 12px rgba(40, 12, 6, .4)) brightness(0) invert(1);
+  opacity: .96;
+}
+
+.siHeroMascote {
+  height: 96px;
+  width: auto;
+  filter: drop-shadow(0 8px 14px rgba(40, 12, 6, .35));
+}
+
+/* ---------------- Barra de filtros ---------------- */
+.siToolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .96);
+  border: 1px solid rgba(156, 66, 33, .16);
+  box-shadow: 0 10px 22px rgba(120, 50, 25, .1);
+}
+
+.siToolbarHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.siToolbarTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--si-terra);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.siFilters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.siField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.siFieldBusca { grid-column: span 2; }
+
+.siFieldLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #8a5a48;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.siFieldLabel i { color: var(--si-urucum); }
+
+.siSelect,
+.siInput {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(156, 66, 33, .28);
+  background-color: #fff;
+  color: var(--si-texto);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.siSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239C4221' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.siSelect:hover { border-color: var(--si-urucum); }
+.siSelect:focus,
+.siInput:focus { outline: none; border-color: var(--si-urucum); box-shadow: 0 0 0 3px rgba(200, 71, 43, .15); }
+
+.siFieldRange { grid-column: span 2; }
+
+.siFieldRange .siRangeInputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.siRangeInputs .siInput {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 11.5px;
+}
+
+.siRangeSep { font-size: 11px; font-weight: 800; color: #8a5a48; flex: 0 0 auto; }
+
+/* ---------------- Combobox pesquisável ---------------- */
+.siCombo { position: relative; width: 100%; }
+
+.siComboBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(156, 66, 33, .28);
+  background: #fff;
+  color: var(--si-texto);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.siComboBtn:hover { border-color: var(--si-urucum); }
+.siCombo.aberto .siComboBtn { border-color: var(--si-urucum); box-shadow: 0 0 0 3px rgba(200, 71, 43, .15); }
+
+.siComboValor { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.siCombo:not(.temValor) .siComboValor { color: #9a7a6c; }
+
+.siComboBtn i { color: var(--si-urucum); font-size: 11px; flex: 0 0 auto; transition: transform .15s; }
+.siCombo.aberto .siComboBtn i { transform: rotate(180deg); }
+
+.siComboPop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: 380px;
+  background: #fff;
+  border: 1px solid rgba(156, 66, 33, .25);
+  border-radius: 12px;
+  box-shadow: 0 16px 30px rgba(120, 50, 25, .22);
+  overflow: hidden;
+}
+
+.siComboSearch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(156, 66, 33, .14);
+}
+
+.siComboSearch i { color: var(--si-urucum); font-size: 12px; }
+
+.siComboInput {
+  flex: 1 1 auto;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--si-texto);
+}
+
+.siComboList {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 66, 33, .4) transparent;
+}
+
+.siComboSearch .siComboClear {
+  flex: 0 0 auto;
+  border: none;
+  background: rgba(200, 71, 43, .12);
+  color: var(--si-urucum);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.siComboSearch .siComboClear:hover { background: rgba(200, 71, 43, .2); }
+
+.siComboOpt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--si-texto);
+  cursor: pointer;
+}
+
+.siComboOpt:hover { background: rgba(200, 71, 43, .08); }
+
+.siComboCheck {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(156, 66, 33, .4);
+  display: grid;
+  place-items: center;
+  color: transparent;
+  font-size: 10px;
+  transition: background .12s, border-color .12s;
+}
+
+.siComboOptLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.siComboOpt.is-sel .siComboCheck {
+  background: linear-gradient(135deg, var(--si-urucum), var(--si-terra));
+  border-color: transparent;
+  color: #fff;
+}
+.siComboOpt.is-sel { color: var(--si-jenipapo); font-weight: 800; }
+
+.siComboMais { padding: 8px 10px; color: #9a7a6c; font-size: 11px; font-weight: 700; font-style: italic; }
+.siComboVazio { padding: 10px; text-align: center; color: #9a7a6c; font-size: 12px; font-weight: 700; }
+
+.siBtnLimpar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, var(--si-urucum), var(--si-terra));
+  color: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 8px 16px rgba(156, 66, 33, .26);
+  transition: transform .14s, box-shadow .14s;
+}
+
+.siBtnLimpar:hover { transform: translateY(-1px); box-shadow: 0 12px 20px rgba(156, 66, 33, .32); }
+
+.siResumoFiltro {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--si-terra);
+  padding-top: 8px;
+  border-top: 1px dashed rgba(156, 66, 33, .2);
+}
+
+/* ---------------- Estado (loading/erro) ---------------- */
+.siEstado[hidden] { display: none; }
+
+.siEstado {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 240px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .9);
+  border: 1px dashed rgba(156, 66, 33, .25);
+  color: var(--si-terra);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.siEstado.is-erro { color: #b3261e; border-color: rgba(179, 38, 30, .4); background: rgba(255, 243, 241, .95); }
+
+.siSpinner {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 3px solid rgba(156, 66, 33, .25);
+  border-top-color: var(--si-urucum);
+  animation: siSpin .8s linear infinite;
+}
+
+@keyframes siSpin { to { transform: rotate(360deg); } }
+
+/* ---------------- KPIs ---------------- */
+.siKpiBloco { margin-bottom: 18px; }
+
+.siKpiBlocoTitulo,
+.siSecTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 900;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  background: linear-gradient(135deg, var(--si-urucum), var(--si-terra));
+  box-shadow: 0 8px 16px rgba(156, 66, 33, .25);
+}
+
+.siKpiBlocoTitulo i,
+.siSecTitle i { color: #fff; }
+
+.siSecTitle { margin-top: 8px; }
+
+/* Seção em destaque (Trabalhadores Indígenas) — verde mata */
+.siSecTitleDestaque {
+  background: linear-gradient(135deg, var(--si-mata), #1c6b41);
+  box-shadow: 0 8px 16px rgba(31, 138, 83, .28);
+}
+
+.siKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.siKpiGrid4 { grid-template-columns: repeat(4, 1fr); }
+
+.siKpi {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(156, 66, 33, .12);
+  box-shadow: 0 10px 22px rgba(120, 50, 25, .1);
+  overflow: hidden;
+}
+
+/* Faixa de cor à esquerda de cada card */
+.siKpi::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+  background: var(--k, var(--si-urucum));
+}
+
+.siKpiIcon {
+  flex: 0 0 auto;
+  width: 46px; height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  font-size: 19px;
+  color: #fff;
+  background: var(--k, var(--si-urucum));
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .14);
+}
+
+.siKpiInfo { display: flex; flex-direction: column; min-width: 0; }
+.siKpiLabel { font-size: 11.5px; font-weight: 800; color: #8a6a5c; text-transform: uppercase; letter-spacing: .02em; line-height: 1.2; }
+.siKpiValue { font-size: 27px; font-weight: 900; color: var(--si-jenipapo); line-height: 1.1; }
+.siKpiHint { font-size: 11px; font-weight: 800; color: var(--k, var(--si-terra)); }
+
+.si-k-total { --k: var(--si-sus-azul); }
+.si-k-ativos { --k: var(--si-mata); }
+.si-k-indigena { --k: var(--si-urucum); }
+.si-k-afast { --k: var(--si-ocre); }
+.si-k-ferias { --k: var(--si-amarelo); }
+.si-k-deslig { --k: #9aa0a6; }
+
+/* Cards por tipo de atuação */
+.si-k-dsei { --k: var(--si-rio); }
+.si-k-pey { --k: var(--si-urucum); }
+.si-k-casai { --k: var(--si-mata); }
+.si-k-samu { --k: var(--si-ocre); }
+
+/* ---------------- Gráficos ---------------- */
+.siChartsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.siCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 14px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(156, 66, 33, .12);
+  box-shadow: 0 12px 26px rgba(120, 50, 25, .1);
+  overflow: hidden;
+}
+
+/* Faixa étnica no topo de cada card de gráfico */
+.siCard::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 5px;
+  background: repeating-linear-gradient(90deg,
+    var(--si-urucum) 0 16px, var(--si-ocre) 16px 32px, var(--si-amarelo) 32px 48px,
+    var(--si-mata) 48px 64px, var(--si-rio) 64px 80px);
+}
+
+.siCardWide { grid-column: 1 / -1; }
+
+.siCardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.siCardTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 12px;
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--si-terra);
+}
+
+.siCardHead .siCardTitle { margin: 4px 0; }
+.siCardTitle i { color: var(--si-urucum); }
+
+.siCardExport {
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid rgba(31, 138, 83, .32);
+  background: rgba(31, 138, 83, .1);
+  color: #1f8a53;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .14s, transform .14s;
+}
+.siCardExport:hover { background: rgba(31, 138, 83, .22); transform: translateY(-1px); }
+
+.siChartBox { position: relative; height: 260px; }
+.siChartBox.siChartTall { height: 340px; }
+
+/* ---------------- Rodapé ---------------- */
+.siFooter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(58, 36, 28, .04);
+  border: 1px solid rgba(156, 66, 33, .12);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #8a6a5c;
+}
+
+.siFooter i { color: var(--si-urucum); margin-right: 5px; }
+
+/* ---------------- Tabela geral de profissionais ---------------- */
+.siTableCard {
+  position: relative;
+  margin-top: 18px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(156, 66, 33, .12);
+  box-shadow: 0 12px 26px rgba(120, 50, 25, .1);
+  overflow: hidden;
+}
+
+.siTableCard::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 5px;
+  background: repeating-linear-gradient(90deg,
+    var(--si-urucum) 0 16px, var(--si-ocre) 16px 32px, var(--si-amarelo) 32px 48px,
+    var(--si-mata) 48px 64px, var(--si-rio) 64px 80px);
+}
+
+.siTableHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  flex-wrap: wrap;
+}
+
+.siTableTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--si-terra);
+}
+
+.siTableTitle i { color: var(--si-urucum); }
+
+.siTableCount {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--si-urucum), var(--si-terra));
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.siTableHeadAcoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.siBtnExportar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #1f8a53, #146b3f);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 8px 16px rgba(20, 107, 63, .26);
+  transition: transform .14s, box-shadow .14s;
+}
+
+.siBtnExportar:hover { transform: translateY(-1px); box-shadow: 0 12px 20px rgba(20, 107, 63, .34); }
+
+.siTableWrap {
+  max-height: 70vh;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 66, 33, .4) transparent;
+}
+
+.siTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.siTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(135deg, #9C4221, #7a3219);
+  color: #fff;
+  font-weight: 800;
+  text-align: left;
+  vertical-align: middle;
+  padding: 12px 14px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.siTable thead th[data-col] { cursor: pointer; user-select: none; }
+.siTable thead th[data-col]:hover { background: linear-gradient(135deg, #b5502a, #8a3a1d); }
+
+.siSortIcon { margin-left: 5px; font-size: 10px; opacity: .5; }
+.siTable thead th.is-ordenado { background: linear-gradient(135deg, #b5502a, #8a3a1d); }
+.siTable thead th.is-ordenado .siSortIcon { opacity: 1; color: var(--si-amarelo); }
+
+.siTable tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(156, 66, 33, .1);
+  color: var(--si-texto);
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.siTable tbody tr:nth-child(even) { background: rgba(231, 185, 61, .07); }
+.siTable tbody tr:hover { background: rgba(200, 71, 43, .08); }
+
+.siTdNome { font-weight: 800; color: var(--si-jenipapo); white-space: normal; min-width: 180px; }
+.siTdCargo { white-space: normal; min-width: 170px; }
+.siTdLocal { white-space: normal; min-width: 150px; }
+
+.siVazio {
+  text-align: center !important;
+  padding: 32px !important;
+  color: #8a5a48;
+  font-weight: 800;
+  font-style: italic;
+}
+
+.siBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.siBadge.is-ativo { background: rgba(46, 139, 87, .14); color: #1f6b43; }
+.siBadge.is-deslig { background: rgba(140, 59, 46, .14); color: #8c3b2e; }
+
+.siTableFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 18px 16px;
+}
+
+.siTableRegistros { font-size: 12px; font-weight: 800; color: #8a5a48; }
+
+.siPaginacao { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
+.siPageBtn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(156, 66, 33, .28);
+  background: #fff;
+  color: var(--si-terra);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .14s, color .14s, border-color .14s;
+}
+
+.siPageBtn:hover:not(:disabled) { border-color: var(--si-urucum); background: rgba(200, 71, 43, .08); }
+.siPageBtn.is-ativo { background: linear-gradient(135deg, var(--si-urucum), var(--si-terra)); color: #fff; border-color: transparent; }
+.siPageBtn:disabled { opacity: .4; cursor: not-allowed; }
+.siPageEllipsis { color: #8a5a48; font-weight: 800; padding: 0 2px; }
+
+/* ---------------- Responsivo ---------------- */
+@media (max-width: 1180px) {
+  .siKpiGrid, .siKpiGrid4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .siChartsGrid { grid-template-columns: 1fr; }
+  .siCardWide { grid-column: auto; }
+  .siHeroContent { flex-direction: column; align-items: flex-start; }
+  .siHeroAside { align-self: flex-end; }
+}
+
+@media (max-width: 560px) {
+  .siKpiGrid, .siKpiGrid4 { grid-template-columns: 1fr; }
+  .siHeroTitle { font-size: 24px; }
+  .siFieldRange { grid-column: auto; }
+}
+
+/* Botão herdado (mantido por segurança para outras telas que usem .exportBtn) */
+.exportBtn:disabled { cursor: not-allowed; opacity: .55; box-shadow: none; }
