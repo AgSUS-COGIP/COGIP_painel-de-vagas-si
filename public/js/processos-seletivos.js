@@ -15,7 +15,6 @@ import { escapeAttr, escapeHtml } from "./utils.js";
 import { PROCESSOS_SELETIVOS_DADOS } from "./processos-seletivos-dados.js";
 import { EDITAIS_VAGAS_DADOS } from "./editais-vagas-dados.js";
 import { CRONOGRAMA_EDITAIS_DADOS } from "./cronograma-editais-dados.js";
-import { ordenarLista, registrarOrdenacao, thOrdenavel } from "./ordenacao.js";
 
 // ---------- Status (conforme o CSV) e badges ----------
 // "Em Andamento" e "Andamento" são tratados como o mesmo status.
@@ -26,9 +25,10 @@ function normalizarStatus(s) {
 }
 
 const BADGE_STATUS = {
-  "Concluído": "is-andamento",   // verde: finalizado
-  "Andamento": "is-breve",       // laranja: em curso
-  "Cancelado": "is-encerrado"    // vermelho: cancelado
+  "Concluído": "is-andamento",              // verde: finalizado
+  "Andamento": "is-breve",                  // laranja: em curso
+  "Aguardando Convocação": "is-aguardando", // azul: aguardando convocação
+  "Cancelado": "is-encerrado"               // vermelho: cancelado
 };
 
 // Status que congelam o DSEI para fins de Remanejamento: enquanto houver um
@@ -47,6 +47,13 @@ let processos = (PROCESSOS_SELETIVOS_DADOS || []).map(p => ({
 // ---------- Estado da aba ----------
 let paginaAtual = 1;
 let processoExpandido = null; // id do edital com detalhamento aberto
+
+// Dados de vagas/cronograma extraídos de anexos PDF enviados pelo usuário,
+// por id de edital: { cargos: [...], cronograma: [...] }. Apenas em memória
+// (não persiste; some ao recarregar a página).
+const anexosExtraidos = new Map();
+let anexoProcessoId = null; // edital alvo do modal "Inserir anexo"
+let editandoId = null;      // edital em edição no modal (null = novo cadastro)
 
 const $ = id => document.getElementById(id);
 
@@ -140,7 +147,7 @@ function renderTabela() {
   const body = $("psTabelaBody");
   if (!body) return;
 
-  const lista = ordenarLista("ps", processosFiltrados());
+  const lista = processosFiltrados();
   const totalPaginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
   if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
   const inicio = (paginaAtual - 1) * POR_PAGINA;
@@ -219,6 +226,9 @@ function normChave(s) {
 
 function cargosDoEdital(proc) {
   if (!proc) return [];
+  // Dados extraídos de um anexo enviado têm prioridade sobre o CSV consolidado.
+  const extra = anexosExtraidos.get(proc.id);
+  if (extra && extra.cargos && extra.cargos.length) return extra.cargos;
   const chave = `${normChave(proc.unidade)}|${normChave(proc.uf)}|${normChave(proc.edital)}`;
   return EDITAIS_VAGAS_DADOS[chave] || [];
 }
@@ -257,10 +267,10 @@ function renderQuadroVagas(proc) {
   const colunas = COLUNAS_VAGAS.filter(c => cargos.some(cargo => !celulaVazia(cargo[c.campo])));
   const ehNumerica = campo => campo !== "lotacao";
 
-  const cabecalho = thOrdenavel("psVagas", "Cargo", "cargo") +
-    colunas.map(c => thOrdenavel("psVagas", escapeHtml(c.rotulo), c.campo, { classe: ehNumerica(c.campo) ? "psTd-center" : "" })).join("");
+  const cabecalho = `<th>Cargo</th>` +
+    colunas.map(c => `<th${ehNumerica(c.campo) ? ' class="psTd-center"' : ""}>${escapeHtml(c.rotulo)}</th>`).join("");
 
-  const linhas = ordenarLista("psVagas", cargos).map(cargo => {
+  const linhas = cargos.map(cargo => {
     const celulas = colunas.map(c => {
       const valor = celulaVazia(cargo[c.campo]) ? "—" : cargo[c.campo];
       return `<td class="${ehNumerica(c.campo) ? "psTd-center" : ""}">${escapeHtml(valor)}</td>`;
@@ -268,11 +278,16 @@ function renderQuadroVagas(proc) {
     return `<tr><td class="psCelNome">${escapeHtml(cargo.cargo)}</td>${celulas}</tr>`;
   }).join("");
 
+  const extra = anexosExtraidos.get(proc?.id);
+  const viaAnexo = extra && extra.cargos && extra.cargos.length
+    ? ` · <span class="psBlocoFonte"><i class="fa-solid fa-file-arrow-up"></i> via anexo enviado</span>`
+    : "";
+
   return `
     <div class="psBloco psBlocoFull">
       <div class="psBlocoHead">
         <h4 class="psBlocoTitulo">Vagas Previstas</h4>
-        <span class="psBlocoMeta">${cargos.length} cargo(s) no edital</span>
+        <span class="psBlocoMeta">${cargos.length} cargo(s) no edital${viaAnexo}</span>
       </div>
       <div class="psTableWrap">
         <table class="psTable psTableSub">
@@ -288,6 +303,9 @@ function renderQuadroVagas(proc) {
 // (cronograma-editais-dados.js).
 function cronogramaDoEdital(proc) {
   if (!proc) return [];
+  // Dados extraídos de um anexo enviado têm prioridade sobre o CSV consolidado.
+  const extra = anexosExtraidos.get(proc.id);
+  if (extra && extra.cronograma && extra.cronograma.length) return extra.cronograma;
   const chave = `${normChave(proc.unidade)}|${normChave(proc.uf)}|${normChave(proc.edital)}`;
   return CRONOGRAMA_EDITAIS_DADOS[chave] || [];
 }
@@ -319,11 +337,16 @@ function renderCronograma(proc) {
       </tr>`;
   }).join("");
 
+  const extra = anexosExtraidos.get(proc?.id);
+  const viaAnexo = extra && extra.cronograma && extra.cronograma.length
+    ? ` · <span class="psBlocoFonte"><i class="fa-solid fa-file-arrow-up"></i> via anexo enviado</span>`
+    : "";
+
   return `
     <div class="psBloco psBlocoFull">
       <div class="psBlocoHead">
         <h4 class="psBlocoTitulo">Cronograma do Edital</h4>
-        <span class="psBlocoMeta">${etapas.length} etapa(s)</span>
+        <span class="psBlocoMeta">${etapas.length} etapa(s)${viaAnexo}</span>
       </div>
       <div class="psTableWrap">
         <table class="psTable psTableSub">
@@ -367,6 +390,12 @@ function renderDetalhe() {
           Período: ${isoParaBr(proc.dataInicio)} a ${isoParaBr(proc.dataEncerramento)}</p>
       </div>
       <div class="psDetalheAcoes">
+        <button type="button" class="psBtn psBtnGhost" data-ps-editar="${escapeAttr(proc.id)}">
+          <i class="fa-solid fa-pen-to-square"></i> Editar
+        </button>
+        <button type="button" class="psBtn psBtnGhost" data-ps-anexo="${escapeAttr(proc.id)}">
+          <i class="fa-solid fa-file-arrow-up"></i> Inserir anexo
+        </button>
         <button type="button" class="psBtn psBtnGhost" data-ps-detalhe="${escapeAttr(proc.id)}">
           Recolher detalhes <i class="fa-solid fa-chevron-up"></i>
         </button>
@@ -424,6 +453,215 @@ function alternarDetalhe(id) {
   }
 }
 
+// ---------- Cadastro de novo edital (modal) ----------
+function atualizarTipoDoc() {
+  const tipo = document.querySelector('input[name="psDocTipo"]:checked')?.value || "link";
+  const linkWrap = $("psDocLinkWrap");
+  const anexoWrap = $("psDocAnexoWrap");
+  if (linkWrap) linkWrap.hidden = tipo !== "link";
+  if (anexoWrap) anexoWrap.hidden = tipo !== "anexo";
+}
+
+// Abre o modal em modo "novo" (sem id) ou "edição" (com o id do edital).
+function abrirModalEdital(id) {
+  const modal = $("psModalEdital");
+  if (!modal) return;
+  $("psFormEdital")?.reset();
+  const erro = $("psFormErro");
+  if (erro) erro.textContent = "";
+
+  editandoId = typeof id === "string" ? id : null;
+  const proc = editandoId ? processos.find(p => p.id === editandoId) : null;
+
+  // Ajusta título e botão conforme o modo.
+  const titulo = $("psModalTitulo");
+  if (titulo) {
+    titulo.innerHTML = proc
+      ? `<i class="fa-solid fa-pen-to-square"></i> Editar edital`
+      : `<i class="fa-solid fa-file-circle-plus"></i> Adicionar edital`;
+  }
+  const btnSalvar = $("psModalSalvar");
+  if (btnSalvar) {
+    btnSalvar.innerHTML = proc
+      ? `<i class="fa-solid fa-check"></i> Salvar alterações`
+      : `<i class="fa-solid fa-check"></i> Salvar edital`;
+  }
+
+  // Em edição, preenche os campos com os dados atuais do edital.
+  if (proc) {
+    const set = (campo, valor) => { const el = $(campo); if (el) el.value = valor ?? ""; };
+    set("psFormUnidade", proc.unidade);
+    set("psFormUf", proc.uf);
+    set("psFormEditalNum", proc.edital);
+    set("psFormSei", proc.processoSei);
+    set("psFormCiclo", proc.ciclo);
+    set("psFormVagas", proc.vagasPrevistas || "");
+    set("psFormContratados", proc.contratados || "");
+    set("psFormInscritos", proc.inscritos || "");
+    set("psFormRisco", proc.risco);
+    set("psFormDataInicio", proc.dataInicio);
+    set("psFormDataFim", proc.dataEncerramento);
+    set("psFormResponsavel", proc.responsavel);
+    set("psFormStatus", proc.status);
+    set("psFormObs", proc.observacoes);
+    // Só dá para repor um link http(s); anexos (object URL) não voltam a um input file.
+    const ehLink = /^https?:\/\//i.test(proc.linkEdital || "");
+    const radioLink = document.querySelector('input[name="psDocTipo"][value="link"]');
+    if (radioLink) radioLink.checked = true;
+    set("psFormLink", ehLink ? proc.linkEdital : "");
+  }
+
+  atualizarTipoDoc();
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  setTimeout(() => $("psFormUnidade")?.focus(), 40);
+}
+
+function fecharModalEdital() {
+  const modal = $("psModalEdital");
+  if (!modal) return;
+  modal.hidden = true;
+  editandoId = null;
+  document.body.style.overflow = "";
+}
+
+// Lê um campo numérico do formulário (>= 0; vazio/ inválido vira 0).
+function valorNum(id) {
+  const v = Number($(id)?.value);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
+function salvarEdital(event) {
+  event.preventDefault();
+  const erro = $("psFormErro");
+
+  const unidade = ($("psFormUnidade")?.value || "").trim();
+  const uf = ($("psFormUf")?.value || "").trim().toUpperCase();
+  const edital = ($("psFormEditalNum")?.value || "").trim();
+  if (!unidade || !uf || !edital) {
+    if (erro) erro.textContent = "Preencha os campos obrigatórios: Unidade, UF e Edital.";
+    return;
+  }
+
+  // Documento: link OU anexo em PDF (um ou outro).
+  const tipoDoc = document.querySelector('input[name="psDocTipo"]:checked')?.value || "link";
+  let linkEdital = "";
+  if (tipoDoc === "link") {
+    linkEdital = ($("psFormLink")?.value || "").trim();
+  } else {
+    const arquivo = $("psFormAnexo")?.files?.[0];
+    if (arquivo) linkEdital = URL.createObjectURL(arquivo);
+  }
+
+  const vagasPrevistas = valorNum("psFormVagas");
+  const contratados = valorNum("psFormContratados");
+
+  const dados = {
+    unidade,
+    uf,
+    edital,
+    processoSei: ($("psFormSei")?.value || "").trim(),
+    ciclo: ($("psFormCiclo")?.value || "").trim(),
+    risco: ($("psFormRisco")?.value || "").trim(),
+    vagasPrevistas,
+    contratados,
+    vagasOciosas: Math.max(0, vagasPrevistas - contratados),
+    inscritos: valorNum("psFormInscritos"),
+    dataInicio: $("psFormDataInicio")?.value || "",
+    dataEncerramento: $("psFormDataFim")?.value || "",
+    responsavel: ($("psFormResponsavel")?.value || "").trim(),
+    status: normalizarStatus($("psFormStatus")?.value || "Andamento"),
+    observacoes: ($("psFormObs")?.value || "").trim()
+  };
+
+  if (editandoId) {
+    // Edição: atualiza o edital existente, preservando id/etapa e mantendo o
+    // documento atual caso nenhum novo link/anexo tenha sido informado.
+    processos = processos.map(p =>
+      p.id === editandoId ? { ...p, ...dados, linkEdital: linkEdital || p.linkEdital } : p
+    );
+  } else {
+    // Novo cadastro.
+    const novo = { id: `novo-${Date.now()}`, etapa: "", ...dados, linkEdital };
+    processos = [novo, ...processos];
+    paginaAtual = 1;
+  }
+
+  fecharModalEdital();
+  renderTudo();
+}
+
+// ---------- Inserir anexo (extrai vagas + cronograma do PDF) ----------
+function abrirModalAnexo(id) {
+  anexoProcessoId = id;
+  const modal = $("psModalAnexo");
+  if (!modal) return;
+  $("psFormAnexoEdital")?.reset();
+  const erro = $("psAnexoErro");
+  if (erro) erro.textContent = "";
+  const status = $("psAnexoStatus");
+  if (status) { status.hidden = true; status.innerHTML = ""; }
+  const botao = $("psAnexoEnviar");
+  if (botao) botao.disabled = false;
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function fecharModalAnexo() {
+  const modal = $("psModalAnexo");
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+async function enviarAnexo(event) {
+  event.preventDefault();
+  const erro = $("psAnexoErro");
+  const status = $("psAnexoStatus");
+  const botao = $("psAnexoEnviar");
+  if (erro) erro.textContent = "";
+
+  const arquivo = $("psAnexoArquivo")?.files?.[0];
+  if (!arquivo) {
+    if (erro) erro.textContent = "Selecione um arquivo PDF.";
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append("anexo", arquivo);
+
+  if (status) {
+    status.hidden = false;
+    status.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF e extraindo os dados…`;
+  }
+  if (botao) botao.disabled = true;
+
+  try {
+    const resp = await fetch("/api/processos-seletivos/extrair-anexo", {
+      method: "POST",
+      body: fd,
+      credentials: "same-origin"
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || "Falha ao extrair os dados do PDF.");
+
+    const cargos = Array.isArray(data.cargos) ? data.cargos : [];
+    const cronograma = Array.isArray(data.cronograma) ? data.cronograma : [];
+    if (!cargos.length && !cronograma.length) {
+      throw new Error("Não foi possível localizar o quadro de vagas nem o cronograma neste PDF.");
+    }
+
+    anexosExtraidos.set(anexoProcessoId, { cargos, cronograma });
+    fecharModalAnexo();
+    renderDetalhe();
+  } catch (e) {
+    if (status) status.hidden = true;
+    if (erro) erro.textContent = e.message || "Erro ao processar o anexo.";
+  } finally {
+    if (botao) botao.disabled = false;
+  }
+}
+
 // ---------- Inicialização ----------
 let processosConfigurado = false;
 
@@ -433,18 +671,39 @@ export function configurarProcessosSeletivos() {
   if (!raiz) return;
   processosConfigurado = true;
 
-  // Ordenação por clique no cabeçalho: tabela de editais e sub-tabela de vagas.
-  registrarOrdenacao("ps", () => { paginaAtual = 1; renderTabela(); });
-  registrarOrdenacao("psVagas", () => renderDetalhe());
-
   renderTudo();
 
   $("psFiltroUnidade")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psFiltroStatus")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psBusca")?.addEventListener("input", () => { paginaAtual = 1; renderTabela(); });
 
+  // Modal de cadastro/edição de edital.
+  $("psBtnAddEdital")?.addEventListener("click", () => abrirModalEdital());
+  $("psModalFechar")?.addEventListener("click", fecharModalEdital);
+  $("psModalCancelar")?.addEventListener("click", fecharModalEdital);
+  $("psFormEdital")?.addEventListener("submit", salvarEdital);
+  $("psModalEdital")?.addEventListener("click", event => {
+    if (event.target.id === "psModalEdital") fecharModalEdital();
+  });
+  document.querySelectorAll('input[name="psDocTipo"]').forEach(radio =>
+    radio.addEventListener("change", atualizarTipoDoc));
+
+  // Modal de inserção de anexo (extração de vagas/cronograma do PDF).
+  $("psModalAnexoFechar")?.addEventListener("click", fecharModalAnexo);
+  $("psModalAnexoCancelar")?.addEventListener("click", fecharModalAnexo);
+  $("psFormAnexoEdital")?.addEventListener("submit", enviarAnexo);
+  $("psModalAnexo")?.addEventListener("click", event => {
+    if (event.target.id === "psModalAnexo") fecharModalAnexo();
+  });
+
   // Delegação para os elementos gerados dinamicamente (tabela + detalhe).
   raiz.addEventListener("click", event => {
+    const editar = event.target.closest("[data-ps-editar]");
+    if (editar) { abrirModalEdital(editar.dataset.psEditar); return; }
+
+    const anexo = event.target.closest("[data-ps-anexo]");
+    if (anexo) { abrirModalAnexo(anexo.dataset.psAnexo); return; }
+
     const det = event.target.closest("[data-ps-detalhe]");
     if (det) { alternarDetalhe(det.dataset.psDetalhe); return; }
 

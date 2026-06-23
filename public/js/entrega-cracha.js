@@ -1,40 +1,43 @@
 // =========================================================
 // Entrega de Crachá
 // Consome os dados reais da tabela UGP_CONTROLE_CRACHAS_SI via API
-// (/api/cracha). Funil de status (4 etapas):
+// (/api/cracha). Funil de status (6 etapas):
 //   Foto Pendente de Envio -> Envio à Gráfica Pendente ->
-//   Crachás em Confecção -> Crachá Confeccionado
-// CRUD persistido no banco (criar/editar/excluir/avançar/voltar status),
-// disponível apenas para administradores (nível >= 2).
+//   Crachás em Confecção -> Crachá Confeccionado ->
+//   Entregue ao Escritório -> Entregue ao Trabalhador
+// CRUD persistido no banco (editar datas/observação, avançar/voltar status,
+// mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, valorCsv } from "./utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
-import { ordenarLista, registrarOrdenacao } from "./ordenacao.js";
-
-// Getters de ordenação (Possui Foto exibido como Sim/Não).
-const EC_ORDENACAO_GETTERS = { possuiFoto: s => (s.possuiFoto ? "Sim" : "Não") };
 
 const PAGE_SIZE = 10;
 const NIVEL_ADMIN = 2;
 
 // Funil de status (rótulos amigáveis; o de-para para o banco é feito no backend).
 let STATUS_LISTA = [
-  "Foto Pendente de Envio", "Envio à Gráfica Pendente", "Crachás em Confecção", "Crachá Confeccionado"
+  "Foto Pendente de Envio", "Envio à Gráfica Pendente", "Crachás em Confecção",
+  "Crachá Confeccionado", "Entregue ao Escritório", "Entregue ao Trabalhador"
 ];
 
 const STATUS_CLASSE = {
   "Foto Pendente de Envio": "is-foto",
   "Envio à Gráfica Pendente": "is-grafica",
   "Crachás em Confecção": "is-confeccao",
-  "Crachá Confeccionado": "is-confeccionado"
+  "Crachá Confeccionado": "is-confeccionado",
+  "Entregue ao Escritório": "is-entregue-esc",
+  "Entregue ao Trabalhador": "is-entregue-trab"
 };
 
-// Transições de avanço (botões "Registrar ...").
+// Transições de avanço (botões "Registrar ..."). A entrada do funil
+// ("Foto Pendente de Envio" -> "Envio à Gráfica Pendente") é controlada pelo
+// ETL (Impacto), por isso não há botão manual de "foto recebida".
 const TRANSICOES = {
-  foto: { de: "Foto Pendente de Envio", para: "Envio à Gráfica Pendente", msg: "Foto recebida." },
   grafica: { de: "Envio à Gráfica Pendente", para: "Crachás em Confecção", msg: "Envio à gráfica registrado." },
-  confeccao: { de: "Crachás em Confecção", para: "Crachá Confeccionado", msg: "Confecção concluída." }
+  confeccao: { de: "Crachás em Confecção", para: "Crachá Confeccionado", msg: "Confecção concluída." },
+  escritorio: { de: "Crachá Confeccionado", para: "Entregue ao Escritório", msg: "Entrega ao escritório registrada." },
+  trabalhador: { de: "Entregue ao Escritório", para: "Entregue ao Trabalhador", msg: "Entrega ao trabalhador registrada." }
 };
 
 function badgeStatus(status) {
@@ -64,6 +67,7 @@ let erroCarregamento = "";
 let filtros = { dsei: "", status: "", escritorio: "", dataIni: "", dataFim: "", nome: "", cargo: "" };
 let paginaAtual = 1;
 let detalheId = null;
+const selecionados = new Set(); // matrículas marcadas para ação em lote
 
 const $ = id => document.getElementById(id);
 
@@ -106,15 +110,18 @@ function ecToast(mensagem, tipo) {
   toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
 }
 
-// ---------- KPIs (um por status do funil) ----------
+// ---------- KPIs (total, ativos e um por status do funil) ----------
 function renderKpis(lista) {
   const porStatus = st => lista.filter(s => s.status === st).length;
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
   set("ecKpiTrabalhadores", lista.length);
+  set("ecKpiAtivos", lista.filter(s => s.ativo).length);
   set("ecKpiFoto", porStatus("Foto Pendente de Envio"));
   set("ecKpiGrafica", porStatus("Envio à Gráfica Pendente"));
   set("ecKpiConfeccao", porStatus("Crachás em Confecção"));
   set("ecKpiConfeccionado", porStatus("Crachá Confeccionado"));
+  set("ecKpiEntregueEsc", porStatus("Entregue ao Escritório"));
+  set("ecKpiEntregueTrab", porStatus("Entregue ao Trabalhador"));
 }
 
 // ---------- Filtros ----------
@@ -165,7 +172,7 @@ function render() {
 
   renderKpis(aplicarFiltros(true));
 
-  const lista = ordenarLista("ec", aplicarFiltros(), EC_ORDENACAO_GETTERS);
+  const lista = aplicarFiltros();
   const totalPaginas = Math.max(1, Math.ceil(lista.length / PAGE_SIZE));
   if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
   const inicio = (paginaAtual - 1) * PAGE_SIZE;
@@ -175,9 +182,9 @@ function render() {
   const body = $("ecTabelaBody");
   if (body) {
     if (carregando && !carregado) {
-      body.innerHTML = `<tr><td colspan="9" class="ecVazio">Carregando dados de crachás...</td></tr>`;
+      body.innerHTML = `<tr><td colspan="10" class="ecVazio">Carregando dados de crachás...</td></tr>`;
     } else if (erroCarregamento) {
-      body.innerHTML = `<tr><td colspan="9" class="ecVazio">${escapeHtml(erroCarregamento)}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="10" class="ecVazio">${escapeHtml(erroCarregamento)}</td></tr>`;
     } else {
       body.innerHTML = pagina.map(s => {
         const reverter = s.statusManual || s.dataSolicitacao || s.dataEnvio || s.observacao
@@ -186,8 +193,10 @@ function render() {
         const acoesEdicao = editar
           ? `<button class="ecIconBtn" data-ec-editar="${escapeHtml(s.id)}" title="Editar datas/observação"><i class="fa-solid fa-pen"></i></button>${reverter}`
           : "";
+        const marcado = selecionados.has(s.id) ? " checked" : "";
         return `
         <tr${s.id === detalheId ? ' class="ecLinhaAtiva"' : ""}>
+          <td class="ecColSelect ecTd-center"><input type="checkbox" class="ecCheck" data-ec-sel="${escapeHtml(s.id)}"${marcado} aria-label="Selecionar ${escapeHtml(s.nome || s.matricula)}"></td>
           <td>${celulaData(s.matricula)}</td>
           <td>${escapeHtml(s.dsei || "—")}</td>
           <td>${escapeHtml(s.nome || "—")}</td>
@@ -202,9 +211,11 @@ function render() {
           </td>
         </tr>`;
       }).join("") ||
-        `<tr><td colspan="9" class="ecVazio">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
+        `<tr><td colspan="10" class="ecVazio">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
     }
   }
+
+  sincronizarSelecaoUI(pagina);
 
   const registros = $("ecRegistros");
   if (registros) {
@@ -256,13 +267,104 @@ function irParaPagina(valor) {
   render();
 }
 
+// ---------- Seleção em lote (escritório altera vários status de uma vez) ----------
+// Mantém o select-all coerente com a página visível e a barra de lote (qtd +
+// visibilidade). Só faz sentido para administradores; em modo leitura a coluna
+// e a barra ficam escondidas via CSS (.ec-readonly).
+function sincronizarSelecaoUI(pagina) {
+  const idsPagina = pagina.map(s => s.id);
+  const marcadosNaPagina = idsPagina.filter(id => selecionados.has(id)).length;
+
+  const selAll = $("ecSelecionarPagina");
+  if (selAll) {
+    selAll.checked = idsPagina.length > 0 && marcadosNaPagina === idsPagina.length;
+    selAll.indeterminate = marcadosNaPagina > 0 && marcadosNaPagina < idsPagina.length;
+  }
+
+  const bar = $("ecLoteBar");
+  const qtd = $("ecLoteQtd");
+  if (qtd) qtd.textContent = selecionados.size;
+  if (bar) bar.hidden = !(podeEditar() && selecionados.size > 0);
+}
+
+function alternarSelecao(id, marcado) {
+  if (marcado) selecionados.add(id); else selecionados.delete(id);
+  render();
+}
+
+function alternarSelecaoPagina(marcado) {
+  const lista = aplicarFiltros();
+  const inicio = (paginaAtual - 1) * PAGE_SIZE;
+  lista.slice(inicio, inicio + PAGE_SIZE).forEach(s => {
+    if (marcado) selecionados.add(s.id); else selecionados.delete(s.id);
+  });
+  render();
+}
+
+function limparSelecao() {
+  selecionados.clear();
+  render();
+}
+
+function popularStatusLote() {
+  const el = $("ecLoteStatus");
+  if (!el) return;
+  const atual = el.value;
+  el.innerHTML = `<option value="">Mudar status para…</option>` +
+    STATUS_LISTA.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+  if (atual && STATUS_LISTA.includes(atual)) el.value = atual;
+}
+
+async function aplicarStatusLote() {
+  if (!podeEditar()) return;
+  const status = $("ecLoteStatus")?.value || "";
+  if (!status) { ecToast("Selecione o status que deseja aplicar.", "erro"); return; }
+  const matriculas = [...selecionados];
+  if (!matriculas.length) { ecToast("Nenhum trabalhador selecionado.", "erro"); return; }
+  if (!window.confirm(`Aplicar o status "${status}" a ${matriculas.length} trabalhador(es) selecionado(s)?`)) return;
+
+  try {
+    const resp = await apiPost("/api/cracha/status-lote", { matriculas, status });
+    (resp.registros || []).forEach(aplicarRegistro);
+    const falhas = (resp.erros || []).length;
+    selecionados.clear();
+    render();
+    if (detalheId && solicitacoes.some(r => r.id === detalheId)) abrirDetalhe(detalheId);
+    ecToast(falhas
+      ? `${(resp.registros || []).length} atualizado(s); ${falhas} falharam.`
+      : `${(resp.registros || []).length} trabalhador(es) atualizado(s).`, falhas ? "erro" : "ok");
+  } catch (e) {
+    ecToast(e && e.message ? e.message : "Falha ao aplicar o status em lote.", "erro");
+  }
+}
+
 // ---------- Painel de detalhe ----------
 function timelineDe(s) {
-  const itens = [];
-  if (s.dataSolicitacao) itens.push({ data: s.dataSolicitacao, evento: "Solicitação registrada", ator: "" });
-  if (s.dataEnvio) itens.push({ data: s.dataEnvio, evento: "Enviado à gráfica", ator: "" });
-  itens.push({ data: s.atualizadoEm || "—", evento: `Status: ${s.status}`, ator: s.atualizadoPor || "" });
-  return itens;
+  const atualIdx = statusIndex(s.status);
+  const idxConfeccao = STATUS_LISTA.indexOf("Crachás em Confecção");
+  // Chegou à última fase do funil: todas as etapas (inclusive a atual) ficam
+  // verdes, indicando que o fluxo foi concluído.
+  const concluido = atualIdx === STATUS_LISTA.length - 1;
+
+  return STATUS_LISTA.map((etapa, idx) => {
+    const estado = idx < atualIdx ? "done" : (idx === atualIdx ? (concluido ? "done" : "atual") : "pendente");
+
+    let data = "";
+    let ator = "";
+    if (idx === 0 && s.dataSolicitacao) data = s.dataSolicitacao;          // entrada no funil
+    if (idx === idxConfeccao && s.dataEnvio) data = s.dataEnvio;           // envio à gráfica
+    if (idx === atualIdx) {                                                // última mudança registrada
+      if (s.atualizadoEm) data = s.atualizadoEm;
+      ator = s.atualizadoPor || "";
+    }
+
+    return {
+      estado,
+      data,
+      evento: idx === atualIdx ? `${etapa}${concluido ? " (concluído)" : " (atual)"}` : etapa,
+      ator
+    };
+  });
 }
 
 function abrirDetalhe(id) {
@@ -289,8 +391,8 @@ function abrirDetalhe(id) {
   const timeline = $("ecDetTimeline");
   if (timeline) {
     timeline.innerHTML = timelineDe(s).map(i => `
-      <li class="ecTimelineItem">
-        <div class="ecTimelineDot"></div>
+      <li class="ecTimelineItem is-${i.estado}">
+        <div class="ecTimelineDot is-${i.estado}"></div>
         <div class="ecTimelineConteudo">
           <div class="ecTimelineQuando">${escapeHtml(i.data || "—")}</div>
           <div class="ecTimelineEvento">${escapeHtml(i.evento)}</div>
@@ -478,6 +580,7 @@ function preencherSelects() {
   opcoes("ecFiltroDsei", dseis, "Todos os DSEIs");
   opcoes("ecFiltroStatus", STATUS_LISTA, "Todos os Status");
   opcoes("ecFiltroEscritorio", dseis.map(escritorioDoDsei), "Todos os Escritórios");
+  popularStatusLote();
 
   const formDsei = $("ecFormDsei");
   if (formDsei) {
@@ -494,6 +597,48 @@ function limparFiltros() {
   lerFiltros();
   paginaAtual = 1;
   render();
+}
+
+// ---------- Exportação (Excel / CSV) ----------
+// Exporta a lista atualmente filtrada (todas as páginas, não só a visível).
+// Gera CSV com BOM + separador ";" — abre direto no Excel, seguindo o padrão
+// usado nas demais abas do painel (exportacao.js).
+function exportarExcel() {
+  const lista = aplicarFiltros();
+  if (!lista.length) {
+    ecToast("Nenhum registro para exportar com os filtros atuais.", "erro");
+    return;
+  }
+
+  const rows = lista.map(s => ({
+    "Matrícula": s.matricula || "",
+    "DSEI": s.dsei || "",
+    "Escritório": escritorioDoDsei(s.dsei),
+    "Nome": s.nome || "",
+    "Cargo": s.cargo || "",
+    "Situação Funcional": s.situacaoDetalhada || "",
+    "Data da Solicitação": s.dataSolicitacao || "",
+    "Possui Foto": s.possuiFoto ? "Sim" : "Não",
+    "Data de Envio": s.dataEnvio || "",
+    "Status": s.status || "",
+    "Motivo (sem crachá)": s.motivo || "",
+    "Observação": s.observacao || "",
+    "Última atualização": s.atualizadoEm ? `${s.atualizadoEm}${s.atualizadoPor ? " · " + s.atualizadoPor : ""}` : ""
+  }));
+
+  const headers = Object.keys(rows[0]);
+  const linhas = [headers, ...rows.map(r => headers.map(h => r[h]))];
+  const csv = "\uFEFF" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "entrega_crachas.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ---------- Carregamento dos dados reais ----------
@@ -527,8 +672,6 @@ export function configurarEntregaCracha() {
   if (!raiz) return;
   entregaCrachaConfigurada = true;
 
-  registrarOrdenacao("ec", () => { paginaAtual = 1; render(); });
-
   raiz.classList.toggle("ec-readonly", !podeEditar());
 
   preencherSelects();
@@ -547,8 +690,14 @@ export function configurarEntregaCracha() {
   });
 
   $("ecBtnLimpar")?.addEventListener("click", limparFiltros);
+  $("ecBtnExportar")?.addEventListener("click", exportarExcel);
   $("ecBtnRecolher")?.addEventListener("click", recolherDetalhe);
   $("ecBtnSalvarObs")?.addEventListener("click", salvarObservacao);
+
+  // Seleção em lote.
+  $("ecSelecionarPagina")?.addEventListener("change", e => alternarSelecaoPagina(e.target.checked));
+  $("ecLoteAplicar")?.addEventListener("click", aplicarStatusLote);
+  $("ecLoteLimpar")?.addEventListener("click", limparSelecao);
 
   // Modal.
   $("ecModalFechar")?.addEventListener("click", fecharModal);
@@ -556,6 +705,12 @@ export function configurarEntregaCracha() {
   $("ecModalSalvar")?.addEventListener("click", salvarModal);
   $("ecModal")?.addEventListener("click", event => {
     if (event.target === $("ecModal")) fecharModal();
+  });
+
+  // Seleção por linha (checkboxes gerados dinamicamente).
+  raiz.addEventListener("change", event => {
+    const sel = event.target.closest("[data-ec-sel]");
+    if (sel) alternarSelecao(sel.dataset.ecSel, sel.checked);
   });
 
   // Delegação para elementos gerados dinamicamente.

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "gerar:ps": "node scripts/gerar-processos-seletivos.js",
     "check": "node --check server.js && node -e \"const cp=require('child_process'),fs=require('fs');['lib','public/js'].forEach(d=>fs.readdirSync(d).filter(f=>f.endsWith('.js')).forEach(f=>cp.execSync('node --check '+d+'/'+f)))\"",
     "test": "node --test"
   },

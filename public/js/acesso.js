@@ -18,9 +18,96 @@ const VALOR_OUTRO = "__outro__";
 const CAMPOS_POR_TIPO = {
   dsei:      ["nome", "email", "cargo", "unidade", "justificativa"],
   sede:      ["nome", "email", "cargo", "coordenacao", "justificativa"],
-  distrital: ["nome", "email", "cargo", "coordenacao", "unidade", "justificativa"],
+  distrital: ["nome", "email", "cargo", "unidade", "justificativa"],
 };
 let tipoAcessoAtual = "dsei";
+
+// Cargos/funções exibidos na aba "Escritórios Distritais" (lista fixa, não vem do banco).
+const CARGOS_DISTRITAL = [
+  "AGENTE DE REGIAO/DISTRITO",
+  "ANALISTA DE GESTAO",
+  "ASSESSOR DE REGIAO/DISTRITO",
+  "ASSISTENTE DE REGIAO/DISTRITO",
+  "AUXILIAR DE GESTAO",
+  "CHEFE DE DISTRITO",
+  "COORDENADOR DE REGIONAL",
+];
+
+// Escritórios exibidos na aba "Escritórios Distritais" (lista fixa, não vem do banco).
+const ESCRITORIOS_DISTRITAL = [
+  "ESCRITORIO ATALAIA DO NORTE/AM (VALE DO JAVARI)",
+  "ESCRITORIO BOA VISTA/RR (YANOMAMI)",
+  "ESCRITORIO CAMPO GRANDE/MS (MATO GROSSO DO SUL)",
+  "ESCRITORIO CUIABA/MT (CUIABA) - REGIONAL",
+  "ESCRITORIO DISTRITAL ALTAMIRA/PA (ALTAMIRA)",
+  "ESCRITORIO DISTRITAL ATALAIA DO NORTE/AM (VALE DO JAVARI)",
+  "ESCRITORIO DISTRITAL BARRA DO GARCAS/MT (XAVANTE)",
+  "ESCRITORIO DISTRITAL BELEM/PA (GUAMA-TOCANTINS)",
+  "ESCRITORIO DISTRITAL BOA VISTA/RR (YANOMAMI)",
+  "ESCRITORIO DISTRITAL CACOAL/RO (VILHENA)",
+  "ESCRITORIO DISTRITAL CAMPO GRANDE/MS (MATO GROSSO DO SUL)",
+  "ESCRITORIO DISTRITAL CANARANA/MT (XINGU)",
+  "ESCRITORIO DISTRITAL COLIDER/MT (KAIAPO DO MATO GROSSO)",
+  "ESCRITORIO DISTRITAL CRUZEIRO DO SUL/AC (ALTO RIO JURUA)",
+  "ESCRITORIO DISTRITAL CUIABA/MT (CUIABA)",
+  "ESCRITORIO DISTRITAL CURITIBA/PR (LITORAL SUL)",
+  "ESCRITORIO DISTRITAL FLORIANOPOLIS/SC (INTERIOR SUL)",
+  "ESCRITORIO DISTRITAL FORTALEZA/CE (CEARA)",
+  "ESCRITORIO DISTRITAL GOVERNADOR VALADARES/MG (MG e ES)",
+  "ESCRITORIO DISTRITAL ITAITUBA/PA (RIO TAPAJOS)",
+  "ESCRITORIO DISTRITAL JOAO PESSOA/PB (POTIGUARA)",
+  "ESCRITORIO DISTRITAL LABREA/AM (MEDIO RIO PURUS)",
+  "ESCRITORIO DISTRITAL LESTE DE RORAIMA/RR (LESTE DE RORAIMA)",
+  "ESCRITORIO DISTRITAL MACAPA/AP (AMAPA E NORTE DO PARA)",
+  "ESCRITORIO DISTRITAL MACEIO/AL (ALAGOAS E SERGIPE)",
+  "ESCRITORIO DISTRITAL MANAUS/AM (MANAUS)",
+  "ESCRITORIO DISTRITAL PALMAS/TO (TOCANTINS)",
+  "ESCRITORIO DISTRITAL PARINTINS/AM (PARINTINS)",
+  "ESCRITORIO DISTRITAL PORTO VELHO/RO (PORTO VELHO)",
+  "ESCRITORIO DISTRITAL RECIFE/PE (PERNAMBUCO)",
+  "ESCRITORIO DISTRITAL REDENCAO/PA (KAIAPO DO PARA)",
+  "ESCRITORIO DISTRITAL RIO BRANCO/AC (ALTO RIO PURUS)",
+  "ESCRITORIO DISTRITAL SALVADOR/BA (BAHIA)",
+  "ESCRITORIO DISTRITAL SAO FELIX DO ARAGUAIA/MT (ARAGUAIA)",
+  "ESCRITORIO DISTRITAL SAO GABRIEL DA CACHOEIRA/AM (RIO NEGRO)",
+  "ESCRITORIO DISTRITAL SAO LUIS/MA (MARANHAO)",
+  "ESCRITORIO DISTRITAL TABATINGA/AM (ALTO RIO SOLIMOES)",
+  "ESCRITORIO DISTRITAL TEFE/AM (MEDIO RIO SOLIMOES)",
+  "ESCRITORIO PARINTINS/AM (PARINTINS)",
+  "ESCRITORIO RECIFE/PE (PERNAMBUCO)",
+  "ESCRITORIO REGIONAL DA BAHIA",
+  "ESCRITORIO REGIONAL DE PERNAMBUCO",
+  "ESCRITORIO REGIONAL DE RORAIMA",
+  "ESCRITORIO REGIONAL DE SAO PAULO",
+  "ESCRITORIO REGIONAL DO AMAZONAS",
+  "ESCRITORIO REGIONAL DO CENTRO-OESTE",
+  "ESCRITORIO REGIONAL DO PARA",
+  "ESCRITORIO REGIONAL DO PARANA",
+  "ESCRITORIO TABATINGA/AM (ALTO RIO SOLIMOES)",
+];
+
+// Cargos e unidades vindos do banco (usados nas abas DSEI/SESAI e Sede AgSUS).
+let cargosServidor = [];
+let unidadesServidor = [];
+
+// Preenche o <select> de cargo conforme o tipo de unidade:
+// "distrital" usa a lista fixa CARGOS_DISTRITAL; os demais usam a lista do banco.
+function popularCargos(tipo) {
+  const valores = tipo === "distrital" ? CARGOS_DISTRITAL : cargosServidor;
+  preencherSelectAcesso("acCargo", "Selecione o cargo / função", valores);
+  adicionarOpcaoOutro("acCargo");
+}
+
+// Preenche o <select> de unidade conforme o tipo:
+// "distrital" usa a lista fixa de escritórios; os demais usam DSEI/CASAI do banco.
+// Também ajusta o rótulo do campo (Escritório x DSEI / CASAI).
+function popularUnidade(tipo) {
+  const ehDistrital = tipo === "distrital";
+  const placeholder = ehDistrital ? "Selecione o escritório" : "Selecione o DSEI / CASAI";
+  preencherSelectAcesso("acUnidade", placeholder, ehDistrital ? ESCRITORIOS_DISTRITAL : unidadesServidor);
+  const lbl = document.querySelector('label[for="acUnidade"]');
+  if (lbl) lbl.textContent = ehDistrital ? "Escritório" : "DSEI / CASAI";
+}
 
 // Exibe o campo "Informe o cargo" quando o cargo selecionado é "Outro".
 function atualizarCargoOutro() {
@@ -44,6 +131,8 @@ function aplicarTipoAcesso(tipo) {
     if (campo === "cargoOutro") return; // controlado por atualizarCargoOutro()
     div.hidden = !visiveis.includes(campo);
   });
+  popularCargos(tipo);  // cargos dependem da aba (distrital = lista fixa)
+  popularUnidade(tipo); // unidade: escritórios (distrital) ou DSEI/CASAI; ajusta o rótulo
   atualizarCargoOutro();
 }
 
@@ -75,8 +164,11 @@ function setCargo(valor) {
 // Deduz o tipo a partir dos campos preenchidos (ao editar uma solicitação existente).
 function inferirTipo(atual) {
   if (!atual) return tipoAcessoAtual || "dsei";
-  const temDsei = !!(atual.DSEI || atual.CASAI);
+  const unidade = atual.DSEI || atual.CASAI || "";
+  const temDsei = !!unidade;
   const temCoord = !!atual.COORDENACAO;
+  // Escritórios distritais são gravados no campo DSEI com prefixo "ESCRITORIO".
+  if (/^ESCRITORIO/i.test(unidade)) return "distrital";
   if (temDsei && temCoord) return "distrital";
   if (temCoord) return "sede";
   if (temDsei) return "dsei";
@@ -104,12 +196,13 @@ async function carregarListasAcesso() {
   if (listasAcessoCarregadas) return;
   let listas;
   try { listas = await apiGet("/api/acesso/listas"); } catch (e) { return; }
-  // DSEI e CASAI num único dropdown — as CASAIs vêm antes dos DSEIs.
-  const unidades = [].concat(listas.casai || [], listas.dsei || []);
-  preencherSelectAcesso("acUnidade", "Selecione o DSEI / CASAI", unidades);
   preencherSelectAcesso("acCoordenacao", "Selecione a coordenação", listas.coordenacoes);
-  preencherSelectAcesso("acCargo", "Selecione o cargo / função", listas.cargos);
-  adicionarOpcaoOutro("acCargo");
+  // DSEI e CASAI num único dropdown — as CASAIs vêm antes dos DSEIs.
+  unidadesServidor = [].concat(listas.casai || [], listas.dsei || []);
+  // Cargos/unidades do banco; a aba "Escritórios Distritais" usa listas fixas.
+  cargosServidor = listas.cargos || [];
+  popularCargos(tipoAcessoAtual);
+  popularUnidade(tipoAcessoAtual);
   listasAcessoCarregadas = true;
 }
 
@@ -144,11 +237,14 @@ function preencherForm(atual) {
   const u = state.painelLoginUsuario || {};
   setVal("acNome", (atual && atual.NOME) || u.nome || "");
   setVal("acEmail", u.email || (atual && atual.EMAIL) || "");
-  setCargo((atual && atual.CARGO) || "");
   setVal("acCoordenacao", (atual && atual.COORDENACAO) || "");
-  setVal("acUnidade", (atual && (atual.CASAI || atual.DSEI)) || "");
   setVal("acJustificativa", (atual && atual.JUSTIFICATIVA) || "");
+  // Aplica o tipo primeiro (popula cargos e unidades da aba) e só então define
+  // cargo/unidade, para que as listas corretas já existam ao restaurar o valor salvo.
   aplicarTipoAcesso(inferirTipo(atual));
+  setCargo((atual && atual.CARGO) || "");
+  setVal("acUnidade", (atual && (atual.CASAI || atual.DSEI)) || "");
+  atualizarCargoOutro();
 }
 
 function resumoSolicitacao(s) {

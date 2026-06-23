@@ -203,6 +203,11 @@
           <span>Vagas</span>
         </div>
 
+        <div class="navItem" data-view="remanejamento">
+          <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
+          <span>Remanejamento</span>
+        </div>
+
         <div class="navItem" data-view="alertas">
           <span class="navIcon"><i class="fa-solid fa-circle-exclamation"></i></span>
           <span>Alertas</span>
@@ -212,11 +217,6 @@
         <div class="navItem" data-view="painelSaudeIndigena">
           <span class="navIcon"><i class="fa-solid fa-chart-column"></i></span>
           <span>Dashboard SI</span>
-        </div>
-
-        <div class="navItem" data-view="ferias">
-          <span class="navIcon"><i class="fa-solid fa-umbrella-beach"></i></span>
-          <span>Férias</span>
         </div>
 
         <div class="navItem" data-view="gestaoFerias">
@@ -231,10 +231,6 @@
         <div class="navItem" data-view="gestaoDisciplinar">
           <span class="navIcon"><i class="fa-solid fa-gavel"></i></span>
           <span>Gestão Disciplinar</span>
-        </div>
-        <div class="navItem" data-view="remanejamento">
-          <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
-          <span>Remanejamento</span>
         </div>
         <div class="navItem" data-view="processosSeletivos">
           <span class="navIcon"><i class="fa-solid fa-clipboard-list"></i></span>
@@ -256,13 +252,6 @@
         </button>
       </div>
 
-      <div class="sidebarCoord">
-        <div class="sidebarCoordImgWrap">
-          <img class="sidebarCoordImg" src="./assets/images/logo-cogip.png"
-            alt="Coordenação de Gestão da Informação de Pessoal">
-        </div>
-        <div class="sidebarCoordTitle">Coordenação de Gestão da Informação de Pessoal - COGIP</div>
-      </div>
     </aside>
 
     <main class="main">
@@ -710,11 +699,11 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th class="sortable" data-ordenar="alertas" data-key="dsei">DSEI/CASAI</th>
-                    <th class="sortable" data-ordenar="alertas" data-key="cargo">Cargo</th>
-                    <th class="sortable" data-ordenar="alertas" data-key="tipo">Tipo de Alerta</th>
-                    <th class="sortable" data-ordenar="alertas" data-key="detalhe">Detalhe</th>
-                    <th class="sortable" data-ordenar="alertas" data-key="observacao">Observação</th>
+                    <th>DSEI/CASAI</th>
+                    <th>Cargo</th>
+                    <th>Tipo de Alerta</th>
+                    <th>Detalhe</th>
+                    <th>Observação</th>
                   </tr>
                 </thead>
                 <tbody id="alertasBody"></tbody>
@@ -725,62 +714,304 @@
         </section>
 
 
-        <section id="view-painelSaudeIndigena" class="viewPanel panelIframeView">
-          <div class="pageHeader">
-            <div>
-              <h2 class="pageTitle">Dashboard Saúde Indígena</h2>
-              <div class="pageSub">Área reservada para incorporar um painel externo específico desta página.</div>
-            </div>
-            <button id="btnAbrirPainelExterno" type="button" class="exportBtn" data-click="abrir-painel-externo">
-              Abrir painel em nova aba
-            </button>
-          </div>
+        <!-- ====================== DASHBOARD SAÚDE INDÍGENA ======================
+             Painel nativo (substitui o iframe do Looker). Lê a VW_SAUDE_INDIGENA
+             via /api/saude-indigena e monta KPIs, gráficos e filtros no cliente
+             (módulo saude-indigena.js). Tema com grafismos indígenas + AgSUS/SUS.
+        ===================================================================== -->
+        <section id="view-painelSaudeIndigena" class="viewPanel siDash">
 
-          <div class="externalDashboardCard">
-            <div id="dashboardSaudeIndigenaPlaceholder" class="externalDashboardPlaceholder">
-              <div class="externalDashboardPlaceholderBox">
-                <h3 class="externalDashboardPlaceholderTitle">Painel ainda não configurado</h3>
-                <p class="externalDashboardPlaceholderText">
-                  Esta categoria já está pronta. Para exibir o dashboard, informe o link de incorporação no
-                  arquivo <strong>Código.gs</strong>, dentro da configuração abaixo:
-                </p>
-                <span class="externalDashboardPlaceholderCode">DASHBOARD_SAUDE_INDIGENA_URL</span>
+          <!-- Cabeçalho temático -->
+          <header class="siHero">
+            <div class="siHeroPattern" aria-hidden="true"></div>
+            <div class="siHeroContent">
+              <div class="siHeroMain">
+                <span class="siHeroKicker"><i class="fa-solid fa-feather-pointed"></i> Painel da Força de Trabalho</span>
+                <h2 class="siHeroTitle">Dashboard Saúde Indígena</h2>
+                <p class="siHeroSub">Trabalhadores dos DSEIs e das CASAIs.</p>
+                <div class="siHeroBadges">
+                  <span class="siChip siChipSus"><i class="fa-solid fa-heart-pulse"></i> A serviço do SUS</span>
+                  <span class="siChip siChipAgsus"><i class="fa-solid fa-people-group"></i> AgSUS · Gestão de Pessoas</span>
+                  <span class="siChip siChipUpd">Atualizado em <strong id="siAtualizado">—</strong></span>
+                </div>
+              </div>
+              <div class="siHeroAside">
+                <img class="siHeroLogo" src="/assets/images/Logo AgSUS sem fundo.png" alt="AgSUS" />
+                <img class="siHeroMascote" src="/assets/images/ze-gotinha-indigena.png" alt="" aria-hidden="true" />
+              </div>
+            </div>
+          </header>
+
+          <!-- Barra de filtros -->
+          <div class="siToolbar">
+            <div class="siToolbarHead">
+              <div class="siToolbarTitle"><i class="fa-solid fa-sliders"></i> Filtros</div>
+              <button type="button" class="siBtnLimpar" id="siBtnLimpar">
+                <i class="fa-solid fa-filter-circle-xmark"></i> Limpar filtros
+              </button>
+            </div>
+
+            <div class="siFilters">
+              <div class="siField">
+                <span class="siFieldLabel"><i class="fa-solid fa-magnifying-glass"></i> Nome</span>
+                <div class="siCombo" id="siFiltroNome"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Trabalhadores Indígenas</span>
+                <div class="siCombo" id="siFiltroIndigena"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Vínculo com a Agência</span>
+                <div class="siCombo" id="siFiltroVinculo"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Situação</span>
+                <div class="siCombo" id="siFiltroSituacao"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Cargo</span>
+                <div class="siCombo" id="siFiltroCargo"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Centro de Custo</span>
+                <div class="siCombo" id="siFiltroCentro"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">UF de Atuação</span>
+                <div class="siCombo" id="siFiltroUf"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Território de Atuação</span>
+                <div class="siCombo" id="siFiltroTerritorio"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Atuação</span>
+                <div class="siCombo" id="siFiltroAtuacao"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Tipo de Admissão</span>
+                <div class="siCombo" id="siFiltroTipoAdmissao"></div>
+              </div>
+
+              <div class="siField">
+                <span class="siFieldLabel">Tipo de Desligamento</span>
+                <div class="siCombo" id="siFiltroTipoDeslig"></div>
+              </div>
+
+              <div class="siField siFieldRange">
+                <span class="siFieldLabel">Período (Admissão)</span>
+                <div class="siRangeInputs">
+                  <input class="siInput" type="date" id="siAdmIni" data-si-filtro aria-label="Admissão de">
+                  <span class="siRangeSep">até</span>
+                  <input class="siInput" type="date" id="siAdmFim" data-si-filtro aria-label="Admissão até">
+                </div>
+              </div>
+
+              <div class="siField siFieldRange">
+                <span class="siFieldLabel">Data de Desligamento</span>
+                <div class="siRangeInputs">
+                  <input class="siInput" type="date" id="siDeslIni" data-si-filtro aria-label="Desligamento de">
+                  <span class="siRangeSep">até</span>
+                  <input class="siInput" type="date" id="siDeslFim" data-si-filtro aria-label="Desligamento até">
+                </div>
               </div>
             </div>
 
-            <iframe id="iframeDashboardSaudeIndigena" class="externalDashboardIframe" title="Dashboard Saúde Indígena"
-              loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade">
-            </iframe>
-          </div>
-        </section>
-
-
-        <section id="view-ferias" class="viewPanel panelIframeView">
-          <div class="pageHeader">
-            <div>
-              <h2 class="pageTitle">Férias - Saúde Indígena</h2>
-              <div class="pageSub">Área reservada para incorporar o painel de férias específico desta página.</div>
-            </div>
-            <button id="btnAbrirPainelFerias" type="button" class="exportBtn" data-click="abrir-painel-ferias">
-              Abrir painel em nova aba
-            </button>
+            <div class="siResumoFiltro" id="siResumoFiltro">—</div>
           </div>
 
-          <div class="externalDashboardCard">
-            <div id="dashboardFeriasPlaceholder" class="externalDashboardPlaceholder">
-              <div class="externalDashboardPlaceholderBox">
-                <h3 class="externalDashboardPlaceholderTitle">Painel ainda não configurado</h3>
-                <p class="externalDashboardPlaceholderText">
-                  Esta categoria já está pronta. Para exibir o dashboard, informe o link de incorporação na
-                  configuração abaixo:
-                </p>
-                <span class="externalDashboardPlaceholderCode">DASHBOARD_FERIAS_URL</span>
+          <!-- Estado de carregamento / erro -->
+          <div class="siEstado" id="siEstado" hidden></div>
+
+          <!-- Conteúdo do dashboard -->
+          <div class="siBody" id="siBody">
+
+            <!-- KPIs por tipo de atuação -->
+            <section class="siKpiBloco">
+              <h3 class="siKpiBlocoTitulo"><i class="fa-solid fa-sitemap"></i> Trabalhadores por tipo de atuação</h3>
+              <div class="siKpiGrid siKpiGrid4">
+                <article class="siKpi si-k-dsei">
+                  <div class="siKpiIcon"><i class="fa-solid fa-house-medical"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">DSEI</span><span class="siKpiValue" id="siKpiAtDsei">0</span></div>
+                </article>
+                <article class="siKpi si-k-pey">
+                  <div class="siKpiIcon"><i class="fa-solid fa-kit-medical"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">Emergência PEY</span><span class="siKpiValue" id="siKpiAtPey">0</span></div>
+                </article>
+                <article class="siKpi si-k-casai">
+                  <div class="siKpiIcon"><i class="fa-solid fa-house-chimney-medical"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">CASAI</span><span class="siKpiValue" id="siKpiAtCasai">0</span></div>
+                </article>
+                <article class="siKpi si-k-samu">
+                  <div class="siKpiIcon"><i class="fa-solid fa-truck-medical"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">SAMU Indígena</span><span class="siKpiValue" id="siKpiAtSamu">0</span></div>
+                </article>
               </div>
-            </div>
+            </section>
 
-            <iframe id="iframeDashboardFerias" class="externalDashboardIframe" title="Dashboard Férias" loading="lazy"
-              allowfullscreen referrerpolicy="no-referrer-when-downgrade">
-            </iframe>
+            <!-- KPIs gerais -->
+            <section class="siKpiBloco">
+              <h3 class="siKpiBlocoTitulo"><i class="fa-solid fa-chart-pie"></i> Panorama geral</h3>
+              <div class="siKpiGrid">
+                <article class="siKpi si-k-total">
+                  <div class="siKpiIcon"><i class="fa-solid fa-users"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">Total de Trabalhadores</span><span class="siKpiValue" id="siKpiTotal">0</span></div>
+                </article>
+                <article class="siKpi si-k-ativos">
+                  <div class="siKpiIcon"><i class="fa-solid fa-user-check"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">Trabalhadores Ativos</span><span class="siKpiValue" id="siKpiAtivos">0</span><span class="siKpiHint" id="siKpiAtivosPct">—</span></div>
+                </article>
+                <article class="siKpi si-k-deslig">
+                  <div class="siKpiIcon"><i class="fa-solid fa-user-xmark"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">Trabalhadores Desligados</span><span class="siKpiValue" id="siKpiDesligados">0</span></div>
+                </article>
+                <article class="siKpi si-k-indigena">
+                  <div class="siKpiIcon"><i class="fa-solid fa-feather"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">Trabalhadores Indígenas</span><span class="siKpiValue" id="siKpiIndigenas">0</span><span class="siKpiHint" id="siKpiIndigenasPct">—</span></div>
+                </article>
+                <article class="siKpi si-k-afast">
+                  <div class="siKpiIcon"><i class="fa-solid fa-user-clock"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">Em Afastamento</span><span class="siKpiValue" id="siKpiAfastados">0</span></div>
+                </article>
+                <article class="siKpi si-k-ferias">
+                  <div class="siKpiIcon"><i class="fa-solid fa-umbrella-beach"></i></div>
+                  <div class="siKpiInfo"><span class="siKpiLabel">Em Férias</span><span class="siKpiValue" id="siKpiFerias">0</span></div>
+                </article>
+              </div>
+            </section>
+
+            <!-- Destaque: composição por raça/cor (DSEIs e cargos) -->
+            <h3 class="siSecTitle siSecTitleDestaque"><i class="fa-solid fa-feather-pointed"></i> Composição por Raça / Cor</h3>
+            <section class="siChartsGrid">
+              <article class="siCard siCardWide">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-ranking-star"></i> Top 10 DSEIs / CASAIs por raça / cor</h3>
+                  <button type="button" class="siCardExport" data-export="siChartRacaDsei" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox siChartTall"><canvas id="siChartRacaDsei"></canvas></div>
+              </article>
+
+              <article class="siCard siCardWide">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-id-badge"></i> Top 10 cargos por raça / cor</h3>
+                  <button type="button" class="siCardExport" data-export="siChartRacaCargo" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox siChartTall"><canvas id="siChartRacaCargo"></canvas></div>
+              </article>
+            </section>
+
+            <!-- Indicadores gerais -->
+            <h3 class="siSecTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores gerais</h3>
+            <section class="siChartsGrid">
+              <article class="siCard">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-feather-pointed"></i> Raça / Cor</h3>
+                  <button type="button" class="siCardExport" data-export="siChartRaca" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox"><canvas id="siChartRaca"></canvas></div>
+              </article>
+
+              <article class="siCard">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-venus-mars"></i> Sexo</h3>
+                  <button type="button" class="siCardExport" data-export="siChartSexo" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox"><canvas id="siChartSexo"></canvas></div>
+              </article>
+
+              <article class="siCard">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-chart-column"></i> Faixa Etária</h3>
+                  <button type="button" class="siCardExport" data-export="siChartFaixa" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox"><canvas id="siChartFaixa"></canvas></div>
+              </article>
+
+              <article class="siCard">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-sitemap"></i> Tipo de Atuação</h3>
+                  <button type="button" class="siCardExport" data-export="siChartAtuacao" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox"><canvas id="siChartAtuacao"></canvas></div>
+              </article>
+
+              <article class="siCard">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-notes-medical"></i> Situação Detalhada</h3>
+                  <button type="button" class="siCardExport" data-export="siChartSituacao" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox siChartTall"><canvas id="siChartSituacao"></canvas></div>
+              </article>
+
+              <article class="siCard">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-graduation-cap"></i> Grau de Instrução</h3>
+                  <button type="button" class="siCardExport" data-export="siChartGrau" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox siChartTall"><canvas id="siChartGrau"></canvas></div>
+              </article>
+
+              <article class="siCard siCardWide">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-map-location-dot"></i> Distribuição por UF</h3>
+                  <button type="button" class="siCardExport" data-export="siChartUf" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox"><canvas id="siChartUf"></canvas></div>
+              </article>
+            </section>
+
+            <!-- Tabela geral de profissionais -->
+            <section class="siTableCard">
+              <div class="siTableHead">
+                <h3 class="siTableTitle"><i class="fa-solid fa-table-list"></i> Tabela Geral de Trabalhadores</h3>
+                <div class="siTableHeadAcoes">
+                  <span class="siTableCount" id="siTabelaCount">—</span>
+                  <button type="button" class="siBtnExportar" id="siBtnExportar">
+                    <i class="fa-solid fa-file-excel"></i> Exportar Excel
+                  </button>
+                </div>
+              </div>
+              <div class="siTableWrap">
+                <table class="siTable">
+                  <thead id="siTabelaHead">
+                    <tr>
+                      <th data-col="registro">Registro <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="nome">Nome <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="dataNascimento">Data de Nascimento <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="sexo">Sexo <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="dataAdmissao">Admissão <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="tipoAdmissao">Tipo Admissão <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="substituicao">Substituição / Data Fim <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="cargo">Cargo <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="situacao">Situação <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="tipoDesligamento">Tipo de Desligamento <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="dataAfast">Data Afastamento / Desligamento <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="situacaoDataFim">Término Afastamento <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="localTrabalho">Local de Trabalho <i class="siSortIcon fa-solid fa-sort"></i></th>
+                      <th data-col="centroCusto">Centro de Custo <i class="siSortIcon fa-solid fa-sort"></i></th>
+                    </tr>
+                  </thead>
+                  <tbody id="siTabelaBody"></tbody>
+                </table>
+              </div>
+              <div class="siTableFooter">
+                <span class="siTableRegistros" id="siTabelaRegistros">—</span>
+              </div>
+            </section>
+
+            <footer class="siFooter">
+              <span><i class="fa-solid fa-database"></i> Fonte: base de pessoal da Saúde Indígena (VW_SAUDE_INDIGENA).</span>
+              <span>AgSUS — Agência para o Desenvolvimento da Atenção Primária à Saúde, a serviço do SUS.</span>
+            </footer>
           </div>
         </section>
 
@@ -1222,6 +1453,10 @@
               <div class="ecKpiValue is-blue" id="ecKpiTrabalhadores">0</div>
             </div>
             <div class="ecKpi">
+              <div class="ecKpiLabel">Trabalhadores Ativos</div>
+              <div class="ecKpiValue is-green" id="ecKpiAtivos">0</div>
+            </div>
+            <div class="ecKpi">
               <div class="ecKpiLabel">Foto Pendente de Envio</div>
               <div class="ecKpiValue is-red" id="ecKpiFoto">0</div>
             </div>
@@ -1236,6 +1471,14 @@
             <div class="ecKpi">
               <div class="ecKpiLabel">Crachá Confeccionado</div>
               <div class="ecKpiValue is-green" id="ecKpiConfeccionado">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Entregue ao Escritório</div>
+              <div class="ecKpiValue is-cyan" id="ecKpiEntregueEsc">0</div>
+            </div>
+            <div class="ecKpi">
+              <div class="ecKpiLabel">Entregue ao Trabalhador</div>
+              <div class="ecKpiValue is-lilac" id="ecKpiEntregueTrab">0</div>
             </div>
           </section>
 
@@ -1264,6 +1507,21 @@
               <i class="fa-solid fa-magnifying-glass"></i>
               <input class="ecInput" type="search" id="ecBuscaCargo" data-ec-filtro placeholder="Buscar por cargo...">
             </div>
+            <button type="button" class="ecBtn ecBtnPrimary" id="ecBtnExportar">
+              <i class="fa-solid fa-file-excel"></i> Baixar Excel
+            </button>
+          </div>
+
+          <!-- Barra de ação em lote (aparece quando há linhas selecionadas; só admin) -->
+          <div class="ecLoteBar" id="ecLoteBar" hidden>
+            <span class="ecLoteInfo"><strong id="ecLoteQtd">0</strong> selecionado(s)</span>
+            <select class="ecSelect" id="ecLoteStatus" aria-label="Novo status"></select>
+            <button type="button" class="ecBtn ecBtnPrimary" id="ecLoteAplicar">
+              <i class="fa-solid fa-check-double"></i> Aplicar status
+            </button>
+            <button type="button" class="ecBtn ecBtnGhost" id="ecLoteLimpar">
+              <i class="fa-solid fa-xmark"></i> Limpar seleção
+            </button>
           </div>
 
           <!-- Tabela principal -->
@@ -1272,14 +1530,15 @@
               <table class="ecTable">
                 <thead>
                   <tr>
-                    <th class="sortable" data-ordenar="ec" data-key="matricula">Matrícula</th>
-                    <th class="sortable" data-ordenar="ec" data-key="dsei">DSEI</th>
-                    <th class="sortable" data-ordenar="ec" data-key="nome">Nome</th>
-                    <th class="sortable" data-ordenar="ec" data-key="cargo">Cargo</th>
-                    <th class="sortable" data-ordenar="ec" data-key="dataSolicitacao">Data da Solicitação</th>
-                    <th class="ecTd-center sortable" data-ordenar="ec" data-key="possuiFoto">Possui Foto</th>
-                    <th class="sortable" data-ordenar="ec" data-key="dataEnvio">Data de Envio</th>
-                    <th class="sortable" data-ordenar="ec" data-key="status">Status</th>
+                    <th class="ecColSelect ecTd-center"><input type="checkbox" id="ecSelecionarPagina" aria-label="Selecionar página"></th>
+                    <th>Matrícula</th>
+                    <th>DSEI</th>
+                    <th>Nome</th>
+                    <th>Cargo</th>
+                    <th>Data da Solicitação</th>
+                    <th class="ecTd-center">Possui Foto</th>
+                    <th>Data de Envio</th>
+                    <th>Status</th>
                     <th class="ecTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -1331,14 +1590,17 @@
               <section class="ecDetalheBloco">
                 <h4>Atualizar Status</h4>
                 <div class="ecAcoesEscritorio">
-                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="foto">
-                    <i class="fa-solid fa-camera"></i> Registrar Foto Recebida
-                  </button>
                   <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="grafica">
                     <i class="fa-solid fa-paper-plane"></i> Registrar Envio à Gráfica
                   </button>
                   <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="confeccao">
                     <i class="fa-solid fa-id-card"></i> Registrar Confecção Concluída
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="escritorio">
+                    <i class="fa-solid fa-building"></i> Registrar Entrega ao Escritório
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnBlock" data-ec-acao="trabalhador">
+                    <i class="fa-solid fa-user-check"></i> Registrar Entrega ao Trabalhador
                   </button>
                   <button type="button" class="ecBtn ecBtnVoltar ecBtnBlock" data-ec-acao="voltar">
                     <i class="fa-solid fa-rotate-left"></i> Voltar Etapa
@@ -1420,31 +1682,32 @@
             <datalist id="gdListaTrabalhadores"></datalist>
 
             <div class="gfForm gdForm">
-              <div class="gfField">
-                <label>Nº Processo SEI</label>
-                <input class="gfInput" type="text" id="gdFProcesso" placeholder="Ex: 25000.000000/2024-00">
-              </div>
-              <div class="gfField">
-                <label>DSEI/CASAI <span class="req">*</span></label>
-                <input class="gfInput" type="text" id="gdFDsei" list="gdListaDseis" placeholder="Selecione ou digite">
-              </div>
-              <div class="gfField">
+              <!-- Trabalhador: linha única; ao selecionar, auto-preenche os campos abaixo. -->
+              <div class="gfField gdFieldFull">
                 <label>Trabalhador <span class="req">*</span></label>
                 <input class="gfInput" type="text" id="gdFTrabalhador" list="gdListaTrabalhadores"
                   placeholder="Selecione ou digite o nome">
+              </div>
+
+              <!-- Auto-preenchidos a partir do trabalhador (2 em cima, 2 embaixo). -->
+              <div class="gfField">
+                <label>Matrícula</label>
+                <input class="gfInput" type="text" id="gdFMatricula" placeholder="Preenchido ao selecionar">
               </div>
               <div class="gfField">
                 <label>Cargo</label>
                 <input class="gfInput" type="text" id="gdFCargo" placeholder="Preenchido ao selecionar">
               </div>
               <div class="gfField">
-                <label>Matrícula</label>
-                <input class="gfInput" type="text" id="gdFMatricula" placeholder="Preenchido ao selecionar">
+                <label>DSEI/CASAI <span class="req">*</span></label>
+                <input class="gfInput" type="text" id="gdFDsei" list="gdListaDseis" placeholder="Selecione ou digite">
               </div>
               <div class="gfField">
-                <label>Polo Base / CASAI</label>
+                <label>Polo Base</label>
                 <input class="gfInput" type="text" id="gdFPolo" placeholder="Ex: Polo Base Auaris">
               </div>
+
+              <!-- Datas lado a lado. -->
               <div class="gfField">
                 <label>Data da Ocorrência</label>
                 <input class="gfInput" type="date" id="gdFOcorrencia">
@@ -1453,48 +1716,41 @@
                 <label>Data do Pedido</label>
                 <input class="gfInput" type="date" id="gdFDataPedido">
               </div>
-              <div class="gfField">
-                <label>Pedido</label>
+
+              <!-- Pedido de Medida (o status entra automaticamente como "Pendente"). -->
+              <div class="gfField gdFieldFull">
+                <label>Pedido de Medida</label>
                 <select class="gfSelect" id="gdFPedido">
+                  <option>Sem indicação</option>
                   <option>Advertência</option>
                   <option>Suspensão</option>
                   <option>Justa Causa</option>
                 </select>
               </div>
-              <div class="gfField">
-                <label>Status da Demanda</label>
-                <select class="gfSelect" id="gdFStatus">
-                  <option>Pendente</option>
-                  <option>Em análise</option>
-                  <option>Aguardando devolutiva do DSEI</option>
-                  <option>Concluída</option>
-                </select>
+
+              <!-- Separador: dados do processo. -->
+              <div class="gdFormDivider gdFieldFull"><span>Dados do Processo</span></div>
+
+              <div class="gfField gdFieldFull">
+                <label>Nº Processo SEI</label>
+                <input class="gfInput" type="text" id="gdFProcesso" placeholder="Ex: 25000.000000/2024-00">
               </div>
-              <div class="gfField">
-                <label>Atendimento</label>
-                <select class="gfSelect" id="gdFAtendimento">
-                  <option value="—">—</option>
-                  <option>Totalmente</option>
-                  <option>Parcialmente</option>
-                  <option>Não atendido</option>
-                </select>
+
+              <!-- Documento do processo: link OU anexo em PDF (um ou outro). -->
+              <div class="gfField gdFieldFull">
+                <label>Documento do processo</label>
+                <div class="gdDocToggle">
+                  <label class="gdRadio"><input type="radio" name="gdDocTipo" value="link" checked> Link</label>
+                  <label class="gdRadio"><input type="radio" name="gdDocTipo" value="anexo"> Anexo (PDF)</label>
+                </div>
+                <input class="gfInput" id="gdFLink" type="url" placeholder="https://...">
+                <input class="gfInput gdInputFile" id="gdFArquivo" type="file" accept="application/pdf" hidden>
               </div>
-              <div class="gfField">
-                <label>Decisão</label>
-                <select class="gfSelect" id="gdFDecisao">
-                  <option>Não foi aplicado</option>
-                  <option>Advertência</option>
-                  <option>Suspensão</option>
-                  <option>Justa Causa</option>
-                </select>
-              </div>
-              <div class="gfField">
-                <label>Data de Aplicação da Sanção</label>
-                <input class="gfInput" type="date" id="gdFDataSancao">
-              </div>
-              <div class="gfField gdFieldWide">
-                <label>Motivo</label>
-                <input class="gfInput" type="text" id="gdFMotivo" placeholder="Descreva o motivo do pedido">
+
+              <div class="gfField gdFieldFull">
+                <label>Resumo do processo</label>
+                <textarea class="gfInput gdTextarea" id="gdFResumo" rows="4"
+                  placeholder="Descreva o resumo do processo (motivo, contexto e andamento)"></textarea>
               </div>
             </div>
 
@@ -1511,51 +1767,51 @@
             <h3 class="gfPanelTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores Gerais</h3>
             <div class="gdKpiGrid">
               <div class="gfKpi">
-                <div class="gfKpiValue">48</div>
+                <div class="gfKpiValue" id="gdKpiTotal">0</div>
                 <div class="gfKpiLabel">Total de Pedidos</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-green">18</div>
+                <div class="gfKpiValue is-green" id="gdKpiTotalmente">0</div>
                 <div class="gfKpiLabel">Atendidos Totalmente</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-orange">9</div>
+                <div class="gfKpiValue is-orange" id="gdKpiParcialmente">0</div>
                 <div class="gfKpiLabel">Atendidos Parcialmente</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-red">12</div>
+                <div class="gfKpiValue is-red" id="gdKpiNaoAtendidos">0</div>
                 <div class="gfKpiLabel">Não Atendidos</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-yellow">9</div>
+                <div class="gfKpiValue is-yellow" id="gdKpiPendentes">0</div>
                 <div class="gfKpiLabel">Pendentes</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-green">27</div>
+                <div class="gfKpiValue is-green" id="gdKpiConcluidos">0</div>
                 <div class="gfKpiLabel">Concluídos</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue">22</div>
+                <div class="gfKpiValue" id="gdKpiAdvertencias">0</div>
                 <div class="gfKpiLabel">Advertências Aplicadas</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-orange">14</div>
+                <div class="gfKpiValue is-orange" id="gdKpiSuspensoes">0</div>
                 <div class="gfKpiLabel">Suspensões Aplicadas</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-red">6</div>
+                <div class="gfKpiValue is-red" id="gdKpiJustasCausas">0</div>
                 <div class="gfKpiLabel">Justas Causas Executadas</div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue">12 dias</div>
+              <div class="gfKpi" id="gdKpiTempoMedio">
+                <div class="gfKpiValue" id="gdKpiTempoMedioValor">0 dias</div>
                 <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-yellow">7</div>
+                <div class="gfKpiValue is-yellow" id="gdKpiForaPrazo">0</div>
                 <div class="gfKpiLabel">Pedidos Fora do Prazo</div>
               </div>
               <div class="gfKpi">
-                <div class="gfKpiValue is-orange">4</div>
+                <div class="gfKpiValue is-orange" id="gdKpiAguardando">0</div>
                 <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
               </div>
             </div>
@@ -1565,7 +1821,17 @@
           <section class="gfPanel" style="margin-top:14px;">
             <h3 class="gfPanelTitle"><i class="fa-solid fa-list-check"></i> Pedidos Disciplinares</h3>
 
-            <div class="gdToolbar">
+            <div class="gdFiltrosBar">
+              <button type="button" class="gdFiltrosToggle" id="gdBtnToggleFiltros" aria-expanded="false" aria-controls="gdToolbar">
+                <i class="fa-solid fa-filter"></i> Filtros
+                <i class="fa-solid fa-chevron-down gdChevron"></i>
+              </button>
+              <button type="button" class="gfBtn gfBtnGhost gdBtnMeus" id="gdBtnMeusProcessos">
+                <i class="fa-solid fa-user-shield"></i> Processos em que sou o responsável
+              </button>
+            </div>
+
+            <div class="gdToolbar is-recolhido" id="gdToolbar">
               <div class="gfField">
                 <label>DSEI/CASAI</label>
                 <select class="gfSelect" id="gdFiltroDsei"></select>
@@ -1587,8 +1853,12 @@
                 <input class="gfInput" type="text" id="gdBuscaNome" placeholder="Nome do trabalhador...">
               </div>
               <div class="gfField">
-                <label>Buscar por pedido / motivo</label>
+                <label>Buscar por pedido</label>
                 <input class="gfInput" type="text" id="gdBuscaPedido" placeholder="Processo, pedido, motivo...">
+              </div>
+              <div class="gfField">
+                <label>Responsável</label>
+                <input class="gfInput" type="text" id="gdBuscaResponsavel" placeholder="Login do responsável...">
               </div>
               <button type="button" class="gfBtn gfBtnGhost" id="gdBtnLimpar"><i class="fa-solid fa-eraser"></i> Limpar
                 filtros</button>
@@ -1598,18 +1868,18 @@
               <table class="gfTable">
                 <thead>
                   <tr>
-                    <th class="sortable" data-ordenar="gd" data-key="processo">Nº Processo SEI</th>
-                    <th class="sortable" data-ordenar="gd" data-key="dsei">DSEI</th>
-                    <th class="sortable" data-ordenar="gd" data-key="trabalhador">Trabalhador</th>
-                    <th class="sortable" data-ordenar="gd" data-key="cargo">Cargo</th>
-                    <th class="sortable" data-ordenar="gd" data-key="polo">Polo Base / CASAI</th>
-                    <th class="sortable" data-ordenar="gd" data-key="ocorrencia">Data da Ocorrência</th>
-                    <th class="sortable" data-ordenar="gd" data-key="pedido">Pedido</th>
-                    <th class="sortable" data-ordenar="gd" data-key="status">Status da Demanda</th>
-                    <th class="sortable" data-ordenar="gd" data-key="atendimento">Atendimento</th>
-                    <th class="sortable" data-ordenar="gd" data-key="decisao">Decisão</th>
-                    <th class="sortable" data-ordenar="gd" data-key="dataSancao">Data de Aplicação da Sanção</th>
-                    <th class="sortable" data-ordenar="gd" data-key="dataPedido">Data do Pedido</th>
+                    <th>Nº Processo SEI</th>
+                    <th>DSEI</th>
+                    <th>Trabalhador</th>
+                    <th>Cargo</th>
+                    <th>Polo Base / CASAI</th>
+                    <th>Data da Ocorrência</th>
+                    <th>Pedido</th>
+                    <th>Status da Demanda</th>
+                    <th>Atendimento</th>
+                    <th>Decisão</th>
+                    <th>Data de Aplicação da Sanção</th>
+                    <th>Data do Pedido</th>
                     <th class="gfTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -1641,27 +1911,44 @@
               </div>
             </div>
           </section>
+
+          <!-- Confirmação de alteração (Status da Demanda / Sanção Aplicada) -->
+          <div class="gdConfirmOverlay" id="gdConfirmOverlay" hidden>
+            <div class="gdConfirmCard" role="alertdialog" aria-modal="true" aria-labelledby="gdConfirmTitulo">
+              <h3 id="gdConfirmTitulo"><i class="fa-solid fa-triangle-exclamation"></i> Confirmar alteração</h3>
+              <p class="gdConfirmMsg" id="gdConfirmMsg"></p>
+              <div class="gdConfirmFoot">
+                <button type="button" class="gfBtn gfBtnGhost" id="gdConfirmCancelar">Cancelar</button>
+                <button type="button" class="gfBtn" id="gdConfirmOk"><i class="fa-solid fa-check"></i> Confirmar alteração</button>
+              </div>
+            </div>
+          </div>
         </section>
 
 
         <section id="view-processosSeletivos" class="viewPanel processosSeletivosView">
           <div class="psPageHeader">
-            <div>
-              <h2>Processos Seletivos</h2>
-              <p>Acompanhamento dos editais de Processo Seletivo Simplificado (PSS) da Saúde Indígena por unidade,
-                com situação, etapa e os números de vagas, contratações e inscrições.</p>
+            <div class="psHeaderTop">
+              <div class="psHeaderTitle">
+                <h2>Processos Seletivos</h2>
+                <p>Acompanhamento dos editais de Processo Seletivo Simplificado (PSS) da Saúde Indígena por unidade,
+                  com situação, etapa e os números de vagas, contratações e inscrições.</p>
+              </div>
+              <button type="button" class="psBtn" id="psBtnAddEdital">
+                <i class="fa-solid fa-plus"></i> Adicionar edital
+              </button>
             </div>
-            <div class="psHeaderActions">
+            <div class="psHeaderFiltros">
               <select class="psSelect" id="psFiltroUnidade" aria-label="Filtrar por unidade">
                 <option value="">Todas as unidades</option>
               </select>
               <select class="psSelect" id="psFiltroStatus" aria-label="Filtrar por status">
                 <option value="">Todos os status</option>
               </select>
-              <div class="psSearchBox">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input class="psSearch" id="psBusca" type="search" placeholder="Buscar por unidade, edital, etapa...">
-              </div>
+            </div>
+            <div class="psSearchBox psSearchBoxFull">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input class="psSearch" id="psBusca" type="search" placeholder="Buscar por unidade, edital, etapa...">
             </div>
           </div>
 
@@ -1693,13 +1980,13 @@
               <table class="psTable">
                 <thead>
                   <tr>
-                    <th class="sortable" data-ordenar="ps" data-key="unidade">Unidade</th>
-                    <th class="psTd-center sortable" data-ordenar="ps" data-key="uf">UF</th>
-                    <th class="psTd-center sortable" data-ordenar="ps" data-key="edital">Edital</th>
-                    <th class="psTd-center sortable" data-ordenar="ps" data-key="dataInicio">Data de Início</th>
-                    <th class="psTd-center sortable" data-ordenar="ps" data-key="dataEncerramento">Data de Encerramento</th>
-                    <th class="sortable" data-ordenar="ps" data-key="status">Status</th>
-                    <th class="sortable" data-ordenar="ps" data-key="responsavel">Responsável</th>
+                    <th>Unidade</th>
+                    <th class="psTd-center">UF</th>
+                    <th class="psTd-center">Edital</th>
+                    <th class="psTd-center">Data de Início</th>
+                    <th class="psTd-center">Data de Encerramento</th>
+                    <th>Status</th>
+                    <th>Responsável</th>
                     <th class="psTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -1713,6 +2000,140 @@
           </section>
 
           <section class="psDetalhe" id="psDetalhe" hidden></section>
+
+          <!-- Modal: adicionar novo edital -->
+          <div class="psModalOverlay" id="psModalEdital" hidden>
+            <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalTitulo"><i class="fa-solid fa-file-circle-plus"></i> Adicionar edital</h3>
+                <button type="button" class="psModalClose" id="psModalFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormEdital">
+                <div class="psFormGrid">
+                  <label class="psField psField2">
+                    <span>Unidade <i class="psReq">*</i></span>
+                    <input class="psInput" id="psFormUnidade" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>UF <i class="psReq">*</i></span>
+                    <input class="psInput" id="psFormUf" type="text" maxlength="2" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Edital <i class="psReq">*</i></span>
+                    <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Processo SEI</span>
+                    <input class="psInput" id="psFormSei" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Ciclo</span>
+                    <input class="psInput" id="psFormCiclo" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Total de vagas previstas</span>
+                    <input class="psInput" id="psFormVagas" type="number" min="0">
+                  </label>
+                  <label class="psField">
+                    <span>Total de contratados</span>
+                    <input class="psInput" id="psFormContratados" type="number" min="0">
+                  </label>
+                  <label class="psField">
+                    <span>Inscritos</span>
+                    <input class="psInput" id="psFormInscritos" type="number" min="0">
+                  </label>
+                  <label class="psField">
+                    <span>Risco</span>
+                    <input class="psInput" id="psFormRisco" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Data de início</span>
+                    <input class="psInput" id="psFormDataInicio" type="date">
+                  </label>
+                  <label class="psField">
+                    <span>Data de encerramento</span>
+                    <input class="psInput" id="psFormDataFim" type="date">
+                  </label>
+                  <label class="psField">
+                    <span>Responsável</span>
+                    <input class="psInput" id="psFormResponsavel" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Status</span>
+                    <select class="psSelect" id="psFormStatus">
+                      <option value="Andamento">Em Andamento</option>
+                      <option value="Aguardando Convocação">Aguardando Convocação</option>
+                      <option value="Concluído">Concluído</option>
+                      <option value="Cancelado">Cancelado</option>
+                    </select>
+                  </label>
+                  <label class="psField psField3">
+                    <span>Observação</span>
+                    <textarea class="psInput psTextarea" id="psFormObs" rows="3"></textarea>
+                  </label>
+                </div>
+
+                <div class="psFormSecao">
+                  <div class="psFormSecaoHead">
+                    <h4>Documento do edital</h4>
+                    <small>Informe um link <strong>ou</strong> anexe um PDF</small>
+                  </div>
+                  <div class="psDocToggle">
+                    <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
+                    <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
+                  </div>
+                  <label class="psField psField3" id="psDocLinkWrap">
+                    <span>Link do edital</span>
+                    <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
+                  </label>
+                  <label class="psField psField3" id="psDocAnexoWrap" hidden>
+                    <span>Anexo (PDF)</span>
+                    <input class="psInput psInputFile" id="psFormAnexo" type="file" accept="application/pdf">
+                  </label>
+                </div>
+
+                <p class="psModalErro" id="psFormErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalCancelar">Cancelar</button>
+                <button type="submit" form="psFormEdital" class="psBtn" id="psModalSalvar"><i class="fa-solid fa-check"></i> Salvar edital</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: inserir anexo (extrai vagas e cronograma do PDF) -->
+          <div class="psModalOverlay" id="psModalAnexo" hidden>
+            <div class="psModalCard psModalCardSm" role="dialog" aria-modal="true" aria-labelledby="psModalAnexoTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalAnexoTitulo"><i class="fa-solid fa-file-arrow-up"></i> Inserir anexo do edital</h3>
+                <button type="button" class="psModalClose" id="psModalAnexoFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormAnexoEdital">
+                <p class="psAnexoIntro">
+                  Envie o PDF de <strong>anexos do edital</strong> (Quadro de Vagas / Cronograma).
+                  Os dados serão lidos diretamente do arquivo para montar as tabelas de
+                  <strong>Cronograma do Edital</strong> e <strong>Vagas Previstas</strong>.
+                  O arquivo é processado na hora e <strong>não é salvo</strong> em lugar nenhum.
+                </p>
+                <label class="psField psField3">
+                  <span>Arquivo PDF <i class="psReq">*</i></span>
+                  <input class="psInput psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf">
+                </label>
+                <div class="psAnexoStatus" id="psAnexoStatus" hidden></div>
+                <p class="psModalErro" id="psAnexoErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalAnexoCancelar">Cancelar</button>
+                <button type="submit" form="psFormAnexoEdital" class="psBtn" id="psAnexoEnviar">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Extrair dados
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
 
@@ -1982,15 +2403,15 @@
                   </colgroup>
                   <thead>
                     <tr>
-                      <th class="sortable" data-ordenar="rem" data-key="data">Data</th>
-                      <th class="sortable" data-ordenar="rem" data-key="dseiCasai">DSEI</th>
-                      <th class="sortable" data-ordenar="rem" data-key="competencia">Competência</th>
-                      <th class="sortable" data-ordenar="rem" data-key="cargosReduzidos">Vaga Reduzida</th>
-                      <th class="sortable" data-ordenar="rem" data-key="totalReduzidoPeriodo">Valor Reduzido</th>
-                      <th class="sortable" data-ordenar="rem" data-key="cargosAcrescentados">Vaga Acrescentada</th>
-                      <th class="sortable" data-ordenar="rem" data-key="totalAcrescentadoPeriodo">Valor Acrescentado</th>
-                      <th class="sortable" data-ordenar="rem" data-key="impactoMensal">Impacto Mensal</th>
-                      <th class="sortable" data-ordenar="rem" data-key="responsavel">Responsável</th>
+                      <th>Data</th>
+                      <th>DSEI</th>
+                      <th>Competência</th>
+                      <th>Vaga Reduzida</th>
+                      <th>Valor Reduzido</th>
+                      <th>Vaga Acrescentada</th>
+                      <th>Valor Acrescentado</th>
+                      <th>Impacto Mensal</th>
+                      <th>Responsável</th>
                       <th>Ações</th>
                     </tr>
                   </thead>

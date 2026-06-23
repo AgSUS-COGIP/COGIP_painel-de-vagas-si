@@ -1,9 +1,29 @@
 // Gerado a partir de mock/AgSUS_Monitora_SaudeIndigena_20260618.csv
 // Dados reais dos editais de Processo Seletivo Simplificado (PSS) da Saude Indigena.
-// Para atualizar: regenerar a partir do CSV (nao editar a mao).
+// Para atualizar: rode `node scripts/gerar-processos-seletivos.js` (nao editar a mao).
 export const PROCESSOS_SELETIVOS_DADOS = [
   {
     "id": "ps-1",
+    "unidade": "DSEI Kaiapó de Mato Grosso",
+    "uf": "MT",
+    "edital": "76/2026",
+    "processoSei": "",
+    "ciclo": "",
+    "vagasPrevistas": 28,
+    "contratados": 0,
+    "vagasOciosas": 28,
+    "inscritos": 0,
+    "status": "Andamento",
+    "etapa": "Impugnação do Edital",
+    "risco": "Baixo",
+    "dataInicio": "2026-06-19",
+    "dataEncerramento": "2026-09-04",
+    "responsavel": "",
+    "observacoes": "",
+    "linkEdital": "https://agenciasus.org.br/shared-files/33168/?1.-Edital_de_Processo_Seletivo_Simplificado_76-1.pdf"
+  },
+  {
+    "id": "ps-2",
     "unidade": "DSEI Yanomami",
     "uf": "RR",
     "edital": "11/2025",
@@ -23,7 +43,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/06/SEI_0021027_Edital_de_Processo_Seletivo_Simplificado_11-Yanomami.pdf"
   },
   {
-    "id": "ps-2",
+    "id": "ps-3",
     "unidade": "DSEI Yanomami",
     "uf": "RR",
     "edital": "71/2026",
@@ -43,7 +63,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32968/?Edital-de-Processo-Seletivo-Simplificado-37-.pdf"
   },
   {
-    "id": "ps-3",
+    "id": "ps-4",
     "unidade": "DSEI Interior Sul",
     "uf": "SC",
     "edital": "28/2026",
@@ -63,7 +83,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/29454/?EDITAL-No-28.2026-Edital-Retificado-Consolidado.pdf"
   },
   {
-    "id": "ps-4",
+    "id": "ps-5",
     "unidade": "DSEI Médio Rio Solimões e Afluentes",
     "uf": "AM",
     "edital": "04/2025",
@@ -83,7 +103,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/02/Edital_n_04-2025-DSEI_Medio_Rio_Solimoes.pdf"
   },
   {
-    "id": "ps-5",
+    "id": "ps-6",
     "unidade": "DSEI Guamá-Tocantins",
     "uf": "PA",
     "edital": "72/2026",
@@ -103,7 +123,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32986/?Edital-DSEI-Guatoc-72_2026.pdf"
   },
   {
-    "id": "ps-6",
+    "id": "ps-7",
     "unidade": "DSEI Litoral Sul",
     "uf": "PR",
     "edital": "80/2025",
@@ -123,7 +143,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19283/?SEI_0142269_Edital_Processo_Seletivo_Simplificado_DSEI_Litoral_Sul.pdf"
   },
   {
-    "id": "ps-7",
+    "id": "ps-8",
     "unidade": "DSEI Altamira",
     "uf": "PA",
     "edital": "78/2025",
@@ -143,7 +163,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19276/?SEI_0142497_Edital_Processo_Seletivo_Simplificado_DSEI_Altamira.pdf"
   },
   {
-    "id": "ps-8",
+    "id": "ps-9",
     "unidade": "DSEI Mato Grosso do Sul",
     "uf": "MS",
     "edital": "12/2025",
@@ -163,7 +183,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/06/SEI_0021109_Edital_de_Processo_Seletivo_Simplificado_12-Mato-Grosso-do-Sul.pdf"
   },
   {
-    "id": "ps-9",
+    "id": "ps-10",
     "unidade": "DSEI Minas Gerais e Espírito Santo",
     "uf": "MG",
     "edital": "13/2025",
@@ -183,7 +203,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/06/SEI_0021128_Edital_de_Processo_Seletivo_Simplificado_13-Minas-Gerais-e-Espirito-Santo.pdf"
   },
   {
-    "id": "ps-10",
+    "id": "ps-11",
     "unidade": "DSEI Kaiapó de Mato Grosso",
     "uf": "MT",
     "edital": "14/2025",
@@ -203,7 +223,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/06/SEI_0021145_Edital_de_Processo_Seletivo_Simplificado_14-Kaiapo-do-Mato-Grosso.pdf"
   },
   {
-    "id": "ps-11",
+    "id": "ps-12",
     "unidade": "CASAI São Paulo",
     "uf": "SP",
     "edital": "53/2025",
@@ -223,7 +243,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18194/?Edital-no-532025-1-CASAI-NACIONAL-SAO-PAULO.pdf"
   },
   {
-    "id": "ps-12",
+    "id": "ps-13",
     "unidade": "DSEI Kaiapó de Mato Grosso",
     "uf": "MT",
     "edital": "66/2025",
@@ -243,7 +263,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18171/?Edital-no-66-Processo-Seletivo-Simplificado-DSEI-Kaiapo-do-Mato-Grosso.pdf"
   },
   {
-    "id": "ps-13",
+    "id": "ps-14",
     "unidade": "CASAI São Paulo",
     "uf": "SP",
     "edital": "38/2026",
@@ -263,7 +283,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32765/?Edital-do-Processo-Seletivo-Simplificado-CASAI-SP-no-382026.pdf"
   },
   {
-    "id": "ps-14",
+    "id": "ps-15",
     "unidade": "DSEI Pernambuco",
     "uf": "PE",
     "edital": "23/2026",
@@ -283,7 +303,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/27141/?EDITAL-No-23-2026-%E2%80%93-Edital-Retificado-Consolidado.pdf"
   },
   {
-    "id": "ps-15",
+    "id": "ps-16",
     "unidade": "DSEI Minas Gerais e Espírito Santo",
     "uf": "MG",
     "edital": "64/2025",
@@ -303,7 +323,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18163/?Edital-no-64-Processo-Seletivo-Simplificado-DSEI-Minas-Gerais-e-Espirito-Santos.pdf"
   },
   {
-    "id": "ps-16",
+    "id": "ps-17",
     "unidade": "DSEI Potiguara",
     "uf": "PB",
     "edital": "36/2026",
@@ -323,7 +343,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32527/?Edital-do-Processo-Seletivo-Simplificado-no-362026.pdf"
   },
   {
-    "id": "ps-17",
+    "id": "ps-18",
     "unidade": "DSEI Rio Tapajós",
     "uf": "PA",
     "edital": "71/2025",
@@ -343,7 +363,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18587/?EDITAL-PROCESSO-SELETIVO-SIMPLIFICADO-DSEI-RIO-TAPAJOS.pdf"
   },
   {
-    "id": "ps-18",
+    "id": "ps-19",
     "unidade": "DSEI Alto Rio Juruá",
     "uf": "AC",
     "edital": "79/2025",
@@ -363,7 +383,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19270/?SEI_0142425_Edital_Processo_Seletivo_Simplificado_DSEI_Alto_Rio.pdf"
   },
   {
-    "id": "ps-19",
+    "id": "ps-20",
     "unidade": "DSEI Guamá-Tocantins",
     "uf": "PA",
     "edital": "88/2025",
@@ -383,7 +403,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19539/?Edital-do-Processo-Seletivo-Simplificado-no-88-2025-%E2%80%93-DSEI-Guama-Tocantins.pdf"
   },
   {
-    "id": "ps-20",
+    "id": "ps-21",
     "unidade": "DSEI Araguaia",
     "uf": "MT",
     "edital": "90/2025",
@@ -403,7 +423,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19148/?Edital-DSEI-ARAGUAIA.pdf"
   },
   {
-    "id": "ps-21",
+    "id": "ps-22",
     "unidade": "DSEI Alagoas e Sergipe",
     "uf": "AL",
     "edital": "34/2026",
@@ -423,7 +443,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32799/?Edital-do-Processo-Seletivo-Simplificado-Sanitarista-no-342026.pdf"
   },
   {
-    "id": "ps-22",
+    "id": "ps-23",
     "unidade": "DSEI Altamira",
     "uf": "PA",
     "edital": "39/2026",
@@ -443,7 +463,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32763/?SEI_0522379_Edital_de_Processo_Seletivo_Simplificado_39.pdf"
   },
   {
-    "id": "ps-23",
+    "id": "ps-24",
     "unidade": "DSEI Alto Rio Juruá",
     "uf": "AC",
     "edital": "40/2026",
@@ -463,7 +483,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32866/?SEI_0522454_Edital_de_Processo_Seletivo_Simplificado_40.pdf"
   },
   {
-    "id": "ps-24",
+    "id": "ps-25",
     "unidade": "DSEI Alto Rio Negro",
     "uf": "AM",
     "edital": "41/2026",
@@ -483,7 +503,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32821/?EDITAL-ARN.pdf"
   },
   {
-    "id": "ps-25",
+    "id": "ps-26",
     "unidade": "DSEI Alto Rio Purus",
     "uf": "AC",
     "edital": "42/2026",
@@ -503,7 +523,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32770/?Edital-do-Processo-Seletivo-Simplificado-Sanitarista-no-422026.pdf"
   },
   {
-    "id": "ps-26",
+    "id": "ps-27",
     "unidade": "DSEI Alto Rio Solimões",
     "uf": "AM",
     "edital": "43/2026",
@@ -523,7 +543,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32761/?Edital-do-Processo-Seletivo-Simplificado-Sanitarista-no-432026.pdf"
   },
   {
-    "id": "ps-27",
+    "id": "ps-28",
     "unidade": "DSEI Amapá e Norte do Pará",
     "uf": "AP",
     "edital": "44/2026",
@@ -543,7 +563,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32859/?SEI_0522522_Edital_de_Processo_Seletivo_Simplificado_44-1.pdf"
   },
   {
-    "id": "ps-28",
+    "id": "ps-29",
     "unidade": "DSEI Amapá e Norte do Pará",
     "uf": "AP",
     "edital": "84/2025",
@@ -563,7 +583,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19140/?Edital-DSEI-AMAPA-E-NORTE-DO-PARA.pdf"
   },
   {
-    "id": "ps-29",
+    "id": "ps-30",
     "unidade": "DSEI Araguaia",
     "uf": "MT",
     "edital": "45/2026",
@@ -583,7 +603,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32856/?SEI_0522540_Edital_de_Processo_Seletivo_Simplificado_45.pdf"
   },
   {
-    "id": "ps-30",
+    "id": "ps-31",
     "unidade": "DSEI Bahia",
     "uf": "BA",
     "edital": "46/2026",
@@ -603,7 +623,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32930/?Edital-de-Processo-Seletivo-Simplificado-no-46.2026.pdf"
   },
   {
-    "id": "ps-31",
+    "id": "ps-32",
     "unidade": "DSEI Cuiabá",
     "uf": "MT",
     "edital": "48/2026",
@@ -623,7 +643,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32782/?SEI_0522567_Edital_de_Processo_Seletivo_Simplificado_48.pdf"
   },
   {
-    "id": "ps-32",
+    "id": "ps-33",
     "unidade": "DSEI Interior Sul",
     "uf": "SC",
     "edital": "50/2026",
@@ -643,7 +663,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32827/?SEI_0522639_Edital_de_Processo_Seletivo_Simplificado_50.pdf"
   },
   {
-    "id": "ps-33",
+    "id": "ps-34",
     "unidade": "DSEI Kaiapó de Mato Grosso",
     "uf": "MT",
     "edital": "51/2026",
@@ -663,7 +683,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32838/?SEI_0522653_Edital_de_Processo_Seletivo_Simplificado_51.pdf"
   },
   {
-    "id": "ps-34",
+    "id": "ps-35",
     "unidade": "DSEI Kaiapó do Pará",
     "uf": "PA",
     "edital": "52/2026",
@@ -683,7 +703,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32825/?SEI_0522664_Edital_de_Processo_Seletivo_Simplificado_52.pdf"
   },
   {
-    "id": "ps-35",
+    "id": "ps-36",
     "unidade": "DSEI Leste de Roraima",
     "uf": "RR",
     "edital": "53/2026",
@@ -703,7 +723,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32879/?Edital-do-Processo-Seletivo-Simplificado-Sanitarista-no-532026.pdf"
   },
   {
-    "id": "ps-36",
+    "id": "ps-37",
     "unidade": "DSEI Manaus",
     "uf": "AM",
     "edital": "55/2026",
@@ -723,7 +743,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32835/?SEI_0522698_Edital_de_Processo_Seletivo_Simplificado_55.pdf"
   },
   {
-    "id": "ps-37",
+    "id": "ps-38",
     "unidade": "DSEI Maranhão",
     "uf": "MA",
     "edital": "56/2026",
@@ -743,7 +763,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32869/?SEI_0522707_Edital_de_Processo_Seletivo_Simplificado_56.pdf"
   },
   {
-    "id": "ps-38",
+    "id": "ps-39",
     "unidade": "DSEI Médio Rio Purus",
     "uf": "AM",
     "edital": "58/2026",
@@ -763,7 +783,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32802/?Edital-do-Processo-Seletivo-Simplificado-Sanitarista-no-582026.pdf"
   },
   {
-    "id": "ps-39",
+    "id": "ps-40",
     "unidade": "DSEI Porto Velho",
     "uf": "RO",
     "edital": "63/2026",
@@ -783,7 +803,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32818/?SEI_0522490_Edital_de_Processo_Seletivo_Simplificado_41.pdf"
   },
   {
-    "id": "ps-40",
+    "id": "ps-41",
     "unidade": "DSEI Rio Tapajós",
     "uf": "PA",
     "edital": "65/2025",
@@ -803,7 +823,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32815/?SEI_0522793_Edital_de_Processo_Seletivo_Simplificado_65-1.pdf"
   },
   {
-    "id": "ps-41",
+    "id": "ps-42",
     "unidade": "DSEI Tocantins",
     "uf": "TO",
     "edital": "66/2026",
@@ -823,7 +843,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32862/?SEI_0522802_Edital_de_Processo_Seletivo_Simplificado_66-1.pdf"
   },
   {
-    "id": "ps-42",
+    "id": "ps-43",
     "unidade": "DSEI Vilhena",
     "uf": "RO",
     "edital": "68/2026",
@@ -843,7 +863,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32790/?Edital-de-Processo-Seletivo-Simplificado-682026.pdf"
   },
   {
-    "id": "ps-43",
+    "id": "ps-44",
     "unidade": "DSEI Xavante",
     "uf": "MT",
     "edital": "69/2026",
@@ -863,7 +883,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32777/?Edital-de-Processo-Seletivo-Simplificado-692026.pdf"
   },
   {
-    "id": "ps-44",
+    "id": "ps-45",
     "unidade": "DSEI Xingu",
     "uf": "MT",
     "edital": "70/2026",
@@ -883,7 +903,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32851/?SEI_0522549_Edital_de_Processo_Seletivo_Simplificado_46.pdf"
   },
   {
-    "id": "ps-45",
+    "id": "ps-46",
     "unidade": "DSEI Yanomami",
     "uf": "RR",
     "edital": "37/2026",
@@ -903,7 +923,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32968/?Edital-de-Processo-Seletivo-Simplificado-37-.pdf"
   },
   {
-    "id": "ps-46",
+    "id": "ps-47",
     "unidade": "DSEI Ceará",
     "uf": "CE",
     "edital": "47/2026",
@@ -923,7 +943,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32786/?SEI_0522560_Edital_de_Processo_Seletivo_Simplificado_47.pdf"
   },
   {
-    "id": "ps-47",
+    "id": "ps-48",
     "unidade": "DSEI Litoral Sul",
     "uf": "PR",
     "edital": "54/2026",
@@ -943,7 +963,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32832/?SEI_0522686_Edital_de_Processo_Seletivo_Simplificado_54.pdf"
   },
   {
-    "id": "ps-48",
+    "id": "ps-49",
     "unidade": "DSEI Maranhão",
     "uf": "MA",
     "edital": "76/2025",
@@ -963,7 +983,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19123/?Edital-DSEI-MARANHAO.pdf"
   },
   {
-    "id": "ps-49",
+    "id": "ps-50",
     "unidade": "DSEI Mato Grosso do Sul",
     "uf": "MS",
     "edital": "57/2026",
@@ -983,7 +1003,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32806/?SEI_0522710_Edital_de_Processo_Seletivo_Simplificado_57.pdf"
   },
   {
-    "id": "ps-50",
+    "id": "ps-51",
     "unidade": "DSEI Minas Gerais e Espírito Santo",
     "uf": "MG",
     "edital": "60/2026",
@@ -1003,7 +1023,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32876/?Edital-de-Processo-Seletivo-Simplificado-602026.pdf"
   },
   {
-    "id": "ps-51",
+    "id": "ps-52",
     "unidade": "DSEI Potiguara",
     "uf": "PB",
     "edital": "64/2026",
@@ -1023,7 +1043,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/32795/?SEI_0522786_Edital_de_Processo_Seletivo_Simplificado_64.pdf"
   },
   {
-    "id": "ps-52",
+    "id": "ps-53",
     "unidade": "CASAI Brasília",
     "uf": "DF",
     "edital": "39/2025",
@@ -1043,7 +1063,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18180/?Edital-no-392025-1-CASAI-Nacional-Brasilia.pdf"
   },
   {
-    "id": "ps-53",
+    "id": "ps-54",
     "unidade": "DSEI Alto Rio Negro",
     "uf": "AM",
     "edital": "92/2025",
@@ -1063,7 +1083,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19133/?Edital-DSEI-ALTO-RIO-NEGRO.pdf"
   },
   {
-    "id": "ps-54",
+    "id": "ps-55",
     "unidade": "DSEI Alto Rio Purus",
     "uf": "AC",
     "edital": "81/2025",
@@ -1083,7 +1103,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/20136/?Edital-no-81-1-Edital-de-Processo-Seletivo-Simplificado-DSEI-Alto-Rio-Purus.pdf"
   },
   {
-    "id": "ps-55",
+    "id": "ps-56",
     "unidade": "DSEI Alto Rio Solimões",
     "uf": "AM",
     "edital": "03/2025",
@@ -1103,7 +1123,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/02/Edital_n_03-2025-DSEI_Alto_Rio_Solimoes.pdf"
   },
   {
-    "id": "ps-56",
+    "id": "ps-57",
     "unidade": "DSEI Bahia",
     "uf": "BA",
     "edital": "95/2025",
@@ -1123,7 +1143,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/20124/?Edital-no-95-1-Edital-de-Processo-Seletivo-Simplificado-DSEI-Bahia.pdf"
   },
   {
-    "id": "ps-57",
+    "id": "ps-58",
     "unidade": "DSEI Ceará",
     "uf": "CE",
     "edital": "72/2025",
@@ -1143,7 +1163,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18611/?EDITAL-PROCESSO-SELETIVO-SIMPLIFICADO-DSEI-CEARA.pdf"
   },
   {
-    "id": "ps-58",
+    "id": "ps-59",
     "unidade": "DSEI Cuiabá",
     "uf": "MT",
     "edital": "03/2025",
@@ -1163,7 +1183,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/02/Edital_n_05-2025-DSEICuiaba.pdf"
   },
   {
-    "id": "ps-59",
+    "id": "ps-60",
     "unidade": "DSEI Interior Sul",
     "uf": "SC",
     "edital": "83/2025",
@@ -1183,7 +1203,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/20133/?Edital-no-83-1-Edital-de-Processo-Seletivo-Simplificado-DSEI-Interior-Sul.pdf"
   },
   {
-    "id": "ps-60",
+    "id": "ps-61",
     "unidade": "DSEI Kaiapó do Pará",
     "uf": "PA",
     "edital": "06/2025",
@@ -1203,7 +1223,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/02/Edital_n_06-2025-DSEI_Kaiapo_do_Para.pdf"
   },
   {
-    "id": "ps-61",
+    "id": "ps-62",
     "unidade": "DSEI Manaus",
     "uf": "AM",
     "edital": "70/2025",
@@ -1223,7 +1243,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18604/?EDITAL-PROCESSO-SELETIVO-SIMPLIFICADO-DSEI-MANAUS.pdf"
   },
   {
-    "id": "ps-62",
+    "id": "ps-63",
     "unidade": "DSEI Mato Grosso do Sul",
     "uf": "MS",
     "edital": "65/2025",
@@ -1243,7 +1263,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18167/?Edital-no-65-Processo-Seletivo-Simplificado-DSEI-Mato-Grosso-do-Sul.pdf"
   },
   {
-    "id": "ps-63",
+    "id": "ps-64",
     "unidade": "DSEI Médio Rio Purus",
     "uf": "AM",
     "edital": "06/2026",
@@ -1263,7 +1283,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/25540/?Edital-de-Processo-Seletivo-Simplificado-No-062026-%E2%80%93-DSEI-Medio-Rio-Purus.pdf"
   },
   {
-    "id": "ps-64",
+    "id": "ps-65",
     "unidade": "DSEI Parintins",
     "uf": "AM",
     "edital": "22/2026",
@@ -1283,7 +1303,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/26345/?Edital-No-22_2026-DSEI-Parintins.pdf"
   },
   {
-    "id": "ps-65",
+    "id": "ps-66",
     "unidade": "DSEI Pernambuco",
     "uf": "PE",
     "edital": "73/2025",
@@ -1303,7 +1323,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18576/?EDITAL-PROCESSO-SELETIVO-SIMPLIFICADO-DSEI-PERNAMBUCO.pdf"
   },
   {
-    "id": "ps-66",
+    "id": "ps-67",
     "unidade": "DSEI Porto Velho",
     "uf": "RO",
     "edital": "18/2026",
@@ -1323,7 +1343,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/24919/?SEI_0292313_Edital_de_Processo_Seletivo_Simplificado_18.pdf"
   },
   {
-    "id": "ps-67",
+    "id": "ps-68",
     "unidade": "DSEI Potiguara",
     "uf": "PB",
     "edital": "74/2025",
@@ -1343,7 +1363,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18598/?EDITAL-PROCESSO-SELETIVO-SIMPLIFICADO-DSEI-POTIGUARA.pdf"
   },
   {
-    "id": "ps-68",
+    "id": "ps-69",
     "unidade": "DSEI Tocantins",
     "uf": "TO",
     "edital": "94/2025",
@@ -1363,7 +1383,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/19289/?SEI_0142394_Edital_Processo-Seletivo_DSEI-Tocantins.pdf"
   },
   {
-    "id": "ps-69",
+    "id": "ps-70",
     "unidade": "DSEI Vale do Javari",
     "uf": "AM",
     "edital": "09/2025",
@@ -1383,7 +1403,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/02/Edital_n_09-2025-DSEI_Vale_do_Javari.pdf"
   },
   {
-    "id": "ps-70",
+    "id": "ps-71",
     "unidade": "DSEI Vilhena",
     "uf": "RO",
     "edital": "14/2026",
@@ -1403,7 +1423,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/24928/?SEI_0291393_Edital_de_Processo_Seletivo_Simplificado_14-1-1.pdf"
   },
   {
-    "id": "ps-71",
+    "id": "ps-72",
     "unidade": "DSEI Xavante",
     "uf": "MT",
     "edital": "15/2025",
@@ -1423,7 +1443,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/wp-content/uploads/2025/06/SEI_0021160_Edital_de_Processo_Seletivo_Simplificado_15-Xavante.pdf"
   },
   {
-    "id": "ps-72",
+    "id": "ps-73",
     "unidade": "DSEI Xavante",
     "uf": "MT",
     "edital": "68/2025",
@@ -1443,7 +1463,7 @@ export const PROCESSOS_SELETIVOS_DADOS = [
     "linkEdital": "https://agenciasus.org.br/shared-files/18175/?Edital-no-68-Processo-Seletivo-Simplificado-DSEI-Xavante.pdf"
   },
   {
-    "id": "ps-73",
+    "id": "ps-74",
     "unidade": "DSEI Xingu",
     "uf": "MT",
     "edital": "89/2025",

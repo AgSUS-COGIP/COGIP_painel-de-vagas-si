@@ -5,7 +5,6 @@ import { REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
 import { atualizarModoRolagem } from "./filtros.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
-import { ordenarLista, registrarOrdenacao } from "./ordenacao.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
@@ -100,7 +99,6 @@ export function abrirPainelFerias() {
 
 export function configurarRemanejamento() {
   state.remanejamentoDetalhePage = 1;
-  registrarOrdenacao("rem", () => renderRemanejamentoLista());
 
   if (!pageLoadState.remanejamentoCadastro) {
     preencherSelectRemanejamento("remanejamentoDsei", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
@@ -261,7 +259,7 @@ export function renderRemanejamentoLista() {
   const termo = normalizarTextoPainel(document.getElementById("remanejamentoSearch")?.value || "");
   const status = String(document.getElementById("remanejamentoStatusFiltro")?.value || "");
 
-  const rowsFiltradas = (state.remanejamentoListaRows || []).filter(row => {
+  const rows = (state.remanejamentoListaRows || []).filter(row => {
     if (status && String(row.situacao || "") !== status) return false;
     if (!termo) return true;
     const texto = normalizarTextoPainel([
@@ -275,11 +273,6 @@ export function renderRemanejamentoLista() {
       row.situacao
     ].join(" "));
     return texto.includes(termo);
-  });
-
-  const rows = ordenarLista("rem", rowsFiltradas, {
-    data: row => row.dataCriacao || row.dataCriacaoFormatada,
-    responsavel: row => row.inseridoPorEmail || row.criadoPor
   });
 
   if (!rows.length) {

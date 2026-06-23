@@ -26,29 +26,213 @@
 
     /* ---------- Formulário de novo registro ---------- */
     .gdForm {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .gdForm .gdFieldWide {
-      grid-column: span 2;
+    .gdForm .gdFieldWide,
+    .gdForm .gdFieldFull {
+      grid-column: 1 / -1;
     }
 
-    @media (max-width: 1180px) {
-      .gdForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* Separador entre a parte do trabalhador/pedido e a parte do processo. */
+    .gdFormDivider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 6px 0 2px;
+      color: #0b4488;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .4px;
     }
+
+    .gdFormDivider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(0, 83, 166, .22);
+    }
+
+    /* Documento do processo: radio Link/Anexo + campo de arquivo. */
+    .gdDocToggle {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 8px;
+    }
+
+    .gdRadio {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #2d537f;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .gdRadio input {
+      width: 15px;
+      height: 15px;
+      accent-color: #0070d9;
+      cursor: pointer;
+    }
+
+    .gdInputFile {
+      height: auto;
+      padding: 7px 11px;
+      line-height: 1.4;
+      cursor: pointer;
+    }
+
+    /* Título do detalhamento: nome/status à esquerda, ação à direita. */
+    #gdDetTitulo { flex-wrap: wrap; }
+
+    #gdDetTitulo .gdDetTituloTxt {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      flex-wrap: wrap;
+    }
+
+    #gdDetTitulo .gdDetTituloAcoes {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gdRespAtual {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #0a7a44;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: none;
+    }
+
+    .gdAssumirBtn {
+      padding: 7px 12px;
+      font-size: 11px;
+      border-radius: 9px;
+      box-shadow: none;
+      text-transform: none;
+      white-space: nowrap;
+    }
+
+    /* Mantém o ícone branco no botão (vence o azul global de ".gfPanelTitle i"). */
+    #gdDetTitulo .gdAssumirBtn i { color: #fff; }
+
+    .gdAssumirBtn:disabled {
+      opacity: .6;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Botão "Enviar/Substituir termo" (upload do comprovante na Sanção Aplicada). */
+    .gdUploadTermo {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 8px;
+      padding: 7px 12px;
+      border: 1px dashed rgba(0, 83, 166, .4);
+      border-radius: 9px;
+      background: rgba(0, 112, 217, .06);
+      color: #0b4488;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    .gdUploadTermo:hover {
+      background: rgba(0, 112, 217, .12);
+      border-color: #0070d9;
+    }
+
+    /* Animação de auto-preenchimento (matrícula, cargo, DSEI/CASAI, polo base):
+       o campo "some" e "reaparece" com o novo valor, destacado por um anel azul. */
+    @keyframes gdAutofill {
+      0%   { opacity: 0; transform: translateY(-5px); box-shadow: 0 0 0 3px rgba(0, 112, 217, .22); }
+      60%  { opacity: 1; transform: translateY(0); }
+      100% { opacity: 1; transform: translateY(0); box-shadow: 0 0 0 0 rgba(0, 112, 217, 0); }
+    }
+
+    .gd-autofill {
+      animation: gdAutofill .7s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .gd-autofill { animation: none; }
+    }
+
+    .gfInput[hidden] { display: none; }
 
     @media (max-width: 720px) {
       .gdForm { grid-template-columns: 1fr; }
-      .gdForm .gdFieldWide { grid-column: auto; }
     }
 
     /* ---------- Barra de filtros / ações ---------- */
+    .gdFiltrosBar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .gdFiltrosToggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(0, 83, 166, .26);
+      background: #fff;
+      color: #0b4488;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 8px 13px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    .gdFiltrosToggle:hover { background: #eaf4ff; }
+    .gdFiltrosToggle .gdChevron { font-size: 11px; transition: transform .25s ease; }
+    .gdFiltrosToggle[aria-expanded="false"] .gdChevron { transform: rotate(-90deg); }
+
+    .gdBtnMeus {
+      padding: 8px 13px;
+      font-size: 11.5px;
+      box-shadow: none;
+    }
+
+    .gdBtnMeus.is-ativo {
+      background: linear-gradient(135deg, #0a8a4d, #0a7a44);
+      color: #fff;
+      border-color: transparent;
+    }
+
     .gdToolbar {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
       gap: 10px;
       align-items: end;
       margin-bottom: 14px;
+      overflow: hidden;
+      max-height: 500px;
+      transition: max-height .3s ease, opacity .25s ease, margin .3s ease;
+    }
+
+    .gdToolbar.is-recolhido {
+      max-height: 0;
+      opacity: 0;
+      margin-bottom: 0;
+      pointer-events: none;
     }
 
     .gdToolbar .gfBtn {
@@ -70,7 +254,7 @@
 
     .gfTable tbody tr.gdRow.is-selected td {
       background: rgba(0, 112, 217, .16);
-      box-shadow: inset 3px 0 0 #0070d9;
+      box-shadow: inset 0 3px 0 #0070d9, inset 0 -3px 0 #0070d9;
     }
 
     /* ---------- Badges específicas de status / atendimento ---------- */
@@ -78,10 +262,48 @@
     .gfBadge.is-aguardando { background: #d6ecff; color: #0a5bb0; }
     .gfBadge.is-concluida { background: #d7f5e3; color: #0a7a44; }
     .gfBadge.is-pendente { background: #e7eefb; color: #2a4b80; }
+    .gfBadge.is-desligado { background: #ffdcd7; color: #b5281a; }
+    .gfBadge.is-foraprazo { background: #fff3cc; color: #8a6d00; }
 
     .gfBadge.is-total { background: #d7f5e3; color: #0a7a44; }
     .gfBadge.is-parcial { background: #fff2d6; color: #8a5a00; }
     .gfBadge.is-naoatendido { background: #ffdcd7; color: #b5281a; }
+
+    /* ---------- Fases do processo (status da demanda) ---------- */
+    .gdStepper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0;
+    }
+
+    .gdStep {
+      font-size: 10px;
+      font-weight: 800;
+      color: #6b86a8;
+      background: #eef4fb;
+      border: 1px solid rgba(0, 83, 166, .14);
+      border-radius: 999px;
+      padding: 4px 10px;
+    }
+
+    .gdStep.is-feito { background: #d7f5e3; color: #0a7a44; border-color: rgba(10, 122, 68, .25); }
+    .gdStep.is-atual { background: #0070d9; color: #fff; border-color: #0070d9; }
+
+    .gdFaseAcoes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 12px 0;
+    }
+
+    .gdFaseBtn {
+      padding: 8px 13px;
+      font-size: 11.5px;
+      box-shadow: none;
+    }
+
+    .gdBtnDesligar { background: linear-gradient(135deg, #d9534f, #b5281a); }
 
     /* ---------- Painel de detalhamento ---------- */
     .gdDetailGrid {
@@ -180,6 +402,119 @@
       color: #5a7aa3;
       font-size: 9.5px;
       font-weight: 700;
+    }
+
+    /* ---------- Edição em linha do detalhamento ---------- */
+    .gdKv.gdKvEdit {
+      align-items: center;
+    }
+
+    .gdEditField {
+      flex: 1 1 auto;
+      max-width: 58%;
+      height: 30px;
+      border: 1px solid rgba(0, 83, 166, .3);
+      border-radius: 8px;
+      background: #fff;
+      color: #07346b;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 800;
+      padding: 0 8px;
+      outline: none;
+    }
+
+    select.gdEditField { cursor: pointer; }
+
+    .gdEditField:focus {
+      border-color: #0070d9;
+      box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+    }
+
+    /* Textarea "Resumo do processo" no formulário de novo registro. */
+    .gdForm .gdFieldFull { grid-column: 1 / -1; }
+
+    .gdTextarea {
+      height: auto;
+      min-height: 92px;
+      padding: 9px 11px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    /* ---------- Modal de confirmação ---------- */
+    .gdConfirmOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100002;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(3, 22, 48, .55);
+      backdrop-filter: blur(2px);
+    }
+
+    .gdConfirmOverlay[hidden] { display: none; }
+
+    .gdConfirmCard {
+      width: min(440px, 100%);
+      background: linear-gradient(150deg, #ffffff, #eef6ff);
+      border-radius: 16px;
+      box-shadow: 0 30px 70px rgba(0, 24, 61, .5);
+      padding: 20px 22px;
+    }
+
+    .gdConfirmCard h3 {
+      margin: 0 0 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #07346b;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .gdConfirmCard h3 i { color: #d98200; }
+
+    /* Variante de aviso (amarela) — ex.: cadastro fora do prazo. */
+    .gdConfirmCard.is-aviso {
+      background: linear-gradient(150deg, #fffdf2, #fff3cc);
+      border: 1px solid #f0c040;
+    }
+
+    .gdConfirmCard.is-aviso h3,
+    .gdConfirmCard.is-aviso h3 i { color: #8a6d00; }
+
+    /* Selo "fora do prazo" abaixo do status, na coluna Status da Demanda. */
+    .gdCelPrazo { margin-top: 5px; }
+
+    /* Selo "cadastramento fora do prazo" no Status da Demanda. */
+    .gdTagPrazo {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff3cc;
+      color: #8a6d00;
+      border: 1px solid #f0c040;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 900;
+    }
+
+    .gdConfirmMsg {
+      margin: 0 0 18px 0;
+      color: #2d537f;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    .gdConfirmFoot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
     }
 
     /* ---------- Responsivo ---------- */

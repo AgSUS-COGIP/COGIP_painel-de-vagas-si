@@ -59,19 +59,6 @@
       min-height: 100vh;
     }
 
-    .sidebar::before {
-      content: "";
-      position: absolute;
-      inset: auto 0 0 0;
-      height: 180px;
-      opacity: .34;
-      background:
-        linear-gradient(135deg, transparent 34%, rgba(0, 194, 255, .72) 35%, transparent 39%),
-        linear-gradient(45deg, transparent 34%, rgba(0, 194, 255, .55) 35%, transparent 39%),
-        linear-gradient(135deg, transparent 58%, rgba(255, 255, 255, .36) 59%, transparent 62%);
-      background-size: 28px 28px;
-    }
-
     .sidebar::after {
       content: "";
       position: absolute;

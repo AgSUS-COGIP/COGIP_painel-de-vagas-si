@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const path = require("path");
+const { spawn } = require("child_process");
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const mysql = require("mysql2/promise");
@@ -13,6 +14,7 @@ const { DASH_SQL, montarCaseCargoSql } = require("./lib/sql");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, obterRemanejamentoListaComCache, obterRemanejamentoCadastroComCache, montarOpcoesRemanejamentoAPartirDasRows, obterUltimaAtualizacaoRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
 const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, reverterControleComConn, garantirTabelaCrachasControle } = require("./lib/cracha");
+const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
@@ -205,6 +207,11 @@ app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFresco
   }
 }));
 
+// ---- Dashboard Saúde Indígena (nativo) ----
+app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+  res.json(await getSaudeIndigenaData());
+}));
+
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json(await getCrachaData());
@@ -242,6 +249,22 @@ app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddl
     res.json({ ok: true, registro });
   } catch (err) {
     res.status(400).json({ error: err && err.message ? err.message : "Falha ao atualizar o status." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Atualizar o status de várias matrículas de uma vez (ação em lote) — overlay.
+app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const { matriculas, status } = req.body || {};
+    const { registros, erros } = await atualizarStatusLoteComConn(conn, matriculas, status, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registros, erros });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao atualizar os status em lote." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -508,6 +531,75 @@ app.post("/api/cache/clear", apiLimiter, autenticarFrescoMiddleware, exigirNivel
   limparCacheDashboard();
   res.json({ ok: true });
 }));
+
+// Extrai o quadro de vagas e o cronograma de um PDF de anexo enviado pelo usuário
+// (aba Processos Seletivos). Reaproveita o extrator Python (mock/script/
+// extrair_anexo_local.py), que recebe o PDF por stdin e devolve JSON. O arquivo é
+// processado em memória e NÃO é gravado em lugar nenhum.
+const PYTHON_BIN = process.env.PYTHON_BIN || "python";
+const EXTRATOR_ANEXO = path.join(__dirname, "mock", "script", "extrair_anexo_local.py");
+
+function extrairAnexoPdf(buffer) {
+  return new Promise((resolve, reject) => {
+    const py = spawn(PYTHON_BIN, [EXTRATOR_ANEXO], { windowsHide: true });
+    let out = "";
+    let err = "";
+    const timer = setTimeout(() => {
+      py.kill("SIGKILL");
+      reject(new Error("Tempo excedido ao ler o PDF (o arquivo pode ser muito grande)."));
+    }, 90000);
+
+    py.stdout.on("data", d => { out += d.toString("utf8"); });
+    py.stderr.on("data", d => { err += d.toString("utf8"); });
+    py.on("error", e => {
+      clearTimeout(timer);
+      reject(new Error(e && e.code === "ENOENT"
+        ? "Python não encontrado no servidor (defina PYTHON_BIN ou instale o Python)."
+        : "Não foi possível iniciar o extrator de PDF."));
+    });
+    py.on("close", code => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(err.trim() || `O extrator encerrou com código ${code}.`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(out.trim() || "{}"));
+      } catch (e) {
+        reject(new Error("Saída inválida do extrator de PDF."));
+      }
+    });
+
+    py.stdin.on("error", () => {}); // ignora EPIPE caso o processo feche antes
+    py.stdin.write(buffer);
+    py.stdin.end();
+  });
+}
+
+app.post(
+  "/api/processos-seletivos/extrair-anexo",
+  apiLimiter,
+  autenticarFrescoMiddleware,
+  exigirAprovadoMiddleware,
+  upload.single("anexo"),
+  asyncHandler(async (req, res) => {
+    if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+      res.status(400).json({ error: "Envie um arquivo PDF no campo 'anexo'." });
+      return;
+    }
+    const mime = String(req.file.mimetype || "").toLowerCase();
+    if (!mime.includes("pdf")) {
+      res.status(400).json({ error: "O anexo precisa ser um arquivo PDF." });
+      return;
+    }
+    try {
+      const dados = await extrairAnexoPdf(req.file.buffer);
+      res.json({ ok: true, ...dados });
+    } catch (e) {
+      res.status(422).json({ error: e && e.message ? e.message : "Não foi possível ler o PDF." });
+    }
+  })
+);
 
 // Catch-all do SPA: serve o index.html. Faz acesso ao filesystem, então também
 // passa pelo rate limiter geral (mitiga DoS por rajada de requisições).
