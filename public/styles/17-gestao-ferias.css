@@ -419,6 +419,9 @@
     .gfKpiValue.is-orange { color: #ffcf6b; }
     .gfKpiValue.is-yellow { color: #ffe08a; }
     .gfKpiValue.is-red { color: #ff9b8f; }
+    .gfKpiValue.is-green { color: #74e3a4; }
+    .gfKpiValue.is-gray { color: #c7d2e2; }
+    .gfKpiValue.is-blue { color: #6fb4ff; }
 
     .gfKpiLabel {
       color: rgba(255, 255, 255, .85);

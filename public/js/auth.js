@@ -2,6 +2,7 @@ import { apiGet, apiPost } from "./api.js";
 import { carregarDadosInicial } from "./app.js";
 import { state } from "./state.js";
 import { mostrarAcessoPendente } from "./acesso.js";
+import { atualizarPermissaoGestaoDisciplinar } from "./gestao-disciplinar.js";
 
 export function configurarLogin() {
   // O acesso ao painel é exclusivamente por conta institucional (Google).
@@ -188,6 +189,10 @@ export function aplicarPermissoesUsuario() {
   if (nome && state.painelLoginUsuario) {
     nome.innerText = state.painelLoginUsuario.nome || state.painelLoginUsuario.login || "";
   }
+
+  // O nível recém-carregado pode liberar a edição na Gestão Disciplinar: re-renderiza
+  // o detalhamento para refletir a permissão (resolve o caso do 1º acesso).
+  atualizarPermissaoGestaoDisciplinar();
 }
 
 // Heartbeat: revalida a sessão no servidor periodicamente.

@@ -114,7 +114,8 @@ export function ordenarTabelaVagas(key) {
   if (state.vagasSortState.key === key) {
     state.vagasSortState.direction = state.vagasSortState.direction === "asc" ? "desc" : "asc";
   } else {
-    state.vagasSortState = { key, direction: "asc" };
+    // 1º clique numa coluna: maior → menor (decrescente).
+    state.vagasSortState = { key, direction: "desc" };
   }
   renderVagasDaPagina();
 }
@@ -362,6 +363,15 @@ export function calcularTotalVagasTabela(linhas) {
   return total;
 }
 
+// Cabeçalho ordenável das tabelas de Vagas (reaproveita o mesmo estado/ação
+// "ordenar-vagas" da tabela principal, pois só uma é exibida por vez).
+function thOrdVagas(label, key, extra = "") {
+  const ativo = state.vagasSortState.key === key;
+  const dir = ativo ? (state.vagasSortState.direction === "asc" ? "sortAsc" : "sortDesc") : "";
+  const classes = `sortable ${dir}${extra ? " " + extra : ""}`.replace(/\s+/g, " ").trim();
+  return `<th class="${classes}" data-click="ordenar-vagas" data-key="${escapeAttr(key)}">${label}</th>`;
+}
+
 export function atualizarCabecalhoDistribuicaoVagasOciosas() {
   const header = document.getElementById("distribuicaoHeaderRow");
   const colgroup = document.getElementById("distribuicaoColGroup");
@@ -377,11 +387,11 @@ export function atualizarCabecalhoDistribuicaoVagasOciosas() {
           <col style="width: 16%;">
         `;
     header.innerHTML = `
-          <th>DSEI/CASAI</th>
-          <th>Cargo</th>
-          <th>Normais/Temporárias</th>
-          <th>Afastamento sem substituição</th>
-          <th>Vagas Ociosas</th>
+          ${thOrdVagas("DSEI/CASAI", "dseiCasai")}
+          ${thOrdVagas("Cargo", "cargo")}
+          ${thOrdVagas("Normais/Temporárias", "distNormalTemp")}
+          ${thOrdVagas("Afastamento sem substituição", "distSubstituicao")}
+          ${thOrdVagas("Vagas Ociosas", "distOciosas")}
         `;
     if (descricao) descricao.textContent = "Composição das vagas ociosas por DSEI/CASAI e cargo nos filtros selecionados.";
     return;
@@ -395,10 +405,10 @@ export function atualizarCabecalhoDistribuicaoVagasOciosas() {
         <col style="width: 20%;">
       `;
   header.innerHTML = `
-        <th>${primeiraColuna}</th>
-        <th>Normais/Temporárias</th>
-        <th>Afastamento sem substituição</th>
-        <th>Vagas Ociosas</th>
+        ${thOrdVagas(primeiraColuna, "label")}
+        ${thOrdVagas("Normais/Temporárias", "distNormalTemp")}
+        ${thOrdVagas("Afastamento sem substituição", "distSubstituicao")}
+        ${thOrdVagas("Vagas Ociosas", "distOciosas")}
       `;
   if (descricao) {
     descricao.textContent = state.vagasViewAtual === "cargo"
@@ -602,11 +612,11 @@ export function atualizarCabecalhoProcessoSeletivo() {
           <col style="width: 16%;">
         `;
     header.innerHTML = `
-          <th>DSEI/CASAI</th>
-          <th>Cargo</th>
-          <th>Normais</th>
-          <th>Temporárias</th>
-          <th>Total Processo Seletivo</th>
+          ${thOrdVagas("DSEI/CASAI", "dseiCasai")}
+          ${thOrdVagas("Cargo", "cargo")}
+          ${thOrdVagas("Normais", "distNormalTemp")}
+          ${thOrdVagas("Temporárias", "distTemporario")}
+          ${thOrdVagas("Total Processo Seletivo", "distProcessoSeletivo")}
         `;
     if (descricao) descricao.textContent = "Vagas para processo seletivo por DSEI/CASAI e cargo nos filtros selecionados.";
     return;
@@ -620,10 +630,10 @@ export function atualizarCabecalhoProcessoSeletivo() {
         <col style="width: 20%;">
       `;
   header.innerHTML = `
-        <th>${primeiraColuna}</th>
-        <th>Normais</th>
-        <th>Temporárias</th>
-        <th>Total Processo Seletivo</th>
+        ${thOrdVagas(primeiraColuna, "label")}
+        ${thOrdVagas("Normais", "distNormalTemp")}
+        ${thOrdVagas("Temporárias", "distTemporario")}
+        ${thOrdVagas("Total Processo Seletivo", "distProcessoSeletivo")}
       `;
   if (descricao) {
     descricao.textContent = state.vagasViewAtual === "cargo"

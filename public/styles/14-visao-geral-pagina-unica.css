@@ -384,7 +384,10 @@
 
 .alertasInfoCard {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* 3 filhos: cabeçalho (auto), tabela (1fr, rola internamente) e paginação
+     (auto). Antes havia uma faixa extra que empurrava a tabela e deixava a
+     paginação esticada. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 12px;
   min-height: 0;
   overflow: hidden;

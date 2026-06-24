@@ -1897,7 +1897,7 @@
               <h2>Gestão Disciplinar</h2>
               <p>Acompanhe e gerencie os pedidos disciplinares encaminhados pelos DSEIs/CASAIs.</p>
             </div>
-            <button type="button" class="gfBtn" id="gdBtnNovo"><i class="fa-solid fa-plus"></i> Novo Registro</button>
+            <button type="button" class="gfBtn" id="gdBtnNovo"><i class="fa-solid fa-plus"></i> Novo Pedido</button>
           </div>
 
           <!-- FORMULÁRIO DE NOVO REGISTRO (supervisor/coordenador) -->
@@ -1906,34 +1906,40 @@
 
             <!-- Listas para autocompletar (digitável + selecionável) -->
             <datalist id="gdListaDseis"></datalist>
-            <datalist id="gdListaTrabalhadores"></datalist>
 
             <div class="gfForm gdForm">
-              <div class="gfField">
-                <label>Nº Processo SEI</label>
-                <input class="gfInput" type="text" id="gdFProcesso" placeholder="Ex: 25000.000000/2024-00">
-              </div>
-              <div class="gfField">
-                <label>DSEI/CASAI <span class="req">*</span></label>
-                <input class="gfInput" type="text" id="gdFDsei" list="gdListaDseis" placeholder="Selecione ou digite">
-              </div>
-              <div class="gfField">
+              <!-- Trabalhador: combobox clicável e pesquisável; ao selecionar,
+                   auto-preenche os campos abaixo. -->
+              <div class="gfField gdFieldFull">
                 <label>Trabalhador <span class="req">*</span></label>
-                <input class="gfInput" type="text" id="gdFTrabalhador" list="gdListaTrabalhadores"
-                  placeholder="Selecione ou digite o nome">
+                <div class="gdCombo" id="gdComboTrabalhador">
+                  <input class="gfInput gdComboInput" type="text" id="gdFTrabalhador" autocomplete="off"
+                    role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="gdComboTrabalhadorLista"
+                    placeholder="Clique para buscar pelo nome ou matrícula">
+                  <i class="fa-solid fa-chevron-down gdComboCaret" aria-hidden="true"></i>
+                  <ul class="gdComboLista" id="gdComboTrabalhadorLista" role="listbox" hidden></ul>
+                </div>
+              </div>
+
+              <!-- Auto-preenchidos a partir do trabalhador (2 em cima, 2 embaixo). -->
+              <div class="gfField">
+                <label>Matrícula</label>
+                <input class="gfInput" type="text" id="gdFMatricula" placeholder="Preenchido ao selecionar">
               </div>
               <div class="gfField">
                 <label>Cargo</label>
                 <input class="gfInput" type="text" id="gdFCargo" placeholder="Preenchido ao selecionar">
               </div>
               <div class="gfField">
-                <label>Matrícula</label>
-                <input class="gfInput" type="text" id="gdFMatricula" placeholder="Preenchido ao selecionar">
+                <label>DSEI/CASAI <span class="req">*</span></label>
+                <input class="gfInput" type="text" id="gdFDsei" list="gdListaDseis" placeholder="Selecione ou digite">
               </div>
               <div class="gfField">
-                <label>Polo Base / CASAI</label>
+                <label>Polo Base</label>
                 <input class="gfInput" type="text" id="gdFPolo" placeholder="Ex: Polo Base Auaris">
               </div>
+
+              <!-- Datas lado a lado. -->
               <div class="gfField">
                 <label>Data da Ocorrência</label>
                 <input class="gfInput" type="date" id="gdFOcorrencia">
@@ -1942,48 +1948,68 @@
                 <label>Data do Pedido</label>
                 <input class="gfInput" type="date" id="gdFDataPedido">
               </div>
-              <div class="gfField">
-                <label>Pedido</label>
+
+              <!-- Pedido de Medida (o status entra automaticamente como "Pendente"). -->
+              <div class="gfField gdFieldFull">
+                <label>Pedido de Medida</label>
                 <select class="gfSelect" id="gdFPedido">
+                  <option>Sem indicação</option>
                   <option>Advertência</option>
                   <option>Suspensão</option>
                   <option>Justa Causa</option>
                 </select>
               </div>
-              <div class="gfField">
-                <label>Status da Demanda</label>
-                <select class="gfSelect" id="gdFStatus">
-                  <option>Pendente</option>
-                  <option>Em análise</option>
-                  <option>Aguardando devolutiva do DSEI</option>
-                  <option>Concluída</option>
+
+              <!-- Delegar responsável: visível apenas para administradores. A caixa
+                   lista os logins dos administradores aptos a editar/assumir processos. -->
+              <div class="gfField gdFieldFull gdAdminOnly" id="gdFResponsavelField" hidden>
+                <label>Delegar responsável</label>
+                <select class="gfSelect" id="gdFResponsavel">
+                  <option value="">Sem responsável</option>
                 </select>
               </div>
-              <div class="gfField">
-                <label>Atendimento</label>
-                <select class="gfSelect" id="gdFAtendimento">
-                  <option value="—">—</option>
-                  <option>Totalmente</option>
-                  <option>Parcialmente</option>
-                  <option>Não atendido</option>
-                </select>
+
+              <!-- Separador: dados do processo. -->
+              <div class="gdFormDivider gdFieldFull"><span>Dados do Processo</span></div>
+
+              <div class="gfField gdFieldFull">
+                <label>Nº Processo SEI <span class="req">*</span></label>
+                <input class="gfInput" type="text" id="gdFProcesso" placeholder="Ex: 25000.000000/2024-00">
               </div>
-              <div class="gfField">
-                <label>Decisão</label>
-                <select class="gfSelect" id="gdFDecisao">
-                  <option>Não foi aplicado</option>
-                  <option>Advertência</option>
-                  <option>Suspensão</option>
-                  <option>Justa Causa</option>
-                </select>
+
+              <!-- Documento do processo: link OU anexo em PDF (um ou outro). -->
+              <div class="gfField gdFieldFull">
+                <label>Documento do processo</label>
+                <div class="gdDocToggle">
+                  <label class="gdRadio"><input type="radio" name="gdDocTipo" value="link" checked> Link</label>
+                  <label class="gdRadio"><input type="radio" name="gdDocTipo" value="anexo"> Anexo (PDF)</label>
+                </div>
+                <input class="gfInput" id="gdFLink" type="url" placeholder="https://...">
+                <input class="gfInput gdInputFile" id="gdFArquivo" type="file" accept="application/pdf" hidden>
               </div>
-              <div class="gfField">
-                <label>Data de Aplicação da Sanção</label>
-                <input class="gfInput" type="date" id="gdFDataSancao">
+
+              <div class="gfField gdFieldFull">
+                <label>Resumo do processo</label>
+                <textarea class="gfInput gdTextarea" id="gdFResumo" rows="4"
+                  placeholder="Descreva o resumo do processo (motivo, contexto e andamento)"></textarea>
               </div>
-              <div class="gfField gdFieldWide">
-                <label>Motivo</label>
-                <input class="gfInput" type="text" id="gdFMotivo" placeholder="Descreva o motivo do pedido">
+
+              <!-- Separador: anexos do processo (vários arquivos, com tipo). -->
+              <div class="gdFormDivider gdFieldFull"><span>Anexos do processo</span></div>
+
+              <div class="gfField gdFieldFull">
+                <label>Anexos (escolha o tipo e selecione um ou mais arquivos)</label>
+                <div class="gdNovoAnexoAdd">
+                  <!-- Ofício é definido no campo "Documento do processo"; aqui só os demais tipos. -->
+                  <select class="gfSelect gdNovoAnexoTipo" id="gdFAnexoTipo" aria-label="Tipo de anexo">
+                    <option value="PROVA">Prova</option>
+                    <option value="MEMORANDO">Memorando</option>
+                    <option value="RELATORIO">Relatório</option>
+                    <option value="OUTRO">Outro</option>
+                  </select>
+                  <label class="gfBtn gfBtnGhost gdNovoAnexoBtn"><i class="fa-solid fa-paperclip"></i> Selecionar arquivos<input type="file" multiple id="gdFAnexoInput" hidden></label>
+                </div>
+                <ul class="gdNovoAnexoLista" id="gdFAnexoLista"></ul>
               </div>
             </div>
 
@@ -1991,61 +2017,83 @@
               <button type="button" class="gfBtn gfBtnGhost gfBtnBlock" id="gdBtnCancelar"><i
                   class="fa-solid fa-xmark"></i> Cancelar</button>
               <button type="button" class="gfBtn gfBtnBlock" id="gdBtnSalvarRegistro"><i
-                  class="fa-solid fa-floppy-disk"></i> Salvar Registro</button>
+                  class="fa-solid fa-floppy-disk"></i> Salvar Pedido</button>
             </div>
           </section>
 
           <!-- INDICADORES GERAIS -->
           <section class="gfPanel">
             <h3 class="gfPanelTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores Gerais</h3>
-            <div class="gdKpiGrid">
-              <div class="gfKpi">
-                <div class="gfKpiValue">48</div>
-                <div class="gfKpiLabel">Total de Pedidos</div>
+            <div class="gdKpiStack">
+              <div class="gdKpiRow gdKpiRowTopo">
+                <div class="gfKpi gdKpiCardTotal">
+                  <div class="gfKpiValue" id="gdKpiTotal">0</div>
+                  <div class="gfKpiLabel">Total de Pedidos</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-green">18</div>
-                <div class="gfKpiLabel">Atendidos Totalmente</div>
+
+              <div class="gdKpiRow gdKpiRowConcluidos">
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-green" id="gdKpiConcluidos">0</div>
+                  <div class="gfKpiLabel">Concluídas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-green" id="gdKpiSancaoNaoAplicada">0</div>
+                  <div class="gfKpiLabel">Sanções Não Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue" id="gdKpiAdvertenciasOrais">0</div>
+                  <div class="gfKpiLabel">Advertências Orais Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue" id="gdKpiAdvertencias">0</div>
+                  <div class="gfKpiLabel">Advertências Escritas Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-orange" id="gdKpiSuspensoes">0</div>
+                  <div class="gfKpiLabel">Suspensões Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-red" id="gdKpiJustasCausas">0</div>
+                  <div class="gfKpiLabel">Justas Causas Executadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-red" id="gdKpiDesligados">0</div>
+                  <div class="gfKpiLabel">Desligado antes da conclusão</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-orange">9</div>
-                <div class="gfKpiLabel">Atendidos Parcialmente</div>
+
+              <div class="gdKpiRow gdKpiRowNaoConcluidos">
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-red" id="gdKpiNaoConcluidos">0</div>
+                  <div class="gfKpiLabel">Pedidos Não Concluídos</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-gray" id="gdKpiPendentes">0</div>
+                  <div class="gfKpiLabel">Pendentes</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-yellow" id="gdKpiEmAnalise">0</div>
+                  <div class="gfKpiLabel">Em Análise</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-blue" id="gdKpiAguardando">0</div>
+                  <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-red">12</div>
-                <div class="gfKpiLabel">Não Atendidos</div>
+
+              <div class="gdKpiRow gdKpiRowSingle">
+                <div class="gfKpi" id="gdKpiTempoMedio">
+                  <div class="gfKpiValue" id="gdKpiTempoMedioValor">0 dias</div>
+                  <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-yellow">9</div>
-                <div class="gfKpiLabel">Pendentes</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-green">27</div>
-                <div class="gfKpiLabel">Concluídos</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue">22</div>
-                <div class="gfKpiLabel">Advertências Aplicadas</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-orange">14</div>
-                <div class="gfKpiLabel">Suspensões Aplicadas</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-red">6</div>
-                <div class="gfKpiLabel">Justas Causas Executadas</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue">12 dias</div>
-                <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-yellow">7</div>
-                <div class="gfKpiLabel">Pedidos Fora do Prazo</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-orange">4</div>
-                <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
+
+              <div class="gdKpiRow gdKpiRowSingle">
+                <div class="gfKpi" id="gdKpiForaPrazoCard">
+                  <div class="gfKpiValue is-yellow" id="gdKpiForaPrazo">0</div>
+                  <div class="gfKpiLabel">Pedidos fora do prazo</div>
+                </div>
               </div>
             </div>
           </section>
@@ -2054,7 +2102,17 @@
           <section class="gfPanel" style="margin-top:14px;">
             <h3 class="gfPanelTitle"><i class="fa-solid fa-list-check"></i> Pedidos Disciplinares</h3>
 
-            <div class="gdToolbar">
+            <div class="gdFiltrosBar">
+              <button type="button" class="gdFiltrosToggle" id="gdBtnToggleFiltros" aria-expanded="false" aria-controls="gdToolbar">
+                <i class="fa-solid fa-filter"></i> Filtros
+                <i class="fa-solid fa-chevron-down gdChevron"></i>
+              </button>
+              <button type="button" class="gfBtn gfBtnGhost gdBtnMeus" id="gdBtnMeusProcessos">
+                <i class="fa-solid fa-user-shield"></i> Processos em que sou o responsável
+              </button>
+            </div>
+
+            <div class="gdToolbar is-recolhido" id="gdToolbar">
               <div class="gfField">
                 <label>DSEI/CASAI</label>
                 <select class="gfSelect" id="gdFiltroDsei"></select>
@@ -2076,8 +2134,12 @@
                 <input class="gfInput" type="text" id="gdBuscaNome" placeholder="Nome do trabalhador...">
               </div>
               <div class="gfField">
-                <label>Buscar por pedido / motivo</label>
+                <label>Buscar por pedido</label>
                 <input class="gfInput" type="text" id="gdBuscaPedido" placeholder="Processo, pedido, motivo...">
+              </div>
+              <div class="gfField">
+                <label>Responsável</label>
+                <input class="gfInput" type="text" id="gdBuscaResponsavel" placeholder="Login do responsável...">
               </div>
               <button type="button" class="gfBtn gfBtnGhost" id="gdBtnLimpar"><i class="fa-solid fa-eraser"></i> Limpar
                 filtros</button>
@@ -2099,7 +2161,7 @@
                     <th>Decisão</th>
                     <th>Data de Aplicação da Sanção</th>
                     <th>Data do Pedido</th>
-                    <th class="gfTd-center">Ações</th>
+                    <th class="gfTd-center">Responsável</th>
                   </tr>
                 </thead>
                 <tbody id="gdTableBody"></tbody>
@@ -2130,50 +2192,67 @@
               </div>
             </div>
           </section>
+
+          <!-- Confirmação de alteração (Status da Demanda / Sanção Aplicada) -->
+          <div class="gdConfirmOverlay" id="gdConfirmOverlay" hidden>
+            <div class="gdConfirmCard" role="alertdialog" aria-modal="true" aria-labelledby="gdConfirmTitulo">
+              <h3 id="gdConfirmTitulo"><i class="fa-solid fa-triangle-exclamation"></i> Confirmar alteração</h3>
+              <p class="gdConfirmMsg" id="gdConfirmMsg"></p>
+              <div class="gdConfirmFoot">
+                <button type="button" class="gfBtn gfBtnGhost" id="gdConfirmCancelar">Cancelar</button>
+                <button type="button" class="gfBtn" id="gdConfirmOk"><i class="fa-solid fa-check"></i> Confirmar alteração</button>
+              </div>
+            </div>
+          </div>
         </section>
 
 
         <section id="view-processosSeletivos" class="viewPanel processosSeletivosView">
           <div class="psPageHeader">
-            <div>
-              <h2>Processos Seletivos em Aberto</h2>
-              <p>Acompanhe e cadastre os processos seletivos da Saúde Indígena, defina o status de cada um e
-                visualize vagas, convocados, desistentes e o detalhamento dos candidatos.</p>
-            </div>
-            <div class="psHeaderActions">
-              <select class="psSelect" id="psFiltroDsei" aria-label="Filtrar por DSEI">
-                <option value="">Todos os DSEIs</option>
-              </select>
-              <div class="psSearchBox">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input class="psSearch" id="psBusca" type="search" placeholder="Buscar processo seletivo...">
+            <div class="psHeaderTop">
+              <div class="psHeaderTitle">
+                <h2>Processos Seletivos</h2>
+                <p>Acompanhamento dos editais de Processo Seletivo Simplificado (PSS) da Saúde Indígena por unidade,
+                  com situação, etapa e os números de vagas, contratações e inscrições.</p>
               </div>
-              <button type="button" class="psBtn" id="psBtnNovo">
-                <i class="fa-solid fa-plus"></i> Novo Processo Seletivo
+              <button type="button" class="psBtn" id="psBtnAddEdital">
+                <i class="fa-solid fa-plus"></i> Adicionar edital
               </button>
+            </div>
+            <div class="psHeaderFiltros">
+              <select class="psSelect" id="psFiltroUnidade" aria-label="Filtrar por unidade">
+                <option value="">Todas as unidades</option>
+              </select>
+              <select class="psSelect" id="psFiltroStatus" aria-label="Filtrar por status">
+                <option value="">Todos os status</option>
+              </select>
+            </div>
+            <div class="psSearchBox psSearchBoxFull">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input class="psSearch" id="psBusca" type="search" placeholder="Buscar por unidade, edital, etapa...">
             </div>
           </div>
 
           <div class="psKpiGrid">
             <div class="psKpi">
-              <div class="psKpiLabel">Total de Processos</div>
+              <div class="psKpiLabel">Total de Editais</div>
               <div class="psKpiValue" id="psKpiTotal">0</div>
             </div>
             <div class="psKpi">
-              <div class="psKpiLabel">Não Iniciados</div>
-              <div class="psKpiValue is-muted" id="psKpiNaoIniciado">0</div>
-            </div>
-            <div class="psKpi">
               <div class="psKpiLabel">Em Andamento</div>
-              <div class="psKpiValue is-green" id="psKpiAndamento">0</div>
+              <div class="psKpiValue is-orange" id="psKpiAndamento">0</div>
             </div>
             <div class="psKpi">
-              <div class="psKpiLabel">Encerrando em Breve</div>
-              <div class="psKpiValue is-orange" id="psKpiBreve">0</div>
+              <div class="psKpiLabel">Concluídos</div>
+              <div class="psKpiValue is-green" id="psKpiConcluido">0</div>
             </div>
             <div class="psKpi">
-              <div class="psKpiLabel">Encerrados</div>
-              <div class="psKpiValue is-red" id="psKpiEncerrado">0</div>
+              <div class="psKpiLabel">Cancelados</div>
+              <div class="psKpiValue is-red" id="psKpiCancelado">0</div>
+            </div>
+            <div class="psKpi">
+              <div class="psKpiLabel">Vagas Previstas</div>
+              <div class="psKpiValue is-muted" id="psKpiVagas">0</div>
             </div>
           </div>
 
@@ -2182,13 +2261,13 @@
               <table class="psTable">
                 <thead>
                   <tr>
-                    <th>Processo Seletivo</th>
-                    <th>DSEI</th>
                     <th>Unidade</th>
-                    <th>Data Início</th>
-                    <th>Divulgação Resultado Final</th>
-                    <th>Data Fim (Vigência)</th>
+                    <th class="psTd-center">UF</th>
+                    <th class="psTd-center">Edital</th>
+                    <th class="psTd-center">Data de Início</th>
+                    <th class="psTd-center">Data de Encerramento</th>
                     <th>Status</th>
+                    <th>Responsável</th>
                     <th class="psTd-center">Ações</th>
                   </tr>
                 </thead>
@@ -2196,12 +2275,146 @@
               </table>
             </div>
             <div class="psTableFoot">
-              <span id="psContador">Nenhum processo cadastrado.</span>
+              <span id="psContador">Nenhum edital cadastrado.</span>
               <div class="psPaginacao" id="psPaginacao"></div>
             </div>
           </section>
 
           <section class="psDetalhe" id="psDetalhe" hidden></section>
+
+          <!-- Modal: adicionar novo edital -->
+          <div class="psModalOverlay" id="psModalEdital" hidden>
+            <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalTitulo"><i class="fa-solid fa-file-circle-plus"></i> Adicionar edital</h3>
+                <button type="button" class="psModalClose" id="psModalFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormEdital">
+                <div class="psFormGrid">
+                  <label class="psField psField2">
+                    <span>Unidade <i class="psReq">*</i></span>
+                    <input class="psInput" id="psFormUnidade" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>UF <i class="psReq">*</i></span>
+                    <input class="psInput" id="psFormUf" type="text" maxlength="2" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Edital <i class="psReq">*</i></span>
+                    <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Processo SEI</span>
+                    <input class="psInput" id="psFormSei" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Ciclo</span>
+                    <input class="psInput" id="psFormCiclo" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Total de vagas previstas</span>
+                    <input class="psInput" id="psFormVagas" type="number" min="0">
+                  </label>
+                  <label class="psField">
+                    <span>Total de contratados</span>
+                    <input class="psInput" id="psFormContratados" type="number" min="0">
+                  </label>
+                  <label class="psField">
+                    <span>Inscritos</span>
+                    <input class="psInput" id="psFormInscritos" type="number" min="0">
+                  </label>
+                  <label class="psField">
+                    <span>Risco</span>
+                    <input class="psInput" id="psFormRisco" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Data de início</span>
+                    <input class="psInput" id="psFormDataInicio" type="date">
+                  </label>
+                  <label class="psField">
+                    <span>Data de encerramento</span>
+                    <input class="psInput" id="psFormDataFim" type="date">
+                  </label>
+                  <label class="psField">
+                    <span>Responsável</span>
+                    <input class="psInput" id="psFormResponsavel" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Status</span>
+                    <select class="psSelect" id="psFormStatus">
+                      <option value="Andamento">Em Andamento</option>
+                      <option value="Aguardando Convocação">Aguardando Convocação</option>
+                      <option value="Concluído">Concluído</option>
+                      <option value="Cancelado">Cancelado</option>
+                    </select>
+                  </label>
+                  <label class="psField psField3">
+                    <span>Observação</span>
+                    <textarea class="psInput psTextarea" id="psFormObs" rows="3"></textarea>
+                  </label>
+                </div>
+
+                <div class="psFormSecao">
+                  <div class="psFormSecaoHead">
+                    <h4>Documento do edital</h4>
+                    <small>Informe um link <strong>ou</strong> anexe um PDF</small>
+                  </div>
+                  <div class="psDocToggle">
+                    <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
+                    <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
+                  </div>
+                  <label class="psField psField3" id="psDocLinkWrap">
+                    <span>Link do edital</span>
+                    <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
+                  </label>
+                  <label class="psField psField3" id="psDocAnexoWrap" hidden>
+                    <span>Anexo (PDF)</span>
+                    <input class="psInput psInputFile" id="psFormAnexo" type="file" accept="application/pdf">
+                  </label>
+                </div>
+
+                <p class="psModalErro" id="psFormErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalCancelar">Cancelar</button>
+                <button type="submit" form="psFormEdital" class="psBtn" id="psModalSalvar"><i class="fa-solid fa-check"></i> Salvar edital</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: inserir anexo (extrai vagas e cronograma do PDF) -->
+          <div class="psModalOverlay" id="psModalAnexo" hidden>
+            <div class="psModalCard psModalCardSm" role="dialog" aria-modal="true" aria-labelledby="psModalAnexoTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalAnexoTitulo"><i class="fa-solid fa-file-arrow-up"></i> Inserir anexo do edital</h3>
+                <button type="button" class="psModalClose" id="psModalAnexoFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormAnexoEdital">
+                <p class="psAnexoIntro">
+                  Envie o PDF de <strong>anexos do edital</strong> (Quadro de Vagas / Cronograma).
+                  Os dados serão lidos diretamente do arquivo para montar as tabelas de
+                  <strong>Cronograma do Edital</strong> e <strong>Vagas Previstas</strong>.
+                  O arquivo é processado na hora e <strong>não é salvo</strong> em lugar nenhum.
+                </p>
+                <label class="psField psField3">
+                  <span>Arquivo PDF <i class="psReq">*</i></span>
+                  <input class="psInput psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf">
+                </label>
+                <div class="psAnexoStatus" id="psAnexoStatus" hidden></div>
+                <p class="psModalErro" id="psAnexoErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalAnexoCancelar">Cancelar</button>
+                <button type="submit" form="psFormAnexoEdital" class="psBtn" id="psAnexoEnviar">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Extrair dados
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
 
