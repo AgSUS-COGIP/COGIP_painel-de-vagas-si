@@ -403,74 +403,20 @@
       min-width: 0;
     }
 
-    /* ---------- Combobox de trabalhador (clicável + pesquisável) ---------- */
-    .gdCombo {
-      position: relative;
-    }
-
-    .gdComboInput {
-      width: 100%;
-      padding-right: 30px; /* espaço para o caret */
-    }
-
-    .gdComboCaret {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #6b87ab;
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    .gdComboLista {
-      position: absolute;
-      z-index: 40;
-      left: 0;
-      right: 0;
-      top: calc(100% + 4px);
-      margin: 0;
-      padding: 4px;
-      list-style: none;
-      background: #fff;
-      border: 1px solid #cdd8e6;
-      border-radius: 10px;
-      box-shadow: 0 10px 28px rgba(11, 68, 136, .18);
-      max-height: 260px;
-      overflow-y: auto;
-    }
-
-    .gdComboItem {
+    /* ---------- Combobox de trabalhador (gatilho + popup) ----------
+       Usa o mesmo componente visual dos demais dropdowns (classes ss*, estilo em
+       23-filtros-padrao.css). Aqui só os resultados em DUAS linhas (nome + meta). */
+    .gdTrabItem .ssItemLabel {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      padding: 8px 10px;
-      border-radius: 7px;
-      cursor: pointer;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
     }
 
-    .gdComboItem:hover,
-    .gdComboItem.is-ativo {
-      background: #eaf2fd;
-    }
-
-    .gdComboNome {
-      font-weight: 700;
-      color: #143b66;
-      font-size: 13px;
-    }
-
-    .gdComboMeta {
-      font-size: 11px;
-      color: #6b7d92;
-    }
-
-    .gdComboVazio {
-      padding: 10px;
-      color: #8595a8;
-      font-size: 12.5px;
-      text-align: center;
-    }
+    .gdTrabNome { font-weight: 800; color: #143b66; font-size: 12.5px; }
+    .gdTrabMeta { font-size: 10.5px; color: #6b7d92; font-weight: 700; }
 
     /* ---------- Campos de data (filtros + formulário) ---------- */
     /* O campo inteiro é clicável e abre o seletor (ver showPicker no JS). */
