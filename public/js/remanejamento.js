@@ -548,8 +548,7 @@ export async function excluirRemanejamentoPainel(idProcesso) {
   mostrarCarregando();
   try {
     const response = await fetch(`/api/remanejamento/${encodeURIComponent(idProcesso)}`, {
-      method: "DELETE",
-      headers: state.painelLoginToken ? { Authorization: `Bearer ${state.painelLoginToken}` } : {}
+      method: "DELETE"
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
@@ -1113,7 +1112,6 @@ export async function salvarRemanejamentoPainel() {
   try {
     const response = await fetch(url, {
       method: metodo,
-      headers: state.painelLoginToken ? { Authorization: `Bearer ${state.painelLoginToken}` } : {},
       body: formData
     });
     const payload = await response.json().catch(() => ({}));

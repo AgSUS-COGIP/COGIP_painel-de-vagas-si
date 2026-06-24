@@ -6,7 +6,7 @@
 // é persistida no banco via API e o registro afetado é recarregado.
 // Obs.: por padrão do painel, as pessoas são sempre "trabalhadores".
 // =========================================================
-import { escapeHtml, escapeAttr } from "./utils.js";
+import { escapeHtml, escapeAttr, debounce } from "./utils.js";
 import { state } from "./state.js";
 import { apiGet, apiPost, authHeaders } from "./api.js";
 
@@ -1158,7 +1158,8 @@ export function configurarGestaoDisciplinar() {
   // Filtros reagem na hora.
   ["gdFiltroDsei", "gdFiltroStatus"].forEach(id => $(id)?.addEventListener("change", renderTabela));
   ["gdFiltroDataIni", "gdFiltroDataFim"].forEach(id => $(id)?.addEventListener("change", renderTabela));
-  ["gdBuscaNome", "gdBuscaPedido", "gdBuscaResponsavel"].forEach(id => $(id)?.addEventListener("input", renderTabela));
+  const renderTabelaBusca = debounce(renderTabela, 250);
+  ["gdBuscaNome", "gdBuscaPedido", "gdBuscaResponsavel"].forEach(id => $(id)?.addEventListener("input", renderTabelaBusca));
 
   $("gdBtnLimpar")?.addEventListener("click", limparFiltros);
   $("gdBtnNovo")?.addEventListener("click", abrirFormulario);

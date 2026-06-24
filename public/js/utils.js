@@ -98,6 +98,21 @@ export function valorCsv(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
 
+// Dispara o download de um CSV já montado (string com BOM). Centraliza o blob +
+// âncora temporária usados por todas as telas de exportação. Acrescenta ".csv"
+// ao nome se faltar.
+export function baixarArquivoCsv(conteudo, nomeArquivo) {
+  const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeArquivo.endsWith(".csv") ? nomeArquivo : `${nomeArquivo}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function formatNumber(value) {
   return Number(value || 0).toLocaleString("pt-BR");
 }

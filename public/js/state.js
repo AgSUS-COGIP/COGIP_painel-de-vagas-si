@@ -47,7 +47,6 @@ export const state = {
   googleClientId: "",
 
   // Sessão / login
-  painelLoginToken: "",
   painelLoginUsuario: null,
   painelIniciado: false
 };

@@ -11,7 +11,7 @@
 // Registra os ouvintes em configurarProcessosSeletivos(),
 // chamado no init do app. Somente leitura (sem cadastro).
 // =========================================================
-import { escapeAttr, escapeHtml } from "./utils.js";
+import { escapeAttr, escapeHtml, debounce } from "./utils.js";
 import { PROCESSOS_SELETIVOS_DADOS } from "./processos-seletivos-dados.js";
 import { EDITAIS_VAGAS_DADOS } from "./editais-vagas-dados.js";
 import { CRONOGRAMA_EDITAIS_DADOS } from "./cronograma-editais-dados.js";
@@ -675,7 +675,7 @@ export function configurarProcessosSeletivos() {
 
   $("psFiltroUnidade")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psFiltroStatus")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
-  $("psBusca")?.addEventListener("input", () => { paginaAtual = 1; renderTabela(); });
+  $("psBusca")?.addEventListener("input", debounce(() => { paginaAtual = 1; renderTabela(); }, 250));
 
   // Modal de cadastro/edição de edital.
   $("psBtnAddEdital")?.addEventListener("click", () => abrirModalEdital());

@@ -9,7 +9,7 @@
 // =========================================================
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
-import { formatNumber, formatPercent, escapeHtml, escapeAttr } from "./utils.js";
+import { formatNumber, formatPercent, escapeHtml, escapeAttr, valorCsv, baixarArquivoCsv } from "./utils.js";
 
 const $ = id => document.getElementById(id);
 
@@ -559,23 +559,10 @@ function renderTabela(rows) {
 }
 
 // ---------- Exportação Excel (CSV com BOM; abre direto no Excel) ----------
-function valorCsv(v) {
-  if (v === null || v === undefined) return "";
-  return `"${String(v).replace(/"/g, '""')}"`;
-}
-
 // BOM (via charCode p/ evitar ambiguidade) + ";" => abre direto no Excel.
 function baixarCsv(linhas, nome) {
   const csv = String.fromCharCode(0xFEFF) + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nome.endsWith(".csv") ? nome : `${nome}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  baixarArquivoCsv(csv, nome);
 }
 
 function exportarExcel() {
@@ -597,15 +584,7 @@ function exportarExcel() {
   });
 
   const csv = "\uFEFF" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "trabalhadores_saude_indigena.csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  baixarArquivoCsv(csv, "trabalhadores_saude_indigena.csv");
 }
 
 function badgeSituacao(r) {

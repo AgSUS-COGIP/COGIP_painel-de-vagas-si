@@ -2,9 +2,10 @@ import { renderAlertasDaPagina, renderAlertasErro } from "./alertas.js";
 import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
 import { configurarAcesso } from "./acesso.js";
+import { aplicarAcessibilidade } from "./a11y.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { COLORS } from "./constants.js";
-import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
+import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarRowsBase, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
 import { configurarGestaoFerias } from "./gestao-ferias.js";
@@ -24,6 +25,7 @@ export async function init() {
     Chart.register(ChartDataLabels);
   }
 
+  aplicarAcessibilidade();
   restaurarEstadoMenuLateral();
   configurarNavegacao();
   atualizarModoRolagem(state.activeView || "visaoGeral");
@@ -144,6 +146,17 @@ export function renderResumoInicial(payload) {
   payload = payload || {};
   const indicadores = payload.indicadores || {};
 
+  renderResumoKpis(indicadores);
+  renderResumoFunnel(payload);
+  renderResumoProgresso(indicadores);
+  renderResumoIndigenas(indicadores);
+  renderResumoTipo(indicadores);
+  renderResumoOciosas(payload);
+  renderResumoCobertura(indicadores);
+  renderResumoAlertasKpi(indicadores);
+}
+
+function renderResumoKpis(indicadores) {
   preencherKpiBloco("kpi", {
     vagasPrevistas: Number(indicadores.vagasPrevistas || 0),
     contratados: Number(indicadores.contratados || 0),
@@ -155,13 +168,17 @@ export function renderResumoInicial(payload) {
     vagasPreenchidasPerc: Number(indicadores.vagasPreenchidasPerc || 0),
     coberturaAfastamentos: Number(indicadores.coberturaAfastamentos || 0)
   });
+}
 
+function renderResumoFunnel(payload) {
   const topCategorias = payload.topDseiVagas || payload.topCategorias || payload.topCargos || [];
   renderFunnelDsei("funnelTopDsei", topCategorias.map(i => ({
     label: i.label,
     value: Number(i.value || 0)
   })), "dsei");
+}
 
+function renderResumoProgresso(indicadores) {
   const preenchidas = Math.max(0, Number(indicadores.vagasPreenchidas || 0));
   const ociosas = Math.max(0, Number(indicadores.vagasOciosas || 0));
   const vagasPrevistas = Number(indicadores.vagasPrevistas || 0);
@@ -173,7 +190,9 @@ export function renderResumoInicial(payload) {
     vagasPrevistas,
     percentual: preenchidasPerc
   });
+}
 
+function renderResumoIndigenas(indicadores) {
   const indigenas = Number(indicadores.indigenas || 0);
   const totalTrabalhadores = Number(indicadores.contratados || 0);
   const demaisTrabalhadores = Math.max(0, totalTrabalhadores - indigenas);
@@ -197,7 +216,9 @@ export function renderResumoInicial(payload) {
     ["Indígenas", indigenas, COLORS.green, part(indigenas, totalTrabalhadores)],
     ["Demais", demaisTrabalhadores, COLORS.blue2, part(demaisTrabalhadores, totalTrabalhadores)]
   ]);
+}
 
+function renderResumoTipo(indicadores) {
   const normal = Number(indicadores.contratadosNormal || 0);
   const substituicao = Number(indicadores.substituicoes || 0);
   const temporario = Number(indicadores.temporarios || 0);
@@ -237,7 +258,9 @@ export function renderResumoInicial(payload) {
     ["Substituição", substituicao, COLORS.orange, part(substituicao, totalContratacao)],
     ["Temporário", temporario, COLORS.green, part(temporario, totalContratacao)]
   ]);
+}
 
+function renderResumoOciosas(payload) {
   const topDseiOciosas = payload.topDseiOciosas || [];
   renderCardsOciosas("cardsTopDseiOciosas", topDseiOciosas.map(i => ({
     label: i.label,
@@ -258,7 +281,11 @@ export function renderResumoInicial(payload) {
     maxLines: 5,
     yAxisWidth: 290
   });
+}
 
+function renderResumoCobertura(indicadores) {
+  // `substituicao` é recalculado aqui (era compartilhado com o gráfico de tipo).
+  const substituicao = Number(indicadores.substituicoes || 0);
   const cobertos = Math.min(Math.max(0, substituicao), Math.max(0, Number(indicadores.afastados || 0)));
   const naoCobertos = Math.max(0, Number(indicadores.afastados || 0) - cobertos);
   renderDoughnut("chartCoberturaAfastamentos", {
@@ -288,7 +315,9 @@ export function renderResumoInicial(payload) {
     "resumoCoberturaTexto",
     `${formatNumber(Number(indicadores.substituicoes || 0))} de ${formatNumber(Number(indicadores.afastados || 0))} afastamentos cobertos.`
   );
+}
 
+function renderResumoAlertasKpi(indicadores) {
   renderAlertasKpis([{
     qtdTemporarioAtivo: Number(indicadores.riscoTemporario || 0),
     afastados: Number(indicadores.afastados || 0),
@@ -438,18 +467,6 @@ export function carregarRemanejamentoCadastroEmSegundoPlano(forcar) {
       state.remanejamentoCadastroRows = payload.rows || [];
       configurarRemanejamento();
     }
-  });
-}
-
-export function filtrarRowsBase(rows) {
-  const dseis = getSelectedValues("fDsei");
-  const cargos = getSelectedValues("fCargo");
-
-  return (rows || []).filter(row => {
-    if (!matchMulti(row.dseiCasai, dseis)) return false;
-    if (!matchMulti(row.cargo, cargos)) return false;
-    if (!filtrarGraficoAtivo(row)) return false;
-    return true;
   });
 }
 

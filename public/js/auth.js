@@ -232,7 +232,6 @@ async function verificarMudancaSessao() {
 }
 
 export async function logoutPainel() {
-  state.painelLoginToken = "";
   state.painelLoginUsuario = null;
   // Limpa o cookie HttpOnly no servidor antes de recarregar.
   try { await apiPost("/api/logout", {}); } catch (e) { }

@@ -8,7 +8,7 @@
 // CRUD persistido no banco (editar datas/observação, avançar/voltar status,
 // mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
-import { escapeHtml, escapeAttr, valorCsv, debounce } from "./utils.js";
+import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv } from "./utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 
@@ -778,15 +778,7 @@ function exportarExcel() {
 }
 
 function baixarCsv(conteudo, nomeArquivo) {
-  const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nomeArquivo;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  baixarArquivoCsv(conteudo, nomeArquivo);
 }
 
 // ---------- Importa\u00E7\u00E3o de planilha (CSV) ----------

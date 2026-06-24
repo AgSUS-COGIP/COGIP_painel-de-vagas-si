@@ -1,6 +1,5 @@
 import { apiPost } from "./api.js";
-import { filtrarRowsBase } from "./app.js";
-import { getSelectedValues } from "./filtros.js";
+import { filtrarRowsBase, getSelectedValues } from "./filtros.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, formatNumber, normalizarTextoPainel } from "./utils.js";
