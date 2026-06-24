@@ -13,23 +13,24 @@ import { formatNumber, formatPercent, escapeHtml, escapeAttr } from "./utils.js"
 
 const $ = id => document.getElementById(id);
 
+// Paleta base azul (SUS) — tons frios (azul/teal/verde).
 const PALETA = [
-  "#C8472B", "#E29030", "#E7B93D", "#2E8B57", "#1F7A8C", "#8C3B2E",
-  "#6B8E23", "#D96941", "#B5651D", "#3A6B7E", "#A8412A", "#4C9A6A",
-  "#9C6644", "#557A46", "#C96E50", "#2C6E76"
+  "#007de0", "#0a66b0", "#1F7A8C", "#2E8B57", "#0053a7", "#5b9bd5",
+  "#3A6B7E", "#1f8a53", "#6aa9d6", "#2C6E76", "#88b8e0", "#4C9A6A",
+  "#00b5d8", "#155e6e", "#3d8fd6", "#5aa0a8"
 ];
-const COR_INDIGENA = "#C8472B";
+const COR_INDIGENA = "#1F7A8C"; // teal — destaque dos indígenas no gráfico de raça
 const COR_SUS_AZUL = "#0a66b0";
 const COR_SUS_VERDE = "#1f8a53";
-const TEXTO = "#5a2a1e";
+const TEXTO = "#1f3a5f";
 
-// Raças/cores (ordem e cores fixas) para os gráficos empilhados.
+// Raças/cores (ordem e cores fixas) para os gráficos empilhados — tons frios.
 const RACAS = [
-  { key: "INDIGENA", label: "Indígena", cor: "#C8472B" },
-  { key: "PARDA", label: "Parda", cor: "#E29030" },
-  { key: "BRANCA", label: "Branca", cor: "#E7B93D" },
-  { key: "PRETA/NEGRA", label: "Preta/Negra", cor: "#6B4A3A" },
-  { key: "AMARELA", label: "Amarela", cor: "#2C6E76" }
+  { key: "INDIGENA", label: "Indígena", cor: "#007de0" },
+  { key: "PARDA", label: "Parda", cor: "#1F7A8C" },
+  { key: "BRANCA", label: "Branca", cor: "#6aa9d6" },
+  { key: "PRETA/NEGRA", label: "Preta/Negra", cor: "#2E8B57" },
+  { key: "AMARELA", label: "Amarela", cor: "#0053a7" }
 ];
 
 // Regra de Vínculo com a Agência (definida pela área): estas situações = Desligado;
@@ -669,7 +670,7 @@ function barEmpilhada(canvasId, labels, series) {
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumber(ctx.raw)}` } }
       },
       scales: {
-        x: { stacked: true, beginAtZero: true, grid: { color: "rgba(140,59,46,.1)" }, ticks: { color: "rgba(90,42,30,.7)", font: { size: 10, weight: "700" } } },
+        x: { stacked: true, beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         y: { stacked: true, grid: { display: false }, ticks: { color: TEXTO, font: { size: 10.5, weight: "800" }, autoSkip: false } }
       }
     }
@@ -691,7 +692,7 @@ function barH(canvasId, labels, values, cor) {
         tooltip: { callbacks: { label: ctx => formatNumber(ctx.raw) } }
       },
       scales: {
-        x: { beginAtZero: true, grid: { color: "rgba(140,59,46,.10)" }, ticks: { color: "rgba(90,42,30,.7)", font: { size: 10, weight: "700" } } },
+        x: { beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         y: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 10.5, weight: "800" }, autoSkip: false } }
       }
     }
@@ -712,7 +713,7 @@ function colunas(canvasId, labels, values, cor) {
         tooltip: { callbacks: { label: ctx => formatNumber(ctx.raw) } }
       },
       scales: {
-        y: { beginAtZero: true, grid: { color: "rgba(140,59,46,.10)" }, ticks: { color: "rgba(90,42,30,.7)", font: { size: 10, weight: "700" } } },
+        y: { beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         x: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 10, weight: "800" }, maxRotation: 0, minRotation: 0 } }
       }
     }
