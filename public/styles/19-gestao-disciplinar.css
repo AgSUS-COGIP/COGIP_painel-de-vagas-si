@@ -34,7 +34,7 @@
 
     :where(.gestaoDisciplinarView) .gfPageHeader h2 {
       margin: 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 21px;
       font-weight: 900;
       text-transform: uppercase;
@@ -68,7 +68,7 @@
       align-items: center;
       gap: 9px;
       margin: 0 0 14px 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 13px;
       font-weight: 900;
       text-transform: uppercase;
@@ -81,7 +81,7 @@
       width: 22px;
       height: 22px;
       border-radius: 8px;
-      background: linear-gradient(135deg, #0ea5ff, #0070d9);
+      background: linear-gradient(135deg, #0ea5ff, var(--azul-primario));
       color: #fff;
       font-size: 11px;
       font-weight: 900;
@@ -89,7 +89,7 @@
     }
 
     :where(.gestaoDisciplinarView) .gfPanelTitle i {
-      color: #0070d9;
+      color: var(--azul-primario);
     }
 
     :where(.gestaoDisciplinarView) .gfSectionLabel {
@@ -132,7 +132,7 @@
       border: 1px solid rgba(0, 83, 166, .22);
       border-radius: 10px;
       background: #fff;
-      color: #0b2445;
+      color: var(--texto);
       font-size: 12px;
       font-weight: 700;
       font-family: inherit;
@@ -143,7 +143,7 @@
 
     :where(.gestaoDisciplinarView) .gfInput:focus,
     :where(.gestaoDisciplinarView) .gfSelect:focus {
-      border-color: #0070d9;
+      border-color: var(--azul-primario);
       box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
     }
 
@@ -230,7 +230,7 @@
     /* thead th / tbody td espelham a estrutura do 17 novo (0,1,2) para
        vencer por ordem de fonte — senão a aba herdaria o visual de Férias. */
     :where(.gestaoDisciplinarView) .gfTable thead th {
-      background: linear-gradient(135deg, #00457f, #006dcc);
+      background: linear-gradient(135deg, #00457f, var(--azul-card));
       color: #fff;
       text-align: left;
       padding: 10px 12px;
@@ -271,7 +271,7 @@
     }
 
     :where(.gestaoDisciplinarView) .gfIconBtn.gfView {
-      color: #0070d9;
+      color: var(--azul-primario);
     }
 
     /* ---------- Badges de status (base; modificadores .is-* mais abaixo) ---------- */
@@ -641,7 +641,7 @@
     .gdRadio input {
       width: 15px;
       height: 15px;
-      accent-color: #0070d9;
+      accent-color: var(--azul-primario);
       cursor: pointer;
     }
 
@@ -717,7 +717,7 @@
 
     .gdUploadTermo:hover {
       background: rgba(0, 112, 217, .12);
-      border-color: #0070d9;
+      border-color: var(--azul-primario);
     }
 
     /* Animação de auto-preenchimento (matrícula, cargo, DSEI/CASAI, polo base):
@@ -820,7 +820,7 @@
 
     .gfTable tbody tr.gdRow.is-selected td {
       background: rgba(0, 112, 217, .16);
-      box-shadow: inset 0 3px 0 #0070d9, inset 0 -3px 0 #0070d9;
+      box-shadow: inset 0 3px 0 var(--azul-primario), inset 0 -3px 0 var(--azul-primario);
     }
 
     /* ---------- Badges específicas de status / atendimento ---------- */
@@ -854,7 +854,7 @@
     }
 
     .gdStep.is-feito { background: #d7f5e3; color: #0a7a44; border-color: rgba(10, 122, 68, .25); }
-    .gdStep.is-atual { background: #0070d9; color: #fff; border-color: #0070d9; }
+    .gdStep.is-atual { background: var(--azul-primario); color: #fff; border-color: var(--azul-primario); }
 
     .gdFaseAcoes {
       display: flex;
@@ -903,7 +903,7 @@
       letter-spacing: .4px;
     }
 
-    .gdDetailLabel i { color: #0070d9; }
+    .gdDetailLabel i { color: var(--azul-primario); }
 
     .gdKv {
       display: flex;
@@ -924,7 +924,7 @@
     .gdKv > strong {
       flex: 1 1 auto;
       text-align: right;
-      color: #07346b;
+      color: var(--azul-escuro);
     }
 
     .gdResumo {
@@ -992,7 +992,7 @@
       border: 1px solid rgba(0, 83, 166, .3);
       border-radius: 8px;
       background: #fff;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-family: inherit;
       font-size: 11.5px;
       font-weight: 800;
@@ -1003,7 +1003,7 @@
     select.gdEditField { cursor: pointer; }
 
     .gdEditField:focus {
-      border-color: #0070d9;
+      border-color: var(--azul-primario);
       box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
     }
 
@@ -1056,7 +1056,7 @@
       display: flex;
       align-items: center;
       gap: 9px;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 15px;
       font-weight: 900;
     }

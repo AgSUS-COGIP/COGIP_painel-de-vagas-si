@@ -166,7 +166,7 @@
       inset: 0;
       z-index: -1;
       opacity: .12;
-      background: linear-gradient(135deg, var(--nav-color, #00b5d8), transparent 68%);
+      background: linear-gradient(135deg, var(--nav-color, var(--ciano)), transparent 68%);
       transition: .18s ease;
     }
 
@@ -192,7 +192,7 @@
     }
 
     .navItem[data-view="vagas"] {
-      --nav-color: #00b5d8;
+      --nav-color: var(--ciano);
     }
 
     .navItem[data-view="alertas"] {
@@ -208,7 +208,7 @@
     }
 
     .navIcon {
-      background: linear-gradient(135deg, var(--nav-color, #00b5d8), rgba(0, 71, 150, .96));
+      background: linear-gradient(135deg, var(--nav-color, var(--ciano)), rgba(0, 71, 150, .96));
       box-shadow: 0 8px 16px rgba(0, 0, 0, .16), inset 0 1px 0 rgba(255, 255, 255, .20);
       color: #ffffff;
     }

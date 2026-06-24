@@ -19,7 +19,7 @@
       border: 1px solid rgba(0, 83, 166, .20);
       border-radius: 12px;
       background: #fff;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 13px;
       font-weight: 800;
       padding: 0 34px 0 12px;
@@ -173,7 +173,7 @@
     }
 
     .remanejamentoField label {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 11px;
       font-weight: 900;
       text-transform: uppercase;
@@ -186,7 +186,7 @@
       border: 1px solid rgba(0, 83, 166, .20);
       border-radius: 12px;
       background: #ffffff;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 13px;
       font-weight: 800;
       padding: 0 12px;
@@ -195,7 +195,7 @@
     }
 
     .remanejamentoHint {
-      color: #5c7190;
+      color: var(--muted);
       font-size: 11px;
       font-weight: 800;
       line-height: 1.35;
@@ -217,7 +217,7 @@
     .remanejamentoValorCampo strong {
       display: block;
       margin-top: 5px;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 18px;
       font-weight: 900;
       letter-spacing: -.4px;
@@ -248,7 +248,7 @@
     }
 
     .remanejamentoCalculoFormula {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 18px;
       font-weight: 900;
       line-height: 1.25;
@@ -288,7 +288,7 @@
     }
 
     .remanejamentoResumoValor {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 20px;
       font-weight: 900;
       letter-spacing: -.5px;
@@ -364,7 +364,7 @@
       box-shadow: 0 16px 28px rgba(0, 50, 113, .10);
       display: grid;
       gap: 5px;
-      color: #07346b;
+      color: var(--azul-escuro);
     }
 
     .remKpiCard strong {
@@ -374,7 +374,7 @@
 
     .remKpiCard small,
     .remKpiLabel {
-      color: #5c7190;
+      color: var(--muted);
       font-size: 10.5px;
       font-weight: 900;
       text-transform: uppercase;
@@ -427,7 +427,7 @@
     .remBox h3,
     .remIntroBox h3 {
       margin: 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 17px;
       font-weight: 900;
     }
@@ -499,7 +499,7 @@
 
     .remSecondaryBtn {
       background: rgba(0, 83, 166, .08);
-      color: #07346b;
+      color: var(--azul-escuro);
       border: 1px solid rgba(0, 83, 166, .18);
     }
 
@@ -530,7 +530,7 @@
          texto da linha aparecia ao rolar. */
       top: -1px;
       z-index: 2;
-      background: linear-gradient(135deg, #005aa9, #006dcc);
+      background: linear-gradient(135deg, #005aa9, var(--azul-card));
       color: #fff;
       padding: 11px 10px;
       text-align: left;
@@ -538,7 +538,7 @@
 
     .remTable td {
       padding: 10px;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-weight: 800;
       border-bottom: 1px solid rgba(0, 86, 167, .10);
     }
@@ -553,7 +553,7 @@
       padding: 9px 11px;
       font-size: 12px;
       font-weight: 800;
-      color: #07346b;
+      color: var(--azul-escuro);
       background: rgba(255, 255, 255, .96);
     }
 
@@ -595,14 +595,14 @@
 
     .remImpactoCards span,
     .remResumoTable th {
-      color: #5c7190;
+      color: var(--muted);
       font-size: 10px;
       font-weight: 900;
       text-transform: uppercase;
     }
 
     .remImpactoCards strong {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 20px;
       line-height: 1.1;
     }
@@ -621,7 +621,7 @@
       padding: 10px 12px;
       border-bottom: 1px solid rgba(0, 86, 167, .10);
       text-align: left;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-weight: 800;
     }
 
@@ -634,12 +634,12 @@
       display: inline-block;
       min-width: 28px;
       text-align: center;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-weight: 900;
     }
 
     .remLegend {
-      color: #5c7190;
+      color: var(--muted);
       font-size: 11px;
       font-weight: 800;
     }
@@ -667,9 +667,9 @@
       padding: 7px 10px;
       background: rgba(0, 109, 204, .07);
       border: 1px solid rgba(0, 86, 167, .18);
-      border-left: 3px solid #006dcc;
+      border-left: 3px solid var(--azul-card);
       border-radius: 8px;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-weight: 800;
       line-height: 1.25;
     }
@@ -790,7 +790,7 @@
     }
 
     .remDetalheTitulo {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 11px;
       font-weight: 900;
       text-transform: uppercase;
@@ -827,7 +827,7 @@
       border-radius: 12px;
       background: rgba(255, 255, 255, .85);
       border: 1px solid rgba(0, 83, 166, .12);
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 12px;
       font-weight: 700;
     }
@@ -936,7 +936,7 @@
       border: 1px solid rgba(0, 83, 166, .18);
       border-radius: 13px;
       background: rgba(255, 255, 255, .96);
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 12px;
       font-weight: 800;
       padding: 12px 14px;
@@ -954,7 +954,7 @@
       border: 1px solid rgba(0, 83, 166, .18);
       border-radius: 11px;
       background: #f5fbff;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 11px;
       font-weight: 800;
       padding: 9px 10px;
@@ -1001,7 +1001,7 @@
     #view-vagas .fullTable th.colOciosasHead,
     #view-vagas .fullTable td.colOciosas,
     #view-vagas .fullTable tr.totalRow td.colOciosas {
-      background: linear-gradient(135deg, #004b93, #003a74) !important;
+      background: linear-gradient(135deg, var(--azul-menu), #003a74) !important;
       color: #ffffff !important;
       font-weight: 900;
       border-right: 4px solid rgba(0, 181, 216, .75);
@@ -1024,7 +1024,7 @@
     }
 
     .composicaoOciosas strong {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-weight: 900;
     }
 
@@ -1177,14 +1177,14 @@
       opacity: .10;
       pointer-events: none;
       background:
-        linear-gradient(135deg, transparent 35%, #00b5d8 36%, transparent 40%),
+        linear-gradient(135deg, transparent 35%, var(--ciano) 36%, transparent 40%),
         linear-gradient(45deg, transparent 35%, #ffb21f 36%, transparent 40%),
         linear-gradient(135deg, transparent 58%, #38c172 59%, transparent 63%);
       background-size: 18px 18px;
     }
 
     .nav .navItem:nth-child(1) .navIcon {
-      background: linear-gradient(135deg, #00b5d8, #006dcc);
+      background: linear-gradient(135deg, var(--ciano), var(--azul-card));
       color: #fff;
     }
 
@@ -1399,7 +1399,7 @@
       }
 
       .printHeaderText {
-        color: #07346b;
+        color: var(--azul-escuro);
         font-weight: 900;
         font-size: 13px;
         letter-spacing: .02em;
@@ -1504,7 +1504,7 @@
       #view-vagas .fullTable td.colOciosas.negativo {
         background: #ffffff !important;
         background-image: none !important;
-        color: #0b2445 !important;
+        color: var(--texto) !important;
         border-right: none !important;
       }
 

@@ -148,7 +148,7 @@
     #view-vagas .fullTable tr.totalRow td {
       position: static;
       /* Gradiente contínuo na linha inteira (mesmo critério do cabeçalho). */
-      background-image: linear-gradient(90deg, #004993, #006dcc) !important;
+      background-image: linear-gradient(90deg, #004993, var(--azul-card)) !important;
       background-attachment: fixed !important;
       background-size: 100vw 100% !important;
       color: #ffffff !important;

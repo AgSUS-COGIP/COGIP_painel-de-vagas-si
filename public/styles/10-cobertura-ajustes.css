@@ -73,7 +73,7 @@
     }
 
     .navItem[data-view="vagas"] .navIcon {
-      background: linear-gradient(135deg, #00b5d8, #006dcc) !important;
+      background: linear-gradient(135deg, var(--ciano), var(--azul-card)) !important;
     }
 
 

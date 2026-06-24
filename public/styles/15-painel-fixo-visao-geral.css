@@ -81,7 +81,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-weight: 900;
 }
 
@@ -92,7 +92,7 @@
 .preenchimentoHeader strong {
   font-size: clamp(14px, 2.1vh, 20px);
   font-weight: 900;
-  color: #07346b;
+  color: var(--azul-escuro);
 }
 
 .preenchimentoTrack {
@@ -157,7 +157,7 @@
 
 .funnelLabel,
 .funnelValue {
-  color: #07346b;
+  color: var(--azul-escuro);
   font-weight: 900;
   font-size: clamp(13px, 1.45vh, 15.5px);
   line-height: 1.1;

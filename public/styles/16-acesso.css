@@ -563,7 +563,7 @@
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
-  color: #07346b;
+  color: var(--azul-escuro);
   outline: none;
 }
 .solRecusaAcoes { display: flex; gap: 8px; }
@@ -594,14 +594,14 @@
   gap: 12px;
   text-align: center;
 }
-.acessoModalTitulo { color: #07346b; font-size: 16px; font-weight: 900; }
+.acessoModalTitulo { color: var(--azul-escuro); font-size: 16px; font-weight: 900; }
 .acessoModalMsg { color: #315c8e; font-size: 13px; font-weight: 700; line-height: 1.4; }
 .acessoModalAcoes { display: flex; gap: 10px; margin-top: 4px; }
 .acessoModalAcoes .solBtn { flex: 1; padding: 11px; }
 
 /* Campo de texto opcional do modal (ex.: justificativa da recusa) */
 .acessoModalInputWrap { display: grid; gap: 6px; text-align: left; }
-.acessoModalInputLabel { color: #07346b; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.acessoModalInputLabel { color: var(--azul-escuro); font-size: 11px; font-weight: 900; text-transform: uppercase; }
 .acessoModalInput {
   width: 100%;
   min-height: 64px;
@@ -611,14 +611,14 @@
   padding: 9px 11px;
   font-family: inherit;
   font-size: 13px;
-  color: #07346b;
+  color: var(--azul-escuro);
   outline: none;
 }
 .acessoModalErro { color: #b91c1c; font-size: 12px; font-weight: 800; min-height: 0; }
 
 /* Seletor de privilégio no card do admin */
 .solPrivilegio { display: grid; gap: 4px; }
-.solPrivilegio label { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
+.solPrivilegio label { color: var(--muted); font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
 .solNivelSelect {
   width: 100%;
   border: 1px solid rgba(0, 83, 166, .22);
@@ -626,7 +626,7 @@
   padding: 7px 9px;
   font-size: 12px;
   font-weight: 800;
-  color: #07346b;
+  color: var(--azul-escuro);
   background: #fff;
   outline: none;
 }
@@ -635,7 +635,7 @@
   margin-top: 4px;
   background: none;
   border: none;
-  color: #5c7190;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 800;
   text-decoration: underline;
@@ -645,7 +645,7 @@
 /* ---- Tela do admin: gestão de solicitações ---- */
 .solSecaoTitulo {
   margin: 18px 0 10px;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-size: 13px;
   font-weight: 900;
   text-transform: uppercase;
@@ -674,7 +674,7 @@
   justify-content: space-between;
   gap: 8px;
 }
-.solData { color: #5c7190; font-size: 11px; font-weight: 800; }
+.solData { color: var(--muted); font-size: 11px; font-weight: 800; }
 .solHeadDir { display: inline-flex; align-items: center; gap: 8px; }
 .solExcluirBtn {
   border: none;
@@ -704,13 +704,13 @@
   gap: 6px 14px;
 }
 .solGrid div { display: grid; gap: 1px; min-width: 0; }
-.solGrid span { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
-.solGrid strong { color: #07346b; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+.solGrid span { color: var(--muted); font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
+.solGrid strong { color: var(--azul-escuro); font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
 
-.solJustificativa span { color: #5c7190; font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
+.solJustificativa span { color: var(--muted); font-size: 9.5px; font-weight: 900; text-transform: uppercase; }
 .solJustificativa p {
   margin: 3px 0 0;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
@@ -718,7 +718,7 @@
   overflow-wrap: anywhere;
 }
 
-.solDecisao { color: #5c7190; font-size: 11px; font-weight: 700; line-height: 1.35; }
+.solDecisao { color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.35; }
 
 .solAcoes { display: flex; gap: 8px; }
 .solBtn {
@@ -735,7 +735,7 @@
 
 .solVazio {
   grid-column: 1 / -1;
-  color: #5c7190;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 800;
   padding: 16px;

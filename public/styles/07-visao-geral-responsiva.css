@@ -185,7 +185,7 @@
 
     .rankingLabel {
       min-width: 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: clamp(9.8px, .72vw, 11.2px);
       font-weight: 900;
       line-height: 1.12;
@@ -211,7 +211,7 @@
     }
 
     .rankingValue {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: clamp(10px, .72vw, 11.6px);
       font-weight: 900;
       white-space: nowrap;

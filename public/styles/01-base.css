@@ -16,6 +16,9 @@
       --azul-profundo: #00305f;
       --azul-menu: #004b93;
       --azul-card: #006dcc;
+      --azul-escuro: #07346b;
+      --azul-primario: #0070d9;
+      --ciano: #00b5d8;
       --texto: #0b2445;
       --muted: #5c7190;
       --sombra: 0 14px 28px rgba(0, 43, 93, .18);
@@ -83,7 +86,7 @@
       opacity: .18;
       background:
         radial-gradient(ellipse at center, transparent 31%, #ffb832 32%, transparent 36%),
-        linear-gradient(84deg, transparent 46%, #00b5d8 47%, transparent 50%),
+        linear-gradient(84deg, transparent 46%, var(--ciano) 47%, transparent 50%),
         linear-gradient(112deg, transparent 46%, #ff8d2a 47%, transparent 50%),
         linear-gradient(66deg, transparent 46%, #38c172 47%, transparent 50%);
       transform: rotate(-18deg);
@@ -179,7 +182,7 @@
     }
 
     .navItem.active {
-      background: linear-gradient(135deg, #0ea5ff, #0070d9);
+      background: linear-gradient(135deg, #0ea5ff, var(--azul-primario));
       box-shadow: 0 10px 18px rgba(0, 0, 0, .20);
     }
 
@@ -221,7 +224,7 @@
       background:
         radial-gradient(ellipse at 65% 18%, #f7b23b 0 6%, transparent 7%),
         linear-gradient(118deg, transparent 42%, #003e82 43%, transparent 46%),
-        linear-gradient(98deg, transparent 45%, #00b5d8 46%, transparent 49%),
+        linear-gradient(98deg, transparent 45%, var(--ciano) 46%, transparent 49%),
         linear-gradient(74deg, transparent 48%, #ff9a1f 49%, transparent 52%);
       border-radius: 45% 45% 20% 20%;
       transform: rotate(8deg);
@@ -312,7 +315,7 @@
       border: none;
       border-radius: 11px;
       background: rgba(255, 255, 255, .97);
-      color: #0b2445;
+      color: var(--texto);
       font-size: 11px;
       font-weight: 800;
       padding: 0 11px;
@@ -417,7 +420,7 @@
 
     .multiSelectOption,
     .multiSelectOption span {
-      color: #07346b;
+      color: var(--azul-escuro);
       text-shadow: none;
     }
 
@@ -516,7 +519,7 @@
     }
 
     .progressPanelHead strong {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 22px;
       font-weight: 900;
       white-space: nowrap;
@@ -607,7 +610,7 @@
     }
 
     .iTeal {
-      background: linear-gradient(135deg, #00b5d8, #008b9a);
+      background: linear-gradient(135deg, var(--ciano), #008b9a);
     }
 
     .iPurple {
@@ -720,7 +723,7 @@
       inset: 0;
       background:
         radial-gradient(circle at 95% 18%, rgba(255, 255, 255, .15), transparent 28%),
-        linear-gradient(90deg, #00b5d8 0 6px, transparent 6px);
+        linear-gradient(90deg, var(--ciano) 0 6px, transparent 6px);
       pointer-events: none;
     }
 
@@ -739,7 +742,7 @@
       position: relative;
       z-index: 1;
       margin: 0 0 8px 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 12.5px;
       font-weight: 900;
       text-transform: uppercase;
@@ -798,7 +801,7 @@
     }
 
     .legendItem strong {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-weight: 900;
     }
 
@@ -834,7 +837,7 @@
     }
 
     .funnelStepLabel {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 11px;
       font-weight: 900;
       text-transform: uppercase;
@@ -842,7 +845,7 @@
     }
 
     .funnelStepValue {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 12px;
       font-weight: 900;
       white-space: nowrap;
@@ -985,7 +988,7 @@
 
     .summaryGrid .summaryCard:nth-child(1) .summaryTitle::before {
       content: "\2302";
-      background: linear-gradient(135deg, #00b5d8, #0077d8);
+      background: linear-gradient(135deg, var(--ciano), #0077d8);
     }
 
     .summaryGrid .summaryCard:nth-child(2) .summaryTitle::before {
@@ -1030,7 +1033,7 @@
 
     .pageTitle {
       margin: 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 21px;
       font-weight: 900;
       text-transform: uppercase;
@@ -1134,7 +1137,7 @@
       height: 12px;
       opacity: .32;
       background:
-        linear-gradient(135deg, transparent 35%, #00b5d8 36%, transparent 40%),
+        linear-gradient(135deg, transparent 35%, var(--ciano) 36%, transparent 40%),
         linear-gradient(45deg, transparent 35%, #ffffff 36%, transparent 40%);
       background-size: 28px 18px;
     }

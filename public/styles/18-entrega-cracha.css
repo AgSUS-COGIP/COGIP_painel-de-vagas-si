@@ -35,7 +35,7 @@
 
 .ecPageHeader h2 {
   margin: 0;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-size: 21px;
   font-weight: 900;
   text-transform: uppercase;
@@ -100,7 +100,7 @@
   font-weight: 900;
   line-height: 1;
   letter-spacing: -.6px;
-  color: #07346b;
+  color: var(--azul-escuro);
 }
 
 .ecKpiSub {
@@ -148,7 +148,7 @@
   border: 1px solid rgba(0, 83, 166, .22);
   border-radius: 10px;
   background: #fff;
-  color: #0b2445;
+  color: var(--texto);
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
@@ -173,7 +173,7 @@ select.ecInput {
 
 .ecSelect:focus,
 .ecInput:focus {
-  border-color: #0070d9;
+  border-color: var(--azul-primario);
   box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
 }
 
@@ -272,7 +272,7 @@ select.ecInput {
 }
 
 .ecTable th {
-  background: linear-gradient(135deg, #00457f, #006dcc);
+  background: linear-gradient(135deg, #00457f, var(--azul-card));
   color: #fff;
   text-align: left;
   padding: 11px 12px;
@@ -353,7 +353,7 @@ select.ecInput {
 .ecIconBtn {
   border: none;
   background: transparent;
-  color: #0070d9;
+  color: var(--azul-primario);
   cursor: pointer;
   font-size: 13px;
   padding: 5px 6px;
@@ -467,7 +467,7 @@ select.ecInput {
 /* ---------- Seleção em lote ---------- */
 .ecColSelect { width: 38px; }
 .ecCheck,
-#ecSelecionarPagina { width: 16px; height: 16px; cursor: pointer; accent-color: #0070d9; }
+#ecSelecionarPagina { width: 16px; height: 16px; cursor: pointer; accent-color: var(--azul-primario); }
 
 /* Painel "Ações em lote": card branco, cabeçalho com ícone/badge e grade única. */
 .ecLoteBar {
@@ -502,7 +502,7 @@ select.ecInput {
 }
 .ecLoteTitulo {
   margin: 0;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-size: 17px;
   font-weight: 900;
   letter-spacing: -.3px;
@@ -629,7 +629,7 @@ select.ecInput {
 
 .ecDetalheTitulo h3 {
   margin: 0;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-size: 18px;
   font-weight: 900;
 }
@@ -688,7 +688,7 @@ select.ecInput {
 
 .ecKv:last-child { border-bottom: none; }
 .ecKv span { min-width: 0; }
-.ecKv strong { color: #07346b; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.ecKv strong { color: var(--azul-escuro); text-align: right; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Linha do tempo (histórico) ---------- */
 .ecTimeline {
@@ -726,13 +726,13 @@ select.ecInput {
   height: 12px;
   margin-top: 3px;
   border-radius: 50%;
-  background: #0070d9;
+  background: var(--azul-primario);
   box-shadow: 0 0 0 3px rgba(0, 112, 217, .18);
 }
 
 /* Estados da trilha de status. */
 .ecTimelineDot.is-done { background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, .16); }
-.ecTimelineDot.is-atual { background: #0070d9; box-shadow: 0 0 0 4px rgba(0, 112, 217, .28); }
+.ecTimelineDot.is-atual { background: var(--azul-primario); box-shadow: 0 0 0 4px rgba(0, 112, 217, .28); }
 .ecTimelineDot.is-pendente { background: #c3d2e6; box-shadow: none; }
 
 /* Conector verde até a etapa atual; cinza nas pendentes. */
@@ -740,7 +740,7 @@ select.ecInput {
 .ecTimelineItem.is-pendente:not(:last-child)::before { background: rgba(111, 139, 176, .25); }
 
 .ecTimelineItem.is-pendente { opacity: .55; }
-.ecTimelineItem.is-atual .ecTimelineEvento { color: #0070d9; }
+.ecTimelineItem.is-atual .ecTimelineEvento { color: var(--azul-primario); }
 
 .ecTimelineQuando {
   color: #4a6a93;
@@ -826,7 +826,7 @@ select.ecInput {
   border: 1px solid rgba(0, 83, 166, .22);
   border-radius: 10px;
   background: #fff;
-  color: #0b2445;
+  color: var(--texto);
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
@@ -837,7 +837,7 @@ select.ecInput {
 }
 
 .ecTextarea:focus {
-  border-color: #0070d9;
+  border-color: var(--azul-primario);
   box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
 }
 
@@ -927,7 +927,7 @@ select.ecInput {
 
 .ecModalHead h3 {
   margin: 0;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-size: 18px;
   font-weight: 900;
 }
@@ -967,11 +967,11 @@ select.ecInput {
   text-transform: none;
   letter-spacing: 0;
 }
-.ecRadioOpt input { width: 15px; height: 15px; accent-color: #0070d9; margin: 0; }
+.ecRadioOpt input { width: 15px; height: 15px; accent-color: var(--azul-primario); margin: 0; }
 .ecRadioOpt:has(input:checked) {
-  border-color: #0070d9;
+  border-color: var(--azul-primario);
   background: #eaf2fd;
-  color: #07346b;
+  color: var(--azul-escuro);
 }
 
 .ecModalForm {
@@ -1002,7 +1002,7 @@ select.ecInput {
   font-size: 12.5px;
   cursor: pointer;
 }
-.ecModalForm .ecFieldCheck input { width: 16px; height: 16px; accent-color: #0070d9; }
+.ecModalForm .ecFieldCheck input { width: 16px; height: 16px; accent-color: var(--azul-primario); }
 
 .ecModalForm .ecField > label {
   color: #2d537f;
@@ -1105,11 +1105,11 @@ select.ecInput {
   gap: 8px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #07346b;
+  color: var(--azul-escuro);
   cursor: pointer;
 }
 
-.ecImportSelAll input { width: 16px; height: 16px; accent-color: #0070d9; }
+.ecImportSelAll input { width: 16px; height: 16px; accent-color: var(--azul-primario); }
 
 .ecImportContador { font-size: 12px; font-weight: 800; color: #2d537f; }
 
@@ -1139,7 +1139,7 @@ select.ecInput {
   position: sticky;
   top: 0;
   background: #eef4fb;
-  color: #07346b;
+  color: var(--azul-escuro);
   font-weight: 900;
   z-index: 1;
 }
@@ -1148,7 +1148,7 @@ select.ecInput {
 .ecImportTable tbody tr:hover { background: rgba(0, 112, 217, .05); }
 
 .ecImportColCheck { text-align: center !important; width: 36px; }
-.ecImportCheck { width: 16px; height: 16px; accent-color: #0070d9; cursor: pointer; }
+.ecImportCheck { width: 16px; height: 16px; accent-color: var(--azul-primario); cursor: pointer; }
 
 /* Campos editáveis nas células da pré-visualização. */
 .ecImportTable td { vertical-align: middle; }
@@ -1163,7 +1163,7 @@ select.ecInput {
 }
 .ecImportEdit:focus {
   outline: none;
-  border-color: #0070d9;
+  border-color: var(--azul-primario);
   box-shadow: 0 0 0 2px rgba(0, 112, 217, .15);
 }
 .ecImportEditText { width: 160px; }
@@ -1209,7 +1209,7 @@ select.ecInput {
 }
 
 .ecImportLoteTitulo {
-  color: #07346b;
+  color: var(--azul-escuro);
   font-size: 12.5px;
   font-weight: 900;
 }

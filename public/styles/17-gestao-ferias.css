@@ -7,7 +7,7 @@
 #view-gestaoFerias.gfView {
   --gf-azul: #007de0;
   --gf-azul-esc: #0053a7;
-  --gf-azul-prof: #07346b;
+  --gf-azul-prof: var(--azul-escuro);
   --gf-azul-medio: #0a66b0;
   --gf-borda: rgba(0, 83, 166, .18);
   --gf-sombra: rgba(0, 50, 113, .14);
