@@ -212,6 +212,11 @@ app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirApr
   res.json(await getSaudeIndigenaData());
 }));
 
+// ---- Gestão de Férias (análise — somente leitura) ----
+app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+  res.json(await getFeriasData());
+}));
+
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache

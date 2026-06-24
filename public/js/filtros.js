@@ -24,7 +24,7 @@ export function atualizarModoRolagem(view) {
   // As demais abas podem rolar verticalmente para acomodar tabelas e conteúdos maiores.
   main.classList.toggle("view-scroll", !isVisaoGeral);
   main.classList.toggle("view-alertas-active", view === "alertas");
-  main.classList.toggle("view-iframe-active", view === "painelSaudeIndigena" || view === "ferias");
+  main.classList.toggle("view-iframe-active", view === "painelSaudeIndigena" || view === "ferias" || view === "gestaoFerias");
   main.classList.toggle("view-gestao-active", view === "gestaoFerias");
   main.classList.toggle("view-cracha-active", view === "entregaCracha");
   main.classList.toggle("view-gestao-active", view === "gestaoDisciplinar");
