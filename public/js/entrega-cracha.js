@@ -1298,8 +1298,19 @@ export function configurarEntregaCracha() {
   if (navItem) navItem.addEventListener("click", () => { if (!carregando) carregarDados(); });
   if (state.activeView === "entregaCracha") carregarDados();
 
-  // Filtros: selects/datas reagem na hora (change); a busca textual é debounced
-  // (~250ms) para não refiltrar a base inteira (~18k linhas) a cada tecla.
+  ecBindFiltros(raiz);
+  ecBindToolbar();
+  ecBindImportPreview();
+  ecBindDetalhe();
+  ecBindLote();
+  ecBindModal();
+  ecBindDelegacao(raiz);
+}
+
+// Filtros: selects/datas reagem na hora (change); a busca textual é debounced
+// (~250ms) para não refiltrar a base inteira (~18k linhas) a cada tecla. Inclui
+// o seletor de "registros por página".
+function ecBindFiltros(raiz) {
   const aplicarFiltro = () => { lerFiltros(); paginaAtual = 1; render(); };
   const aplicarFiltroBusca = debounce(aplicarFiltro, 250);
   raiz.querySelectorAll("[data-ec-filtro]").forEach(el => {
@@ -1307,7 +1318,6 @@ export function configurarEntregaCracha() {
     el.addEventListener(ehBusca ? "input" : "change", ehBusca ? aplicarFiltroBusca : aplicarFiltro);
   });
 
-  // Seletor de "registros por página".
   const selPorPagina = $("ecPorPagina");
   if (selPorPagina) {
     selPorPagina.innerHTML = PAGE_SIZE_OPCOES.map(n => `<option value="${n}">${n}</option>`).join("");
@@ -1319,7 +1329,10 @@ export function configurarEntregaCracha() {
       render();
     });
   }
+}
 
+// Barra de ações: atualizar, limpar, exportar e abrir o seletor de importação.
+function ecBindToolbar() {
   $("ecBtnAtualizar")?.addEventListener("click", () => { if (!carregando) carregarDados(true); });
   $("ecBtnLimpar")?.addEventListener("click", limparFiltros);
   $("ecBtnExportar")?.addEventListener("click", exportarExcel);
@@ -1329,8 +1342,10 @@ export function configurarEntregaCracha() {
     importarPlanilha(file);
     e.target.value = ""; // permite reimportar o mesmo arquivo
   });
+}
 
-  // Pré-visualização do lote de importação (seleção de linhas).
+// Pré-visualização do lote de importação (seleção/edição de linhas).
+function ecBindImportPreview() {
   $("ecImportFechar")?.addEventListener("click", fecharPreviewImport);
   $("ecImportCancelar")?.addEventListener("click", fecharPreviewImport);
   $("ecImportConfirmar")?.addEventListener("click", confirmarImportacao);
@@ -1345,18 +1360,26 @@ export function configurarEntregaCracha() {
   $("ecImportModal")?.addEventListener("click", event => {
     if (event.target === $("ecImportModal")) fecharPreviewImport();
   });
+}
+
+// Painel de detalhe (recolher) e edição da observação.
+function ecBindDetalhe() {
   $("ecBtnRecolher")?.addEventListener("click", recolherDetalhe);
   $("ecBtnSalvarObs")?.addEventListener("click", salvarObservacao);
   $("ecDetObs")?.addEventListener("input", atualizarContadorObs);
+}
 
-  // Seleção em lote.
+// Seleção em lote (aplicar status a vários crachás de uma vez).
+function ecBindLote() {
   $("ecSelecionarPagina")?.addEventListener("change", e => alternarSelecaoPagina(e.target.checked));
   $("ecLoteAplicar")?.addEventListener("click", aplicarStatusLote);
   $("ecLoteLimpar")?.addEventListener("click", limparSelecao);
   $("ecLoteLimparCampos")?.addEventListener("click", resetarPainelLote);
   $("ecLoteToggle")?.addEventListener("click", () => $("ecLoteBar")?.classList.toggle("is-recolhido"));
+}
 
-  // Modal.
+// Modal de edição de um crachá.
+function ecBindModal() {
   $("ecModalFechar")?.addEventListener("click", fecharModal);
   $("ecModalCancelar")?.addEventListener("click", fecharModal);
   $("ecModalSalvar")?.addEventListener("click", salvarModal);
@@ -1364,14 +1387,16 @@ export function configurarEntregaCracha() {
   $("ecModal")?.addEventListener("click", event => {
     if (event.target === $("ecModal")) fecharModal();
   });
+}
 
+// Delegação de eventos para elementos gerados dinamicamente (linhas da tabela).
+function ecBindDelegacao(raiz) {
   // Seleção por linha (checkboxes gerados dinamicamente).
   raiz.addEventListener("change", event => {
     const sel = event.target.closest("[data-ec-sel]");
     if (sel) alternarSelecao(sel.dataset.ecSel, sel.checked);
   });
 
-  // Delegação para elementos gerados dinamicamente.
   raiz.addEventListener("click", event => {
     const ver = event.target.closest("[data-ec-ver]");
     if (ver) { abrirDetalhe(ver.dataset.ecVer); return; }

@@ -349,91 +349,96 @@ export function garantirCarregamentoPagina(view) {
   if ((view === "remanejamento" || view === "remanejamentoFormulario") && !pageLoadState.remanejamentoCadastro) carregarRemanejamentoCadastroEmSegundoPlano();
 }
 
-export function carregarVagasEmSegundoPlano(forcar) {
-  if (pageLoadingState.vagas) return;
-  if (pageLoadState.vagas && !forcar) return;
-  pageLoadingState.vagas = true;
+// Protocolo comum de carregamento sob demanda: guarda de concorrência
+// (pageLoadingState), cache por página (pageLoadState) e tratamento de erro.
+// `antes()` roda antes do fetch; `aoCarregar(payload)` define o estado e
+// renderiza (já com pageLoadState[chave] = true); `aoFalhar(error)` é opcional.
+function carregarPaginaEmSegundoPlano({ chave, endpoint, forcar, antes, aoCarregar, aoFalhar, mensagemErro }) {
+  if (pageLoadingState[chave]) return;
+  if (pageLoadState[chave] && !forcar) return;
+  pageLoadingState[chave] = true;
 
-  const tbody = document.getElementById("vagasBody");
-  const pagination = document.getElementById("vagasPagination");
-  if (tbody && state.activeView === "vagas") tbody.innerHTML = '<tr><td colspan="9">Carregando tabela detalhada de vagas...</td></tr>';
-  if (pagination && state.activeView === "vagas") pagination.innerHTML = "";
+  if (antes) antes();
 
-  apiGet("/api/vagas")
+  apiGet(endpoint)
     .then(payload => {
-      pageLoadingState.vagas = false;
+      pageLoadingState[chave] = false;
+      pageLoadState[chave] = true;
+      aoCarregar(payload);
+    })
+    .catch(error => {
+      pageLoadingState[chave] = false;
+      console.error(mensagemErro, error);
+      if (aoFalhar) aoFalhar(error);
+    });
+}
+
+export function carregarVagasEmSegundoPlano(forcar) {
+  carregarPaginaEmSegundoPlano({
+    chave: "vagas",
+    endpoint: "/api/vagas",
+    forcar,
+    mensagemErro: "Falha ao carregar a aba Vagas:",
+    antes: () => {
+      const tbody = document.getElementById("vagasBody");
+      const pagination = document.getElementById("vagasPagination");
+      if (tbody && state.activeView === "vagas") tbody.innerHTML = '<tr><td colspan="9">Carregando tabela detalhada de vagas...</td></tr>';
+      if (pagination && state.activeView === "vagas") pagination.innerHTML = "";
+    },
+    aoCarregar: payload => {
       state.vagasBaseRows = payload.rows || [];
       state.allRows = state.vagasBaseRows;
       if (payload.indicadores) {
         state.indicadoresResumoBase = payload.indicadores;
       }
-      pageLoadState.vagas = true;
       if (payload.atualizadoEm) document.getElementById("updatedAt").innerText = payload.atualizadoEm;
       aplicarFiltros();
-    })
-    .catch(error => {
-      pageLoadingState.vagas = false;
-      console.error("Falha ao carregar a aba Vagas:", error);
-      renderVagasErro(error);
-    });
+    },
+    aoFalhar: renderVagasErro
+  });
 }
 
 export function carregarAlertasEmSegundoPlano(forcar) {
-  if (pageLoadingState.alertas) return;
-  if (pageLoadState.alertas && !forcar) return;
-  pageLoadingState.alertas = true;
-
-  apiGet("/api/alertas")
-    .then(payload => {
-      pageLoadingState.alertas = false;
+  carregarPaginaEmSegundoPlano({
+    chave: "alertas",
+    endpoint: "/api/alertas",
+    forcar,
+    mensagemErro: "Falha ao carregar a aba Alertas:",
+    aoCarregar: payload => {
       state.alertasBaseRows = payload.rows || [];
       state.observacoesAlertas = payload.observacoes || {};
-      pageLoadState.alertas = true;
       renderAlertasKpis(filtrarRowsBase(state.alertasBaseRows));
       renderAlertasDaPagina();
-    })
-    .catch(error => {
-      pageLoadingState.alertas = false;
-      console.error("Falha ao carregar a aba Alertas:", error);
-      renderAlertasErro(error);
-    });
+    },
+    aoFalhar: renderAlertasErro
+  });
 }
 
 export function carregarRemanejamentoListaEmSegundoPlano(forcar) {
-  if (pageLoadingState.remanejamentoLista) return;
-  if (pageLoadState.remanejamentoLista && !forcar) return;
-  pageLoadingState.remanejamentoLista = true;
-
-  apiGet("/api/remanejamento/lista")
-    .then(payload => {
-      pageLoadingState.remanejamentoLista = false;
+  carregarPaginaEmSegundoPlano({
+    chave: "remanejamentoLista",
+    endpoint: "/api/remanejamento/lista",
+    forcar,
+    mensagemErro: "Falha ao carregar a lista de remanejamento:",
+    aoCarregar: payload => {
       state.remanejamentoListaRows = payload.rows || [];
-      pageLoadState.remanejamentoLista = true;
       renderRemanejamentoLista();
-    })
-    .catch(error => {
-      pageLoadingState.remanejamentoLista = false;
-      console.error("Falha ao carregar a lista de remanejamento:", error);
-      renderRemanejamentoListaErro(error);
-    });
+    },
+    aoFalhar: renderRemanejamentoListaErro
+  });
 }
 
 export function carregarRemanejamentoCadastroEmSegundoPlano(forcar) {
-  if (pageLoadingState.remanejamentoCadastro) return;
-  if (pageLoadState.remanejamentoCadastro && !forcar) return;
-  pageLoadingState.remanejamentoCadastro = true;
-
-  apiGet("/api/remanejamento/cadastro")
-    .then(payload => {
-      pageLoadingState.remanejamentoCadastro = false;
+  carregarPaginaEmSegundoPlano({
+    chave: "remanejamentoCadastro",
+    endpoint: "/api/remanejamento/cadastro",
+    forcar,
+    mensagemErro: "Falha ao carregar dados do formulário de remanejamento:",
+    aoCarregar: payload => {
       state.remanejamentoCadastroRows = payload.rows || [];
-      pageLoadState.remanejamentoCadastro = true;
       configurarRemanejamento();
-    })
-    .catch(error => {
-      pageLoadingState.remanejamentoCadastro = false;
-      console.error("Falha ao carregar dados do formulário de remanejamento:", error);
-    });
+    }
+  });
 }
 
 export function filtrarRowsBase(rows) {
