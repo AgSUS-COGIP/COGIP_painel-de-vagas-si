@@ -12,13 +12,12 @@ const { DASH_CONFIG, getMysqlConfig, resolverPortaAplicacao, parseJdbcUrl } = re
 const { DASH_SQL, montarCaseCargoSql } = require("./lib/sql");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, obterRemanejamentoListaComCache, obterRemanejamentoCadastroComCache, montarOpcoesRemanejamentoAPartirDasRows, obterUltimaAtualizacaoRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
-const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, reverterControleComConn, garantirTabelaCrachasControle } = require("./lib/cracha");
-const { getSaudeIndigenaData } = require("./lib/saude-indigena");
+const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
 const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirNivelMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
-
+const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const app = express();
 app.disable("x-powered-by"); // não revela o framework/versão
 
@@ -213,7 +212,8 @@ app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirApr
 
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
-  res.json(await getCrachaData());
+  const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
+  res.json(await getCrachaData(forcar));
 }));
 
 // Editar overlay manual (datas / observação) — escrita: administradores.
@@ -227,6 +227,12 @@ app.post("/api/cracha/salvar", apiLimiter, express.json(), autenticarFrescoMiddl
     if (body.status !== undefined) campos.statusManual = body.status;
     if (body.dataSolicitacao !== undefined) campos.dataSolicitacao = body.dataSolicitacao;
     if (body.dataEnvio !== undefined) campos.dataEnvio = body.dataEnvio;
+    if (body.dataConfeccao !== undefined) campos.dataConfeccao = body.dataConfeccao;
+    if (body.dataRecebEscritorio !== undefined) campos.dataRecebEscritorio = body.dataRecebEscritorio;
+    if (body.dataRecebTrabalhador !== undefined) campos.dataRecebTrabalhador = body.dataRecebTrabalhador;
+    if (body.devolvido !== undefined) campos.devolvido = body.devolvido;
+    if (body.segundaVia !== undefined) campos.segundaVia = body.segundaVia;
+    if (body.motivoSegundaVia !== undefined) campos.motivoSegundaVia = body.motivoSegundaVia;
     if (body.observacao !== undefined) campos.observacao = body.observacao;
     const registro = await salvarControleComConn(conn, body.matricula, campos, usuario);
     limparCacheDashboard();
@@ -269,7 +275,40 @@ app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFresco
   }
 }));
 
-// Reverter alterações manuais (remove o overlay; volta aos valores do ETL).
+// Aplicar vários campos (status/datas/devolvido/2ª via/motivo/observação) a um
+// lote de matrículas de uma vez — overlay. Escrita: administradores.
+app.post("/api/cracha/lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const { matriculas, campos } = req.body || {};
+    const { registros, erros } = await atualizarLoteComConn(conn, matriculas, campos, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registros, erros });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao aplicar as alterações em lote." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Importar planilha (JSON com linhas já parseadas no cliente). Atualiza quem
+// existe na base e cria quem não existe (no overlay). Escrita: administradores.
+app.post("/api/cracha/importar", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const resultado = await importarCrachasComConn(conn, (req.body || {}).linhas, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao importar a planilha." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Reverter: desfaz apenas a última alteração (undo de 1 nível), restaurando o estado anterior.
 app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {

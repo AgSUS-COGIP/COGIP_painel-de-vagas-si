@@ -48,72 +48,98 @@
   font-weight: 700;
 }
 
-/* ---------- KPIs ---------- */
+/* ---------- KPIs (cards brancos com ícone colorido) ---------- */
+/* Flex com centralização: a última linha incompleta fica centralizada. */
 .ecKpiGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
   margin-bottom: 14px;
-  background:
-    linear-gradient(145deg, rgba(0, 61, 122, .96), rgba(0, 104, 184, .9));
-  border: 1px solid rgba(255, 255, 255, .22);
-  border-radius: 16px;
-  box-shadow: 0 14px 24px rgba(0, 32, 74, .26);
-  overflow: hidden;
 }
 
 .ecKpi {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 15px 18px;
-  /* Barra divisória entre indicadores. */
-  border-left: 1px solid rgba(255, 255, 255, .16);
+  flex: 0 1 calc((100% - 56px) / 5); /* 5 por linha (4 espaços de 14px) */
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e6eef7;
+  border-radius: 16px;
+  box-shadow: 0 10px 22px rgba(0, 32, 74, .08);
+  padding: 14px 16px;
 }
 
-/* O primeiro de cada linha (grade de 4 colunas) não tem divisória à esquerda. */
-.ecKpi:first-child,
-.ecKpi:nth-child(4n + 1) { border-left: none; }
+.ecKpiIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  color: #fff;
+  font-size: 16px;
+  flex: none;
+  box-shadow: 0 6px 14px rgba(0, 32, 74, .14);
+}
+
+.ecKpiInfo { min-width: 0; }
 
 .ecKpiLabel {
-  color: rgba(255, 255, 255, .85);
+  color: #2d537f;
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .3px;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .ecKpiValue {
-  margin-top: 8px;
-  font-size: 30px;
+  margin-top: 4px;
+  font-size: 26px;
   font-weight: 900;
   line-height: 1;
-  letter-spacing: -.8px;
-  color: #fff;
+  letter-spacing: -.6px;
+  color: #07346b;
 }
 
-.ecKpiValue.is-blue { color: #fff; }
-.ecKpiValue.is-orange { color: #ffcf6b; }
-.ecKpiValue.is-teal { color: #8fe3e1; }
-.ecKpiValue.is-green { color: #9be8b8; }
-.ecKpiValue.is-red { color: #ff9b8f; }
-.ecKpiValue.is-cyan { color: #7fd4ff; }
-.ecKpiValue.is-lilac { color: #c9b6ff; }
+.ecKpiSub {
+  margin-top: 5px;
+  color: #6f8bb0;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* Cores dos ícones dos indicadores. */
+.ecKpiIcone.is-blue { background: linear-gradient(135deg, #1f8de6, #0a5fb0); }
+.ecKpiIcone.is-teal { background: linear-gradient(135deg, #16b0a7, #0c857e); }
+.ecKpiIcone.is-green { background: linear-gradient(135deg, #27ab63, #178a4c); }
+.ecKpiIcone.is-orange { background: linear-gradient(135deg, #f59331, #e07712); }
+.ecKpiIcone.is-red { background: linear-gradient(135deg, #ef6253, #d63d2c); }
+.ecKpiIcone.is-cyan { background: linear-gradient(135deg, #1fb0e6, #0d8ec2); }
+.ecKpiIcone.is-lilac { background: linear-gradient(135deg, #8b6fd6, #6a4fc0); }
+.ecKpiIcone.is-yellow { background: linear-gradient(135deg, #f1b53b, #d99a10); }
 
 /* ---------- Barra de filtros e ações ---------- */
 .ecToolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
   background: rgba(255, 255, 255, .92);
   border: 1px solid rgba(255, 255, 255, .72);
   border-radius: 16px;
   box-shadow: 0 12px 22px rgba(0, 43, 93, .12);
   padding: 12px 14px;
   margin-bottom: 14px;
+}
+
+/* Cada linha da barra (filtros em cima; buscas + ações embaixo). */
+.ecToolbarLinha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
 }
 
 .ecSelect,
@@ -305,6 +331,22 @@ select.ecInput {
 .ecBadge.is-entregue-esc { background: #dcefff; color: #0a5bb0; }
 .ecBadge.is-entregue-trab { background: #e7defb; color: #5b3aa6; }
 
+/* Selos de indicadores ao lado do status. */
+.ecSelo {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  vertical-align: middle;
+}
+.ecSelo.is-2via { background: #fff2d6; color: #8a5a00; }
+.ecSelo.is-devolvido { background: #ffdcd7; color: #b5281a; }
+.ecSelo.is-importado { background: #e7defb; color: #5b3aa6; }
+
 /* ---------- Ações da linha ---------- */
 .ecAcoesCol { white-space: nowrap; }
 
@@ -336,6 +378,30 @@ select.ecInput {
   color: #4a6a93;
   font-size: 11.5px;
   font-weight: 800;
+}
+
+.ecRodapeEsq {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.ecPorPagina {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4a6a93;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.ecPorPagina .ecSelect {
+  flex: none;
+  min-width: 0;
+  width: auto;
+  height: 32px;
+  padding: 0 28px 0 10px;
 }
 
 .ecPagination {
@@ -381,53 +447,184 @@ select.ecInput {
 .ec-readonly #ecDetObs,
 .ec-readonly #ecBtnSalvarObs,
 .ec-readonly .ecColSelect,
+.ec-readonly .ecBtnImportar,
 .ec-readonly #ecLoteBar { display: none; }
+
+/* Resultado da importação (erros por linha). */
+.ecImportInfo {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: #fff4f2;
+  border: 1px solid rgba(192, 57, 43, .3);
+  border-radius: 12px;
+  color: #8a2419;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ecImportInfo ul { margin: 6px 0 0; padding-left: 18px; font-weight: 600; }
+.ecImportInfo li { margin: 2px 0; }
 
 /* ---------- Seleção em lote ---------- */
 .ecColSelect { width: 38px; }
 .ecCheck,
 #ecSelecionarPagina { width: 16px; height: 16px; cursor: pointer; accent-color: #0070d9; }
 
+/* Painel "Ações em lote": card branco, cabeçalho com ícone/badge e grade única. */
 .ecLoteBar {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding: 10px 14px;
-  background: linear-gradient(145deg, rgba(0, 61, 122, .08), rgba(0, 104, 184, .12));
-  border: 1px solid rgba(0, 112, 217, .28);
-  border-radius: 12px;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px 18px 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 83, 166, .16);
+  border-radius: 18px;
+  box-shadow: 0 14px 28px rgba(0, 32, 74, .12);
 }
-.ecLoteInfo { color: #07346b; font-weight: 800; font-size: 12.5px; }
-.ecLoteInfo strong { font-size: 15px; }
-.ecLoteBar .ecSelect { min-width: 220px; }
+
+.ecLoteHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.ecLoteSecaoIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #e7f1fd;
+  color: #0a5bb0;
+  font-size: 13px;
+  flex: none;
+}
+.ecLoteTitulo {
+  margin: 0;
+  color: #07346b;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -.3px;
+}
+.ecLoteBadge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #fff1d6;
+  color: #8a5a00;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.ecLoteBadge strong { font-weight: 900; }
+.ecLoteSub {
+  color: #64789c;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ecLoteHeadAcoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.ecLoteToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  background: #fff;
+  color: #0b4488;
+  cursor: pointer;
+  transition: transform .2s ease, background .15s ease;
+}
+.ecLoteToggle:hover { background: #f1f6fc; }
+.ecLoteBar.is-recolhido .ecLoteToggle i { transform: rotate(180deg); }
+.ecLoteBar.is-recolhido .ecLoteCorpo { display: none; }
+
+.ecLoteCorpo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ecLoteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 14px;
+}
+.ecLoteGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  color: #2d537f;
+}
+/* Campo cola na base da célula: rótulos de 1 ou 2 linhas mantêm tudo alinhado. */
+.ecLoteGrid .ecSelect,
+.ecLoteGrid .ecInput {
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  margin-top: auto;
+}
+
+/* Botões ocupam o espaço livre à direita da última linha de campos, alinhados
+   à base (no mesmo nível dos inputs). Em telas estreitas caem para a linha de baixo. */
+.ecLoteAcoes {
+  grid-column: span 3 / -1;
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 10px;
+}
+.ecLoteAcoes .ecBtnPrimary { margin-left: 0; }
 
 /* ---------- Painel de detalhe ---------- */
 .ecDetalhe {
   margin-top: 14px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, .97), rgba(224, 244, 255, .94));
-  border: 1px solid rgba(255, 255, 255, .72);
+  background: #ffffff;
+  border: 1px solid rgba(0, 83, 166, .12);
   border-radius: 20px;
-  box-shadow: 0 16px 30px rgba(0, 32, 74, .2);
+  box-shadow: 0 16px 30px rgba(0, 32, 74, .14);
   padding: 16px 18px;
 }
 
 .ecDetalheHead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 14px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(0, 83, 166, .14);
+}
+
+.ecDetalheIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eaf2fc;
+  color: #0a5bb0;
+  font-size: 18px;
+  flex: none;
 }
 
 .ecDetalheTitulo {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 .ecDetalheTitulo h3 {
@@ -441,29 +638,47 @@ select.ecInput {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
-  align-items: start;
+  align-items: stretch; /* cards da mesma linha com a mesma altura */
 }
 
 .ecDetalheBloco {
-  background: rgba(255, 255, 255, .68);
-  border: 1px solid rgba(0, 83, 166, .14);
+  background: #fff;
+  border: 1px solid #e6eef7;
   border-radius: 14px;
-  padding: 13px 14px;
+  padding: 14px 15px;
+  box-shadow: 0 4px 12px rgba(0, 32, 74, .05);
 }
 
 .ecDetalheBloco h4 {
-  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px 0;
   color: #0b4488;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .3px;
 }
 
+.ecBlocoIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #e7f1fd;
+  color: #0a5bb0;
+  font-size: 11px;
+  flex: none;
+}
+
 .ecKv {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 12px;
   font-size: 11.5px;
   font-weight: 800;
   color: #2d537f;
@@ -472,7 +687,8 @@ select.ecInput {
 }
 
 .ecKv:last-child { border-bottom: none; }
-.ecKv strong { color: #07346b; text-align: right; }
+.ecKv span { min-width: 0; }
+.ecKv strong { color: #07346b; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Linha do tempo (histórico) ---------- */
 .ecTimeline {
@@ -487,6 +703,12 @@ select.ecInput {
   grid-template-columns: 16px 1fr;
   gap: 9px;
   padding-bottom: 12px;
+}
+
+/* Quebra textos longos (e-mail/datas) sem estourar a coluna. */
+.ecTimelineConteudo {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ecTimelineItem:not(:last-child)::before {
@@ -619,6 +841,46 @@ select.ecInput {
   box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
 }
 
+/* Próxima etapa válida em destaque (azul sólido); as demais ficam delineadas. */
+.ecAcoesEscritorio .ecBtn.is-proximo {
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #fff;
+  border: none;
+  box-shadow: 0 12px 22px rgba(0, 43, 93, .18);
+}
+.ecAcoesEscritorio .ecBtn.is-proximo:hover { filter: brightness(1.04); }
+
+/* Linha inferior: Atualizar Status (estreito) + Observações (largo). */
+.ecDetalheGridAcoes {
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 1.7fr);
+  margin-top: 14px;
+}
+
+/* Observações: textarea cresce para preencher o card e o botão fica embaixo. */
+.ecObsBloco {
+  display: flex;
+  flex-direction: column;
+}
+.ecObsBloco .ecTextarea {
+  flex: 1 1 auto;
+  min-height: 150px;
+  margin-bottom: 6px;
+}
+.ecObsBloco #ecBtnSalvarObs {
+  margin-top: auto;
+}
+
+.ecObsRodape {
+  display: flex;
+  justify-content: flex-end;
+  margin: -3px 0 9px;
+}
+.ecObsContador {
+  color: #6f8bb0;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
 /* ---------- Modal de nova solicitação ---------- */
 .ecModalOverlay {
   position: fixed;
@@ -643,17 +905,38 @@ select.ecInput {
 
 .ecModalHead {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
 }
+
+.ecModalIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eaf2fc;
+  color: #0a5bb0;
+  font-size: 18px;
+  flex: none;
+}
+
+.ecModalHeadTexto { flex: 1; min-width: 0; }
 
 .ecModalHead h3 {
   margin: 0;
   color: #07346b;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 900;
+}
+
+.ecModalSub {
+  margin: 3px 0 0;
+  color: #64789c;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .ecModalClose {
@@ -662,6 +945,33 @@ select.ecInput {
   color: #6f8bb0;
   font-size: 18px;
   cursor: pointer;
+  flex: none;
+}
+
+/* Botões Não/Sim (rádio segmentado) do modal. */
+.ecRadioGrupo { display: flex; gap: 10px; }
+.ecRadioOpt {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #2d537f;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ecRadioOpt input { width: 15px; height: 15px; accent-color: #0070d9; margin: 0; }
+.ecRadioOpt:has(input:checked) {
+  border-color: #0070d9;
+  background: #eaf2fd;
+  color: #07346b;
 }
 
 .ecModalForm {
@@ -672,7 +982,7 @@ select.ecInput {
 
 .ecModalForm .ecField {
   display: grid;
-  align-items: stretch;
+  align-content: start; /* rótulo + campo no topo, mesmo quando a célula estica */
   gap: 5px;
   height: auto;
   border: none;
@@ -682,7 +992,19 @@ select.ecInput {
 
 .ecModalForm .ecFieldFull { grid-column: 1 / -1; }
 
-.ecModalForm .ecField label {
+/* Campo de checkbox no modal (devolvido / 2ª via). */
+.ecModalForm .ecFieldCheck { justify-content: center; }
+.ecModalForm .ecFieldCheck label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ecModalForm .ecFieldCheck input { width: 16px; height: 16px; accent-color: #0070d9; }
+
+.ecModalForm .ecField > label {
   color: #2d537f;
   font-size: 10.5px;
   font-weight: 900;
@@ -690,13 +1012,18 @@ select.ecInput {
   letter-spacing: .3px;
 }
 
-.ecModalForm .ecField label .req { color: #e0483b; }
+.ecModalForm .ecField > label .req { color: #e0483b; }
 
 .ecModalForm .ecInput {
   height: 38px;
   width: 100%;
   border: 1px solid rgba(0, 83, 166, .22);
 }
+
+/* Mais respiro à esquerda só nos campos do modal de edição. */
+.ecModalForm .ecInput,
+.ecModalForm .ecTextarea { padding-left: 10px; }
+.ecModalForm .ecTextarea { padding-right: 10px; }
 
 .ecModalErro {
   color: #c0392b;
@@ -714,6 +1041,222 @@ select.ecInput {
 }
 
 .ecModalAcoes .ecBtnPrimary { margin-left: 0; }
+
+/* ---------- Modal de pré-visualização da importação ---------- */
+.ecModalBoxWide { width: min(1100px, 100%); }
+
+/* Cola o modal à esquerda (após o menu) e o posiciona ABAIXO do cabeçalho da
+   página (cuja altura é medida em JS e exposta em --ec-preview-top). */
+#ecImportModal {
+  justify-items: start;
+  align-items: start;
+  padding-left: calc(clamp(218px, 14.5vw, 246px) + 16px);
+  padding-top: var(--ec-preview-top, 18px);
+}
+
+#ecImportModal .ecModalBox {
+  width: 100%;
+  max-width: 1500px;
+  /* Cabe entre o cabeçalho e a base da tela: corpo em coluna flexível e a
+     tabela rola internamente, mantendo cabeçalho, painel de lote e rodapé visíveis. */
+  max-height: calc(100vh - var(--ec-preview-top, 18px) - 18px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Cabeçalho, subtítulo, toolbar, aviso, painel de lote, erro e ações: fixos.
+   Só a tabela ocupa o espaço restante e rola. */
+#ecImportModal .ecModalBox > *:not(.ecImportTableWrap) { flex: 0 0 auto; }
+
+#ecImportModal .ecImportTableWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+/* Em telas estreitas o layout do menu muda: volta ao modal centralizado. */
+@media (max-width: 980px) {
+  #ecImportModal {
+    justify-items: center;
+    padding-left: 18px;
+  }
+  #ecImportModal .ecModalBox { max-width: 100%; }
+}
+
+.ecImportSub {
+  margin: -4px 0 12px;
+  color: #2d537f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ecImportToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ecImportSelAll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #07346b;
+  cursor: pointer;
+}
+
+.ecImportSelAll input { width: 16px; height: 16px; accent-color: #0070d9; }
+
+.ecImportContador { font-size: 12px; font-weight: 800; color: #2d537f; }
+
+.ecImportTableWrap {
+  max-height: 52vh;
+  overflow: auto;
+  border: 1px solid rgba(0, 83, 166, .18);
+  border-radius: 12px;
+}
+
+.ecImportTable {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 11.5px;
+}
+
+.ecImportTable th,
+.ecImportTable td {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(0, 83, 166, .10);
+  white-space: nowrap;
+  text-align: left;
+}
+
+.ecImportTable thead th {
+  position: sticky;
+  top: 0;
+  background: #eef4fb;
+  color: #07346b;
+  font-weight: 900;
+  z-index: 1;
+}
+
+.ecImportTable tbody tr.is-off { opacity: .42; }
+.ecImportTable tbody tr:hover { background: rgba(0, 112, 217, .05); }
+
+.ecImportColCheck { text-align: center !important; width: 36px; }
+.ecImportCheck { width: 16px; height: 16px; accent-color: #0070d9; cursor: pointer; }
+
+/* Campos editáveis nas células da pré-visualização. */
+.ecImportTable td { vertical-align: middle; }
+.ecImportEdit {
+  height: 30px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 7px;
+  padding: 0 7px;
+  font-size: 11.5px;
+  color: #0d2b50;
+  background: #fff;
+}
+.ecImportEdit:focus {
+  outline: none;
+  border-color: #0070d9;
+  box-shadow: 0 0 0 2px rgba(0, 112, 217, .15);
+}
+.ecImportEditText { width: 160px; }
+.ecImportEditStatus { width: 180px; }
+.ecImportEditDate { width: 140px; }
+.ecImportEdit.is-invalido {
+  border-color: #e0483b;
+  background: #fff4f3;
+  box-shadow: 0 0 0 2px rgba(224, 72, 59, .14);
+}
+
+.ecImportAviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff4f3;
+  border: 1px solid rgba(224, 72, 59, .35);
+  color: #b5281a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ecImportAviso[hidden] { display: none; }
+
+/* Painel de edição em lote dentro da pré-visualização. */
+.ecImportLote {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 83, 166, .2);
+  border-radius: 12px;
+  background: #f3f8fe;
+}
+
+.ecImportLoteHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ecImportLoteTitulo {
+  color: #07346b;
+  font-size: 12.5px;
+  font-weight: 900;
+}
+
+.ecImportLoteDica {
+  color: #2d537f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ecImportLoteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 10px;
+  margin-bottom: 10px;
+}
+
+.ecImportLoteGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  color: #2d537f;
+}
+
+/* O campo cola na base da célula: rótulos de 1 ou 2 linhas mantêm todos os
+   campos alinhados na mesma altura. */
+.ecImportLoteGrid .ecImportEdit { width: 100%; margin-top: auto; }
+
+.ecImportLote .ecBtn { margin-left: 0; }
+
+.ecImportAviso::before {
+  content: "\26A0"; /* ⚠ */
+  font-size: 13px;
+}
+
+/* Botões desabilitados (importar com pendências / aplicar lote sem seleção). */
+#ecImportConfirmar:disabled,
+#ecImpBulkAplicar:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 12px 22px rgba(0, 43, 93, .12);
+}
 
 /* ---------- Toast ---------- */
 .ecToast {
@@ -743,14 +1286,8 @@ select.ecInput {
 
 /* ---------- Responsivo ---------- */
 @media (max-width: 1280px) {
-  .ecKpiGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ecKpi { flex-basis: calc((100% - 28px) / 3); } /* 3 por linha */
   .ecDetalheGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-
-  /* 3 colunas: divisória vertical reinicia a cada início de linha;
-     divisória horizontal entre as linhas. */
-  .ecKpi { border-left: 1px solid rgba(255, 255, 255, .16); }
-  .ecKpi:nth-child(3n + 1) { border-left: none; }
-  .ecKpi:nth-child(n + 4) { border-top: 1px solid rgba(255, 255, 255, .16); }
 }
 
 /* Tablets / telas médias: filtros em duas colunas e botões lado a lado,
@@ -765,15 +1302,10 @@ select.ecInput {
 
 /* Celular: cada controle e cada botão ocupa a linha inteira. */
 @media (max-width: 720px) {
-  .ecKpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ecKpi { flex-basis: calc((100% - 14px) / 2); } /* 2 por linha */
   .ecDetalheGrid,
   .ecModalForm { grid-template-columns: 1fr; }
   .ecBtnPrimary { margin-left: 0; }
-
-  /* 2 colunas. */
-  .ecKpi { border-left: 1px solid rgba(255, 255, 255, .16); border-top: none; }
-  .ecKpi:nth-child(2n + 1) { border-left: none; }
-  .ecKpi:nth-child(n + 3) { border-top: 1px solid rgba(255, 255, 255, .16); }
 
   .ecToolbar .ecSelect,
   .ecToolbar .ecFieldDate,
@@ -788,7 +1320,5 @@ select.ecInput {
 
 /* Telas muito estreitas: KPIs em coluna única. */
 @media (max-width: 460px) {
-  .ecKpiGrid { grid-template-columns: 1fr; }
-  .ecKpi { border-left: none; border-top: 1px solid rgba(255, 255, 255, .16); }
-  .ecKpi:first-child { border-top: none; }
+  .ecKpi { flex-basis: 100%; }
 }
