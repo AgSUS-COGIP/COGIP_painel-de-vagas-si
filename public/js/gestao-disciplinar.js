@@ -94,7 +94,7 @@ const CAMPOS_EDITAVEIS = {
   medidaParcial: { rotulo: "a medida adotada", chaves: ["medidaParcial"], tipo: "texto", toast: "Medida adotada atualizada." },
   motivoNaoAtendimento: { rotulo: "o motivo do não atendimento", chaves: ["motivoNaoAtendimento"], tipo: "texto", toast: "Motivo do não atendimento atualizado." },
   observacoesStatus: { rotulo: "as observações do status", chaves: ["observacoesStatus"], tipo: "texto", toast: "Observações do status atualizadas." },
-  observacoesSancao: { rotulo: "as observações da sanção", chaves: ["observacoesSancao"], tipo: "texto", toast: "Observações da sanção atualizadas." }
+  observacoesSancao: { rotulo: "a descrição da sanção aplicada", chaves: ["observacoesSancao"], tipo: "textarea", toast: "Descrição da sanção aplicada atualizada." }
 };
 
 // Campos da sanção viajam para /sancao; os demais para /demanda.
@@ -350,6 +350,9 @@ function campoEditavel(rotulo, campo, valor, podeEditar) {
   } else if (cfg.tipo === "numero") {
     const v = (valor || valor === 0) ? String(valor) : "";
     controle = `<input type="number" min="1" step="1" class="gdEditField" data-gd-campo="${campo}" value="${escapeHtml(v)}" placeholder="dias">`;
+  } else if (cfg.tipo === "textarea") {
+    const v = valor && valor !== "—" ? valor : "";
+    controle = `<textarea class="gdEditField gdEditTextarea" data-gd-campo="${campo}" rows="3" placeholder="—">${escapeHtml(v)}</textarea>`;
   } else {
     const v = valor && valor !== "—" ? valor : "";
     controle = `<input type="text" class="gdEditField" data-gd-campo="${campo}" value="${escapeHtml(v)}" placeholder="—">`;
@@ -493,7 +496,7 @@ function renderDetalhe(processo) {
       kv("Documento Comprobatório", r.documento) +
       comprovanteChip +
       comprovanteUpload +
-      campoEditavel("Observações", "observacoesSancao", r.observacoesSancao, sancaoLiberada);
+      campoEditavel("Descrição da sanção aplicada", "observacoesSancao", r.observacoesSancao, sancaoLiberada);
   }
 
   const anexos = $("gdDetAnexos");
@@ -630,7 +633,7 @@ async function aplicarAlteracao(campo, novoValor) {
 
   let valor = String(novoValor ?? "").trim();
   if (cfg.tipo === "data") valor = valor ? dataParaBr(valor) : "—";
-  else if (cfg.tipo === "texto" && valor === "") valor = "—";
+  else if ((cfg.tipo === "texto" || cfg.tipo === "textarea") && valor === "") valor = "—";
 
   const atual = r[cfg.chaves[0]] ?? "";
   if (valor === String(atual)) { renderDetalhe(processoSelecionado); return; }

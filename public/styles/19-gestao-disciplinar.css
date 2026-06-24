@@ -667,6 +667,16 @@
       box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
     }
 
+    /* Caixa de descrição da sanção (texto longo). */
+    .gdEditTextarea {
+      max-width: 58%;
+      height: auto;
+      min-height: 64px;
+      padding: 8px 10px;
+      line-height: 1.45;
+      resize: vertical;
+    }
+
     /* Textarea "Resumo do processo" no formulário de novo registro. */
     .gdForm .gdFieldFull { grid-column: 1 / -1; }
 
