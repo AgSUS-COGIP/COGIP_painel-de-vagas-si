@@ -1670,7 +1670,7 @@
               <h2>Gestão Disciplinar</h2>
               <p>Acompanhe e gerencie os pedidos disciplinares encaminhados pelos DSEIs/CASAIs.</p>
             </div>
-            <button type="button" class="gfBtn" id="gdBtnNovo"><i class="fa-solid fa-plus"></i> Novo Registro</button>
+            <button type="button" class="gfBtn" id="gdBtnNovo"><i class="fa-solid fa-plus"></i> Novo Pedido</button>
           </div>
 
           <!-- FORMULÁRIO DE NOVO REGISTRO (supervisor/coordenador) -->
@@ -1679,14 +1679,19 @@
 
             <!-- Listas para autocompletar (digitável + selecionável) -->
             <datalist id="gdListaDseis"></datalist>
-            <datalist id="gdListaTrabalhadores"></datalist>
 
             <div class="gfForm gdForm">
-              <!-- Trabalhador: linha única; ao selecionar, auto-preenche os campos abaixo. -->
+              <!-- Trabalhador: combobox clicável e pesquisável; ao selecionar,
+                   auto-preenche os campos abaixo. -->
               <div class="gfField gdFieldFull">
                 <label>Trabalhador <span class="req">*</span></label>
-                <input class="gfInput" type="text" id="gdFTrabalhador" list="gdListaTrabalhadores"
-                  placeholder="Selecione ou digite o nome">
+                <div class="gdCombo" id="gdComboTrabalhador">
+                  <input class="gfInput gdComboInput" type="text" id="gdFTrabalhador" autocomplete="off"
+                    role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="gdComboTrabalhadorLista"
+                    placeholder="Clique para buscar pelo nome ou matrícula">
+                  <i class="fa-solid fa-chevron-down gdComboCaret" aria-hidden="true"></i>
+                  <ul class="gdComboLista" id="gdComboTrabalhadorLista" role="listbox" hidden></ul>
+                </div>
               </div>
 
               <!-- Auto-preenchidos a partir do trabalhador (2 em cima, 2 embaixo). -->
@@ -1728,11 +1733,20 @@
                 </select>
               </div>
 
+              <!-- Delegar responsável: visível apenas para administradores. A caixa
+                   lista os logins dos administradores aptos a editar/assumir processos. -->
+              <div class="gfField gdFieldFull gdAdminOnly" id="gdFResponsavelField" hidden>
+                <label>Delegar responsável</label>
+                <select class="gfSelect" id="gdFResponsavel">
+                  <option value="">Sem responsável</option>
+                </select>
+              </div>
+
               <!-- Separador: dados do processo. -->
               <div class="gdFormDivider gdFieldFull"><span>Dados do Processo</span></div>
 
               <div class="gfField gdFieldFull">
-                <label>Nº Processo SEI</label>
+                <label>Nº Processo SEI <span class="req">*</span></label>
                 <input class="gfInput" type="text" id="gdFProcesso" placeholder="Ex: 25000.000000/2024-00">
               </div>
 
@@ -1752,67 +1766,107 @@
                 <textarea class="gfInput gdTextarea" id="gdFResumo" rows="4"
                   placeholder="Descreva o resumo do processo (motivo, contexto e andamento)"></textarea>
               </div>
+
+              <!-- Separador: anexos do processo (vários arquivos, com tipo). -->
+              <div class="gdFormDivider gdFieldFull"><span>Anexos do processo</span></div>
+
+              <div class="gfField gdFieldFull">
+                <label>Anexos (escolha o tipo e selecione um ou mais arquivos)</label>
+                <div class="gdNovoAnexoAdd">
+                  <!-- Ofício é definido no campo "Documento do processo"; aqui só os demais tipos. -->
+                  <select class="gfSelect gdNovoAnexoTipo" id="gdFAnexoTipo" aria-label="Tipo de anexo">
+                    <option value="PROVA">Prova</option>
+                    <option value="MEMORANDO">Memorando</option>
+                    <option value="RELATORIO">Relatório</option>
+                    <option value="OUTRO">Outro</option>
+                  </select>
+                  <label class="gfBtn gfBtnGhost gdNovoAnexoBtn"><i class="fa-solid fa-paperclip"></i> Selecionar arquivos<input type="file" multiple id="gdFAnexoInput" hidden></label>
+                </div>
+                <ul class="gdNovoAnexoLista" id="gdFAnexoLista"></ul>
+              </div>
             </div>
 
             <div class="gfBtnRow gfBtnRow2" style="margin-top:14px; max-width:420px; margin-left:auto;">
               <button type="button" class="gfBtn gfBtnGhost gfBtnBlock" id="gdBtnCancelar"><i
                   class="fa-solid fa-xmark"></i> Cancelar</button>
               <button type="button" class="gfBtn gfBtnBlock" id="gdBtnSalvarRegistro"><i
-                  class="fa-solid fa-floppy-disk"></i> Salvar Registro</button>
+                  class="fa-solid fa-floppy-disk"></i> Salvar Pedido</button>
             </div>
           </section>
 
           <!-- INDICADORES GERAIS -->
           <section class="gfPanel">
             <h3 class="gfPanelTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores Gerais</h3>
-            <div class="gdKpiGrid">
-              <div class="gfKpi">
-                <div class="gfKpiValue" id="gdKpiTotal">0</div>
-                <div class="gfKpiLabel">Total de Pedidos</div>
+            <div class="gdKpiStack">
+              <div class="gdKpiRow gdKpiRowTopo">
+                <div class="gfKpi gdKpiCardTotal">
+                  <div class="gfKpiValue" id="gdKpiTotal">0</div>
+                  <div class="gfKpiLabel">Total de Pedidos</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-green" id="gdKpiTotalmente">0</div>
-                <div class="gfKpiLabel">Atendidos Totalmente</div>
+
+              <div class="gdKpiRow gdKpiRowConcluidos">
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-green" id="gdKpiConcluidos">0</div>
+                  <div class="gfKpiLabel">Concluídas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-green" id="gdKpiSancaoNaoAplicada">0</div>
+                  <div class="gfKpiLabel">Sanções Não Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue" id="gdKpiAdvertenciasOrais">0</div>
+                  <div class="gfKpiLabel">Advertências Orais Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue" id="gdKpiAdvertencias">0</div>
+                  <div class="gfKpiLabel">Advertências Escritas Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-orange" id="gdKpiSuspensoes">0</div>
+                  <div class="gfKpiLabel">Suspensões Aplicadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-red" id="gdKpiJustasCausas">0</div>
+                  <div class="gfKpiLabel">Justas Causas Executadas</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-red" id="gdKpiDesligados">0</div>
+                  <div class="gfKpiLabel">Desligado antes da conclusão</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-orange" id="gdKpiParcialmente">0</div>
-                <div class="gfKpiLabel">Atendidos Parcialmente</div>
+
+              <div class="gdKpiRow gdKpiRowNaoConcluidos">
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-red" id="gdKpiNaoConcluidos">0</div>
+                  <div class="gfKpiLabel">Pedidos Não Concluídos</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-gray" id="gdKpiPendentes">0</div>
+                  <div class="gfKpiLabel">Pendentes</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-yellow" id="gdKpiEmAnalise">0</div>
+                  <div class="gfKpiLabel">Em Análise</div>
+                </div>
+                <div class="gfKpi">
+                  <div class="gfKpiValue is-blue" id="gdKpiAguardando">0</div>
+                  <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-red" id="gdKpiNaoAtendidos">0</div>
-                <div class="gfKpiLabel">Não Atendidos</div>
+
+              <div class="gdKpiRow gdKpiRowSingle">
+                <div class="gfKpi" id="gdKpiTempoMedio">
+                  <div class="gfKpiValue" id="gdKpiTempoMedioValor">0 dias</div>
+                  <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
+                </div>
               </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-yellow" id="gdKpiPendentes">0</div>
-                <div class="gfKpiLabel">Pendentes</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-green" id="gdKpiConcluidos">0</div>
-                <div class="gfKpiLabel">Concluídos</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue" id="gdKpiAdvertencias">0</div>
-                <div class="gfKpiLabel">Advertências Aplicadas</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-orange" id="gdKpiSuspensoes">0</div>
-                <div class="gfKpiLabel">Suspensões Aplicadas</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-red" id="gdKpiJustasCausas">0</div>
-                <div class="gfKpiLabel">Justas Causas Executadas</div>
-              </div>
-              <div class="gfKpi" id="gdKpiTempoMedio">
-                <div class="gfKpiValue" id="gdKpiTempoMedioValor">0 dias</div>
-                <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-yellow" id="gdKpiForaPrazo">0</div>
-                <div class="gfKpiLabel">Pedidos Fora do Prazo</div>
-              </div>
-              <div class="gfKpi">
-                <div class="gfKpiValue is-orange" id="gdKpiAguardando">0</div>
-                <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
+
+              <div class="gdKpiRow gdKpiRowSingle">
+                <div class="gfKpi" id="gdKpiForaPrazoCard">
+                  <div class="gfKpiValue is-yellow" id="gdKpiForaPrazo">0</div>
+                  <div class="gfKpiLabel">Pedidos fora do prazo</div>
+                </div>
               </div>
             </div>
           </section>
@@ -1880,7 +1934,7 @@
                     <th>Decisão</th>
                     <th>Data de Aplicação da Sanção</th>
                     <th>Data do Pedido</th>
-                    <th class="gfTd-center">Ações</th>
+                    <th class="gfTd-center">Responsável</th>
                   </tr>
                 </thead>
                 <tbody id="gdTableBody"></tbody>

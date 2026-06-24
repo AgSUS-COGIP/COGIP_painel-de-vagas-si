@@ -8,6 +8,7 @@ import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
+import { tornarSelectPesquisavel, sincronizarSelectPesquisavel } from "./searchable-select.js";
 
 export function configurarPainelExterno() {
   const iframe = document.getElementById("iframeDashboardSaudeIndigena");
@@ -214,6 +215,10 @@ export function preencherSelectRemanejamento(id, items, labelFn) {
   select.innerHTML = (items || []).map(item => `
         <option value="${escapeAttr(item.value)}">${escapeHtml(labelFn(item))}</option>
       `).join("");
+
+  // Torna o dropdown pesquisável (idempotente) e re-sincroniza o texto exibido.
+  tornarSelectPesquisavel(select, { placeholder: "Pesquise o DSEI/CASAI…" });
+  sincronizarSelectPesquisavel(select);
 }
 
 export function abrirFormularioRemanejamento() {
@@ -455,8 +460,14 @@ export async function editarRemanejamentoPainel(idProcesso) {
 
   // 1) DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo e meses).
   setValue("remanejamentoDsei", String(dados.idDseiCasai || ""));
+  sincronizarSelectPesquisavel(document.getElementById("remanejamentoDsei"));
   const mesEl = document.getElementById("remanejamentoMes");
-  if (mesEl) { mesEl.value = String(dados.mes || (new Date().getMonth() + 1)); mesEl.dataset.tocado = "1"; }
+  if (mesEl) {
+    mesEl.value = String(dados.mes || (new Date().getMonth() + 1));
+    mesEl.dataset.tocado = "1";
+    tornarSelectPesquisavel(mesEl, { placeholder: "Pesquise o mês…" });
+    sincronizarSelectPesquisavel(mesEl);
+  }
 
   // 2) Linhas reduzido/acrescentado a partir dos IDs salvos.
   state.remanejamentoLinhas.reduzido = (dados.reduzidos || []).map(item => construirLinhaEdicaoRemanejamento("reduzido", item));
@@ -710,6 +721,10 @@ export function inicializarFormularioRemanejamento(resetar) {
     mesEl.value = String(new Date().getMonth() + 1);
     mesEl.dataset.tocado = "1";
   }
+  if (mesEl) {
+    tornarSelectPesquisavel(mesEl, { placeholder: "Pesquise o mês…" });
+    sincronizarSelectPesquisavel(mesEl);
+  }
 
   if (resetar || !state.remanejamentoLinhas.reduzido.length) {
     state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
@@ -842,6 +857,10 @@ export function renderLinhasRemanejamento(tipo) {
           </tr>
         `;
   }).join("");
+
+  // Torna os selects de cargo pesquisáveis (recriados a cada render do corpo).
+  body.querySelectorAll('select[data-change="campo-linha-rem"]').forEach(sel =>
+    tornarSelectPesquisavel(sel, { placeholder: "Pesquise o cargo…" }));
 }
 
 export function validarOciosasReduzidoCliente() {
