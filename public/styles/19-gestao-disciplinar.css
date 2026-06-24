@@ -7,6 +7,346 @@
        detalhamento do pedido selecionado.
     ========================================================= */
 
+    /* =========================================================
+       Componentes-base (gf*) — ESCOPADOS nesta aba.
+       --------------------------------------------------------
+       Originalmente a Gestão Disciplinar reaproveitava as classes
+       GLOBAIS gf* definidas em 17-gestao-ferias.css. O redesenho
+       da Gestão de Férias reescreveu/removeu essas classes globais
+       (.gfPanel, .gfPageHeader, .gfForm, .gfBtn, .gfKpi, .gfTable…),
+       o que quebrou o layout desta aba. Aqui restauramos as
+       definições originais, mas restritas a .gestaoDisciplinarView,
+       desacoplando esta aba do CSS de Férias.
+    ========================================================= */
+
+    /* ---------- Cabeçalho da página ---------- */
+    :where(.gestaoDisciplinarView) .gfPageHeader {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255, 255, 255, .9);
+      border-radius: 18px;
+      box-shadow: 0 14px 24px rgba(0, 43, 93, .16);
+      padding: 14px 18px;
+      margin-bottom: 14px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfPageHeader h2 {
+      margin: 0;
+      color: #07346b;
+      font-size: 21px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    :where(.gestaoDisciplinarView) .gfPageHeader p {
+      margin: 4px 0 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ---------- Painéis ---------- */
+    :where(.gestaoDisciplinarView) .gfPanel {
+      position: relative;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .97), rgba(224, 244, 255, .94)),
+        radial-gradient(circle at 90% 12%, rgba(32, 178, 255, .16), transparent 34%);
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 20px;
+      box-shadow: 0 16px 30px rgba(0, 32, 74, .20);
+      padding: 16px 18px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfPanel + .gfPanel {
+      margin-top: 14px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfPanelTitle {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 14px 0;
+      color: #07346b;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .2px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfPanelTitle .gfNum {
+      display: inline-grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0ea5ff, #0070d9);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      box-shadow: 0 6px 12px rgba(0, 60, 120, .22);
+    }
+
+    :where(.gestaoDisciplinarView) .gfPanelTitle i {
+      color: #0070d9;
+    }
+
+    :where(.gestaoDisciplinarView) .gfSectionLabel {
+      margin: 18px 0 9px 0;
+      color: #0b4488;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    /* ---------- Formulário ---------- */
+    :where(.gestaoDisciplinarView) .gfForm {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 11px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfField {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    :where(.gestaoDisciplinarView) .gfField label {
+      color: #2d537f;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfField label .req {
+      color: #e0483b;
+    }
+
+    :where(.gestaoDisciplinarView) .gfInput,
+    :where(.gestaoDisciplinarView) .gfSelect {
+      height: 38px;
+      border: 1px solid rgba(0, 83, 166, .22);
+      border-radius: 10px;
+      background: #fff;
+      color: #0b2445;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 0 11px;
+      width: 100%;
+      outline: none;
+    }
+
+    :where(.gestaoDisciplinarView) .gfInput:focus,
+    :where(.gestaoDisciplinarView) .gfSelect:focus {
+      border-color: #0070d9;
+      box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+    }
+
+    /* ---------- Botões ---------- */
+    :where(.gestaoDisciplinarView) .gfBtn {
+      border: none;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #007de0, #0055a7);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      font-family: inherit;
+      padding: 10px 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 12px 22px rgba(0, 43, 93, .18);
+      transition: .16s ease;
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 26px rgba(0, 43, 93, .24);
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn.gfBtnGhost {
+      background: #fff;
+      color: #0b4488;
+      border: 1px solid rgba(0, 83, 166, .3);
+      box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn.gfBtnBlock {
+      width: 100%;
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtnRow {
+      display: grid;
+      gap: 10px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtnRow.gfBtnRow2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    :where(.gestaoDisciplinarView) .gfTitleAction {
+      margin-left: auto;
+    }
+
+    /* ---------- Tabelas ---------- */
+    :where(.gestaoDisciplinarView) .gfTableWrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 83, 166, .14);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 83, 166, .4) transparent;
+    }
+
+    :where(.gestaoDisciplinarView) .gfTableWrap::-webkit-scrollbar {
+      height: 9px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfTableWrap::-webkit-scrollbar-thumb {
+      background: rgba(0, 83, 166, .4);
+      border-radius: 999px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfTable {
+      width: 100%;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      white-space: nowrap;
+      table-layout: auto;
+    }
+
+    :where(.gestaoDisciplinarView) .gfTable th,
+    :where(.gestaoDisciplinarView) .gfTable td {
+      vertical-align: middle;
+    }
+
+    /* thead th / tbody td espelham a estrutura do 17 novo (0,1,2) para
+       vencer por ordem de fonte — senão a aba herdaria o visual de Férias. */
+    :where(.gestaoDisciplinarView) .gfTable thead th {
+      background: linear-gradient(135deg, #00457f, #006dcc);
+      color: #fff;
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      position: sticky;
+      top: 0;
+    }
+
+    :where(.gestaoDisciplinarView) .gfTable tbody td {
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(0, 86, 167, .12);
+      color: #143a63;
+      font-weight: 700;
+    }
+
+    :where(.gestaoDisciplinarView) .gfTable tbody tr:nth-child(even) td {
+      background: rgba(232, 247, 255, .55);
+    }
+
+    :where(.gestaoDisciplinarView) .gfTable tbody tr:hover td {
+      background: rgba(0, 112, 217, .08);
+    }
+
+    :where(.gestaoDisciplinarView) .gfTable .gfTd-center {
+      text-align: center;
+    }
+
+    :where(.gestaoDisciplinarView) .gfIconBtn {
+      border: none;
+      background: transparent;
+      color: #a23b3b;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfIconBtn.gfView {
+      color: #0070d9;
+    }
+
+    /* ---------- Badges de status (base; modificadores .is-* mais abaixo) ---------- */
+    :where(.gestaoDisciplinarView) .gfBadge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .2px;
+      white-space: nowrap;
+    }
+
+    /* ---------- Indicadores (KPIs) ---------- */
+    /* display:block + text-align:center restauram o cartão centralizado.
+       O 17 novo (Férias) usa .gfKpi { display:flex } (ícone + texto à
+       esquerda); sem resetar o display o flex vazava e descentralizava. */
+    :where(.gestaoDisciplinarView) .gfKpi {
+      display: block;
+      background:
+        linear-gradient(145deg, rgba(0, 61, 122, .96), rgba(0, 104, 184, .9));
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 16px;
+      box-shadow: 0 14px 24px rgba(0, 32, 74, .26);
+      padding: 13px 12px;
+      text-align: center;
+    }
+
+    /* O 17 novo (Férias) adiciona uma barra colorida via .gfKpi::before;
+       o layout original do disciplinar não tinha essa barra. */
+    :where(.gestaoDisciplinarView) .gfKpi::before { content: none; }
+
+    :where(.gestaoDisciplinarView) .gfKpiValue {
+      color: #fff;
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -.6px;
+    }
+
+    :where(.gestaoDisciplinarView) .gfKpiValue.is-orange { color: #ffcf6b; }
+    :where(.gestaoDisciplinarView) .gfKpiValue.is-yellow { color: #ffe08a; }
+    :where(.gestaoDisciplinarView) .gfKpiValue.is-red { color: #ff9b8f; }
+    :where(.gestaoDisciplinarView) .gfKpiValue.is-green { color: #74e3a4; }
+    :where(.gestaoDisciplinarView) .gfKpiValue.is-gray { color: #c7d2e2; }
+    :where(.gestaoDisciplinarView) .gfKpiValue.is-blue { color: #6fb4ff; }
+
+    :where(.gestaoDisciplinarView) .gfKpiLabel {
+      color: rgba(255, 255, 255, .85);
+      font-size: 9.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-top: 7px;
+      line-height: 1.2;
+    }
+
+    /* ---------- Chip de arquivo ---------- */
+    :where(.gestaoDisciplinarView) .gfFileChip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      background: #eef6ff;
+      border: 1px solid rgba(0, 83, 166, .18);
+      border-radius: 10px;
+      padding: 8px 11px;
+      color: #0b4488;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    :where(.gestaoDisciplinarView) .gfFileChip i:first-child { color: #c0392b; }
+    :where(.gestaoDisciplinarView) .gfFileChip .gfIconBtn { margin-left: auto; }
+
     .gestaoDisciplinarView {
       height: auto;
       padding-bottom: 28px;
