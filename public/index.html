@@ -194,53 +194,53 @@
       </button>
 
       <nav class="nav">
-        <div class="navItem active" data-view="visaoGeral">
-          <span class="navIcon"><i class="fa-solid fa-chart-pie"></i></span>
+        <button type="button" class="navItem active" data-view="visaoGeral">
+          <span class="navIcon"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
           <span>Visão Geral</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="vagas">
-          <span class="navIcon"><i class="fa-solid fa-folder-open"></i></span>
+        <button type="button" class="navItem" data-view="vagas">
+          <span class="navIcon"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></span>
           <span>Vagas</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="remanejamento">
-          <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
+        <button type="button" class="navItem" data-view="remanejamento">
+          <span class="navIcon"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i></span>
           <span>Remanejamento</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="alertas">
-          <span class="navIcon"><i class="fa-solid fa-circle-exclamation"></i></span>
+        <button type="button" class="navItem" data-view="alertas">
+          <span class="navIcon"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></span>
           <span>Alertas</span>
-        </div>
+        </button>
 
 
-        <div class="navItem" data-view="painelSaudeIndigena">
-          <span class="navIcon"><i class="fa-solid fa-chart-column"></i></span>
+        <button type="button" class="navItem" data-view="painelSaudeIndigena">
+          <span class="navIcon"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
           <span>Dashboard SI</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="gestaoFerias">
-          <span class="navIcon"><i class="fa-solid fa-calendar-check"></i></span>
+        <button type="button" class="navItem" data-view="gestaoFerias">
+          <span class="navIcon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>
           <span>Gestão de Férias</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="entregaCracha">
-          <span class="navIcon"><i class="fa-solid fa-id-card"></i></span>
+        <button type="button" class="navItem" data-view="entregaCracha">
+          <span class="navIcon"><i class="fa-solid fa-id-card" aria-hidden="true"></i></span>
           <span>Entrega de Crachá</span>
-        </div>
-        <div class="navItem" data-view="gestaoDisciplinar">
-          <span class="navIcon"><i class="fa-solid fa-gavel"></i></span>
+        </button>
+        <button type="button" class="navItem" data-view="gestaoDisciplinar">
+          <span class="navIcon"><i class="fa-solid fa-gavel" aria-hidden="true"></i></span>
           <span>Gestão Disciplinar</span>
-        </div>
-        <div class="navItem" data-view="processosSeletivos">
-          <span class="navIcon"><i class="fa-solid fa-clipboard-list"></i></span>
+        </button>
+        <button type="button" class="navItem" data-view="processosSeletivos">
+          <span class="navIcon"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></span>
           <span>Processos Seletivos</span>
-        </div>
-        <div class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
-          <span class="navIcon"><i class="fa-solid fa-user-check"></i></span>
+        </button>
+        <button type="button" class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
+          <span class="navIcon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
           <span>Solicitações</span>
-        </div>
+        </button>
       </nav>
 
       <div class="sidebarSpacer"></div>
@@ -552,6 +552,7 @@
             <div id="blocoTabelaVagas" class="vagasTabelaBloco">
               <div class="fullTableWrap">
                 <table class="fullTable">
+                  <caption class="sr-only">Vagas por DSEI/CASAI e cargo</caption>
                   <colgroup id="vagasColGroup">
                     <col style="width: 17%;">
                     <col style="width: 22%;">
@@ -585,6 +586,7 @@
             <div id="blocoTabelaOciosas" class="vagasTabelaBloco distribuicaoSection" hidden>
               <div class="fullTableWrap distribuicaoWrap">
                 <table class="fullTable distribuicaoTable">
+                  <caption class="sr-only">Distribuição das vagas ociosas</caption>
                   <colgroup id="distribuicaoColGroup">
                     <col style="width: 40%;">
                     <col style="width: 20%;">
@@ -608,6 +610,7 @@
             <div id="blocoTabelaProcesso" class="vagasTabelaBloco distribuicaoSection" hidden>
               <div class="fullTableWrap distribuicaoWrap">
                 <table class="fullTable distribuicaoTable">
+                  <caption class="sr-only">Vagas para processo seletivo</caption>
                   <colgroup id="processoSeletivoColGroup">
                     <col style="width: 40%;">
                     <col style="width: 20%;">
@@ -691,6 +694,7 @@
 
             <div class="fullTableWrap">
               <table class="fullTable alertasTable">
+                <caption class="sr-only">Alertas da Saúde Indígena</caption>
                 <colgroup>
                   <col style="width: 16%;">
                   <col style="width: 24%;">
@@ -983,6 +987,7 @@
               </div>
               <div class="siTableWrap">
                 <table class="siTable">
+                  <caption class="sr-only">Trabalhadores da Saúde Indígena</caption>
                   <thead id="siTabelaHead">
                     <tr>
                       <th data-col="registro">Registro <i class="siSortIcon fa-solid fa-sort"></i></th>
@@ -1624,6 +1629,7 @@
           <div class="ecCard">
             <div class="ecTableWrap">
               <table class="ecTable">
+                <caption class="sr-only">Solicitações de entrega de crachá</caption>
                 <thead>
                   <tr>
                     <th class="ecColSelect ecTd-center"><input type="checkbox" id="ecSelecionarPagina" aria-label="Selecionar página"></th>
@@ -1790,14 +1796,14 @@
                 <div class="ecField" aria-hidden="true"></div>
                 <div class="ecField">
                   <label>Solicitação de 2ª Via</label>
-                  <div class="ecRadioGrupo">
+                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Solicitação de 2ª Via">
                     <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="nao" checked> Não</label>
                     <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="sim"> Sim</label>
                   </div>
                 </div>
                 <div class="ecField">
                   <label>Crachá Devolvido</label>
-                  <div class="ecRadioGrupo">
+                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Crachá Devolvido">
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="nao" checked> Não</label>
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="sim"> Sim</label>
                   </div>
@@ -1981,7 +1987,7 @@
               <!-- Documento do processo: link OU anexo em PDF (um ou outro). -->
               <div class="gfField gdFieldFull">
                 <label>Documento do processo</label>
-                <div class="gdDocToggle">
+                <div class="gdDocToggle" role="radiogroup" aria-label="Tipo de documento do processo">
                   <label class="gdRadio"><input type="radio" name="gdDocTipo" value="link" checked> Link</label>
                   <label class="gdRadio"><input type="radio" name="gdDocTipo" value="anexo"> Anexo (PDF)</label>
                 </div>
@@ -2260,6 +2266,7 @@
           <section class="psPanel">
             <div class="psTableWrap">
               <table class="psTable">
+                <caption class="sr-only">Processos seletivos</caption>
                 <thead>
                   <tr>
                     <th>Unidade</th>
@@ -2362,7 +2369,7 @@
                     <h4>Documento do edital</h4>
                     <small>Informe um link <strong>ou</strong> anexe um PDF</small>
                   </div>
-                  <div class="psDocToggle">
+                  <div class="psDocToggle" role="radiogroup" aria-label="Tipo de documento do edital">
                     <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
                     <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
                   </div>

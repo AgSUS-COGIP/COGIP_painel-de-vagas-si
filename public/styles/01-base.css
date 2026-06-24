@@ -1,3 +1,17 @@
+    /* Conteúdo só para leitores de tela (visualmente oculto, mas acessível).
+       Usado em <caption> de tabelas e rótulos não-visuais. */
+    .sr-only {
+      position: absolute !important;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     :root {
       --azul-profundo: #00305f;
       --azul-menu: #004b93;
@@ -147,6 +161,16 @@
       cursor: pointer;
       user-select: none;
       transition: .18s ease;
+      /* Reset de <button>: a navegação agora usa <button> (acessível por teclado),
+         então neutralizamos a aparência nativa preservando o layout original. */
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      margin: 0;
+      background: transparent;
+      border: 0;
+      font-family: inherit;
+      text-align: left;
     }
 
     .navItem:hover {
