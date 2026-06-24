@@ -33,15 +33,23 @@
 
 /* ---------- Cabeçalho da página ---------- */
 .psPageHeader {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   background: rgba(255, 255, 255, .9);
   border-radius: 18px;
   box-shadow: 0 14px 24px rgba(0, 43, 93, .16);
   padding: 14px 18px;
   margin-bottom: 14px;
+}
+
+/* Linha superior: título/subtítulo à esquerda, botão de ação à direita. */
+.psHeaderTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .psPageHeader h2 {
@@ -60,12 +68,11 @@
   max-width: 720px;
 }
 
-.psHeaderActions {
-  display: flex;
-  align-items: center;
+/* Filtros lado a lado (unidade + status). */
+.psHeaderFiltros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .psSearchBox {
@@ -73,6 +80,10 @@
   display: flex;
   align-items: center;
 }
+
+/* Barra de busca ocupando a linha inteira. */
+.psSearchBoxFull { width: 100%; }
+.psSearchBoxFull .psSearch { width: 100%; }
 
 .psSearchBox i {
   position: absolute;
@@ -354,6 +365,7 @@
 .psBadge.is-naoiniciado { background: #e7eefb; color: #41506b; }
 .psBadge.is-andamento { background: #d7f5e3; color: #0a7a44; }
 .psBadge.is-breve { background: #fff2d6; color: #8a5a00; }
+.psBadge.is-aguardando { background: #dbeafe; color: #1d4ed8; }
 .psBadge.is-encerrado { background: #ffdcd7; color: #b5281a; }
 
 /* ---------- Painel de detalhamento ---------- */
@@ -476,6 +488,53 @@
   letter-spacing: .4px;
 }
 
+/* Detalhe do edital: lista de campos (rótulo + valor) e observações. */
+.psInfoGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.psInfoItem {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(0, 83, 166, .10);
+}
+
+.psInfoLabel {
+  color: #4a6a93;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.psInfoValor {
+  color: #07346b;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.psObservacoes {
+  margin: 0;
+  color: #0b2445;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.psSemObs {
+  color: #6b7d96;
+  font-weight: 700;
+  font-style: italic;
+}
+
 /* Cabeçalho do acompanhamento: título + chips de cargo. */
 .psBlocoHead {
   display: flex;
@@ -524,6 +583,22 @@
 
 .psTableSub { font-size: 11.5px; }
 .psTableSub th { font-size: 10px; }
+.psTableSub td { white-space: normal; }
+
+/* Linha da etapa atual no cronograma do edital. */
+.psTableSub tbody tr.is-etapa-atual td { background: rgba(255, 153, 0, .14); }
+.psTableSub tbody tr.is-etapa-atual .psCelNome { font-weight: 800; color: #8a5200; }
+
+/* Bloco do quadro de vagas ocupa a largura toda (abaixo do grid 2 colunas). */
+.psBlocoFull { margin-top: 4px; }
+.psBlocoFull .psTableWrap { margin-top: 2px; }
+
+.psBlocoMeta {
+  color: #6b86a8;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: none;
+}
 
 .psTotalRow td {
   background: rgba(0, 69, 127, .08) !important;
@@ -589,6 +664,8 @@
   overflow: hidden;
 }
 
+.psModalCard.psModalCardSm { width: min(560px, 100%); }
+
 .psModalHead {
   display: flex;
   align-items: center;
@@ -598,6 +675,32 @@
   background: linear-gradient(135deg, #00457f, #006dcc);
   color: #fff;
 }
+
+/* Modal de inserir anexo. */
+.psAnexoIntro {
+  margin: 0 0 14px 0;
+  color: #2d537f;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.psAnexoStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #0b4488;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.psBlocoFonte {
+  color: #0a7a44;
+  font-weight: 900;
+}
+
+.psBlocoFonte i { margin-right: 3px; }
 
 .psModalHead h3 {
   margin: 0;
@@ -641,6 +744,33 @@
 }
 
 .psField.psField2 { grid-column: span 2; }
+.psField.psField3 { grid-column: 1 / -1; }
+
+/* O atributo [hidden] precisa vencer o display:grid de .psField
+   (senão o campo escondido continua visível na alternância Link/Anexo). */
+.psField[hidden] { display: none; }
+
+/* Textarea de observação e input de arquivo dentro do formulário. */
+.psTextarea {
+  height: auto;
+  min-height: 70px;
+  padding: 9px 11px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.psInputFile {
+  padding: 7px 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+/* Alternância "Link OU Anexo". */
+.psDocToggle {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 10px;
+}
 
 .psField > span {
   color: #2d537f;
@@ -745,7 +875,7 @@
 @media (max-width: 720px) {
   .psKpiGrid,
   .psResumoTiles { grid-template-columns: 1fr 1fr; }
-  .psHeaderActions { justify-content: stretch; }
+  .psHeaderFiltros { grid-template-columns: 1fr; }
   .psSearch { width: 100%; }
   .psFormGrid,
   .psFormRow,

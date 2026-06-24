@@ -1,166 +1,162 @@
 // =========================================================
-// Gestão Disciplinar (maquete interativa)
-// Renderiza a tabela de pedidos disciplinares a partir de dados
-// de exemplo, liga os filtros/botões e mostra o detalhamento do
-// registro selecionado. É autocontido: registra os próprios
-// ouvintes em configurarGestaoDisciplinar(), chamado no init do app.
-// Não há backend — as ações operam sobre os dados em memória.
+// Gestão Disciplinar
+// Renderiza a tabela de pedidos disciplinares a partir do backend
+// (/api/disciplinar) e liga filtros/botões e o detalhamento do registro
+// selecionado. Toda alteração (status, sanção, responsável, criação e exclusão)
+// é persistida no banco via API e o registro afetado é recarregado.
 // Obs.: por padrão do painel, as pessoas são sempre "trabalhadores".
 // =========================================================
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, escapeAttr } from "./utils.js";
+import { state } from "./state.js";
+import { apiGet, apiPost, authHeaders } from "./api.js";
 
-// ---------- Dados de exemplo ----------
-// Cada item é um pedido disciplinar encaminhado por um DSEI. Os campos
-// "detalhe*" alimentam o painel de detalhamento aberto ao clicar na linha.
-const REGISTROS = [
-  {
-    processo: "25000.123456/2024-10", dsei: "Yanomami", trabalhador: "Maria Silva da Costa",
-    cargo: "Enfermeiro", polo: "Polo Base Auaris", ocorrencia: "02/03/2024",
-    pedido: "Advertência", status: "Em análise", atendimento: "Parcialmente",
-    decisao: "Advertência", dataSancao: "10/04/2024", dataPedido: "10/04/2024",
-    motivo: "Descumprimento de normas internas e falta de assiduidade.",
-    medidaParcial: "Advertência formal e participação em capacitação obrigatória.",
-    motivoNaoAtendimento: "—",
-    resumo: "Pedido de advertência encaminhado pelo DSEI Yanomami em razão de descumprimento de normas internas e falta de assiduidade. Após análise, foi aplicada advertência formal e determinada a participação do trabalhador em capacitação obrigatória.",
-    statusAtual: "Em análise", ultimaAtualizacao: "15/05/2024", observacoesStatus: "—",
-    tipoSancao: "Advertência", dataAplicacao: "10/04/2024", aplicadaPor: "Coordenação Distrital",
-    documento: "Termo de Advertência nº 05/2024", comprovante: "Termo_Advertencia_05_2024.pdf",
-    observacoesSancao: "Advertência registrada no prontuário do trabalhador.",
-    anexos: [{ nome: "Oficio_DSEI_Yanomami_GD001_2024.pdf", info: "PDF · 256 KB", data: "10/04/2024" }]
-  },
-  {
-    processo: "25000.123457/2024-30", dsei: "Alto Rio Negro", trabalhador: "João Pereira Lima",
-    cargo: "Técnico de Enfermagem", polo: "Polo Base São Gabriel", ocorrencia: "05/01/2024",
-    pedido: "Suspensão", status: "Aguardando devolutiva do DSEI", atendimento: "Totalmente",
-    decisao: "Suspensão", dataSancao: "12/04/2024", dataPedido: "12/04/2024",
-    motivo: "Abandono de posto durante escala em área indígena.",
-    medidaParcial: "—",
-    motivoNaoAtendimento: "—",
-    resumo: "Pedido de suspensão encaminhado pelo DSEI Alto Rio Negro por abandono de posto durante escala. Sanção aplicada integralmente; aguardando devolutiva do DSEI quanto ao cumprimento.",
-    statusAtual: "Aguardando devolutiva do DSEI", ultimaAtualizacao: "30/04/2024", observacoesStatus: "Devolutiva solicitada ao DSEI em 25/04/2024.",
-    tipoSancao: "Suspensão (3 dias)", dataAplicacao: "12/04/2024", aplicadaPor: "Coordenação Distrital",
-    documento: "Termo de Suspensão nº 02/2024", comprovante: "Termo_Suspensao_02_2024.pdf",
-    observacoesSancao: "Suspensão de 3 dias registrada no prontuário do trabalhador.",
-    anexos: [{ nome: "Oficio_DSEI_AltoRioNegro_GD002_2024.pdf", info: "PDF · 312 KB", data: "12/04/2024" }]
-  },
-  {
-    processo: "25000.123458/2024-71", dsei: "Kayapó do Pará", trabalhador: "Carlos Mendes dos Santos",
-    cargo: "Agente Indígena de Saúde", polo: "Polo Base Tucumã", ocorrencia: "11/03/2024",
-    pedido: "Justa Causa", status: "Concluída", atendimento: "Não atendido",
-    decisao: "Justa Causa", dataSancao: "15/04/2024", dataPedido: "15/04/2024",
-    motivo: "Reincidência em faltas graves e insubordinação.",
-    medidaParcial: "—",
-    motivoNaoAtendimento: "Ausência de provas documentais suficientes para a rescisão por justa causa.",
-    resumo: "Pedido de rescisão por justa causa encaminhado pelo DSEI Kayapó do Pará. Após análise jurídica, o pedido não foi atendido por insuficiência de provas documentais.",
-    statusAtual: "Concluída", ultimaAtualizacao: "28/04/2024", observacoesStatus: "Processo encerrado sem aplicação de justa causa.",
-    tipoSancao: "Não aplicada", dataAplicacao: "—", aplicadaPor: "—",
-    documento: "Parecer Jurídico nº 11/2024", comprovante: "Parecer_Juridico_11_2024.pdf",
-    observacoesSancao: "Recomendada nova advertência formal em substituição.",
-    anexos: [{ nome: "Oficio_DSEI_Kayapo_GD003_2024.pdf", info: "PDF · 198 KB", data: "15/04/2024" }]
-  },
-  {
-    processo: "25000.123459/2024-05", dsei: "Leste de Roraima", trabalhador: "Ana Beatriz Souza",
-    cargo: "Enfermeiro", polo: "Polo Base Surucucu", ocorrencia: "15/03/2024",
-    pedido: "Suspensão", status: "Pendente", atendimento: "—",
-    decisao: "Não foi aplicado", dataSancao: "—", dataPedido: "18/04/2024",
-    motivo: "Conduta inadequada no atendimento à comunidade.",
-    medidaParcial: "—",
-    motivoNaoAtendimento: "—",
-    resumo: "Pedido de suspensão encaminhado pelo DSEI Leste de Roraima. Em fila de análise pela coordenação; sanção ainda não definida.",
-    statusAtual: "Pendente", ultimaAtualizacao: "20/04/2024", observacoesStatus: "Aguardando distribuição para análise.",
-    tipoSancao: "—", dataAplicacao: "—", aplicadaPor: "—",
-    documento: "—", comprovante: "",
-    observacoesSancao: "—",
-    anexos: [{ nome: "Oficio_DSEI_LesteRoraima_GD004_2024.pdf", info: "PDF · 221 KB", data: "18/04/2024" }]
-  },
-  {
-    processo: "25000.123460/2024-16", dsei: "Maranhão", trabalhador: "Rafael Oliveira",
-    cargo: "Técnico de Enfermagem", polo: "Polo Base Amarante", ocorrencia: "18/03/2024",
-    pedido: "Advertência", status: "Em análise", atendimento: "Parcialmente",
-    decisao: "Advertência", dataSancao: "20/04/2024", dataPedido: "20/04/2024",
-    motivo: "Atrasos recorrentes no início da jornada.",
-    medidaParcial: "Advertência verbal formalizada e plano de adequação de jornada.",
-    motivoNaoAtendimento: "—",
-    resumo: "Pedido de advertência encaminhado pelo DSEI Maranhão por atrasos recorrentes. Aplicada advertência com plano de adequação de jornada.",
-    statusAtual: "Em análise", ultimaAtualizacao: "22/04/2024", observacoesStatus: "—",
-    tipoSancao: "Advertência", dataAplicacao: "20/04/2024", aplicadaPor: "Coordenação Distrital",
-    documento: "Termo de Advertência nº 06/2024", comprovante: "Termo_Advertencia_06_2024.pdf",
-    observacoesSancao: "Advertência registrada no prontuário do trabalhador.",
-    anexos: [{ nome: "Oficio_DSEI_Maranhao_GD005_2024.pdf", info: "PDF · 264 KB", data: "20/04/2024" }]
-  },
-  {
-    processo: "25000.123461/2024-64", dsei: "Parintins", trabalhador: "Luana Ferreira",
-    cargo: "Enfermeiro", polo: "Polo Base Parintins", ocorrencia: "20/03/2024",
-    pedido: "Suspensão", status: "Concluída", atendimento: "Totalmente",
-    decisao: "Suspensão", dataSancao: "22/04/2024", dataPedido: "22/04/2024",
-    motivo: "Quebra de protocolo de biossegurança.",
-    medidaParcial: "—",
-    motivoNaoAtendimento: "—",
-    resumo: "Pedido de suspensão encaminhado pelo DSEI Parintins por quebra de protocolo de biossegurança. Sanção aplicada integralmente e processo concluído.",
-    statusAtual: "Concluída", ultimaAtualizacao: "26/04/2024", observacoesStatus: "Cumprimento confirmado pelo DSEI.",
-    tipoSancao: "Suspensão (5 dias)", dataAplicacao: "22/04/2024", aplicadaPor: "Coordenação Distrital",
-    documento: "Termo de Suspensão nº 03/2024", comprovante: "Termo_Suspensao_03_2024.pdf",
-    observacoesSancao: "Suspensão de 5 dias registrada no prontuário do trabalhador.",
-    anexos: [{ nome: "Oficio_DSEI_Parintins_GD006_2024.pdf", info: "PDF · 287 KB", data: "22/04/2024" }]
-  },
-  {
-    processo: "25000.123462/2024-89", dsei: "Xingu", trabalhador: "Paulo Henrique Dias",
-    cargo: "Agente Indígena de Saúde", polo: "Polo Base Gaúcha do Norte", ocorrencia: "22/03/2024",
-    pedido: "Justa Causa", status: "Aguardando devolutiva do DSEI", atendimento: "Não atendido",
-    decisao: "Justa Causa", dataSancao: "25/04/2024", dataPedido: "25/04/2024",
-    motivo: "Apropriação indevida de insumos da unidade.",
-    medidaParcial: "—",
-    motivoNaoAtendimento: "Necessidade de apuração complementar pelo DSEI antes da decisão final.",
-    resumo: "Pedido de rescisão por justa causa encaminhado pelo DSEI Xingu. Aguardando devolutiva do DSEI com apuração complementar.",
-    statusAtual: "Aguardando devolutiva do DSEI", ultimaAtualizacao: "02/05/2024", observacoesStatus: "Apuração complementar solicitada ao DSEI.",
-    tipoSancao: "Em apuração", dataAplicacao: "—", aplicadaPor: "—",
-    documento: "Memorando nº 14/2024", comprovante: "Memorando_14_2024.pdf",
-    observacoesSancao: "Decisão suspensa até a devolutiva do DSEI.",
-    anexos: [{ nome: "Oficio_DSEI_Xingu_GD007_2024.pdf", info: "PDF · 309 KB", data: "25/04/2024" }]
-  }
-];
-
-// ---------- Diretório de trabalhadores (auto-preenchimento) ----------
-// Ao selecionar/digitar o nome no formulário, puxa cargo, matrícula,
-// DSEI/CASAI e polo. Inclui os trabalhadores já presentes nos registros
-// de exemplo e alguns extras para demonstrar a busca.
-const DIRETORIO = [
-  { nome: "Maria Silva da Costa", cargo: "Enfermeiro", matricula: "100245", dsei: "Yanomami", polo: "Polo Base Auaris" },
-  { nome: "João Pereira Lima", cargo: "Técnico de Enfermagem", matricula: "100312", dsei: "Alto Rio Negro", polo: "Polo Base São Gabriel" },
-  { nome: "Carlos Mendes dos Santos", cargo: "Agente Indígena de Saúde", matricula: "100487", dsei: "Kayapó do Pará", polo: "Polo Base Tucumã" },
-  { nome: "Ana Beatriz Souza", cargo: "Enfermeiro", matricula: "100519", dsei: "Leste de Roraima", polo: "Polo Base Surucucu" },
-  { nome: "Rafael Oliveira", cargo: "Técnico de Enfermagem", matricula: "100634", dsei: "Maranhão", polo: "Polo Base Amarante" },
-  { nome: "Luana Ferreira", cargo: "Enfermeiro", matricula: "100721", dsei: "Parintins", polo: "Polo Base Parintins" },
-  { nome: "Paulo Henrique Dias", cargo: "Agente Indígena de Saúde", matricula: "100808", dsei: "Xingu", polo: "Polo Base Gaúcha do Norte" },
-  { nome: "Fernanda Ribeiro Alves", cargo: "Médico Clínico Geral", matricula: "100915", dsei: "CASAI Boa Vista", polo: "CASAI Boa Vista" },
-  { nome: "Bruno Carvalho Nunes", cargo: "Odontólogo", matricula: "101003", dsei: "CASAI Manaus", polo: "CASAI Manaus" },
-  { nome: "Patrícia Gomes Teixeira", cargo: "Téc. de Enfermagem", matricula: "101129", dsei: "Médio Rio Purus", polo: "Polo Base Lábrea" }
-];
-
-// Atribui a matrícula aos registros de exemplo a partir do diretório.
-REGISTROS.forEach(r => {
-  const d = DIRETORIO.find(x => x.nome === r.trabalhador);
-  if (d && !r.matricula) r.matricula = d.matricula;
-});
-
-// Lista de DSEIs/CASAIs oferecida no formulário (digitável e selecionável).
-const DSEIS_CASAIS = [...new Set([
-  ...DIRETORIO.map(d => d.dsei),
-  "DSEI Médio Rio Solimões", "DSEI Vale do Javari", "CASAI Tabatinga"
-])];
+// Pedidos carregados do backend (formato já pronto para a UI).
+let REGISTROS = [];
 
 // ---------- Mapas de classe das badges ----------
 const BADGE_STATUS = {
   "Em análise": "is-analise",
   "Aguardando devolutiva do DSEI": "is-aguardando",
   "Concluída": "is-concluida",
-  "Pendente": "is-pendente"
+  "Pendente": "is-pendente",
+  "Desligado antes da conclusão": "is-desligado",
+  "Pedido fora do prazo": "is-foraprazo"
 };
 const BADGE_ATENDIMENTO = {
   "Totalmente": "is-total",
   "Parcialmente": "is-parcial",
   "Não atendido": "is-naoatendido"
 };
+
+// ---------- Fases do processo (funil linear, padrão da Entrega de Crachá) ----------
+// As fases avançam uma a uma; não é possível pular etapas. "Desligado antes da
+// conclusão" é um estado terminal alternativo (trabalhador desligado no meio).
+const STATUS_FASES = ["Pendente", "Em análise", "Aguardando devolutiva do DSEI", "Concluída"];
+const STATUS_DESLIGADO = "Desligado antes da conclusão";
+// "foraDoPrazo" é apenas um aviso (solicitação pelo DSEI fora do prazo): não
+// bloqueia o processo, que segue normalmente pelo fluxo de fases.
+const STATUS_FORA_PRAZO = "Pedido fora do prazo";
+const STATUS_CONCLUIDA = "Concluída";
+// Rótulo do botão que AVANÇA a partir de cada fase.
+const AVANCO_LABEL = {
+  "Pendente": "Assumir processo",
+  "Em análise": "Enviar para devolutiva do DSEI",
+  "Aguardando devolutiva do DSEI": "Concluir processo"
+};
+
+function pedidoConcluido(r) {
+  return r?.statusAtual === STATUS_CONCLUIDA;
+}
+
+// Rótulo de exibição do Tipo de Sanção: a suspensão mostra os dias junto.
+function tipoSancaoDisplay(r) {
+  if (r.tipoSancao === "Suspensão" && r.diasSuspensao) return `Suspensão (${r.diasSuspensao} dias)`;
+  return r.tipoSancao || "—";
+}
+
+// Opções para edição em linha no detalhamento.
+const STATUS_OPCOES = ["Em análise", "Aguardando devolutiva do DSEI", "Concluída", "Pendente"];
+const ATENDIMENTO_OPCOES = ["—", "Totalmente", "Parcialmente", "Não atendido"];
+
+// Tipo de Sanção: somente as sanções aplicáveis. A quantidade de dias da
+// "Suspensão" é informada num campo à parte (Dias de suspensão).
+const SANCAO_OPCOES = ["Advertência oral", "Advertência", "Suspensão",
+  "Justa Causa", "Não Aplicada", "Em apuração", "—"];
+
+// Decisão: somente o artigo e as alíneas do Art. 482 da CLT (hipóteses de justa causa).
+const DECISAO_OPCOES = [
+  "—",
+  "Art. 482, a) Ato de improbidade",
+  "Art. 482, b) Incontinência de conduta ou mau procedimento",
+  "Art. 482, c) Negociação habitual sem permissão ou concorrência à empresa",
+  "Art. 482, d) Condenação criminal transitada em julgado",
+  "Art. 482, e) Desídia no desempenho das funções",
+  "Art. 482, f) Embriaguez habitual ou em serviço",
+  "Art. 482, g) Violação de segredo da empresa",
+  "Art. 482, h) Ato de indisciplina ou de insubordinação",
+  "Art. 482, i) Abandono de emprego",
+  "Art. 482, j) Ato lesivo da honra ou ofensas físicas (contra terceiros)",
+  "Art. 482, k) Ato lesivo da honra ou ofensas físicas (contra empregador/superiores)",
+  "Art. 482, l) Prática constante de jogos de azar",
+  "Art. 482, m) Perda da habilitação por conduta dolosa"
+];
+
+// Campos editáveis em linha no detalhamento. Cada um define: rótulo na confirmação,
+// chave(s) do registro a atualizar (a 1ª é a "fonte" do valor atual), o tipo de
+// controle e o aviso de sucesso. "dataSancao" mantém dataSancao+dataAplicacao em sincronia.
+const CAMPOS_EDITAVEIS = {
+  status: { rotulo: "o status da demanda", chaves: ["statusAtual", "status"], tipo: "select", opcoes: STATUS_OPCOES, toast: "Status da demanda atualizado." },
+  sancao: { rotulo: "a sanção aplicada", chaves: ["tipoSancao"], tipo: "select", opcoes: SANCAO_OPCOES, toast: "Sanção aplicada atualizada." },
+  diasSuspensao: { rotulo: "os dias de suspensão", chaves: ["diasSuspensao"], tipo: "numero", toast: "Dias de suspensão atualizados." },
+  atendimento: { rotulo: "o atendimento", chaves: ["atendimento"], tipo: "select", opcoes: ATENDIMENTO_OPCOES, toast: "Atendimento atualizado." },
+  decisao: { rotulo: "o motivo", chaves: ["decisao"], tipo: "select", opcoes: DECISAO_OPCOES, toast: "Motivo atualizado." },
+  dataSancao: { rotulo: "a data de aplicação da sanção", chaves: ["dataSancao", "dataAplicacao"], tipo: "data", toast: "Data de aplicação da sanção atualizada." },
+  medidaParcial: { rotulo: "a medida adotada", chaves: ["medidaParcial"], tipo: "texto", toast: "Medida adotada atualizada." },
+  motivoNaoAtendimento: { rotulo: "o motivo do não atendimento", chaves: ["motivoNaoAtendimento"], tipo: "texto", toast: "Motivo do não atendimento atualizado." },
+  observacoesStatus: { rotulo: "as observações do status", chaves: ["observacoesStatus"], tipo: "texto", toast: "Observações do status atualizadas." },
+  observacoesSancao: { rotulo: "a descrição da sanção aplicada", chaves: ["observacoesSancao"], tipo: "textarea", toast: "Descrição da sanção aplicada atualizada." }
+};
+
+// Campos da sanção viajam para /sancao; os demais para /demanda.
+const CAMPOS_SANCAO = ["decisao", "sancao", "diasSuspensao", "dataSancao", "observacoesSancao"];
+
+// É o responsável atual pelo pedido? (login do usuário == responsável gravado)
+function ehResponsavel(r) {
+  return !!r && !!r.responsavel && r.responsavel === loginResponsavel();
+}
+
+// Permissão para editar os campos do detalhamento do pedido. As edições do
+// processo (status/fases, atendimento, sanção, observações, provas, etc.) são
+// exclusivas do RESPONSÁVEL pelo pedido; o super administrador (nível >= 3) pode
+// editar qualquer um. Os demais usuários apenas visualizam.
+const NIVEL_SUPERADMIN_DISCIPLINAR = 3;
+function podeEditarGestaoDisciplinar(r) {
+  if (!r) return false;
+  const nivel = Number(state.painelLoginUsuario?.nivelAutorizacao || 0);
+  if (nivel >= NIVEL_SUPERADMIN_DISCIPLINAR) return true;
+  return ehResponsavel(r);
+}
+
+// Quem pode anexar/remover anexos: o responsável pelo pedido (ou super admin).
+function podeGerenciarAnexos(r) {
+  return podeEditarGestaoDisciplinar(r);
+}
+
+// Rótulos amigáveis para o ENUM tipo_anexo da tabela PEDIDO_ANEXO.
+const ANEXO_TIPO_LABEL = {
+  PROVA: "Prova",
+  OFICIO: "Ofício",
+  MEMORANDO: "Memorando",
+  RELATORIO: "Relatório",
+  OUTRO: "Outro"
+};
+
+// Indicadores/ações restritos a administradores (nível >= 2, mesmo patamar das telas de admin).
+const NIVEL_ADMIN_DISCIPLINAR = 2;
+function ehAdminDisciplinar() {
+  return Number(state.painelLoginUsuario?.nivelAutorizacao || 0) >= NIVEL_ADMIN_DISCIPLINAR;
+}
+
+// Ajusta a visão dos indicadores conforme o nível do usuário. "Tempo Médio p/
+// Aplicação da Sanção" e o campo de delegação só aparecem para admin.
+function aplicarVisibilidadeCardsDisciplinar() {
+  const admin = ehAdminDisciplinar();
+  const cardTempo = document.getElementById("gdKpiTempoMedio")?.closest(".gfKpi");
+  if (cardTempo) cardTempo.style.display = admin ? "" : "none";
+  // Usa display (não o atributo hidden): .gfField tem `display: grid`, que
+  // sobrescreveria o hidden e deixaria a caixa visível para o usuário comum.
+  const campoResp = document.getElementById("gdFResponsavelField");
+  if (campoResp) campoResp.style.display = admin ? "" : "none";
+  if (admin) carregarAdminsDelegaveis();
+}
+
+// Login do usuário logado para vincular como responsável. Se for um e-mail,
+// usa só a parte antes do "@".
+function loginResponsavel() {
+  const u = state.painelLoginUsuario || {};
+  const base = String(u.login || u.email || u.nome || "").trim();
+  return base.includes("@") ? base.split("@")[0] : base;
+}
 
 function badge(texto, mapa) {
   if (!texto || texto === "—") return "—";
@@ -192,20 +188,67 @@ function preencherFiltros() {
   const opcoes = (sel, valores, rotuloTodos) => {
     const el = $(sel);
     if (!el) return;
+    const atual = el.value;
     el.innerHTML = `<option value="">${rotuloTodos}</option>` +
       valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    if (atual && valores.includes(atual)) el.value = atual;
   };
   const unicos = chave => [...new Set(REGISTROS.map(r => r[chave]).filter(v => v && v !== "—"))];
   opcoes("gdFiltroDsei", unicos("dsei"), "Todos os DSEIs/CASAIs");
   opcoes("gdFiltroStatus", unicos("status"), "Todos os Status");
 }
 
-// Popula as listas de autocompletar do formulário de novo registro.
+// Popula a lista de autocompletar de DSEIs do formulário (a de trabalhadores é
+// preenchida dinamicamente pela busca no backend — ver buscarTrabalhadores).
 function preencherDatalists() {
   const dseis = $("gdListaDseis");
-  if (dseis) dseis.innerHTML = DSEIS_CASAIS.map(v => `<option value="${escapeHtml(v)}">`).join("");
-  const trab = $("gdListaTrabalhadores");
-  if (trab) trab.innerHTML = DIRETORIO.map(d => `<option value="${escapeHtml(d.nome)}">${escapeHtml(d.cargo)} · ${escapeHtml(d.dsei)}</option>`).join("");
+  if (dseis) {
+    const lista = [...new Set(REGISTROS.map(r => r.dsei).filter(v => v && v !== "—"))];
+    dseis.innerHTML = lista.map(v => `<option value="${escapeHtml(v)}">`).join("");
+  }
+}
+
+// ---------- Delegação de responsável (somente administradores) ----------
+// Lista de administradores ativos aptos a editar/assumir processos. É buscada
+// do backend de controle de acesso e usada para popular a caixa de delegação.
+let ADMINS_DELEGAVEIS = [];
+
+// Deriva o login (parte antes do "@") a partir de um e-mail.
+function loginDeEmail(email) {
+  const base = String(email || "").trim();
+  return base.includes("@") ? base.split("@")[0] : base;
+}
+
+// Busca os usuários ativos com nível de administrador (>= NIVEL_ADMIN_DISCIPLINAR).
+// O endpoint exige nível de admin, então só roda para administradores.
+async function carregarAdminsDelegaveis() {
+  if (!ehAdminDisciplinar()) return;
+  let dados;
+  try { dados = await apiGet("/api/acesso/solicitacoes"); }
+  catch (e) { return; }
+  const linhas = [...(dados.pendentes || []), ...(dados.historico || [])];
+  const porLogin = new Map();
+  linhas.forEach(s => {
+    const ativo = Number(s.USUARIO_ATIVO) === 1;
+    const nivel = Number(s.USUARIO_NIVEL || 0);
+    const login = loginDeEmail(s.EMAIL);
+    if (!login || !ativo || nivel < NIVEL_ADMIN_DISCIPLINAR) return;
+    if (!porLogin.has(login)) porLogin.set(login, { login, nome: String(s.NOME || "").trim() });
+  });
+  ADMINS_DELEGAVEIS = [...porLogin.values()].sort((a, b) => a.login.localeCompare(b.login));
+  preencherSelectResponsavel();
+}
+
+// Reconstrói as opções da caixa de delegação a partir do cache de admins.
+function preencherSelectResponsavel() {
+  const sel = $("gdFResponsavel");
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = `<option value="">Sem responsável</option>` +
+    ADMINS_DELEGAVEIS.map(a =>
+      `<option value="${escapeHtml(a.login)}">${escapeHtml(a.login)}${a.nome ? ` — ${escapeHtml(a.nome)}` : ""}</option>`
+    ).join("");
+  if (atual && ADMINS_DELEGAVEIS.some(a => a.login === atual)) sel.value = atual;
 }
 
 // Converte "dd/mm/aaaa" para Date (para comparar com os inputs de data).
@@ -215,6 +258,9 @@ function dataBr(str) {
   return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
 }
 
+// Filtro rápido "processos em que eu sou o responsável".
+let filtroMeusProcessos = false;
+
 function registrosFiltrados() {
   const dsei = $("gdFiltroDsei")?.value || "";
   const status = $("gdFiltroStatus")?.value || "";
@@ -222,11 +268,15 @@ function registrosFiltrados() {
   const fim = $("gdFiltroDataFim")?.value ? new Date($("gdFiltroDataFim").value) : null;
   const buscaNome = ($("gdBuscaNome")?.value || "").trim().toLowerCase();
   const buscaPedido = ($("gdBuscaPedido")?.value || "").trim().toLowerCase();
+  const buscaResp = ($("gdBuscaResponsavel")?.value || "").trim().toLowerCase();
+  const meuLogin = filtroMeusProcessos ? loginResponsavel() : "";
 
   return REGISTROS.filter(r => {
+    if (filtroMeusProcessos && r.responsavel !== meuLogin) return false;
     if (dsei && r.dsei !== dsei) return false;
     if (status && r.status !== status) return false;
     if (buscaNome && !r.trabalhador.toLowerCase().includes(buscaNome)) return false;
+    if (buscaResp && !String(r.responsavel || "").toLowerCase().includes(buscaResp)) return false;
     if (buscaPedido) {
       const alvo = `${r.processo} ${r.pedido} ${r.motivo}`.toLowerCase();
       if (!alvo.includes(buscaPedido)) return false;
@@ -239,7 +289,7 @@ function registrosFiltrados() {
 }
 
 // ---------- Renderização da tabela ----------
-let processoSelecionado = REGISTROS[0].processo;
+let processoSelecionado = null;
 
 function renderTabela() {
   const body = $("gdTableBody");
@@ -249,7 +299,7 @@ function renderTabela() {
 
   body.innerHTML = linhas.map(r => `
     <tr class="gdRow${r.processo === processoSelecionado ? " is-selected" : ""}" data-gd-processo="${escapeHtml(r.processo)}">
-      <td>${escapeHtml(r.processo)}</td>
+      <td>${r.foraDoPrazo ? `<i class="fa-solid fa-triangle-exclamation gdAvisoPrazo" title="Solicitação pelo DSEI fora do prazo"></i> ` : ""}${escapeHtml(r.processo)}</td>
       <td>${escapeHtml(r.dsei)}</td>
       <td>${escapeHtml(r.trabalhador)}</td>
       <td>${escapeHtml(r.cargo)}</td>
@@ -258,12 +308,10 @@ function renderTabela() {
       <td>${escapeHtml(r.pedido)}</td>
       <td>${badge(r.status, BADGE_STATUS)}</td>
       <td>${badge(r.atendimento, BADGE_ATENDIMENTO)}</td>
-      <td>${escapeHtml(r.decisao)}</td>
+      <td>${escapeHtml(tipoSancaoDisplay(r))}</td>
       <td>${escapeHtml(r.dataSancao)}</td>
       <td>${escapeHtml(r.dataPedido)}</td>
-      <td class="gfTd-center">
-        <button class="gfIconBtn gfView" data-gd-ver="${escapeHtml(r.processo)}" title="Ver detalhamento"><i class="fa-solid fa-eye"></i></button>
-      </td>
+      <td>${escapeHtml(r.responsavel || "—")}</td>
     </tr>`).join("") ||
     `<tr><td colspan="13" class="gfTd-center">Nenhum registro para os filtros selecionados.</td></tr>`;
 
@@ -275,63 +323,209 @@ function kv(rotulo, valor) {
   return `<div class="gdKv"><span>${escapeHtml(rotulo)}</span><strong>${escapeHtml(valor || "—")}</strong></div>`;
 }
 
+// "dd/mm/aaaa" -> "aaaa-mm-dd" (para preencher <input type="date">). Vazio se não casar.
+function brParaIso(valor) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(valor || "").trim());
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+
+// <select> de edição em linha; garante que o valor atual esteja entre as opções.
+function gdSelect(campo, valor, opcoes) {
+  const lista = [...new Set([valor, ...opcoes].filter(v => v != null && v !== ""))];
+  const opts = lista.map(o =>
+    `<option value="${escapeHtml(o)}"${o === valor ? " selected" : ""}>${escapeHtml(o)}</option>`).join("");
+  return `<select class="gdEditField" data-gd-campo="${campo}">${opts}</select>`;
+}
+
+// Renderiza um campo do detalhamento: editável (controle conforme o tipo) quando há
+// permissão, ou somente leitura (kv) caso contrário.
+function campoEditavel(rotulo, campo, valor, podeEditar) {
+  if (!podeEditar) return kv(rotulo, valor);
+  const cfg = CAMPOS_EDITAVEIS[campo];
+  let controle;
+  if (cfg.tipo === "select") {
+    controle = gdSelect(campo, valor, cfg.opcoes);
+  } else if (cfg.tipo === "data") {
+    controle = `<input type="date" class="gdEditField" data-gd-campo="${campo}" value="${escapeHtml(brParaIso(valor))}">`;
+  } else if (cfg.tipo === "numero") {
+    const v = (valor || valor === 0) ? String(valor) : "";
+    controle = `<input type="number" min="1" step="1" class="gdEditField" data-gd-campo="${campo}" value="${escapeHtml(v)}" placeholder="dias">`;
+  } else if (cfg.tipo === "textarea") {
+    const v = valor && valor !== "—" ? valor : "";
+    controle = `<textarea class="gdEditField gdEditTextarea" data-gd-campo="${campo}" rows="3" placeholder="—">${escapeHtml(v)}</textarea>`;
+  } else {
+    const v = valor && valor !== "—" ? valor : "";
+    controle = `<input type="text" class="gdEditField" data-gd-campo="${campo}" value="${escapeHtml(v)}" placeholder="—">`;
+  }
+  return `<div class="gdKv gdKvEdit"><span>${escapeHtml(rotulo)}</span>${controle}</div>`;
+}
+
+// Limpa o painel de detalhamento (lista vazia / nada selecionado).
+function limparDetalhe(mensagem) {
+  const titulo = $("gdDetTitulo");
+  if (titulo) titulo.innerHTML = `<span class="gdDetTituloTxt">${escapeHtml(mensagem || "Nenhum pedido selecionado")}</span>`;
+  ["gdDetDados", "gdDetStatus", "gdDetSancao", "gdDetAnexos"].forEach(id => { const el = $(id); if (el) el.innerHTML = ""; });
+}
+
 function renderDetalhe(processo) {
   const r = REGISTROS.find(x => x.processo === processo) || REGISTROS[0];
+  if (!r) { limparDetalhe(); return; }
   processoSelecionado = r.processo;
+  const podeEditar = podeEditarGestaoDisciplinar(r);
+  const sancaoLiberada = podeEditar && pedidoConcluido(r);
 
   const titulo = $("gdDetTitulo");
   if (titulo) {
-    titulo.innerHTML = `${escapeHtml(r.processo)} — ${escapeHtml(r.trabalhador)} ${badge(r.statusAtual, BADGE_STATUS)}`;
+    const meuLogin = loginResponsavel();
+    const ehResp = !!r.responsavel && r.responsavel === meuLogin;
+    const respLabel = r.responsavel && !ehResp
+      ? `<span class="gdRespAtual"><i class="fa-solid fa-user-check"></i> Resp.: ${escapeHtml(r.responsavel)}</span>`
+      : "";
+    // Assumir a responsabilidade e excluir são exclusivos de administradores.
+    const botaoAssumir = ehAdminDisciplinar()
+      ? `<button type="button" class="gfBtn gdAssumirBtn" data-gd-assumir="${escapeAttr(r.processo)}"${ehResp ? " disabled" : ""}>
+          <i class="fa-solid fa-user-shield"></i> ${ehResp ? "Você é o responsável" : "Assumir a responsabilidade"}
+        </button>`
+      : "";
+    const botaoExcluir = ehAdminDisciplinar()
+      ? `<button type="button" class="gfBtn gfBtnGhost gdExcluirBtn" data-gd-excluir="${escapeAttr(r.processo)}">
+          <i class="fa-solid fa-trash"></i> Excluir
+        </button>`
+      : "";
+    titulo.innerHTML = `
+      <span class="gdDetTituloTxt">${escapeHtml(r.processo)} — ${escapeHtml(r.trabalhador)} ${badge(r.statusAtual, BADGE_STATUS)}</span>
+      <span class="gdDetTituloAcoes">
+        ${respLabel}
+        ${botaoAssumir}
+        ${botaoExcluir}
+      </span>`;
   }
 
   const dados = $("gdDetDados");
   if (dados) {
     dados.innerHTML =
-      kv("DSEI", r.dsei) +
+    (r.foraDoPrazo
+      ? `<div class="gdKv"><span></span><strong><span class="gdTagPrazo"><i class="fa-solid fa-triangle-exclamation"></i> Solicitação pelo DSEI fora do prazo</span></strong></div>`
+      : "") +
       kv("Trabalhador", r.trabalhador) +
-      kv("Cargo", r.cargo) +
       kv("Matrícula", r.matricula) +
-      kv("Polo Base / CASAI", r.polo) +
+      kv("Cargo", r.cargo) +
+      kv("DSEI/CASAI", r.dsei) +
+      kv("Polo Base", r.polo) +
       kv("Pedido", r.pedido) +
-      kv("Motivo", r.motivo) +
-      kv("Atendimento", r.atendimento) +
-      kv("Medida adotada (parcial)", r.medidaParcial) +
-      kv("Motivo do não atendimento", r.motivoNaoAtendimento) +
+      kv("Data da Ocorrência", r.ocorrencia) +
+      kv("Data do Pedido", r.dataPedido) +
+      campoEditavel("Atendimento", "atendimento", r.atendimento, podeEditar) +
+      campoEditavel("Medida adotada (parcial)", "medidaParcial", r.medidaParcial, podeEditar) +
+      campoEditavel("Motivo do não atendimento", "motivoNaoAtendimento", r.motivoNaoAtendimento, podeEditar) +
       kv("Nº do Processo SEI", r.processo) +
       `<div class="gdResumo"><span>Resumo do processo</span><p>${escapeHtml(r.resumo)}</p></div>`;
   }
 
   const statusBox = $("gdDetStatus");
   if (statusBox) {
+    const idxFase = STATUS_FASES.indexOf(r.statusAtual);
+    const desligado = r.statusAtual === STATUS_DESLIGADO;
+    const concluido = r.statusAtual === "Concluída";
+
+    const linhaStatus = `<div class="gdKv"><span>Status atual</span><strong>${badge(r.statusAtual, BADGE_STATUS)}</strong></div>`;
+
+    let stepper = "";
+    let acoes = "";
+
+    // Linha do tempo das fases (não é possível pular etapas). O pedido fora do
+    // prazo é apenas um aviso e não impede a movimentação do processo.
+    stepper = `<div class="gdStepper">` + STATUS_FASES.map((f, i) => {
+      const cls = desligado ? "" : (i === idxFase ? "is-atual" : (idxFase > i ? "is-feito" : ""));
+      return `<span class="gdStep ${cls}">${i + 1}. ${escapeHtml(f)}</span>`;
+    }).join("") + `</div>`;
+
+    // Ações de fase (padrão da Entrega de Crachá: só a transição válida é habilitada).
+    if (podeEditar) {
+      if (desligado) {
+        acoes = `<button type="button" class="gfBtn gfBtnGhost gdFaseBtn" data-gd-fase="reativar"><i class="fa-solid fa-rotate-left"></i> Reativar processo</button>`;
+      } else {
+        const proximo = idxFase >= 0 && idxFase < STATUS_FASES.length - 1 ? STATUS_FASES[idxFase + 1] : null;
+        const btnAvancar = proximo
+          ? `<button type="button" class="gfBtn gdFaseBtn" data-gd-fase="avancar"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(AVANCO_LABEL[r.statusAtual] || `Avançar para ${proximo}`)}</button>`
+          : "";
+        const btnVoltar = idxFase > 0
+          ? `<button type="button" class="gfBtn gfBtnGhost gdFaseBtn" data-gd-fase="voltar"><i class="fa-solid fa-arrow-left"></i> Voltar fase</button>`
+          : "";
+        const btnDeslig = !concluido
+          ? `<button type="button" class="gfBtn gdFaseBtn gdBtnDesligar" data-gd-fase="desligar"><i class="fa-solid fa-user-xmark"></i> Desligado antes da conclusão</button>`
+          : "";
+        acoes = btnAvancar + btnVoltar + btnDeslig;
+      }
+      acoes = `<div class="gdFaseAcoes">${acoes}</div>`;
+    }
+
     statusBox.innerHTML =
-      `<div class="gdKv"><span>Status atual</span><strong>${badge(r.statusAtual, BADGE_STATUS)}</strong></div>` +
+      linhaStatus +
+      stepper +
+      acoes +
       kv("Última atualização", r.ultimaAtualizacao) +
       kv("Data do pedido", r.dataPedido) +
-      kv("Observações", r.observacoesStatus);
+      campoEditavel("Observações", "observacoesStatus", r.observacoesStatus, podeEditar);
   }
 
   const sancao = $("gdDetSancao");
   if (sancao) {
+    const comprovanteChip = r.comprovante
+      ? `<div class="gfFileChip"><i class="fa-solid fa-file-pdf"></i><span>${escapeHtml(r.comprovante)}</span>${
+          r.comprovanteUrl
+            ? `<a class="gfIconBtn" href="${escapeAttr(r.comprovanteUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
+            : `<button class="gfIconBtn" data-gd-baixar="${escapeHtml(r.comprovante)}" title="Baixar"><i class="fa-solid fa-download"></i></button>`
+        }</div>`
+      : `<div class="gdKv"><span>Comprovante (anexo)</span><strong>—</strong></div>`;
+    const comprovanteUpload = sancaoLiberada
+      ? `<label class="gdUploadTermo"><i class="fa-solid fa-upload"></i> ${r.comprovante ? "Substituir termo (PDF)" : "Enviar termo (PDF)"}<input type="file" accept="application/pdf" data-gd-upload="comprovante" hidden></label>`
+      : "";
+    const avisoSancao = sancaoLiberada
+      ? ""
+      : `<div class="gdKv"><span>Sanção</span><strong><span class="gdTagPrazo"><i class="fa-solid fa-lock"></i> Edição bloqueada até a conclusão do pedido</span></strong></div>`;
     sancao.innerHTML =
-      kv("Tipo de Sanção", r.tipoSancao) +
-      kv("Data da Aplicação", r.dataAplicacao) +
+      avisoSancao +
+      campoEditavel("Motivo", "decisao", r.decisao, sancaoLiberada) +
+      campoEditavel("Tipo de Sanção", "sancao", r.tipoSancao, sancaoLiberada) +
+      (r.tipoSancao === "Suspensão"
+        ? campoEditavel("Dias de suspensão", "diasSuspensao", r.diasSuspensao, sancaoLiberada)
+        : "") +
+      campoEditavel("Data da Aplicação", "dataSancao", r.dataAplicacao, sancaoLiberada) +
       kv("Aplicada por", r.aplicadaPor) +
       kv("Documento Comprobatório", r.documento) +
-      (r.comprovante
-        ? `<div class="gfFileChip"><i class="fa-solid fa-file-pdf"></i><span>${escapeHtml(r.comprovante)}</span><button class="gfIconBtn" data-gd-baixar="${escapeHtml(r.comprovante)}" title="Baixar"><i class="fa-solid fa-download"></i></button></div>`
-        : `<div class="gdKv"><span>Comprovante (anexo)</span><strong>—</strong></div>`) +
-      kv("Observações", r.observacoesSancao);
+      comprovanteChip +
+      comprovanteUpload +
+      campoEditavel("Descrição da sanção aplicada", "observacoesSancao", r.observacoesSancao, sancaoLiberada);
   }
 
   const anexos = $("gdDetAnexos");
   if (anexos) {
-    anexos.innerHTML = (r.anexos || []).map(a => `
-      <div class="gfFileChip">
-        <i class="fa-solid fa-file-pdf"></i>
-        <span>${escapeHtml(a.nome)}<small>${escapeHtml(a.info)} · ${escapeHtml(a.data)}</small></span>
-        <button class="gfIconBtn" data-gd-baixar="${escapeHtml(a.nome)}" title="Baixar"><i class="fa-solid fa-download"></i></button>
-      </div>`).join("") +
-      `<button type="button" class="gfBtn gfBtnGhost gfBtnBlock" id="gdBtnAddAnexo" style="margin-top:10px;"><i class="fa-solid fa-plus"></i> Adicionar anexo</button>`;
+    const podeGerenciar = podeGerenciarAnexos(r);
+    const lista = (r.anexos || []).map(a => {
+      const icone = a.ehLink ? "fa-link" : "fa-file-pdf";
+      const tag = `<span class="gdAnexoTag">${escapeHtml(ANEXO_TIPO_LABEL[a.tipo] || a.tipo || "Anexo")}</span>`;
+      const acao = a.disponivel
+        ? `<a class="gfIconBtn" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer" title="${a.ehLink ? "Abrir" : "Baixar"}"><i class="fa-solid ${a.ehLink ? "fa-arrow-up-right-from-square" : "fa-download"}"></i></a>`
+        : "";
+      const remover = (podeGerenciar && a.id)
+        ? `<button class="gfIconBtn" data-gd-anexo-excluir="${escapeAttr(a.id)}" title="Remover anexo"><i class="fa-solid fa-trash"></i></button>`
+        : "";
+      return `<div class="gfFileChip">
+        <i class="fa-solid ${icone}"></i>
+        <span>${escapeHtml(a.nome)}<small>${tag} · ${escapeHtml(a.info)}${a.data ? ` · ${escapeHtml(a.data)}` : ""}</small></span>
+        ${acao}${remover}
+      </div>`;
+    }).join("");
+    const addCtrl = podeGerenciar
+      ? `<div class="gdAnexoAdd">
+          <select class="gfSelect gdAnexoTipo" id="gdAnexoTipo" aria-label="Tipo de anexo">
+            ${Object.entries(ANEXO_TIPO_LABEL).map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("")}
+          </select>
+          <label class="gfBtn gfBtnGhost gdAddAnexos"><i class="fa-solid fa-paperclip"></i> Adicionar anexos<input type="file" multiple data-gd-anexo hidden></label>
+        </div>`
+      : "";
+    anexos.innerHTML = (lista || `<div class="gdKv"><span>Anexos</span><strong>—</strong></div>`) + addCtrl;
   }
 
   // Reflete a seleção na tabela.
@@ -340,22 +534,329 @@ function renderDetalhe(processo) {
   });
 }
 
+// ---------- Carga e sincronização com o backend ----------
+async function carregarPedidos() {
+  try {
+    const dados = await apiGet("/api/disciplinar");
+    REGISTROS = Array.isArray(dados.pedidos) ? dados.pedidos : [];
+  } catch (e) {
+    REGISTROS = [];
+    gdToast(e && e.message ? e.message : "Não foi possível carregar os pedidos disciplinares.", "erro");
+  }
+  if (!REGISTROS.some(r => r.processo === processoSelecionado)) {
+    processoSelecionado = REGISTROS[0] ? REGISTROS[0].processo : null;
+  }
+  preencherFiltros();
+  preencherDatalists();
+  renderIndicadores();
+  renderTabela();
+  renderDetalhe(processoSelecionado);
+}
+
+// Substitui localmente o registro alterado pelo retorno da API e re-renderiza,
+// preservando a seleção. Evita recarregar a lista inteira a cada edição.
+function aplicarPedidoAtualizado(pedido) {
+  if (!pedido) return;
+  const i = REGISTROS.findIndex(r => r.id === pedido.id);
+  if (i >= 0) REGISTROS[i] = pedido; else REGISTROS.unshift(pedido);
+  processoSelecionado = pedido.processo;
+  preencherFiltros();
+  preencherDatalists();
+  renderIndicadores();
+  renderTabela();
+  renderDetalhe(pedido.processo);
+}
+
+// Executa uma mutação, aplica o pedido retornado e mostra o toast; em erro,
+// re-renderiza para reverter o controle ao valor anterior.
+async function enviarMutacao(fn, msgOk) {
+  try {
+    const resp = await fn();
+    if (resp && resp.pedido) aplicarPedidoAtualizado(resp.pedido);
+    if (msgOk) gdToast(msgOk);
+    return true;
+  } catch (e) {
+    gdToast(e && e.message ? e.message : "Falha ao salvar a alteração.", "erro");
+    renderDetalhe(processoSelecionado);
+    return false;
+  }
+}
+
+// ---------- Edição em linha com confirmação ----------
+// Caixa de diálogo de confirmação. Resolve para true (confirmar) ou false (cancelar).
+function gdConfirmar(mensagem, opts = {}) {
+  return new Promise(resolve => {
+    const overlay = $("gdConfirmOverlay");
+    if (!overlay) { resolve(window.confirm(mensagem)); return; }
+    const card = overlay.querySelector(".gdConfirmCard");
+    const titulo = $("gdConfirmTitulo");
+    const msg = $("gdConfirmMsg");
+    const btnOk = $("gdConfirmOk");
+    const btnCancel = $("gdConfirmCancelar");
+    if (msg) msg.textContent = mensagem;
+    if (titulo) titulo.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(opts.titulo || "Confirmar alteração")}`;
+    if (btnOk) btnOk.innerHTML = `<i class="fa-solid fa-check"></i> ${escapeHtml(opts.okTexto || "Confirmar alteração")}`;
+    if (btnCancel) btnCancel.textContent = opts.cancelTexto || "Cancelar";
+    if (card) card.classList.toggle("is-aviso", !!opts.amarelo);
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden";
+
+    const finalizar = valor => {
+      overlay.hidden = true;
+      document.body.style.overflow = "";
+      btnOk.removeEventListener("click", onOk);
+      btnCancel.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onOverlay);
+      resolve(valor);
+    };
+    const onOk = () => finalizar(true);
+    const onCancel = () => finalizar(false);
+    const onOverlay = e => { if (e.target === overlay) finalizar(false); };
+    btnOk.addEventListener("click", onOk);
+    btnCancel.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onOverlay);
+  });
+}
+
+// Aplica a alteração de um campo do detalhamento após confirmação; persiste no
+// backend (demanda ou sanção conforme o campo).
+async function aplicarAlteracao(campo, novoValor) {
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  const cfg = CAMPOS_EDITAVEIS[campo];
+  if (!r || !cfg) return;
+
+  if (CAMPOS_SANCAO.includes(campo) && !pedidoConcluido(r)) {
+    gdToast("A sanção só pode ser editada quando o pedido estiver concluído.", "erro");
+    renderDetalhe(processoSelecionado);
+    return;
+  }
+
+  let valor = String(novoValor ?? "").trim();
+  if (cfg.tipo === "data") valor = valor ? dataParaBr(valor) : "—";
+  else if ((cfg.tipo === "texto" || cfg.tipo === "textarea") && valor === "") valor = "—";
+
+  const atual = r[cfg.chaves[0]] ?? "";
+  if (valor === String(atual)) { renderDetalhe(processoSelecionado); return; }
+
+  const ok = await gdConfirmar(`Deseja realmente alterar ${cfg.rotulo} de "${atual || "—"}" para "${valor || "—"}"?`);
+  if (!ok) { renderDetalhe(processoSelecionado); return; }
+
+  if (CAMPOS_SANCAO.includes(campo)) {
+    const chave = campo === "sancao" ? "tipoSancao" : campo;
+    await enviarMutacao(() => apiPost(`/api/disciplinar/${r.id}/sancao`, { [chave]: valor }), cfg.toast);
+  } else {
+    await enviarMutacao(() => apiPost(`/api/disciplinar/${r.id}/demanda`, { [campo]: valor }), cfg.toast);
+  }
+}
+
+// Upload do termo (comprovante) na Sanção Aplicada, com confirmação. O binário não
+// é armazenado pelo backend (sem storage de arquivo): grava-se apenas o nome.
+async function aplicarUploadTermo(arquivo) {
+  if (!arquivo) return;
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  if (!r) return;
+  if (!pedidoConcluido(r)) {
+    gdToast("O termo da sanção só pode ser enviado quando o pedido estiver concluído.", "erro");
+    renderDetalhe(processoSelecionado);
+    return;
+  }
+  const acao = r.comprovante ? "substituir" : "enviar";
+  const ok = await gdConfirmar(`Deseja realmente ${acao} o termo (comprovante) por "${arquivo.name}"?`);
+  if (!ok) { renderDetalhe(processoSelecionado); return; }
+  // Upload multipart: os bytes são guardados no banco (SANCAO.documento_sancao).
+  const fd = new FormData();
+  fd.append("termo", arquivo);
+  try {
+    const resp = await fetch(`/api/disciplinar/${r.id}/sancao/termo`, { method: "POST", headers: authHeaders(), body: fd });
+    if (!resp.ok) {
+      let m = `Erro ${resp.status}`;
+      try { const e = await resp.json(); if (e && e.error) m = e.error; } catch (_) {}
+      throw new Error(m);
+    }
+    const data = await resp.json();
+    if (data && data.pedido) aplicarPedidoAtualizado(data.pedido);
+    gdToast("Termo (comprovante) enviado.");
+  } catch (e) {
+    gdToast(e && e.message ? e.message : "Falha ao enviar o termo.", "erro");
+    renderDetalhe(processoSelecionado);
+  }
+}
+
+// Assume a responsabilidade (admin) — o login é derivado do token no servidor.
+async function assumirResponsabilidade(processo) {
+  if (!ehAdminDisciplinar()) { gdToast("Apenas administradores podem assumir processos.", "erro"); return; }
+  const r = REGISTROS.find(x => x.processo === processo);
+  if (!r) return;
+  const login = loginResponsavel();
+  if (login && r.responsavel === login) { gdToast("Você já é o responsável por este processo."); return; }
+  await enviarMutacao(() => apiPost(`/api/disciplinar/${r.id}/responsavel`, {}), `Você assumiu a responsabilidade${login ? ` (${login})` : ""}.`);
+}
+
+// Exclui o pedido (admin) — cascateia demanda/sanção/anexos/histórico no banco.
+async function excluirPedido(processo) {
+  if (!ehAdminDisciplinar()) { gdToast("Apenas administradores podem excluir pedidos.", "erro"); return; }
+  const r = REGISTROS.find(x => x.processo === processo);
+  if (!r) return;
+  const ok = await gdConfirmar(`Deseja realmente excluir o pedido "${r.processo}" de ${r.trabalhador}? Esta ação não pode ser desfeita.`, {
+    titulo: "Excluir pedido", okTexto: "Sim, excluir", cancelTexto: "Cancelar", amarelo: true
+  });
+  if (!ok) return;
+  try {
+    await apiPost(`/api/disciplinar/${r.id}/excluir`, {});
+    REGISTROS = REGISTROS.filter(x => x.id !== r.id);
+    processoSelecionado = REGISTROS[0] ? REGISTROS[0].processo : null;
+    preencherFiltros();
+    renderIndicadores();
+    renderTabela();
+    renderDetalhe(processoSelecionado);
+    gdToast("Pedido excluído.");
+  } catch (e) {
+    gdToast(e && e.message ? e.message : "Falha ao excluir o pedido.", "erro");
+  }
+}
+
+// ---------- Anexos (PROVA / OFÍCIO / MEMORANDO / RELATÓRIO / OUTRO) ----------
+// Anexa um ou mais arquivos do tipo escolhido (multipart). Só o responsável vê o
+// botão. OFÍCIO é único por pedido (o backend substitui o anterior).
+async function adicionarAnexos(files) {
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  if (!r || !files || !files.length) return;
+  const tipo = $("gdAnexoTipo")?.value || "PROVA";
+  const fd = new FormData();
+  fd.append("tipo", tipo);
+  [...files].forEach(f => fd.append("anexos", f));
+  try {
+    // FormData define o Content-Type (com boundary) sozinho — não force JSON.
+    const resp = await fetch(`/api/disciplinar/${r.id}/anexos`, { method: "POST", headers: authHeaders(), body: fd });
+    if (!resp.ok) {
+      let m = `Erro ${resp.status}`;
+      try { const e = await resp.json(); if (e && e.error) m = e.error; } catch (_) {}
+      throw new Error(m);
+    }
+    const data = await resp.json();
+    if (data && data.pedido) aplicarPedidoAtualizado(data.pedido);
+    gdToast(`${ANEXO_TIPO_LABEL[tipo] || "Anexo"}${files.length > 1 ? "s" : ""} anexado(s).`);
+  } catch (e) {
+    gdToast(e && e.message ? e.message : "Falha ao anexar arquivos.", "erro");
+  }
+}
+
+async function excluirAnexo(idAnexo) {
+  const ok = await gdConfirmar("Deseja remover este anexo?", { titulo: "Remover anexo", okTexto: "Sim, remover", cancelTexto: "Cancelar", amarelo: true });
+  if (!ok) return;
+  await enviarMutacao(() => apiPost(`/api/disciplinar/anexo/${idAnexo}/excluir`, {}), "Anexo removido.");
+}
+
+// ---------- Fases do processo (avançar/voltar/desligar) ----------
+async function definirStatusDisc(r, novo, msg) {
+  await enviarMutacao(() => apiPost(`/api/disciplinar/${r.id}/demanda`, { status: novo }), msg || `Status atualizado para "${novo}".`);
+}
+
+function avancarFaseDisc() {
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  if (!r) return;
+  const idx = STATUS_FASES.indexOf(r.statusAtual);
+  if (idx < 0 || idx >= STATUS_FASES.length - 1) { gdToast("Não há próxima fase.", "erro"); return; }
+  const novo = STATUS_FASES[idx + 1];
+  definirStatusDisc(r, novo, `Processo avançado para "${novo}".`);
+}
+
+function voltarFaseDisc() {
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  if (!r) return;
+  const idx = STATUS_FASES.indexOf(r.statusAtual);
+  if (idx <= 0) { gdToast("O processo já está na primeira fase.", "erro"); return; }
+  const novo = STATUS_FASES[idx - 1];
+  definirStatusDisc(r, novo, `Fase revertida para "${novo}".`);
+}
+
+function desligarProcessoDisc() {
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  if (!r || r.statusAtual === STATUS_DESLIGADO) return;
+  definirStatusDisc(r, STATUS_DESLIGADO, "Trabalhador marcado como desligado antes da conclusão.");
+}
+
+function reativarProcessoDisc() {
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  if (!r) return;
+  // Sem memória da fase anterior no banco: reativa em "Em análise".
+  definirStatusDisc(r, "Em análise", `Processo reativado em "Em análise".`);
+}
+
+// ---------- Indicadores gerais ----------
+function renderIndicadores() {
+  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  const cont = fn => REGISTROS.filter(fn).length;
+
+  // Linha 1 — total de pedidos e desmembramento por resultado/sanção.
+  // "Concluídas" engloba todos os cartões à sua direita, inclusive os pedidos
+  // marcados como "Desligado antes da conclusão" (encerramento terminal).
+  set("gdKpiTotal", REGISTROS.length);
+  set("gdKpiConcluidos", cont(r => r.statusAtual === STATUS_CONCLUIDA || r.statusAtual === STATUS_DESLIGADO));
+  set("gdKpiSancaoNaoAplicada", cont(r => r.statusAtual === STATUS_CONCLUIDA && r.tipoSancao === "Não Aplicada"));
+  set("gdKpiAdvertenciasOrais", cont(r => r.statusAtual === STATUS_CONCLUIDA && /^advertência oral$/i.test(r.tipoSancao || "")));
+  set("gdKpiAdvertencias", cont(r => r.statusAtual === STATUS_CONCLUIDA && /^advertência$/i.test(r.tipoSancao || "")));
+  set("gdKpiSuspensoes", cont(r => r.statusAtual === STATUS_CONCLUIDA && /^suspens/i.test(r.tipoSancao || "")));
+  set("gdKpiJustasCausas", cont(r => r.statusAtual === STATUS_CONCLUIDA && (r.tipoSancao || "").toLowerCase() === "justa causa"));
+
+  // Linha 2 — não concluídos e desmembramento por status. Os desligados deixam
+  // de contar aqui, pois passaram a integrar o total de "Concluídas".
+  set("gdKpiNaoConcluidos", cont(r => r.statusAtual !== STATUS_CONCLUIDA && r.statusAtual !== STATUS_DESLIGADO));
+  set("gdKpiPendentes", cont(r => r.statusAtual === "Pendente"));
+  set("gdKpiEmAnalise", cont(r => r.statusAtual === "Em análise"));
+  set("gdKpiAguardando", cont(r => r.statusAtual === "Aguardando devolutiva do DSEI"));
+  set("gdKpiDesligados", cont(r => r.statusAtual === STATUS_DESLIGADO));
+  set("gdKpiForaPrazo", cont(r => !!r.foraDoPrazo));
+  // Tempo médio: dias entre a data do pedido e a data de aplicação da sanção.
+  const tempos = REGISTROS.map(r => {
+    const p = dataBr(r.dataPedido);
+    const a = dataBr(r.dataAplicacao);
+    return (p && a) ? (a - p) / 86400000 : null;
+  }).filter(d => d !== null && d >= 0);
+  const media = tempos.length ? Math.round(tempos.reduce((s, d) => s + d, 0) / tempos.length) : 0;
+  set("gdKpiTempoMedioValor", `${media} dia${media === 1 ? "" : "s"}`);
+}
+
 // ---------- Ações ----------
 function limparFiltros() {
   ["gdFiltroDsei", "gdFiltroStatus"].forEach(id => { const el = $(id); if (el) el.value = ""; });
-  ["gdFiltroDataIni", "gdFiltroDataFim", "gdBuscaNome", "gdBuscaPedido"].forEach(id => { const el = $(id); if (el) el.value = ""; });
+  ["gdFiltroDataIni", "gdFiltroDataFim", "gdBuscaNome", "gdBuscaPedido", "gdBuscaResponsavel"].forEach(id => { const el = $(id); if (el) el.value = ""; });
+  filtroMeusProcessos = false;
+  $("gdBtnMeusProcessos")?.classList.remove("is-ativo");
   renderTabela();
   gdToast("Filtros limpos.");
 }
 
 // ---------- Formulário de novo registro ----------
 const CAMPOS_FORM = ["gdFProcesso", "gdFDsei", "gdFTrabalhador", "gdFCargo", "gdFMatricula",
-  "gdFPolo", "gdFOcorrencia", "gdFDataPedido", "gdFMotivo"];
+  "gdFPolo", "gdFOcorrencia", "gdFDataPedido", "gdFResponsavel", "gdFResumo", "gdFLink", "gdFArquivo"];
+
+// Documento do processo: alterna entre os campos de link e de anexo (PDF).
+function atualizarDocTipoGd() {
+  const tipo = document.querySelector('input[name="gdDocTipo"]:checked')?.value || "link";
+  const link = $("gdFLink");
+  const arquivo = $("gdFArquivo");
+  if (link) link.hidden = tipo !== "link";
+  if (arquivo) arquivo.hidden = tipo !== "anexo";
+}
+
+// Data de hoje no formato "aaaa-mm-dd" (para <input type="date">).
+function hojeIso() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
 
 function abrirFormulario() {
   const painel = $("gdFormPanel");
   if (!painel) return;
   painel.style.display = "";
+  atualizarDocTipoGd();
+  carregarAdminsDelegaveis();
+  // Data do pedido começa na data atual, mas pode ser editada.
+  const dPed = $("gdFDataPedido");
+  if (dPed && !dPed.value) dPed.value = hojeIso();
   painel.scrollIntoView({ behavior: "smooth", block: "start" });
   $("gdFTrabalhador")?.focus();
 }
@@ -366,83 +867,284 @@ function fecharFormulario(limpar) {
   painel.style.display = "none";
   if (limpar) {
     CAMPOS_FORM.forEach(id => { const el = $(id); if (el) el.value = ""; });
+    const radioLink = document.querySelector('input[name="gdDocTipo"][value="link"]');
+    if (radioLink) radioLink.checked = true;
+    atualizarDocTipoGd();
+    limparNovosAnexos();
   }
 }
 
-// Ao escolher/digitar o trabalhador, puxa cargo, matrícula, DSEI e polo.
-function autoPreencherTrabalhador() {
-  const nome = ($("gdFTrabalhador")?.value || "").trim();
-  const d = DIRETORIO.find(x => x.nome.toLowerCase() === nome.toLowerCase());
+// Reinicia e dispara a animação de auto-preenchimento num campo.
+function animarCampo(el) {
+  if (!el) return;
+  el.classList.remove("gd-autofill");
+  void el.offsetWidth; // força reflow para reiniciar a animação a cada seleção
+  el.classList.add("gd-autofill");
+}
+
+// ---------- Combobox de trabalhador (clicável + pesquisável) ----------
+// A matrícula é FK obrigatória do pedido, então o trabalhador precisa existir no
+// consolidado. A lista é buscada no backend conforme o usuário digita e exibida
+// num dropdown clicável; ao selecionar, auto-preenche os demais campos.
+let trabalhadoresBusca = new Map(); // nome(lower) -> { matricula, cargo, dsei, polo }
+let trabalhadoresLista = [];        // resultados atuais (para render + navegação)
+let buscaTrabTimer = null;
+let comboIdx = -1;                  // item destacado pelo teclado
+
+async function buscarTrabalhadores() {
+  const termo = ($("gdFTrabalhador")?.value || "").trim();
+  if (termo.length < 2) { trabalhadoresLista = []; renderComboLista(); return; }
+  let dados;
+  try { dados = await apiGet(`/api/disciplinar/trabalhadores?q=${encodeURIComponent(termo)}`); }
+  catch (e) { trabalhadoresLista = []; renderComboLista(); return; }
+  trabalhadoresLista = dados.trabalhadores || [];
+  trabalhadoresBusca = new Map(trabalhadoresLista.map(t => [String(t.nome).toLowerCase(), t]));
+  comboIdx = -1;
+  renderComboLista();
+}
+
+function comboAberto(aberto) {
+  const lista = $("gdComboTrabalhadorLista");
+  const input = $("gdFTrabalhador");
+  if (lista) lista.hidden = !aberto;
+  if (input) input.setAttribute("aria-expanded", String(!!aberto));
+  if (!aberto) comboIdx = -1;
+}
+
+function renderComboLista() {
+  const lista = $("gdComboTrabalhadorLista");
+  if (!lista) return;
+  const termo = ($("gdFTrabalhador")?.value || "").trim();
+  if (termo.length < 2) {
+    lista.innerHTML = `<li class="gdComboVazio">Digite ao menos 2 letras para buscar…</li>`;
+    return;
+  }
+  if (!trabalhadoresLista.length) {
+    lista.innerHTML = `<li class="gdComboVazio">Nenhum trabalhador encontrado.</li>`;
+    return;
+  }
+  lista.innerHTML = trabalhadoresLista.map((t, i) =>
+    `<li class="gdComboItem${i === comboIdx ? " is-ativo" : ""}" role="option" data-mat="${escapeAttr(t.matricula)}" data-nome="${escapeAttr(t.nome)}">
+      <span class="gdComboNome">${escapeHtml(t.nome)}</span>
+      <span class="gdComboMeta">${escapeHtml(t.cargo)} · ${escapeHtml(t.dsei)} · mat. ${escapeHtml(t.matricula)}</span>
+    </li>`).join("");
+}
+
+// Limpa a seleção (matrícula/cargo/polo) quando o texto muda sem uma escolha
+// válida — assim a gravação exige selecionar um trabalhador do consolidado.
+function limparSelecaoTrabalhador() {
+  ["gdFMatricula", "gdFCargo", "gdFPolo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
+}
+
+// Aplica a seleção de um trabalhador: preenche matrícula, cargo, DSEI e polo.
+function selecionarTrabalhador(nome) {
+  const input = $("gdFTrabalhador");
+  if (input) input.value = nome;
+  const d = trabalhadoresBusca.get(String(nome).toLowerCase());
   if (!d) return;
-  const set = (id, v) => { const el = $(id); if (el) el.value = v; };
-  set("gdFCargo", d.cargo);
+  const set = (id, v) => { const el = $(id); if (!el) return; el.value = v || ""; animarCampo(el); };
   set("gdFMatricula", d.matricula);
+  set("gdFCargo", d.cargo);
   set("gdFPolo", d.polo);
   if (!$("gdFDsei")?.value) set("gdFDsei", d.dsei);
 }
 
-// Converte "aaaa-mm-dd" (input date) para "dd/mm/aaaa" usado na tabela.
+function onComboKeydown(e) {
+  if (e.key === "Escape") { comboAberto(false); return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (!trabalhadoresLista.length) return;
+    e.preventDefault();
+    comboAberto(true);
+    comboIdx += (e.key === "ArrowDown" ? 1 : -1);
+    if (comboIdx < 0) comboIdx = trabalhadoresLista.length - 1;
+    if (comboIdx >= trabalhadoresLista.length) comboIdx = 0;
+    renderComboLista();
+    $("gdComboTrabalhadorLista")?.querySelector(".is-ativo")?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter" && comboIdx >= 0 && trabalhadoresLista[comboIdx]) {
+    e.preventDefault();
+    selecionarTrabalhador(trabalhadoresLista[comboIdx].nome);
+    comboAberto(false);
+  }
+}
+
+// Liga os eventos do combobox (uma vez só, na inicialização).
+function setupComboTrabalhador() {
+  const combo = $("gdComboTrabalhador");
+  const input = $("gdFTrabalhador");
+  const lista = $("gdComboTrabalhadorLista");
+  if (!combo || !input || !lista) return;
+
+  input.addEventListener("focus", () => { comboAberto(true); renderComboLista(); });
+  combo.querySelector(".gdComboCaret")?.addEventListener("mousedown", e => {
+    e.preventDefault();
+    const abrir = lista.hidden;
+    input.focus();
+    comboAberto(abrir);
+    if (abrir) renderComboLista();
+  });
+  input.addEventListener("input", () => {
+    comboAberto(true);
+    limparSelecaoTrabalhador(); // texto digitado ainda não é uma seleção válida
+    clearTimeout(buscaTrabTimer);
+    buscaTrabTimer = setTimeout(buscarTrabalhadores, 250);
+  });
+  input.addEventListener("keydown", onComboKeydown);
+  // mousedown (não click) para selecionar antes do blur fechar a lista.
+  lista.addEventListener("mousedown", e => {
+    const item = e.target.closest("[data-nome]");
+    if (!item) return;
+    e.preventDefault();
+    selecionarTrabalhador(item.dataset.nome);
+    comboAberto(false);
+  });
+  // Fecha ao clicar fora do combobox.
+  document.addEventListener("click", e => { if (!combo.contains(e.target)) comboAberto(false); });
+}
+
+// Converte "aaaa-mm-dd" (input date) para "dd/mm/aaaa".
 function dataParaBr(valor) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(valor || "").trim());
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
 }
 
-function salvarRegistro() {
+// ---------- Anexos do novo pedido (preparados no formulário) ----------
+// Como o pedido ainda não existe, os arquivos ficam "em espera" e são enviados
+// junto com o cadastro (multipart). Cada item guarda o arquivo e o tipo escolhido.
+let novosAnexos = [];
+
+function renderNovosAnexos() {
+  const ul = $("gdFAnexoLista");
+  if (!ul) return;
+  ul.innerHTML = novosAnexos.map((a, i) =>
+    `<li class="gdNovoAnexoItem">
+       <i class="fa-solid fa-file-lines"></i>
+       <span>${escapeHtml(a.file.name)}<small>${escapeHtml(ANEXO_TIPO_LABEL[a.tipo] || a.tipo)} · ${Math.max(1, Math.round(a.file.size / 1024))} KB</small></span>
+       <button type="button" class="gfIconBtn" data-gd-novo-anexo="${i}" title="Remover"><i class="fa-solid fa-xmark"></i></button>
+     </li>`
+  ).join("");
+}
+
+function adicionarNovoAnexoStage(files) {
+  const tipo = $("gdFAnexoTipo")?.value || "PROVA";
+  [...(files || [])].forEach(f => novosAnexos.push({ file: f, tipo }));
+  renderNovosAnexos();
+}
+
+function limparNovosAnexos() {
+  novosAnexos = [];
+  renderNovosAnexos();
+}
+
+async function salvarRegistro() {
   const val = id => ($(id)?.value || "").trim();
   const trabalhador = val("gdFTrabalhador");
   const dsei = val("gdFDsei");
+  const matricula = val("gdFMatricula");
+  const processo = val("gdFProcesso");
   if (!trabalhador || !dsei) {
     gdToast("Informe ao menos o trabalhador e o DSEI/CASAI.", "erro");
     return;
   }
+  if (!matricula) {
+    gdToast("Selecione o trabalhador na busca para vincular a matrícula.", "erro");
+    return;
+  }
+  if (!processo) {
+    gdToast("Informe o nº do Processo SEI.", "erro");
+    return;
+  }
 
-  const atendimento = $("gdFAtendimento")?.value || "—";
-  const dataSancao = dataParaBr(val("gdFDataSancao"));
-  const novo = {
-    processo: val("gdFProcesso") || "(sem nº SEI)",
-    dsei,
-    trabalhador,
-    cargo: val("gdFCargo") || "—",
-    matricula: val("gdFMatricula") || "—",
-    polo: val("gdFPolo") || "—",
-    ocorrencia: dataParaBr(val("gdFOcorrencia")),
-    pedido: $("gdFPedido")?.value || "Advertência",
-    status: $("gdFStatus")?.value || "Pendente",
-    atendimento,
-    decisao: $("gdFDecisao")?.value || "Não foi aplicado",
-    dataSancao,
-    dataPedido: dataParaBr(val("gdFDataPedido")),
-    motivo: val("gdFMotivo") || "—",
-    medidaParcial: "—",
-    motivoNaoAtendimento: "—",
-    resumo: `Registro cadastrado pelo supervisor/coordenador. ${val("gdFMotivo") || ""}`.trim(),
-    statusAtual: $("gdFStatus")?.value || "Pendente",
-    ultimaAtualizacao: dataParaBr(val("gdFDataPedido")),
-    observacoesStatus: "—",
-    tipoSancao: $("gdFDecisao")?.value === "Não foi aplicado" ? "—" : ($("gdFDecisao")?.value || "—"),
-    dataAplicacao: dataSancao,
-    aplicadaPor: "Coordenação Distrital",
-    documento: "—",
-    comprovante: "",
-    observacoesSancao: "—",
-    anexos: []
-  };
+  // Prazo: o pedido cadastrado mais de 30 dias após a data da ocorrência está
+  // fora do prazo. Nesse caso, pede confirmação antes de gravar.
+  const ocorrenciaIso = val("gdFOcorrencia");
+  const pedidoIso = val("gdFDataPedido");
+  let foraDoPrazo = false;
+  if (ocorrenciaIso && pedidoIso) {
+    const dias = (new Date(pedidoIso) - new Date(ocorrenciaIso)) / 86400000;
+    foraDoPrazo = Number.isFinite(dias) && dias > 30;
+  }
+  // Status inicial padrão. Para pedidos fora do prazo, o usuário escolhe entre já
+  // concluir o pedido ou movimentar o processo normalmente pelo fluxo de fases.
+  let statusInicial = "Pendente";
+  if (foraDoPrazo) {
+    const ok = await gdConfirmar("Pedido cadastrado fora do prazo, deseja prosseguir?", {
+      titulo: "Pedido fora do prazo",
+      okTexto: "Sim, prosseguir",
+      cancelTexto: "Não",
+      amarelo: true
+    });
+    if (!ok) return;
 
-  REGISTROS.unshift(novo);
+    const concluir = await gdConfirmar("Deseja marcar este pedido já como concluído ou movimentar o processo normalmente?", {
+      titulo: "Pedido fora do prazo",
+      okTexto: "Marcar como concluído",
+      cancelTexto: "Movimentar normalmente",
+      amarelo: true
+    });
+    if (concluir) statusInicial = STATUS_CONCLUIDA;
+  }
 
-  // Garante que um DSEI/CASAI novo passe a aparecer no filtro.
-  if (!DSEIS_CASAIS.includes(dsei)) DSEIS_CASAIS.push(dsei);
-  preencherFiltros();
-  preencherDatalists();
+  // Envio multipart: campos de texto + o ofício (link OU arquivo em PDF). Quando é
+  // arquivo, os bytes são guardados no banco (1 ofício por pedido).
+  const fd = new FormData();
+  const add = (k, v) => fd.append(k, v == null ? "" : v);
+  add("processo", processo);
+  add("matricula", matricula);
+  add("trabalhador", trabalhador);
+  add("dsei", dsei);
+  add("cargo", val("gdFCargo"));
+  add("polo", val("gdFPolo"));
+  add("ocorrencia", ocorrenciaIso);
+  add("dataPedido", pedidoIso);
+  add("pedido", $("gdFPedido")?.value || "Sem indicação");
+  add("resumo", val("gdFResumo"));
+  // Delegação de responsável só é aceita de administradores.
+  add("responsavel", ehAdminDisciplinar() ? val("gdFResponsavel") : "");
+  add("foraDoPrazo", foraDoPrazo ? "1" : "0");
+  add("statusInicial", statusInicial);
 
+  const tipoDoc = document.querySelector('input[name="gdDocTipo"]:checked')?.value || "link";
+  if (tipoDoc === "link") {
+    const link = val("gdFLink");
+    if (link) { add("anexoUrl", link); add("anexoNome", link); }
+  } else {
+    const arquivo = $("gdFArquivo")?.files?.[0];
+    if (arquivo) fd.append("oficio", arquivo);
+  }
+
+  // Anexos preparados na divisão "Anexos do processo" (vários, com tipo).
+  const anexosTipos = [];
+  novosAnexos.forEach(a => { fd.append("anexos", a.file); anexosTipos.push(a.tipo); });
+  if (anexosTipos.length) fd.append("anexosTipos", JSON.stringify(anexosTipos));
+
+  let resp;
+  try {
+    const r = await fetch("/api/disciplinar", { method: "POST", headers: authHeaders(), body: fd });
+    if (!r.ok) {
+      let m = `Erro ${r.status}`;
+      try { const e = await r.json(); if (e && e.error) m = e.error; } catch (_) {}
+      throw new Error(m);
+    }
+    resp = await r.json();
+  } catch (e) {
+    gdToast(e && e.message ? e.message : "Falha ao salvar o pedido.", "erro");
+    return;
+  }
   fecharFormulario(true);
-  renderTabela();
-  renderDetalhe(novo.processo);
+  if (resp && resp.pedido) aplicarPedidoAtualizado(resp.pedido);
+  else await carregarPedidos();
   gdToast(`Pedido disciplinar de "${trabalhador}" registrado.`);
 }
 
 // ---------- Inicialização ----------
 let gestaoDisciplinarConfigurada = false;
+
+// Re-renderiza quando a permissão do usuário muda (ex.: a sessão é carregada
+// DEPOIS do primeiro render). Chamado por aplicarPermissoesUsuario() (auth.js).
+export function atualizarPermissaoGestaoDisciplinar() {
+  aplicarVisibilidadeCardsDisciplinar();
+  if (gestaoDisciplinarConfigurada) renderDetalhe(processoSelecionado);
+}
 
 export function configurarGestaoDisciplinar() {
   if (gestaoDisciplinarConfigurada) return;
@@ -450,35 +1152,96 @@ export function configurarGestaoDisciplinar() {
   if (!raiz) return;
   gestaoDisciplinarConfigurada = true;
 
-  preencherFiltros();
-  preencherDatalists();
-  renderTabela();
-  renderDetalhe(processoSelecionado);
+  aplicarVisibilidadeCardsDisciplinar();
+  carregarPedidos();
 
   // Filtros reagem na hora.
   ["gdFiltroDsei", "gdFiltroStatus"].forEach(id => $(id)?.addEventListener("change", renderTabela));
   ["gdFiltroDataIni", "gdFiltroDataFim"].forEach(id => $(id)?.addEventListener("change", renderTabela));
-  ["gdBuscaNome", "gdBuscaPedido"].forEach(id => $(id)?.addEventListener("input", renderTabela));
+  ["gdBuscaNome", "gdBuscaPedido", "gdBuscaResponsavel"].forEach(id => $(id)?.addEventListener("input", renderTabela));
 
   $("gdBtnLimpar")?.addEventListener("click", limparFiltros);
   $("gdBtnNovo")?.addEventListener("click", abrirFormulario);
 
+  // Recolher/expandir a barra de filtros.
+  $("gdBtnToggleFiltros")?.addEventListener("click", () => {
+    const toolbar = $("gdToolbar");
+    const btn = $("gdBtnToggleFiltros");
+    if (!toolbar || !btn) return;
+    const recolhido = toolbar.classList.toggle("is-recolhido");
+    btn.setAttribute("aria-expanded", String(!recolhido));
+  });
+
+  // Filtro rápido: só os processos em que o usuário logado é o responsável.
+  $("gdBtnMeusProcessos")?.addEventListener("click", () => {
+    filtroMeusProcessos = !filtroMeusProcessos;
+    $("gdBtnMeusProcessos")?.classList.toggle("is-ativo", filtroMeusProcessos);
+    renderTabela();
+  });
+
   // Formulário de novo registro.
   $("gdBtnCancelar")?.addEventListener("click", () => fecharFormulario(true));
   $("gdBtnSalvarRegistro")?.addEventListener("click", salvarRegistro);
-  ["change", "blur"].forEach(ev => $("gdFTrabalhador")?.addEventListener(ev, autoPreencherTrabalhador));
+  setupComboTrabalhador();
+  // Anexos do novo pedido: prepara os arquivos escolhidos e permite remover.
+  $("gdFAnexoInput")?.addEventListener("change", event => {
+    adicionarNovoAnexoStage(event.target.files);
+    event.target.value = "";
+  });
+  $("gdFAnexoLista")?.addEventListener("click", event => {
+    const rm = event.target.closest("[data-gd-novo-anexo]");
+    if (!rm) return;
+    novosAnexos.splice(Number(rm.dataset.gdNovoAnexo), 1);
+    renderNovosAnexos();
+  });
+  document.querySelectorAll('input[name="gdDocTipo"]').forEach(radio =>
+    radio.addEventListener("change", atualizarDocTipoGd));
 
-  // Delegação: clique na linha / botão "ver" abre o detalhamento; download é maquete.
+  // Clique na linha abre o detalhamento; botões disparam suas ações.
   raiz.addEventListener("click", event => {
-    const ver = event.target.closest("[data-gd-ver]");
-    if (ver) { renderDetalhe(ver.dataset.gdVer); return; }
+    const assumir = event.target.closest("[data-gd-assumir]");
+    if (assumir) { assumirResponsabilidade(assumir.dataset.gdAssumir); return; }
+
+    const excluir = event.target.closest("[data-gd-excluir]");
+    if (excluir) { excluirPedido(excluir.dataset.gdExcluir); return; }
+
+    const fase = event.target.closest("[data-gd-fase]");
+    if (fase) {
+      const acao = fase.dataset.gdFase;
+      if (acao === "avancar") avancarFaseDisc();
+      else if (acao === "voltar") voltarFaseDisc();
+      else if (acao === "desligar") desligarProcessoDisc();
+      else if (acao === "reativar") reativarProcessoDisc();
+      return;
+    }
 
     const baixar = event.target.closest("[data-gd-baixar]");
     if (baixar) { gdToast(`Download de "${baixar.dataset.gdBaixar}" (maquete).`); return; }
 
-    if (event.target.closest("#gdBtnAddAnexo")) { gdToast("Adicionar anexo (em construção)."); return; }
+    const anexoExcluir = event.target.closest("[data-gd-anexo-excluir]");
+    if (anexoExcluir) { excluirAnexo(anexoExcluir.dataset.gdAnexoExcluir); return; }
 
     const linha = event.target.closest(".gdRow");
     if (linha && linha.dataset.gdProcesso) renderDetalhe(linha.dataset.gdProcesso);
+  });
+
+  // Campos de data: abre o seletor ao clicar em qualquer parte do campo (não só
+  // no ícone). showPicker() exige gesto do usuário — o clique satisfaz.
+  raiz.addEventListener("click", event => {
+    const data = event.target.closest('input[type="date"]');
+    if (data && typeof data.showPicker === "function") {
+      try { data.showPicker(); } catch (e) { /* já aberto/não suportado */ }
+    }
+  });
+
+  // Edição em linha do detalhamento: ao escolher um novo valor no Status/Sanção,
+  // abre a confirmação antes de aplicar (campos só editáveis com permissão).
+  raiz.addEventListener("change", event => {
+    const up = event.target.closest("[data-gd-upload]");
+    if (up) { aplicarUploadTermo(up.files?.[0]); return; }
+    const anexo = event.target.closest("[data-gd-anexo]");
+    if (anexo) { const fs = [...anexo.files]; anexo.value = ""; adicionarAnexos(fs); return; }
+    const sel = event.target.closest("[data-gd-campo]");
+    if (sel) { aplicarAlteracao(sel.dataset.gdCampo, sel.value); return; }
   });
 }
