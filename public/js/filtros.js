@@ -6,7 +6,7 @@ import { renderAlertasKpis } from "./kpis.js";
 import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirRemanejamentoPainel, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
 import { charts, filterConfigs, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
-import { escapeAttr, escapeHtml, normalizarTextoPainel } from "./utils.js";
+import { escapeAttr, escapeHtml, normalizarTextoPainel, debounce } from "./utils.js";
 import { alterarTabelaVagas, alterarVisualizacaoVagas, atualizarPesquisaVagas, mudarPaginaVagas, ordenarTabelaVagas, renderVagasDaPagina } from "./vagas.js";
 
 export function atualizarModoRolagem(view) {
@@ -217,12 +217,15 @@ export function configurarDelegacaoEventos() {
     }
   });
 
+  // Busca de vagas debounced (~250ms): evita refiltrar a base a cada tecla.
+  const pesquisarVagasDebounced = debounce(valor => atualizarPesquisaVagas(valor), 250);
+
   document.addEventListener("input", event => {
     const el = event.target.closest("[data-input]");
     if (!el) return;
     const d = el.dataset;
     switch (d.input) {
-      case "pesquisa-vagas": atualizarPesquisaVagas(event.target.value); break;
+      case "pesquisa-vagas": pesquisarVagasDebounced(event.target.value); break;
       case "atualizar-resumo-rem": atualizarResumoRemanejamento(); break;
       case "render-rem-lista": renderRemanejamentoLista(); break;
       case "campo-linha-rem": atualizarCampoLinhaRemanejamento(d.tipo, d.id, d.campo, event.target.value); break;
@@ -312,7 +315,8 @@ export function criarMultiSelect(id, options, placeholder) {
   const searchInput = container.querySelector(".multiSelectSearch");
   if (searchInput) {
     searchInput.addEventListener("click", event => event.stopPropagation());
-    searchInput.addEventListener("input", () => filtrarOpcoesMultiSelect(cfg, searchInput.value));
+    const filtrarOpcoesDebounced = debounce(() => filtrarOpcoesMultiSelect(cfg, searchInput.value), 150);
+    searchInput.addEventListener("input", filtrarOpcoesDebounced);
   }
 
   atualizarResumoMultiSelect(cfg);

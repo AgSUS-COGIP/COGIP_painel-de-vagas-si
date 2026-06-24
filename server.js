@@ -363,7 +363,7 @@ app.get("/api/remanejamento/detalhe/:id", apiLimiter, autenticarFrescoMiddleware
   res.json(await getRemanejamentoDetalheData(req.params.id));
 }));
 
-app.get("/api/remanejamento/edicao/:id", apiLimiter, asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/edicao/:id", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoEdicaoData(req.params.id));
 }));
 

@@ -8,7 +8,7 @@
 // CRUD persistido no banco (editar datas/observação, avançar/voltar status,
 // mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
-import { escapeHtml, escapeAttr, valorCsv } from "./utils.js";
+import { escapeHtml, escapeAttr, valorCsv, debounce } from "./utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 
@@ -1298,10 +1298,13 @@ export function configurarEntregaCracha() {
   if (navItem) navItem.addEventListener("click", () => { if (!carregando) carregarDados(); });
   if (state.activeView === "entregaCracha") carregarDados();
 
-  // Filtros reagem na hora (change para selects/datas, input para buscas).
+  // Filtros: selects/datas reagem na hora (change); a busca textual é debounced
+  // (~250ms) para não refiltrar a base inteira (~18k linhas) a cada tecla.
+  const aplicarFiltro = () => { lerFiltros(); paginaAtual = 1; render(); };
+  const aplicarFiltroBusca = debounce(aplicarFiltro, 250);
   raiz.querySelectorAll("[data-ec-filtro]").forEach(el => {
-    const evento = el.tagName === "INPUT" && el.type === "search" ? "input" : "change";
-    el.addEventListener(evento, () => { lerFiltros(); paginaAtual = 1; render(); });
+    const ehBusca = el.tagName === "INPUT" && el.type === "search";
+    el.addEventListener(ehBusca ? "input" : "change", ehBusca ? aplicarFiltroBusca : aplicarFiltro);
   });
 
   // Seletor de "registros por página".

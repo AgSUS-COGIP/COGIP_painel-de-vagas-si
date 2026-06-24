@@ -122,11 +122,12 @@ export function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
 }
 
-export function escapeJs(value) {
-  return String(value ?? "")
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'")
-    .replace(/"/g, '\\"')
-    .replace(/\r/g, "\\r")
-    .replace(/\n/g, "\\n");
+// Adia a execução de `fn` até passar `delay` ms sem novas chamadas. Usado para
+// evitar refiltrar/re-renderizar bases grandes a cada tecla digitada na busca.
+export function debounce(fn, delay = 200) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
 }

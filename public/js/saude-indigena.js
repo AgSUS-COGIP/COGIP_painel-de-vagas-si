@@ -751,8 +751,11 @@ export function configurarSaudeIndigena() {
   if (navItem) navItem.addEventListener("click", () => { if (!carregado && !carregando) carregar(); });
   if (state.activeView === "painelSaudeIndigena") carregar();
 
-  // Períodos por data (reagem na digitação/seleção).
-  raiz.querySelectorAll("[data-si-filtro]").forEach(el => el.addEventListener("input", onFiltro));
+  // Períodos por data (reagem na digitação): debounced (~250ms) para não
+  // refiltrar/re-renderizar a base inteira (~20k linhas, tabela sem paginação)
+  // a cada tecla.
+  const onFiltroBusca = debounce(onFiltro, 250);
+  raiz.querySelectorAll("[data-si-filtro]").forEach(el => el.addEventListener("input", onFiltroBusca));
 
   $("siBtnLimpar")?.addEventListener("click", limparFiltros);
   $("siBtnExportar")?.addEventListener("click", exportarExcel);
