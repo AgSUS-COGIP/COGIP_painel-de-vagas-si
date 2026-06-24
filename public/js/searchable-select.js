@@ -50,7 +50,13 @@ export function tornarSelectPesquisavel(select, opts = {}) {
     lista.style.top = `${Math.round(r.bottom + 4)}px`;
     lista.style.width = `${Math.round(r.width)}px`;
   };
-  const onScroll = () => fechar();
+  // Fecha ao rolar o fundo (a lista é fixed e não acompanharia o input), MAS
+  // ignora a rolagem dentro da própria lista — senão o dropdown sumiria quando o
+  // usuário tentasse usar a barra de rolagem das opções.
+  const onScroll = (e) => {
+    if (lista && e && e.target instanceof Node && lista.contains(e.target)) return;
+    fechar();
+  };
   const onResize = () => posicionar();
 
   const render = () => {
