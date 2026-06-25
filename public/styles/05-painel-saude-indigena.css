@@ -15,7 +15,7 @@
   /* Azuis do painel (SUS) */
   --si-azul: #007de0;
   --si-azul-esc: #0053a7;
-  --si-azul-prof: #07346b;
+  --si-azul-prof: var(--azul-escuro);
   --si-azul-medio: #0a66b0;
   --si-borda: rgba(0, 83, 166, .18);
   --si-sombra: rgba(0, 50, 113, .14);
@@ -535,7 +535,7 @@
 .si-k-total { --k: var(--si-azul); }
 .si-k-ativos { --k: var(--si-mata); }
 .si-k-indigena { --k: var(--si-rio); }
-.si-k-afast { --k: #00b5d8; }
+.si-k-afast { --k: var(--ciano); }
 .si-k-ferias { --k: var(--si-amarelo); }
 .si-k-deslig { --k: #7a8aa0; }
 
@@ -766,8 +766,8 @@
 .siTdLocal { white-space: normal; min-width: 150px; }
 
 .siVazio {
-  text-align: center !important;
-  padding: 32px !important;
+  text-align: center;
+  padding: 32px;
   color: #5a78a0;
   font-weight: 800;
   font-style: italic;

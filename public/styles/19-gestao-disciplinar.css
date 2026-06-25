@@ -34,7 +34,7 @@
 
     :where(.gestaoDisciplinarView) .gfPageHeader h2 {
       margin: 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 21px;
       font-weight: 900;
       text-transform: uppercase;
@@ -68,7 +68,7 @@
       align-items: center;
       gap: 9px;
       margin: 0 0 14px 0;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 13px;
       font-weight: 900;
       text-transform: uppercase;
@@ -81,7 +81,7 @@
       width: 22px;
       height: 22px;
       border-radius: 8px;
-      background: linear-gradient(135deg, #0ea5ff, #0070d9);
+      background: linear-gradient(135deg, #0ea5ff, var(--azul-primario));
       color: #fff;
       font-size: 11px;
       font-weight: 900;
@@ -89,7 +89,7 @@
     }
 
     :where(.gestaoDisciplinarView) .gfPanelTitle i {
-      color: #0070d9;
+      color: var(--azul-primario);
     }
 
     :where(.gestaoDisciplinarView) .gfSectionLabel {
@@ -126,25 +126,12 @@
       color: #e0483b;
     }
 
+    /* O visual dos inputs (pílula branca + sombra) é centralizado em
+       23-filtros-padrao.css, aplicado a todas as telas de dados. A largura
+       (width:100%) vem da base .gfInput em 17-gestao-ferias.css. */
     :where(.gestaoDisciplinarView) .gfInput,
     :where(.gestaoDisciplinarView) .gfSelect {
-      height: 38px;
-      border: 1px solid rgba(0, 83, 166, .22);
-      border-radius: 10px;
-      background: #fff;
-      color: #0b2445;
-      font-size: 12px;
-      font-weight: 700;
-      font-family: inherit;
-      padding: 0 11px;
       width: 100%;
-      outline: none;
-    }
-
-    :where(.gestaoDisciplinarView) .gfInput:focus,
-    :where(.gestaoDisciplinarView) .gfSelect:focus {
-      border-color: #0070d9;
-      box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
     }
 
     /* ---------- Botões ---------- */
@@ -230,7 +217,7 @@
     /* thead th / tbody td espelham a estrutura do 17 novo (0,1,2) para
        vencer por ordem de fonte — senão a aba herdaria o visual de Férias. */
     :where(.gestaoDisciplinarView) .gfTable thead th {
-      background: linear-gradient(135deg, #00457f, #006dcc);
+      background: linear-gradient(135deg, #00457f, var(--azul-card));
       color: #fff;
       text-align: left;
       padding: 10px 12px;
@@ -271,7 +258,7 @@
     }
 
     :where(.gestaoDisciplinarView) .gfIconBtn.gfView {
-      color: #0070d9;
+      color: var(--azul-primario);
     }
 
     /* ---------- Badges de status (base; modificadores .is-* mais abaixo) ---------- */
@@ -357,51 +344,163 @@
       overflow: visible;
     }
 
-    /* ---------- Indicadores (12 cartões) ---------- */
-    .gdKpiStack {
-      display: grid;
-      gap: 12px;
-    }
+    /* ---------- Indicadores (dashboard) ---------- */
+    .gdKpiStack { display: grid; gap: 16px; }
 
-    .gdKpiRow {
+    /* Linha 1: total de processos | total de pedidos | resumo do andamento */
+    .gdKpiTopo {
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1.7fr) minmax(0, 1.25fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+    /* Card de processos: mesmo visual do total, sem barra de progresso. */
+    .gdKpiTotalProc { justify-content: flex-start; }
+
+    /* Card de total — gradiente azul com barra de progresso */
+    .gdKpiTotal {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: linear-gradient(150deg, #0a63d6, #0a3a92);
+      border-radius: 18px;
+      padding: 20px 22px;
+      color: #fff;
+      box-shadow: 0 16px 30px rgba(0, 32, 74, .22);
       min-width: 0;
     }
-
-    .gdKpiRowTopo {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
+    .gdKpiTotalHead {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .04em;
     }
-
-    .gdKpiCardTotal {
-      width: 100%;
+    .gdKpiTotalIcon {
+      width: 30px; height: 30px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, .18);
+      display: grid; place-items: center;
+      font-size: 14px;
     }
+    .gdKpiTotalValor { font-size: 54px; font-weight: 900; line-height: 1; margin: 14px 0 16px; }
+    .gdKpiProgresso { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+    .gdKpiProgresso > span { display: block; height: 100%; width: 0; background: #fff; border-radius: 999px; transition: width .45s ease; }
+    .gdKpiProgressoLabel { margin-top: 9px; font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, .9); }
+    .gdKpiProgressoLabel strong { font-weight: 900; }
 
-    .gdKpiRowTopo .gfKpi {
+    /* Cards brancos (resumo / alertas) */
+    .gdKpiCard {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #fff;
+      border: 1px solid rgba(11, 36, 69, .06);
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: 0 12px 26px rgba(0, 24, 61, .08);
       min-width: 0;
     }
-
-    .gdKpiRowConcluidos {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 12px;
+    .gdKpiCardHead {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      color: #0b2445;
     }
-
-    .gdKpiRowNaoConcluidos {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
+    .gdKpiCardIcon {
+      width: 30px; height: 30px;
+      border-radius: 9px;
+      background: #e8f1fd;
+      color: #0a5bd0;
+      display: grid; place-items: center;
+      font-size: 13px;
     }
-
-    .gdKpiRowSingle {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
+    .gdKpiResumoLinha {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 11px;
+      background: #f4f8fd;
     }
+    .gdKpiResumoNome { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: #1f3a5f; }
+    .gdKpiResumoLinha strong { font-size: 18px; font-weight: 900; }
+    .gdKpiHint { margin: auto 0 0; display: flex; gap: 7px; font-size: 11px; font-weight: 600; color: #6b86a8; line-height: 1.4; }
+    .gdKpiHint i { color: #9bb0cc; margin-top: 2px; }
+    .is-verde { color: #16a34a; }
+    .is-vermelho { color: #dc2626; }
 
-    .gdKpiRowSingle .gfKpi {
+    /* Seções agrupadas (concluídos / não concluídos) */
+    .gdKpiSecao { display: flex; flex-direction: column; gap: 11px; }
+    .gdKpiSecaoTitulo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 4px 0 0;
+      font-size: 12.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #0b4488;
+    }
+    .gdKpiSecaoTitulo i { color: #0a8fff; }
+    .gdKpiMini { display: grid; gap: 12px; }
+    .gdKpiMini6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .gdKpiMini3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    /* Mini-card: ícone | rótulo | número */
+    .gdMiniCard {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      background: #fff;
+      border: 1px solid rgba(11, 36, 69, .06);
+      border-radius: 14px;
+      padding: 13px 14px;
+      box-shadow: 0 10px 22px rgba(0, 24, 61, .07);
       min-width: 0;
     }
+    .gdMiniIcon {
+      flex: 0 0 auto;
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      background: #e8f1fd;
+      color: #0a5bd0;
+      display: grid; place-items: center;
+      font-size: 14px;
+    }
+    .gdMiniIcon.is-laranja { background: #fff1dc; color: #c8770f; }
+    .gdMiniIcon.is-vermelho-bg { background: #fde3e0; color: #d33a2c; }
+    .gdMiniIcon.is-verde { background: #dcf5e6; color: #16a34a; }
+    .gdMiniIcon.is-amarelo { background: #fbeecb; color: #b07d0a; }
+    .gdMiniIcon.is-cinza { background: #e9edf3; color: #6b7d92; }
+    .gdMiniLabel {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.25;
+      text-transform: uppercase;
+      letter-spacing: .015em;
+      color: #3a5675;
+    }
+    .gdMiniValor { flex: 0 0 auto; font-size: 24px; font-weight: 900; color: #0b2445; }
+
+    /* Linha final (tempo médio | fora do prazo) */
+    .gdKpiBase { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .gdMiniWide { padding: 17px 20px; }
+    .gdMiniWide .gdMiniIcon { width: 46px; height: 46px; border-radius: 13px; font-size: 19px; }
+    .gdMiniWideBody { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+    .gdMiniWide .gdMiniValor { font-size: 30px; }
+    .gdMiniDeco { flex: 0 0 auto; font-size: 34px; color: rgba(10, 91, 208, .12); }
+    .gdMiniDecoAmarelo { color: rgba(176, 125, 10, .18); }
 
     /* ---------- Combobox de trabalhador (gatilho + popup) ----------
        Usa o mesmo componente visual dos demais dropdowns (classes ss*, estilo em
@@ -417,6 +516,21 @@
 
     .gdTrabNome { font-weight: 800; color: #143b66; font-size: 12.5px; }
     .gdTrabMeta { font-size: 10.5px; color: #6b7d92; font-weight: 700; }
+
+    /* Etiqueta de trabalhador desligado na lista de busca. */
+    .gdTrabDeslig {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: #fde3e0;
+      color: #c0392b;
+      font-size: 9.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      vertical-align: middle;
+    }
 
     /* ---------- Campos de data (filtros + formulário) ---------- */
     /* O campo inteiro é clicável e abre o seletor (ver showPicker no JS). */
@@ -460,6 +574,15 @@
       max-width: 170px;
     }
 
+    /* O <select> de tipo vira .ssCombo (a classe acima fica no select nativo, que
+       é ocultado). Constrangemos o wrapper VISÍVEL para o dropdown ser o campo
+       menor e o botão de upload ocupar o restante. */
+    .gdAnexoAdd .ssCombo {
+      flex: 0 0 170px;
+      width: 170px;
+      min-width: 0;
+    }
+
     .gdAddAnexos {
       flex: 1 1 auto;
       cursor: pointer;
@@ -488,6 +611,14 @@
     .gdNovoAnexoTipo {
       flex: 0 0 auto;
       max-width: 180px;
+    }
+
+    /* Idem ao detalhamento: o dropdown (já convertido em .ssCombo) é o campo
+       menor; "Selecionar arquivos" ocupa a maior parte da linha. */
+    .gdNovoAnexoAdd .ssCombo {
+      flex: 0 0 200px;
+      width: 200px;
+      min-width: 0;
     }
 
     .gdNovoAnexoBtn {
@@ -587,7 +718,7 @@
     .gdRadio input {
       width: 15px;
       height: 15px;
-      accent-color: #0070d9;
+      accent-color: var(--azul-primario);
       cursor: pointer;
     }
 
@@ -663,7 +794,7 @@
 
     .gdUploadTermo:hover {
       background: rgba(0, 112, 217, .12);
-      border-color: #0070d9;
+      border-color: var(--azul-primario);
     }
 
     /* Animação de auto-preenchimento (matrícula, cargo, DSEI/CASAI, polo base):
@@ -684,7 +815,7 @@
 
     .gfInput[hidden] { display: none; }
 
-    @media (max-width: 720px) {
+    @media (max-width: 760px) {
       .gdForm { grid-template-columns: 1fr; }
     }
 
@@ -766,7 +897,7 @@
 
     .gfTable tbody tr.gdRow.is-selected td {
       background: rgba(0, 112, 217, .16);
-      box-shadow: inset 0 3px 0 #0070d9, inset 0 -3px 0 #0070d9;
+      box-shadow: inset 0 3px 0 var(--azul-primario), inset 0 -3px 0 var(--azul-primario);
     }
 
     /* ---------- Badges específicas de status / atendimento ---------- */
@@ -790,17 +921,31 @@
     }
 
     .gdStep {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      line-height: 1.25;
       font-size: 10px;
       font-weight: 800;
       color: #6b86a8;
       background: #eef4fb;
       border: 1px solid rgba(0, 83, 166, .14);
-      border-radius: 999px;
-      padding: 4px 10px;
+      border-radius: 14px;
+      padding: 5px 10px;
     }
 
     .gdStep.is-feito { background: #d7f5e3; color: #0a7a44; border-color: rgba(10, 122, 68, .25); }
-    .gdStep.is-atual { background: #0070d9; color: #fff; border-color: #0070d9; }
+    .gdStep.is-atual { background: var(--azul-primario); color: #fff; border-color: var(--azul-primario); }
+
+    /* Data em que a etapa foi concluída, exibida abaixo do rótulo da fase. */
+    .gdStepData {
+      font-size: 8.5px;
+      font-weight: 700;
+      opacity: .9;
+      white-space: nowrap;
+    }
+    .gdStepData .fa-check { font-size: 8px; margin-right: 1px; }
 
     .gdFaseAcoes {
       display: flex;
@@ -849,7 +994,7 @@
       letter-spacing: .4px;
     }
 
-    .gdDetailLabel i { color: #0070d9; }
+    .gdDetailLabel i { color: var(--azul-primario); }
 
     .gdKv {
       display: flex;
@@ -870,7 +1015,7 @@
     .gdKv > strong {
       flex: 1 1 auto;
       text-align: right;
-      color: #07346b;
+      color: var(--azul-escuro);
     }
 
     .gdResumo {
@@ -931,26 +1076,36 @@
       align-items: center;
     }
 
-    .gdEditField {
+    /* Mesmo visual dos demais campos do painel (pílula branca + sombra). Selects e
+       datas viram .ssCombo/.dpField via JS — alinhamos a mesma largura (58%) para
+       todos os controles da linha de edição. */
+    .gdEditField,
+    .gdKvEdit .ssCombo,
+    .gdKvEdit .dpField {
       flex: 1 1 auto;
       max-width: 58%;
-      height: 30px;
-      border: 1px solid rgba(0, 83, 166, .3);
-      border-radius: 8px;
-      background: #fff;
-      color: #07346b;
+      min-width: 0;
+    }
+
+    .gdEditField {
+      height: 38px;
+      border: none;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .97);
+      color: #0b2445;
       font-family: inherit;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 800;
-      padding: 0 8px;
+      padding: 0 11px;
       outline: none;
+      box-shadow: 0 7px 18px rgba(0, 36, 82, .18);
     }
 
     select.gdEditField { cursor: pointer; }
+    .gdEditField::placeholder { color: #7a90ad; font-weight: 700; }
 
     .gdEditField:focus {
-      border-color: #0070d9;
-      box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
+      box-shadow: 0 0 0 3px rgba(0, 112, 217, .18), 0 7px 18px rgba(0, 36, 82, .18);
     }
 
     /* Caixa de descrição da sanção (texto longo). */
@@ -958,9 +1113,32 @@
       max-width: 58%;
       height: auto;
       min-height: 64px;
-      padding: 8px 10px;
+      padding: 9px 11px;
       line-height: 1.45;
       resize: vertical;
+    }
+
+    /* Aviso e barra de ações da edição inline dos dados do pedido ("Alterar"). */
+    .gdEditAviso {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 2px 0 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #eaf3ff;
+      color: var(--azul-escuro);
+      font-size: 11.5px;
+      font-weight: 700;
+      border: 1px solid rgba(0, 83, 166, .18);
+    }
+
+    .gdEditAcoes {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
     }
 
     /* Textarea "Resumo do processo" no formulário de novo registro. */
@@ -1002,7 +1180,7 @@
       display: flex;
       align-items: center;
       gap: 9px;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 15px;
       font-weight: 900;
     }
@@ -1057,23 +1235,19 @@
 
     /* ---------- Responsivo ---------- */
     @media (max-width: 1180px) {
-      .gdKpiRowConcluidos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .gdKpiRowNaoConcluidos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gdKpiTopo { grid-template-columns: 1fr; }
+      .gdKpiMini6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .gdToolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .gdDetailGrid { grid-template-columns: 1fr; }
     }
 
-    @media (max-width: 720px) {
-      .gdKpiRowConcluidos,
-      .gdKpiRowNaoConcluidos {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
+    @media (max-width: 760px) {
+      .gdKpiMini6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gdKpiMini3 { grid-template-columns: 1fr; }
+      .gdKpiBase { grid-template-columns: 1fr; }
       .gdToolbar { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 520px) {
-      .gdKpiRowConcluidos,
-      .gdKpiRowNaoConcluidos {
-        grid-template-columns: 1fr;
-      }
+      .gdKpiMini6 { grid-template-columns: 1fr; }
     }

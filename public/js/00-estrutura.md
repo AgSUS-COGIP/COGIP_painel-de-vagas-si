@@ -1,6 +1,6 @@
 # Estrutura da modularização (ES Modules)
 
-Existe **18 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas o entry:
+Há **mais de 20 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas o entry:
 
 ```html
 <script type="module" src="./js/app.js"></script>
@@ -29,7 +29,7 @@ Existe **18 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas o en
 | **state.js** | Objeto `state` com **todo o estado mutável compartilhado** (dados carregados, filtros, página atual, sessão). Centralizado para poder ser reatribuído entre módulos. |
 | **runtime.js** | Coleções mutáveis vivas: instâncias de gráficos (`charts`), configs de filtros (`filterConfigs`), flags de carregamento e caches. |
 | **constants.js** | Valores fixos: paleta `COLORS`, filtros estáticos, config das tabelas de vagas, cargos fora do processo seletivo. |
-| **utils.js** | Helpers puros sem estado: `formatNumber`, `formatPercent`, `formatCurrency`, `escapeHtml/Attr/Js`, `soma`, `part`, `setText`, `normalizar*`, etc. |
+| **utils.js** | Helpers puros sem estado: `formatNumber`, `formatPercent`, `formatCurrency`, `escapeHtml/Attr`, `debounce`, `valorCsv`/`baixarArquivoCsv` (download de CSV centralizado), `soma`, `part`, `setText`, `normalizar*`, etc. |
 | **api.js** | Comunicação com o backend: `apiGet`, `apiPost`, cabeçalhos de auth e carregamento de configuração. |
 | **auth.js** | Login, verificação de sessão, permissões por nível de usuário e logout. |
 | **charts.js** | Renderizadores de gráfico (doughnut, bar, column, funnel, treemap, ranking, legenda) sobre Chart.js. |
@@ -41,7 +41,7 @@ Existe **18 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas o en
 | **processos-seletivos.js** | Aba de Processos Seletivos (somente leitura, sem backend): dados reais dos editais carregados de `processos-seletivos-dados.js`. Tabela com Unidade/UF/Edital/datas/Status/Responsável, KPIs por status + vagas previstas, filtros (unidade/status/busca) e detalhamento (Processo SEI, Ciclo, Etapa, Risco, Vagas Previstas/Contratados/Ociosas/Inscritos, Observações e link do edital). Exporta `obterBloqueiosRemanejamentoPSS` (bloqueia redução de unidades com edital em andamento). |
 | **processos-seletivos-dados.js** | Dados reais dos editais (gerado a partir de `mock/AgSUS_Monitora_SaudeIndigena_20260618.csv`). Não editar à mão — regerar a partir do CSV. |
 | **exportacao.js** | Exportações para CSV e PDF (vagas, distribuição, processo seletivo, alertas). |
-| **filtros.js** | Navegação entre abas, sidebar, multi-selects, filtros e a **delegação de eventos** (`data-click` / `data-change` / `data-input`) que substituiu os antigos handlers inline. |
+| **filtros.js** | Navegação entre abas, sidebar, multi-selects, filtros e a **delegação de eventos** (`data-click` / `data-change` / `data-input`) que substituiu os antigos handlers inline. Inclui `filtrarRowsBase` (aplica filtro de DSEI/Cargo + gráfico ativo a um conjunto de linhas). |
 | **gestao-ferias.js** | Aba de Gestão de Férias: maquete autocontida (dados de exemplo, sem backend) com lote, resumo, histórico, consulta e toast próprios; ligada no init via `configurarGestaoFerias()`. |
 | **entrega-cracha.js** | Aba de Entrega de Crachá: consome dados reais via API (`/api/cracha`). A base `UGP_CONTROLE_CRACHAS_SI` é recriada por ETL diário, então os dados manuais ficam numa tabela-companheira (`UGP_CRACHAS_CONTROLE_MANUAL`, por matrícula) — leitura é base + overlay. Funil de 6 status (até `Entregue ao Trabalhador`); ao avançar o status, a data do marco (envio à gráfica/confecção/recebimentos) é carimbada automaticamente. Indicadores independentes: crachá devolvido e 2ª via (com motivo). KPIs, filtros, tabela paginada (datas nas últimas colunas), detalhe com trilha, edição do overlay e **mudança de status em lote**. **Importação de planilha CSV** (`/api/cracha/importar`): atualiza quem já existe e **cria no overlay** quem não está na base do ETL (identidade na própria companheira, marcado como "Importado"); a leitura é um UNION base + overlay-only. Modelo CSV para baixar. Escrita só para admin (nível ≥ 2). Carregamento sob demanda; chave = matrícula; ligada no init via `configurarEntregaCracha()`. |
 | **modal.js** | Modal central reutilizável (confirmação/aviso/entrada de texto) e overlays de carregamento. |
@@ -52,6 +52,12 @@ Existe **18 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas o en
 - **Sem handlers inline no HTML.** Cada elemento interativo declara a ação em
   `data-click` / `data-change` / `data-input` e os parâmetros em outros `data-*`.
   O dispatcher central fica em `filtros.js → configurarDelegacaoEventos()`.
-- **Estado sempre via `state.*`** (ex.: `state.vagasRows`), nunca variáveis globais soltas.
+- **Estado:** os módulos centrais (Visão Geral, Vagas, Alertas, Remanejamento)
+  usam o objeto `state.*` (ex.: `state.vagasRows`). Os módulos de feature mais
+  recentes (`entrega-cracha`, `saude-indigena`, `gestao-disciplinar`,
+  `processos-seletivos`) encapsulam o próprio estado em `let` no escopo do módulo
+  e registram a delegação de eventos local na raiz da sua view — padrão preferido
+  por reduzir o acoplamento ao `state` global. Em nenhum caso há variáveis globais
+  soltas em `window.*`. **Busca textual** é sempre debounced (`utils.debounce`).
 - **Módulos base** (`state`, `runtime`, `constants`, `utils`) não importam ninguém;
   os de domínio importam dessas bases e uns dos outros conforme a necessidade.

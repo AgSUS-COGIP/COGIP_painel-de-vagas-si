@@ -5,7 +5,7 @@
     ========================================================= */
 
     .dpField { position: relative; width: 100%; }
-    .dpNativo { display: none !important; } /* o <input type=date> nativo é a fonte de verdade */
+    .dpNativo { display: none; } /* o <input type=date> nativo é a fonte de verdade */
 
     /* ---------- Gatilho ---------- */
     .dpTrigger {

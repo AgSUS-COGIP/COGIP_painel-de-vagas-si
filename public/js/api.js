@@ -21,9 +21,8 @@ export async function carregarConfiguracaoApp_() {
 }
 
 export function authHeaders(extra) {
-  const headers = Object.assign({ Accept: "application/json" }, extra || {});
-  if (state.painelLoginToken) headers.Authorization = `Bearer ${state.painelLoginToken}`;
-  return headers;
+  // Sessão via cookie HttpOnly (enviado automaticamente em requisições same-origin).
+  return Object.assign({ Accept: "application/json" }, extra || {});
 }
 
 export async function apiGet(path) {

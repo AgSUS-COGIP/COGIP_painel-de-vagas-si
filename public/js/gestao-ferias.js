@@ -8,7 +8,8 @@
 // =========================================================
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
-import { escapeHtml, formatNumber } from "./utils.js";
+import { escapeHtml, formatNumber, baixarArquivoCsv } from "./utils.js";
+import { criarToast } from "./ui-utils.js";
 
 const $ = id => document.getElementById(id);
 
@@ -22,17 +23,8 @@ function ehCoape() {
   return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL_COAPE;
 }
 
-// Toast simples.
-let toastTimer = null;
-function gfToast(msg, tipo) {
-  let el = document.getElementById("gfToast");
-  if (!el) { el = document.createElement("div"); el.id = "gfToast"; el.className = "gfToast"; document.body.appendChild(el); }
-  el.textContent = msg;
-  el.classList.toggle("is-erro", tipo === "erro");
-  el.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
-}
+// Toast simples (controlador compartilhado em ui-utils).
+const gfToast = criarToast("gfToast", { duracaoMs: 3000 });
 
 // ---------- Estado ----------
 let dados = null;       // { rows (objetos), hoje, atualizadoEm }
@@ -646,11 +638,7 @@ function cancelarSolicitacao(i) {
 // ---------- Exportação CSV ----------
 function baixarCsv(linhas, nome) {
   const csv = String.fromCharCode(0xFEFF) + linhas.map(l => l.map(v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = nome; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  baixarArquivoCsv(csv, nome);
 }
 function exportarConsulta() {
   const lista = aplicarFiltros();

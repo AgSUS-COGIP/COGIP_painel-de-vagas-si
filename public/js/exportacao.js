@@ -1,7 +1,7 @@
 import { gerarChaveAlerta } from "./alertas.js";
 import { filterConfigs } from "./runtime.js";
 import { state } from "./state.js";
-import { formatPercent, valorCsv } from "./utils.js";
+import { baixarArquivoCsv, formatPercent, valorCsv } from "./utils.js";
 import { filtrarCargosProcessoSeletivo, obterRowsVagasPorVisualizacao, valoresDistribuicao } from "./vagas.js";
 
 export function exportarPdf() {
@@ -162,16 +162,7 @@ export function baixarCsv(nomeArquivo, rows, incluirTipoAlerta = false) {
     .map(linha => linha.map(valorCsv).join(";"))
     .join("\r\n");
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-
-  a.href = url;
-  a.download = `${nomeArquivo}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  baixarArquivoCsv(csv, nomeArquivo);
 }
 
 export function valorFiltro(id) {

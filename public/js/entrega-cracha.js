@@ -8,7 +8,8 @@
 // CRUD persistido no banco (editar datas/observação, avançar/voltar status,
 // mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
-import { escapeHtml, escapeAttr, valorCsv, debounce } from "./utils.js";
+import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv } from "./utils.js";
+import { criarToast, preencherSelect } from "./ui-utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 
@@ -119,21 +120,7 @@ function statusValido(val) {
 }
 
 // ---------- Toast ----------
-let toastTimer = null;
-function ecToast(mensagem, tipo) {
-  let el = $("ecToast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "ecToast";
-    el.className = "ecToast";
-    document.body.appendChild(el);
-  }
-  el.textContent = mensagem;
-  el.classList.remove("is-erro", "is-ok");
-  el.classList.add(tipo === "erro" ? "is-erro" : "is-ok", "show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
-}
+const ecToast = criarToast("ecToast");
 
 // ---------- KPIs (total, ativos e um por status do funil) ----------
 function renderKpis(lista) {
@@ -709,17 +696,9 @@ async function reverterSolicitacao(matricula) {
 // ---------- Selects (DSEIs vêm dos próprios dados) ----------
 function preencherSelects() {
   const dseis = [...new Set(solicitacoes.map(s => s.dsei).filter(Boolean))].sort();
-  const opcoes = (id, valores, rotuloTodos) => {
-    const el = $(id);
-    if (!el) return;
-    const atual = el.value;
-    el.innerHTML = `<option value="">${rotuloTodos}</option>` +
-      valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-    if (atual && valores.includes(atual)) el.value = atual;
-  };
-  opcoes("ecFiltroDsei", dseis, "Todos os DSEIs");
-  opcoes("ecFiltroStatus", STATUS_LISTA, "Todos os Status");
-  opcoes("ecFiltroEscritorio", dseis.map(escritorioDoDsei), "Todos os Escritórios");
+  preencherSelect("ecFiltroDsei", dseis, "Todos os DSEIs");
+  preencherSelect("ecFiltroStatus", STATUS_LISTA, "Todos os Status");
+  preencherSelect("ecFiltroEscritorio", dseis.map(escritorioDoDsei), "Todos os Escritórios");
   popularStatusLote();
 
   const formDsei = $("ecFormDsei");
@@ -778,15 +757,7 @@ function exportarExcel() {
 }
 
 function baixarCsv(conteudo, nomeArquivo) {
-  const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nomeArquivo;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  baixarArquivoCsv(conteudo, nomeArquivo);
 }
 
 // ---------- Importa\u00E7\u00E3o de planilha (CSV) ----------
@@ -1298,8 +1269,19 @@ export function configurarEntregaCracha() {
   if (navItem) navItem.addEventListener("click", () => { if (!carregando) carregarDados(); });
   if (state.activeView === "entregaCracha") carregarDados();
 
-  // Filtros: selects/datas reagem na hora (change); a busca textual é debounced
-  // (~250ms) para não refiltrar a base inteira (~18k linhas) a cada tecla.
+  ecBindFiltros(raiz);
+  ecBindToolbar();
+  ecBindImportPreview();
+  ecBindDetalhe();
+  ecBindLote();
+  ecBindModal();
+  ecBindDelegacao(raiz);
+}
+
+// Filtros: selects/datas reagem na hora (change); a busca textual é debounced
+// (~250ms) para não refiltrar a base inteira (~18k linhas) a cada tecla. Inclui
+// o seletor de "registros por página".
+function ecBindFiltros(raiz) {
   const aplicarFiltro = () => { lerFiltros(); paginaAtual = 1; render(); };
   const aplicarFiltroBusca = debounce(aplicarFiltro, 250);
   raiz.querySelectorAll("[data-ec-filtro]").forEach(el => {
@@ -1307,7 +1289,6 @@ export function configurarEntregaCracha() {
     el.addEventListener(ehBusca ? "input" : "change", ehBusca ? aplicarFiltroBusca : aplicarFiltro);
   });
 
-  // Seletor de "registros por página".
   const selPorPagina = $("ecPorPagina");
   if (selPorPagina) {
     selPorPagina.innerHTML = PAGE_SIZE_OPCOES.map(n => `<option value="${n}">${n}</option>`).join("");
@@ -1319,7 +1300,10 @@ export function configurarEntregaCracha() {
       render();
     });
   }
+}
 
+// Barra de ações: atualizar, limpar, exportar e abrir o seletor de importação.
+function ecBindToolbar() {
   $("ecBtnAtualizar")?.addEventListener("click", () => { if (!carregando) carregarDados(true); });
   $("ecBtnLimpar")?.addEventListener("click", limparFiltros);
   $("ecBtnExportar")?.addEventListener("click", exportarExcel);
@@ -1329,8 +1313,10 @@ export function configurarEntregaCracha() {
     importarPlanilha(file);
     e.target.value = ""; // permite reimportar o mesmo arquivo
   });
+}
 
-  // Pré-visualização do lote de importação (seleção de linhas).
+// Pré-visualização do lote de importação (seleção/edição de linhas).
+function ecBindImportPreview() {
   $("ecImportFechar")?.addEventListener("click", fecharPreviewImport);
   $("ecImportCancelar")?.addEventListener("click", fecharPreviewImport);
   $("ecImportConfirmar")?.addEventListener("click", confirmarImportacao);
@@ -1345,18 +1331,26 @@ export function configurarEntregaCracha() {
   $("ecImportModal")?.addEventListener("click", event => {
     if (event.target === $("ecImportModal")) fecharPreviewImport();
   });
+}
+
+// Painel de detalhe (recolher) e edição da observação.
+function ecBindDetalhe() {
   $("ecBtnRecolher")?.addEventListener("click", recolherDetalhe);
   $("ecBtnSalvarObs")?.addEventListener("click", salvarObservacao);
   $("ecDetObs")?.addEventListener("input", atualizarContadorObs);
+}
 
-  // Seleção em lote.
+// Seleção em lote (aplicar status a vários crachás de uma vez).
+function ecBindLote() {
   $("ecSelecionarPagina")?.addEventListener("change", e => alternarSelecaoPagina(e.target.checked));
   $("ecLoteAplicar")?.addEventListener("click", aplicarStatusLote);
   $("ecLoteLimpar")?.addEventListener("click", limparSelecao);
   $("ecLoteLimparCampos")?.addEventListener("click", resetarPainelLote);
   $("ecLoteToggle")?.addEventListener("click", () => $("ecLoteBar")?.classList.toggle("is-recolhido"));
+}
 
-  // Modal.
+// Modal de edição de um crachá.
+function ecBindModal() {
   $("ecModalFechar")?.addEventListener("click", fecharModal);
   $("ecModalCancelar")?.addEventListener("click", fecharModal);
   $("ecModalSalvar")?.addEventListener("click", salvarModal);
@@ -1364,14 +1358,16 @@ export function configurarEntregaCracha() {
   $("ecModal")?.addEventListener("click", event => {
     if (event.target === $("ecModal")) fecharModal();
   });
+}
 
+// Delegação de eventos para elementos gerados dinamicamente (linhas da tabela).
+function ecBindDelegacao(raiz) {
   // Seleção por linha (checkboxes gerados dinamicamente).
   raiz.addEventListener("change", event => {
     const sel = event.target.closest("[data-ec-sel]");
     if (sel) alternarSelecao(sel.dataset.ecSel, sel.checked);
   });
 
-  // Delegação para elementos gerados dinamicamente.
   raiz.addEventListener("click", event => {
     const ver = event.target.closest("[data-ec-ver]");
     if (ver) { abrirDetalhe(ver.dataset.ecVer); return; }

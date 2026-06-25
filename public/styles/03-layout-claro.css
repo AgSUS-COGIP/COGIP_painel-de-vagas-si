@@ -145,7 +145,7 @@
     }
 
     .panelTitle {
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 12.5px;
       margin-bottom: 10px;
       text-shadow: none;
@@ -184,7 +184,7 @@
     }
 
     .legendItem strong {
-      color: #07346b;
+      color: var(--azul-escuro);
     }
 
     .summaryGrid {
@@ -215,7 +215,7 @@
     .summaryHighlight,
     .summaryCaption,
     .summaryChipLabel {
-      color: #07346b;
+      color: var(--azul-escuro);
     }
 
     .summaryNumber,
@@ -529,7 +529,7 @@
     #view-vagas .fullTable th {
       /* Gradiente contínuo na linha inteira: cada célula amostra o mesmo
          gradiente (fixo em relação à viewport), em vez de reiniciar por coluna. */
-      background-image: linear-gradient(90deg, #005aa9, #006dcc);
+      background-image: linear-gradient(90deg, #005aa9, var(--azul-card));
       background-attachment: fixed;
       background-size: 100vw 100%;
       color: #ffffff;
@@ -550,7 +550,7 @@
     }
 
     #view-vagas .fullTable td {
-      color: #07346b;
+      color: var(--azul-escuro);
       background: rgba(255, 255, 255, .94);
       padding: 11px 10px;
       border-bottom: 1px solid rgba(0, 86, 167, .12);
@@ -580,7 +580,7 @@
     #view-vagas .fullTable td:nth-child(8),
     #view-vagas .fullTable td:nth-child(9) {
       text-align: center;
-      color: #0b2445;
+      color: var(--texto);
       font-weight: 900;
     }
 
@@ -597,7 +597,7 @@
       justify-content: flex-end;
       gap: 10px;
       min-height: 34px;
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 11px;
       font-weight: 900;
     }
@@ -704,7 +704,7 @@
 
     /* Ajuste solicitado: espaçamento na aba Vagas, sem Alertas aparecendo junto e 20 registros por página */
     .viewPanel:not(.active) {
-      display: none !important;
+      display: none;
     }
 
     #view-vagas.viewPanel.active {
@@ -756,7 +756,7 @@
       border: 1px solid rgba(0, 83, 166, .18);
       border-radius: 999px;
       background: rgba(255, 255, 255, .86);
-      color: #07346b;
+      color: var(--azul-escuro);
       font-size: 10.5px;
       font-weight: 900;
       text-transform: uppercase;
@@ -812,7 +812,7 @@
     }
 
     #view-alertas .fullTable th {
-      background: linear-gradient(135deg, #005aa9, #006dcc);
+      background: linear-gradient(135deg, #005aa9, var(--azul-card));
       color: #ffffff;
       padding: 12px 10px;
       font-size: 10.2px;
@@ -826,7 +826,7 @@
     }
 
     #view-alertas .fullTable td {
-      color: #07346b;
+      color: var(--azul-escuro);
       background: rgba(255, 255, 255, .94);
       padding: 11px 10px;
       border-bottom: 1px solid rgba(0, 86, 167, .12);

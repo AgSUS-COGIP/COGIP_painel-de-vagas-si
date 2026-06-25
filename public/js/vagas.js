@@ -1,6 +1,5 @@
-import { filtrarRowsBase } from "./app.js";
 import { CARGOS_FORA_PROCESSO_SELETIVO, VAGAS_TABELA_CONFIG } from "./constants.js";
-import { getSelectedValues } from "./filtros.js";
+import { filtrarRowsBase, getSelectedValues } from "./filtros.js";
 import { calcularOciosas, calcularPreenchimento } from "./kpis.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";

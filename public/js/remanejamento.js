@@ -1,13 +1,13 @@
 import { idSeguroAlerta } from "./alertas.js";
 import { apiGet } from "./api.js";
 import { garantirCarregamentoPagina, recarregarTodosOsDados } from "./app.js";
-import { REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
+import { NIVEL, REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
 import { atualizarModoRolagem } from "./filtros.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
-import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
+import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, safeUrl, setText, setValue, soma } from "./utils.js";
 import { tornarSelectPesquisavel, sincronizarSelectPesquisavel } from "./searchable-select.js";
 
 export function configurarPainelExterno() {
@@ -286,9 +286,9 @@ export function renderRemanejamentoLista() {
   }
 
   const nivelUsuario = state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
-  const podeExcluir = nivelUsuario >= 2;
-  // Alterar remanejamento: somente nível 3.
-  const podeEditar = nivelUsuario === 3;
+  const podeExcluir = nivelUsuario >= NIVEL.ADMIN;
+  // Alterar remanejamento: somente nível super administrador.
+  const podeEditar = nivelUsuario === NIVEL.SUPERADMIN;
 
   tbody.innerHTML = rows.map(row => {
     const impacto = Number(row.impactoMensal || 0);
@@ -419,7 +419,7 @@ export function renderTabelaDetalheRemanejamento(titulo, itens) {
 export function renderDetalheRemanejamentoHtml(detalhe, rowLista) {
   const impacto = Number(detalhe.impactoMensal || 0);
   const anexo = rowLista.anexoOficioUrl
-    ? `<a class="remAnexoLink" href="${escapeAttr(rowLista.anexoOficioUrl)}" target="_blank" rel="noopener noreferrer">Abrir PDF</a>`
+    ? `<a class="remAnexoLink" href="${escapeAttr(safeUrl(rowLista.anexoOficioUrl))}" target="_blank" rel="noopener noreferrer">Abrir PDF</a>`
     : "—";
 
   return `
@@ -479,7 +479,7 @@ export async function editarRemanejamentoPainel(idProcesso) {
   setValue("remanejamentoProcessoSei", dados.processoSei || "");
   setValue("remObservacao", dados.observacao || "");
   const anexo = document.getElementById("remAnexoArquivo");
-  if (anexo) anexo.value = "";
+  if (anexo) { anexo.value = ""; anexo._fi?.render(); }
 
   // 4) Ativa o modo edição (borda amarela + banner + botão "Atualizar").
   state.remanejamentoEditandoId = dados.idProcesso;
@@ -548,8 +548,7 @@ export async function excluirRemanejamentoPainel(idProcesso) {
   mostrarCarregando();
   try {
     const response = await fetch(`/api/remanejamento/${encodeURIComponent(idProcesso)}`, {
-      method: "DELETE",
-      headers: state.painelLoginToken ? { Authorization: `Bearer ${state.painelLoginToken}` } : {}
+      method: "DELETE"
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
@@ -595,10 +594,8 @@ export function atualizarResumoRemanejamento() {
   const dseiSelect = document.getElementById("remanejamentoDsei");
   const dseiLabel = dseiSelect?.options?.[dseiSelect.selectedIndex]?.text || "DSEI não selecionado";
   const processoInput = document.getElementById("remanejamentoProcessoSei");
-  const anexoInput = document.getElementById("remAnexoArquivo");
   const anexoPreview = document.getElementById("remanejamentoAnexoPreview");
   const processo = processoInput?.value || "";
-  const anexoNome = anexoInput?.files?.[0]?.name || "";
   const resumoFinanceiro = atualizarResumoRemanejamentoPainel();
   const qtdMovimentada = soma(coletarLinhasRemanejamento("reduzido"), "quantidade") + soma(coletarLinhasRemanejamento("acrescentado"), "quantidade");
 
@@ -610,9 +607,8 @@ export function atualizarResumoRemanejamento() {
   setText("remanejamentoResultadoTotal", formatNumber(qtdMovimentada));
 
   if (anexoPreview) {
-    anexoPreview.innerHTML = anexoNome
-      ? `Anexo selecionado: <strong>${escapeHtml(anexoNome)}</strong>.`
-      : "Clique ou arraste o arquivo para enviar. PDF até 10MB.";
+    // O arquivo selecionado agora aparece no chip do componente; aqui fica só a dica.
+    anexoPreview.textContent = "Selecione o PDF pelo botão acima. Até 10MB.";
   }
 
   atualizarAvisoOciosasRemanejamento();
@@ -1010,7 +1006,7 @@ export function limparFormularioRemanejamento() {
   aplicarModoEdicaoRemanejamento(false);
 
   const anexo = document.getElementById("remAnexoArquivo");
-  if (anexo) anexo.value = "";
+  if (anexo) { anexo.value = ""; anexo._fi?.render(); }
 
   renderLinhasRemanejamento("reduzido");
   renderLinhasRemanejamento("acrescentado");
@@ -1113,7 +1109,6 @@ export async function salvarRemanejamentoPainel() {
   try {
     const response = await fetch(url, {
       method: metodo,
-      headers: state.painelLoginToken ? { Authorization: `Bearer ${state.painelLoginToken}` } : {},
       body: formData
     });
     const payload = await response.json().catch(() => ({}));

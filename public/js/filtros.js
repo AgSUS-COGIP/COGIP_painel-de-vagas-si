@@ -1,5 +1,5 @@
 import { cancelarEdicaoObservacaoAlertaPainel, editarObservacaoAlertaPainel, renderAlertasDaPagina, salvarObservacaoAlertaPainel } from "./alertas.js";
-import { ajustarEscalaPainelFixo, filtrarRowsBase, garantirCarregamentoPagina, renderTudo } from "./app.js";
+import { ajustarEscalaPainelFixo, garantirCarregamentoPagina, renderTudo } from "./app.js";
 import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
@@ -457,6 +457,20 @@ export function filtrarGraficoAtivo(row) {
   }
 
   return true;
+}
+
+// Aplica os filtros superiores (DSEI/Cargo) + o filtro de gráfico ativo a um
+// conjunto de linhas. Vive aqui por ser lógica de filtro pura.
+export function filtrarRowsBase(rows) {
+  const dseis = getSelectedValues("fDsei");
+  const cargos = getSelectedValues("fCargo");
+
+  return (rows || []).filter(row => {
+    if (!matchMulti(row.dseiCasai, dseis)) return false;
+    if (!matchMulti(row.cargo, cargos)) return false;
+    if (!filtrarGraficoAtivo(row)) return false;
+    return true;
+  });
 }
 
 export function alternarFiltroGrafico(type, value) {

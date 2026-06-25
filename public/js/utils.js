@@ -98,6 +98,21 @@ export function valorCsv(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
 
+// Dispara o download de um CSV já montado (string com BOM). Centraliza o blob +
+// âncora temporária usados por todas as telas de exportação. Acrescenta ".csv"
+// ao nome se faltar.
+export function baixarArquivoCsv(conteudo, nomeArquivo) {
+  const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomeArquivo.endsWith(".csv") ? nomeArquivo : `${nomeArquivo}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function formatNumber(value) {
   return Number(value || 0).toLocaleString("pt-BR");
 }
@@ -120,6 +135,17 @@ export function escapeHtml(value) {
 
 export function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
+}
+
+export function safeUrl(value) {
+  // Remove espaços/quebras (evita truques como "java\tscript:" com tab/newline).
+  const url = String(value ?? "").replace(/\s+/g, "").trim();
+  if (!url) return "";
+  if (/^(https?:|blob:|mailto:|tel:)/i.test(url)) return url;
+  // Tem um esquema explícito fora da allowlist (ex.: javascript:, data:, vbscript:).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return "";
+  // Sem esquema: URL relativa, âncora (#) ou query (?) — considerada segura.
+  return url;
 }
 
 // Adia a execução de `fn` até passar `delay` ms sem novas chamadas. Usado para

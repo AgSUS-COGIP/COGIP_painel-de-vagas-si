@@ -126,7 +126,7 @@
 
         <div class="acField" data-acfield="cargo">
           <label class="loginLabel" for="acCargo">Cargo / Função</label>
-          <select id="acCargo" class="loginInput"></select>
+          <select id="acCargo" class="loginInput" data-ss-skip></select>
         </div>
 
         <div class="acField" data-acfield="cargoOutro">
@@ -136,12 +136,12 @@
 
         <div class="acField" data-acfield="coordenacao">
           <label class="loginLabel" for="acCoordenacao">Coordenação</label>
-          <select id="acCoordenacao" class="loginInput"></select>
+          <select id="acCoordenacao" class="loginInput" data-ss-skip></select>
         </div>
 
         <div class="acField" data-acfield="unidade">
           <label class="loginLabel" for="acUnidade">DSEI / CASAI</label>
-          <select id="acUnidade" class="loginInput"></select>
+          <select id="acUnidade" class="loginInput" data-ss-skip></select>
         </div>
 
         <div class="acField" data-acfield="justificativa">
@@ -194,53 +194,53 @@
       </button>
 
       <nav class="nav">
-        <div class="navItem active" data-view="visaoGeral">
-          <span class="navIcon"><i class="fa-solid fa-chart-pie"></i></span>
+        <button type="button" class="navItem active" data-view="visaoGeral">
+          <span class="navIcon"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
           <span>Visão Geral</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="vagas">
-          <span class="navIcon"><i class="fa-solid fa-folder-open"></i></span>
+        <button type="button" class="navItem" data-view="vagas">
+          <span class="navIcon"><i class="fa-solid fa-folder-open" aria-hidden="true"></i></span>
           <span>Vagas</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="remanejamento">
-          <span class="navIcon"><i class="fa-solid fa-folder-tree"></i></span>
+        <button type="button" class="navItem" data-view="remanejamento">
+          <span class="navIcon"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i></span>
           <span>Remanejamento</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="alertas">
-          <span class="navIcon"><i class="fa-solid fa-circle-exclamation"></i></span>
+        <button type="button" class="navItem" data-view="alertas">
+          <span class="navIcon"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></span>
           <span>Alertas</span>
-        </div>
+        </button>
 
 
-        <div class="navItem" data-view="painelSaudeIndigena">
-          <span class="navIcon"><i class="fa-solid fa-chart-column"></i></span>
+        <button type="button" class="navItem" data-view="painelSaudeIndigena">
+          <span class="navIcon"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
           <span>Dashboard SI</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="gestaoFerias">
-          <span class="navIcon"><i class="fa-solid fa-calendar-check"></i></span>
+        <button type="button" class="navItem" data-view="gestaoFerias">
+          <span class="navIcon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>
           <span>Gestão de Férias</span>
-        </div>
+        </button>
 
-        <div class="navItem" data-view="entregaCracha">
-          <span class="navIcon"><i class="fa-solid fa-id-card"></i></span>
+        <button type="button" class="navItem" data-view="entregaCracha">
+          <span class="navIcon"><i class="fa-solid fa-id-card" aria-hidden="true"></i></span>
           <span>Entrega de Crachá</span>
-        </div>
-        <div class="navItem" data-view="gestaoDisciplinar">
-          <span class="navIcon"><i class="fa-solid fa-gavel"></i></span>
+        </button>
+        <button type="button" class="navItem" data-view="gestaoDisciplinar">
+          <span class="navIcon"><i class="fa-solid fa-gavel" aria-hidden="true"></i></span>
           <span>Gestão Disciplinar</span>
-        </div>
-        <div class="navItem" data-view="processosSeletivos">
-          <span class="navIcon"><i class="fa-solid fa-clipboard-list"></i></span>
+        </button>
+        <button type="button" class="navItem" data-view="processosSeletivos">
+          <span class="navIcon"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></span>
           <span>Processos Seletivos</span>
-        </div>
-        <div class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
-          <span class="navIcon"><i class="fa-solid fa-user-check"></i></span>
+        </button>
+        <button type="button" class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
+          <span class="navIcon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
           <span>Solicitações</span>
-        </div>
+        </button>
       </nav>
 
       <div class="sidebarSpacer"></div>
@@ -552,6 +552,7 @@
             <div id="blocoTabelaVagas" class="vagasTabelaBloco">
               <div class="fullTableWrap">
                 <table class="fullTable">
+                  <caption class="sr-only">Vagas por DSEI/CASAI e cargo</caption>
                   <colgroup id="vagasColGroup">
                     <col style="width: 17%;">
                     <col style="width: 22%;">
@@ -585,6 +586,7 @@
             <div id="blocoTabelaOciosas" class="vagasTabelaBloco distribuicaoSection" hidden>
               <div class="fullTableWrap distribuicaoWrap">
                 <table class="fullTable distribuicaoTable">
+                  <caption class="sr-only">Distribuição das vagas ociosas</caption>
                   <colgroup id="distribuicaoColGroup">
                     <col style="width: 40%;">
                     <col style="width: 20%;">
@@ -608,6 +610,7 @@
             <div id="blocoTabelaProcesso" class="vagasTabelaBloco distribuicaoSection" hidden>
               <div class="fullTableWrap distribuicaoWrap">
                 <table class="fullTable distribuicaoTable">
+                  <caption class="sr-only">Vagas para processo seletivo</caption>
                   <colgroup id="processoSeletivoColGroup">
                     <col style="width: 40%;">
                     <col style="width: 20%;">
@@ -691,6 +694,7 @@
 
             <div class="fullTableWrap">
               <table class="fullTable alertasTable">
+                <caption class="sr-only">Alertas da Saúde Indígena</caption>
                 <colgroup>
                   <col style="width: 16%;">
                   <col style="width: 24%;">
@@ -983,6 +987,7 @@
               </div>
               <div class="siTableWrap">
                 <table class="siTable">
+                  <caption class="sr-only">Trabalhadores da Saúde Indígena</caption>
                   <thead id="siTabelaHead">
                     <tr>
                       <th data-col="registro">Registro <i class="siSortIcon fa-solid fa-sort"></i></th>
@@ -1487,6 +1492,7 @@
           <div class="ecCard">
             <div class="ecTableWrap">
               <table class="ecTable">
+                <caption class="sr-only">Solicitações de entrega de crachá</caption>
                 <thead>
                   <tr>
                     <th class="ecColSelect ecTd-center"><input type="checkbox" id="ecSelecionarPagina" aria-label="Selecionar página"></th>
@@ -1653,14 +1659,14 @@
                 <div class="ecField" aria-hidden="true"></div>
                 <div class="ecField">
                   <label>Solicitação de 2ª Via</label>
-                  <div class="ecRadioGrupo">
+                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Solicitação de 2ª Via">
                     <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="nao" checked> Não</label>
                     <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="sim"> Sim</label>
                   </div>
                 </div>
                 <div class="ecField">
                   <label>Crachá Devolvido</label>
-                  <div class="ecRadioGrupo">
+                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Crachá Devolvido">
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="nao" checked> Não</label>
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="sim"> Sim</label>
                   </div>
@@ -1742,6 +1748,7 @@
 
               <div class="ecImportTableWrap">
                 <table class="ecImportTable">
+                  <caption class="sr-only">Pré-visualização da importação de crachás</caption>
                   <thead id="ecImportThead"></thead>
                   <tbody id="ecImportTbody"></tbody>
                 </table>
@@ -1845,12 +1852,12 @@
               <!-- Documento do processo: link OU anexo em PDF (um ou outro). -->
               <div class="gfField gdFieldFull">
                 <label>Documento do processo</label>
-                <div class="gdDocToggle">
+                <div class="gdDocToggle" role="radiogroup" aria-label="Tipo de documento do processo">
                   <label class="gdRadio"><input type="radio" name="gdDocTipo" value="link" checked> Link</label>
                   <label class="gdRadio"><input type="radio" name="gdDocTipo" value="anexo"> Anexo (PDF)</label>
                 </div>
                 <input class="gfInput" id="gdFLink" type="url" placeholder="https://...">
-                <input class="gfInput gdInputFile" id="gdFArquivo" type="file" accept="application/pdf" hidden>
+                <input class="gdInputFile" id="gdFArquivo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
               </div>
 
               <div class="gfField gdFieldFull">
@@ -1890,74 +1897,116 @@
           <section class="gfPanel">
             <h3 class="gfPanelTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores Gerais</h3>
             <div class="gdKpiStack">
-              <div class="gdKpiRow gdKpiRowTopo">
-                <div class="gfKpi gdKpiCardTotal">
-                  <div class="gfKpiValue" id="gdKpiTotal">0</div>
-                  <div class="gfKpiLabel">Total de Pedidos</div>
+              <!-- Linha 1: total (com progresso) + resumo do andamento + alertas -->
+              <div class="gdKpiTopo">
+                <div class="gdKpiTotal gdKpiTotalProc">
+                  <div class="gdKpiTotalHead">
+                    <span class="gdKpiTotalIcon"><i class="fa-solid fa-briefcase"></i></span>
+                    <span>Total de Processos</span>
+                  </div>
+                  <div class="gdKpiTotalValor" id="gdKpiTotalProcessos">0</div>
+                </div>
+
+                <div class="gdKpiTotal">
+                  <div class="gdKpiTotalHead">
+                    <span class="gdKpiTotalIcon"><i class="fa-solid fa-folder-open"></i></span>
+                    <span>Total de Pedidos</span>
+                  </div>
+                  <div class="gdKpiTotalValor" id="gdKpiTotal">0</div>
+                  <div class="gdKpiProgresso"><span id="gdKpiProgressoFill"></span></div>
+                  <div class="gdKpiProgressoLabel"><strong id="gdKpiPercentLabel">0%</strong> concluído</div>
+                </div>
+
+                <div class="gdKpiCard">
+                  <div class="gdKpiCardHead"><span class="gdKpiCardIcon"><i class="fa-solid fa-chart-line"></i></span> Resumo do Andamento</div>
+                  <div class="gdKpiResumoLinha">
+                    <span class="gdKpiResumoNome"><i class="fa-solid fa-circle-check is-verde"></i> Concluídas</span>
+                    <strong class="is-verde" id="gdKpiConcluidos">0</strong>
+                  </div>
+                  <div class="gdKpiResumoLinha">
+                    <span class="gdKpiResumoNome"><i class="fa-solid fa-circle-minus is-vermelho"></i> Pedidos não concluídos</span>
+                    <strong class="is-vermelho" id="gdKpiNaoConcluidos">0</strong>
+                  </div>
+                  <p class="gdKpiHint"><i class="fa-solid fa-circle-info"></i> Acompanhe o andamento geral dos pedidos concluídos e não concluídos.</p>
                 </div>
               </div>
 
-              <div class="gdKpiRow gdKpiRowConcluidos">
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-green" id="gdKpiConcluidos">0</div>
-                  <div class="gfKpiLabel">Concluídas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-green" id="gdKpiSancaoNaoAplicada">0</div>
-                  <div class="gfKpiLabel">Sanções Não Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue" id="gdKpiAdvertenciasOrais">0</div>
-                  <div class="gfKpiLabel">Advertências Orais Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue" id="gdKpiAdvertencias">0</div>
-                  <div class="gfKpiLabel">Advertências Escritas Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-orange" id="gdKpiSuspensoes">0</div>
-                  <div class="gfKpiLabel">Suspensões Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-red" id="gdKpiJustasCausas">0</div>
-                  <div class="gfKpiLabel">Justas Causas Executadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-red" id="gdKpiDesligados">0</div>
-                  <div class="gfKpiLabel">Desligado antes da conclusão</div>
-                </div>
-              </div>
-
-              <div class="gdKpiRow gdKpiRowNaoConcluidos">
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-red" id="gdKpiNaoConcluidos">0</div>
-                  <div class="gfKpiLabel">Pedidos Não Concluídos</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-gray" id="gdKpiPendentes">0</div>
-                  <div class="gfKpiLabel">Pendentes</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-yellow" id="gdKpiEmAnalise">0</div>
-                  <div class="gfKpiLabel">Em Análise</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-blue" id="gdKpiAguardando">0</div>
-                  <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
+              <!-- Situação dos pedidos concluídos -->
+              <div class="gdKpiSecao">
+                <h4 class="gdKpiSecaoTitulo"><i class="fa-solid fa-circle-check"></i> Situação dos Pedidos Concluídos</h4>
+                <div class="gdKpiMini gdKpiMini6">
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-verde"><i class="fa-solid fa-scale-balanced"></i></span>
+                    <span class="gdMiniLabel">Sanções não aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiSancaoNaoAplicada">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon"><i class="fa-solid fa-microphone"></i></span>
+                    <span class="gdMiniLabel">Advertências orais aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiAdvertenciasOrais">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon"><i class="fa-solid fa-file-lines"></i></span>
+                    <span class="gdMiniLabel">Advertências escritas aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiAdvertencias">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-laranja"><i class="fa-solid fa-circle-pause"></i></span>
+                    <span class="gdMiniLabel">Suspensões aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiSuspensoes">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-vermelho-bg"><i class="fa-solid fa-gavel"></i></span>
+                    <span class="gdMiniLabel">Justas causas executadas</span>
+                    <strong class="gdMiniValor" id="gdKpiJustasCausas">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-vermelho-bg"><i class="fa-solid fa-user-xmark"></i></span>
+                    <span class="gdMiniLabel">Desligado antes da conclusão</span>
+                    <strong class="gdMiniValor" id="gdKpiDesligados">0</strong>
+                  </div>
                 </div>
               </div>
 
-              <div class="gdKpiRow gdKpiRowSingle">
-                <div class="gfKpi" id="gdKpiTempoMedio">
-                  <div class="gfKpiValue" id="gdKpiTempoMedioValor">0 dias</div>
-                  <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
+              <!-- Situação dos pedidos não concluídos -->
+              <div class="gdKpiSecao">
+                <h4 class="gdKpiSecaoTitulo"><i class="fa-solid fa-clock"></i> Situação dos Pedidos Não Concluídos</h4>
+                <div class="gdKpiMini gdKpiMini3">
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-cinza"><i class="fa-solid fa-clock"></i></span>
+                    <span class="gdMiniLabel">Pendentes</span>
+                    <strong class="gdMiniValor" id="gdKpiPendentes">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-amarelo"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <span class="gdMiniLabel">Em análise</span>
+                    <strong class="gdMiniValor" id="gdKpiEmAnalise">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon"><i class="fa-solid fa-user-clock"></i></span>
+                    <span class="gdMiniLabel">Aguardando devolutiva do DSEI/Profissional</span>
+                    <strong class="gdMiniValor" id="gdKpiAguardando">0</strong>
+                  </div>
                 </div>
               </div>
 
-              <div class="gdKpiRow gdKpiRowSingle">
-                <div class="gfKpi" id="gdKpiForaPrazoCard">
-                  <div class="gfKpiValue is-yellow" id="gdKpiForaPrazo">0</div>
-                  <div class="gfKpiLabel">Pedidos fora do prazo</div>
+              <!-- Linha final: tempo médio + pedidos fora do prazo -->
+              <div class="gdKpiBase">
+                <div class="gdMiniCard gdMiniWide" id="gdKpiTempoMedio">
+                  <span class="gdMiniIcon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                  <span class="gdMiniWideBody">
+                    <span class="gdMiniLabel">Tempo médio p/ aplicação da sanção</span>
+                    <strong class="gdMiniValor" id="gdKpiTempoMedioValor">0 dias</strong>
+                  </span>
+                  <i class="fa-regular fa-calendar-days gdMiniDeco" aria-hidden="true"></i>
+                </div>
+                <div class="gdMiniCard gdMiniWide" id="gdKpiForaPrazoCard">
+                  <span class="gdMiniIcon is-amarelo"><i class="fa-solid fa-calendar-xmark"></i></span>
+                  <span class="gdMiniWideBody">
+                    <span class="gdMiniLabel">Pedidos fora do prazo</span>
+                    <strong class="gdMiniValor" id="gdKpiForaPrazo">0</strong>
+                  </span>
+                  <i class="fa-regular fa-calendar-days gdMiniDeco gdMiniDecoAmarelo" aria-hidden="true"></i>
                 </div>
               </div>
             </div>
@@ -1987,12 +2036,8 @@
                 <select class="gfSelect" id="gdFiltroStatus"></select>
               </div>
               <div class="gfField">
-                <label>Data Inicial</label>
-                <input class="gfInput" type="date" id="gdFiltroDataIni">
-              </div>
-              <div class="gfField">
-                <label>Data Final</label>
-                <input class="gfInput" type="date" id="gdFiltroDataFim">
+                <label>Processo SEI</label>
+                <input class="gfInput" type="text" id="gdBuscaProcessoSei" placeholder="Ex: 25000.000000/2024-00">
               </div>
               <div class="gfField">
                 <label>Buscar por trabalhador</label>
@@ -2014,6 +2059,7 @@
               <table class="gfTable">
                 <thead>
                   <tr>
+                    <th class="gfTd-center">Dias Pendentes</th>
                     <th>Nº Processo SEI</th>
                     <th>DSEI</th>
                     <th>Trabalhador</th>
@@ -2036,7 +2082,7 @@
           </section>
 
           <!-- DETALHAMENTO DO REGISTRO SELECIONADO -->
-          <section class="gfPanel" style="margin-top:14px;">
+          <section class="gfPanel" id="gdDetPanel" style="margin-top:14px;">
             <h3 class="gfPanelTitle" id="gdDetTitulo"></h3>
             <div class="gdDetailGrid">
               <div class="gdDetailCol">
@@ -2124,6 +2170,7 @@
           <section class="psPanel">
             <div class="psTableWrap">
               <table class="psTable">
+                <caption class="sr-only">Processos seletivos</caption>
                 <thead>
                   <tr>
                     <th>Unidade</th>
@@ -2226,7 +2273,7 @@
                     <h4>Documento do edital</h4>
                     <small>Informe um link <strong>ou</strong> anexe um PDF</small>
                   </div>
-                  <div class="psDocToggle">
+                  <div class="psDocToggle" role="radiogroup" aria-label="Tipo de documento do edital">
                     <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
                     <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
                   </div>
@@ -2234,10 +2281,10 @@
                     <span>Link do edital</span>
                     <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
                   </label>
-                  <label class="psField psField3" id="psDocAnexoWrap" hidden>
+                  <div class="psField psField3" id="psDocAnexoWrap" hidden>
                     <span>Anexo (PDF)</span>
-                    <input class="psInput psInputFile" id="psFormAnexo" type="file" accept="application/pdf">
-                  </label>
+                    <input class="psInputFile" id="psFormAnexo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                  </div>
                 </div>
 
                 <p class="psModalErro" id="psFormErro"></p>
@@ -2265,10 +2312,10 @@
                   <strong>Cronograma do Edital</strong> e <strong>Vagas Previstas</strong>.
                   O arquivo é processado na hora e <strong>não é salvo</strong> em lugar nenhum.
                 </p>
-                <label class="psField psField3">
+                <div class="psField psField3">
                   <span>Arquivo PDF <i class="psReq">*</i></span>
-                  <input class="psInput psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf">
-                </label>
+                  <input class="psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                </div>
                 <div class="psAnexoStatus" id="psAnexoStatus" hidden></div>
                 <p class="psModalErro" id="psAnexoErro"></p>
               </form>
@@ -2497,7 +2544,7 @@
                     placeholder="Informe a justificativa do remanejamento."></textarea>
                   <label for="remAnexoArquivo">Anexar Ofício ou Documento (PDF)</label>
                   <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf"
-                    data-change="atualizar-resumo-rem">
+                    data-change="atualizar-resumo-rem" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
                   <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar.
                     PDF até 10MB.</div>
                   <div class="remDocActions">
@@ -2535,6 +2582,7 @@
               </div>
               <div class="fullTableWrap remHistoryWrap">
                 <table class="fullTable remHistoryTable">
+                  <caption class="sr-only">Histórico de remanejamentos</caption>
                   <colgroup>
                     <col style="width: 9%;">
                     <col style="width: 8%;">

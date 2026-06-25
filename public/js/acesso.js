@@ -6,6 +6,8 @@ import { configurarGlassDropdowns } from "./dropdown.js";
 import { abrirModal } from "./modal.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
+import { preencherSelect } from "./ui-utils.js";
+import { NIVEL } from "./constants.js";
 
 function el(id) { return document.getElementById(id); }
 function val(id) { const e = el(id); return e ? e.value : ""; }
@@ -181,13 +183,10 @@ function fmtData(v) {
 }
 
 // Popula um <select> com as opções vindas do banco, preservando o valor atual.
+// Wrapper sobre o preencherSelect compartilhado (apenas reordena os argumentos
+// para a assinatura usada nesta tela: id, placeholder, valores).
 function preencherSelectAcesso(id, placeholder, valores) {
-  const sel = el(id);
-  if (!sel || sel.tagName !== "SELECT") return;
-  const atual = sel.value;
-  const opts = (valores || []).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-  sel.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + opts;
-  if (atual) sel.value = atual;
+  preencherSelect(id, valores, placeholder);
 }
 
 // Carrega DSEI/CASAI/coordenações/cargos do servidor (auto-sync com o banco).
@@ -386,7 +385,7 @@ function cardSolicitacao(s, comAcoes) {
 
   // Conceder privilégios e excluir usuários são ações exclusivas do super
   // administrador (nível >= 3). Esconde os controles para os demais.
-  const souSuperAdmin = Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= 3;
+  const souSuperAdmin = Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL.SUPERADMIN;
 
   const acoes = comAcoes
     ? `<div class="solAcoes">

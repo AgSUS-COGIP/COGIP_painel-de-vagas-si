@@ -2,9 +2,10 @@ import { renderAlertasDaPagina, renderAlertasErro } from "./alertas.js";
 import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
 import { configurarAcesso } from "./acesso.js";
+import { aplicarAcessibilidade } from "./a11y.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { COLORS } from "./constants.js";
-import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarGraficoAtivo, getSelectedValues, matchMulti, restaurarEstadoMenuLateral } from "./filtros.js";
+import { aplicarFiltros, atualizarModoRolagem, configurarDelegacaoEventos, configurarFechamentoDeMenus, configurarMultiSelectEstaticos, configurarNavegacao, criarMultiSelect, filtrarRowsBase, restaurarEstadoMenuLateral } from "./filtros.js";
 import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, renderResumosExecutivos } from "./kpis.js";
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
 import { configurarGestaoFerias } from "./gestao-ferias.js";
@@ -14,7 +15,8 @@ import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
 import { configurarOrdenacaoTabelas } from "./ordenacao-tabelas.js";
 import { ativarSelectsPesquisaveisGlobal } from "./searchable-select.js";
-import { ativarDatePickersFiltros } from "./date-picker.js";
+import { ativarDatePickersGlobal } from "./date-picker.js";
+import { ativarFileInputsGlobal } from "./file-input.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -26,6 +28,7 @@ export async function init() {
     Chart.register(ChartDataLabels);
   }
 
+  aplicarAcessibilidade();
   restaurarEstadoMenuLateral();
   configurarNavegacao();
   atualizarModoRolagem(state.activeView || "visaoGeral");
@@ -48,8 +51,12 @@ export async function init() {
   // observa o DOM para cobrir selects criados dinamicamente). Os filtros
   // multi-seleção de SI/Férias são <div> (não <select>), então não são afetados.
   ativarSelectsPesquisaveisGlobal();
-  // Filtros de data: calendário com dropdowns de mês/ano (no lugar do nativo).
-  ativarDatePickersFiltros();
+  // TODOS os date pickers do app (filtros, formulários, ações em lote, modais)
+  // usam o calendário customizado, inclusive os criados dinamicamente.
+  ativarDatePickersGlobal();
+  // Inputs de arquivo marcados com [data-file-input] viram o componente padrão
+  // (botão + chips/estados), inclusive os criados dinamicamente.
+  ativarFileInputsGlobal();
   await verificarSessaoInicial();
 }
 
@@ -152,6 +159,17 @@ export function renderResumoInicial(payload) {
   payload = payload || {};
   const indicadores = payload.indicadores || {};
 
+  renderResumoKpis(indicadores);
+  renderResumoFunnel(payload);
+  renderResumoProgresso(indicadores);
+  renderResumoIndigenas(indicadores);
+  renderResumoTipo(indicadores);
+  renderResumoOciosas(payload);
+  renderResumoCobertura(indicadores);
+  renderResumoAlertasKpi(indicadores);
+}
+
+function renderResumoKpis(indicadores) {
   preencherKpiBloco("kpi", {
     vagasPrevistas: Number(indicadores.vagasPrevistas || 0),
     contratados: Number(indicadores.contratados || 0),
@@ -163,13 +181,17 @@ export function renderResumoInicial(payload) {
     vagasPreenchidasPerc: Number(indicadores.vagasPreenchidasPerc || 0),
     coberturaAfastamentos: Number(indicadores.coberturaAfastamentos || 0)
   });
+}
 
+function renderResumoFunnel(payload) {
   const topCategorias = payload.topDseiVagas || payload.topCategorias || payload.topCargos || [];
   renderFunnelDsei("funnelTopDsei", topCategorias.map(i => ({
     label: i.label,
     value: Number(i.value || 0)
   })), "dsei");
+}
 
+function renderResumoProgresso(indicadores) {
   const preenchidas = Math.max(0, Number(indicadores.vagasPreenchidas || 0));
   const ociosas = Math.max(0, Number(indicadores.vagasOciosas || 0));
   const vagasPrevistas = Number(indicadores.vagasPrevistas || 0);
@@ -181,7 +203,9 @@ export function renderResumoInicial(payload) {
     vagasPrevistas,
     percentual: preenchidasPerc
   });
+}
 
+function renderResumoIndigenas(indicadores) {
   const indigenas = Number(indicadores.indigenas || 0);
   const totalTrabalhadores = Number(indicadores.contratados || 0);
   const demaisTrabalhadores = Math.max(0, totalTrabalhadores - indigenas);
@@ -205,7 +229,9 @@ export function renderResumoInicial(payload) {
     ["Indígenas", indigenas, COLORS.green, part(indigenas, totalTrabalhadores)],
     ["Demais", demaisTrabalhadores, COLORS.blue2, part(demaisTrabalhadores, totalTrabalhadores)]
   ]);
+}
 
+function renderResumoTipo(indicadores) {
   const normal = Number(indicadores.contratadosNormal || 0);
   const substituicao = Number(indicadores.substituicoes || 0);
   const temporario = Number(indicadores.temporarios || 0);
@@ -245,7 +271,9 @@ export function renderResumoInicial(payload) {
     ["Substituição", substituicao, COLORS.orange, part(substituicao, totalContratacao)],
     ["Temporário", temporario, COLORS.green, part(temporario, totalContratacao)]
   ]);
+}
 
+function renderResumoOciosas(payload) {
   const topDseiOciosas = payload.topDseiOciosas || [];
   renderCardsOciosas("cardsTopDseiOciosas", topDseiOciosas.map(i => ({
     label: i.label,
@@ -266,7 +294,11 @@ export function renderResumoInicial(payload) {
     maxLines: 5,
     yAxisWidth: 290
   });
+}
 
+function renderResumoCobertura(indicadores) {
+  // `substituicao` é recalculado aqui (era compartilhado com o gráfico de tipo).
+  const substituicao = Number(indicadores.substituicoes || 0);
   const cobertos = Math.min(Math.max(0, substituicao), Math.max(0, Number(indicadores.afastados || 0)));
   const naoCobertos = Math.max(0, Number(indicadores.afastados || 0) - cobertos);
   renderDoughnut("chartCoberturaAfastamentos", {
@@ -296,7 +328,9 @@ export function renderResumoInicial(payload) {
     "resumoCoberturaTexto",
     `${formatNumber(Number(indicadores.substituicoes || 0))} de ${formatNumber(Number(indicadores.afastados || 0))} afastamentos cobertos.`
   );
+}
 
+function renderResumoAlertasKpi(indicadores) {
   renderAlertasKpis([{
     qtdTemporarioAtivo: Number(indicadores.riscoTemporario || 0),
     afastados: Number(indicadores.afastados || 0),
@@ -357,102 +391,95 @@ export function garantirCarregamentoPagina(view) {
   if ((view === "remanejamento" || view === "remanejamentoFormulario") && !pageLoadState.remanejamentoCadastro) carregarRemanejamentoCadastroEmSegundoPlano();
 }
 
-export function carregarVagasEmSegundoPlano(forcar) {
-  if (pageLoadingState.vagas) return;
-  if (pageLoadState.vagas && !forcar) return;
-  pageLoadingState.vagas = true;
+// Protocolo comum de carregamento sob demanda: guarda de concorrência
+// (pageLoadingState), cache por página (pageLoadState) e tratamento de erro.
+// `antes()` roda antes do fetch; `aoCarregar(payload)` define o estado e
+// renderiza (já com pageLoadState[chave] = true); `aoFalhar(error)` é opcional.
+function carregarPaginaEmSegundoPlano({ chave, endpoint, forcar, antes, aoCarregar, aoFalhar, mensagemErro }) {
+  if (pageLoadingState[chave]) return;
+  if (pageLoadState[chave] && !forcar) return;
+  pageLoadingState[chave] = true;
 
-  const tbody = document.getElementById("vagasBody");
-  const pagination = document.getElementById("vagasPagination");
-  if (tbody && state.activeView === "vagas") tbody.innerHTML = '<tr><td colspan="9">Carregando tabela detalhada de vagas...</td></tr>';
-  if (pagination && state.activeView === "vagas") pagination.innerHTML = "";
+  if (antes) antes();
 
-  apiGet("/api/vagas")
+  apiGet(endpoint)
     .then(payload => {
-      pageLoadingState.vagas = false;
+      pageLoadingState[chave] = false;
+      pageLoadState[chave] = true;
+      aoCarregar(payload);
+    })
+    .catch(error => {
+      pageLoadingState[chave] = false;
+      console.error(mensagemErro, error);
+      if (aoFalhar) aoFalhar(error);
+    });
+}
+
+export function carregarVagasEmSegundoPlano(forcar) {
+  carregarPaginaEmSegundoPlano({
+    chave: "vagas",
+    endpoint: "/api/vagas",
+    forcar,
+    mensagemErro: "Falha ao carregar a aba Vagas:",
+    antes: () => {
+      const tbody = document.getElementById("vagasBody");
+      const pagination = document.getElementById("vagasPagination");
+      if (tbody && state.activeView === "vagas") tbody.innerHTML = '<tr><td colspan="9">Carregando tabela detalhada de vagas...</td></tr>';
+      if (pagination && state.activeView === "vagas") pagination.innerHTML = "";
+    },
+    aoCarregar: payload => {
       state.vagasBaseRows = payload.rows || [];
       state.allRows = state.vagasBaseRows;
       if (payload.indicadores) {
         state.indicadoresResumoBase = payload.indicadores;
       }
-      pageLoadState.vagas = true;
       if (payload.atualizadoEm) document.getElementById("updatedAt").innerText = payload.atualizadoEm;
       aplicarFiltros();
-    })
-    .catch(error => {
-      pageLoadingState.vagas = false;
-      console.error("Falha ao carregar a aba Vagas:", error);
-      renderVagasErro(error);
-    });
+    },
+    aoFalhar: renderVagasErro
+  });
 }
 
 export function carregarAlertasEmSegundoPlano(forcar) {
-  if (pageLoadingState.alertas) return;
-  if (pageLoadState.alertas && !forcar) return;
-  pageLoadingState.alertas = true;
-
-  apiGet("/api/alertas")
-    .then(payload => {
-      pageLoadingState.alertas = false;
+  carregarPaginaEmSegundoPlano({
+    chave: "alertas",
+    endpoint: "/api/alertas",
+    forcar,
+    mensagemErro: "Falha ao carregar a aba Alertas:",
+    aoCarregar: payload => {
       state.alertasBaseRows = payload.rows || [];
       state.observacoesAlertas = payload.observacoes || {};
-      pageLoadState.alertas = true;
       renderAlertasKpis(filtrarRowsBase(state.alertasBaseRows));
       renderAlertasDaPagina();
-    })
-    .catch(error => {
-      pageLoadingState.alertas = false;
-      console.error("Falha ao carregar a aba Alertas:", error);
-      renderAlertasErro(error);
-    });
+    },
+    aoFalhar: renderAlertasErro
+  });
 }
 
 export function carregarRemanejamentoListaEmSegundoPlano(forcar) {
-  if (pageLoadingState.remanejamentoLista) return;
-  if (pageLoadState.remanejamentoLista && !forcar) return;
-  pageLoadingState.remanejamentoLista = true;
-
-  apiGet("/api/remanejamento/lista")
-    .then(payload => {
-      pageLoadingState.remanejamentoLista = false;
+  carregarPaginaEmSegundoPlano({
+    chave: "remanejamentoLista",
+    endpoint: "/api/remanejamento/lista",
+    forcar,
+    mensagemErro: "Falha ao carregar a lista de remanejamento:",
+    aoCarregar: payload => {
       state.remanejamentoListaRows = payload.rows || [];
-      pageLoadState.remanejamentoLista = true;
       renderRemanejamentoLista();
-    })
-    .catch(error => {
-      pageLoadingState.remanejamentoLista = false;
-      console.error("Falha ao carregar a lista de remanejamento:", error);
-      renderRemanejamentoListaErro(error);
-    });
+    },
+    aoFalhar: renderRemanejamentoListaErro
+  });
 }
 
 export function carregarRemanejamentoCadastroEmSegundoPlano(forcar) {
-  if (pageLoadingState.remanejamentoCadastro) return;
-  if (pageLoadState.remanejamentoCadastro && !forcar) return;
-  pageLoadingState.remanejamentoCadastro = true;
-
-  apiGet("/api/remanejamento/cadastro")
-    .then(payload => {
-      pageLoadingState.remanejamentoCadastro = false;
+  carregarPaginaEmSegundoPlano({
+    chave: "remanejamentoCadastro",
+    endpoint: "/api/remanejamento/cadastro",
+    forcar,
+    mensagemErro: "Falha ao carregar dados do formulário de remanejamento:",
+    aoCarregar: payload => {
       state.remanejamentoCadastroRows = payload.rows || [];
-      pageLoadState.remanejamentoCadastro = true;
       configurarRemanejamento();
-    })
-    .catch(error => {
-      pageLoadingState.remanejamentoCadastro = false;
-      console.error("Falha ao carregar dados do formulário de remanejamento:", error);
-    });
-}
-
-export function filtrarRowsBase(rows) {
-  const dseis = getSelectedValues("fDsei");
-  const cargos = getSelectedValues("fCargo");
-
-  return (rows || []).filter(row => {
-    if (!matchMulti(row.dseiCasai, dseis)) return false;
-    if (!matchMulti(row.cargo, cargos)) return false;
-    if (!filtrarGraficoAtivo(row)) return false;
-    return true;
+    }
   });
 }
 
