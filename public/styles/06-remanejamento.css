@@ -2,108 +2,15 @@
        Categoria Remanejamento - estrutura inicial sem persistencia
     ========================================================= */
 
-    /* ---------- Select pesquisável (combobox) ---------- */
-    .ssCombo {
-      position: relative;
-      width: 100%;
-    }
+    /* ---------- Select pesquisável (estrutura base) ----------
+       O VISUAL fica em 23-filtros-padrao.css (padrão único do app). Aqui só a
+       estrutura e a variante compacta dentro das tabelas de cargos. */
+    .ssCombo { position: relative; width: 100%; }
+    .ssNativo { display: none !important; } /* o <select> nativo é a fonte de verdade */
 
-    /* O <select> nativo fica escondido, mas continua sendo a fonte de verdade. */
-    .ssNativo {
-      display: none !important;
-    }
-
-    .ssInput {
-      width: 100%;
-      min-height: 42px;
-      border: 1px solid rgba(0, 83, 166, .20);
-      border-radius: 12px;
-      background: #fff;
-      color: #07346b;
-      font-size: 13px;
-      font-weight: 800;
-      padding: 0 34px 0 12px;
-      outline: none;
-      box-shadow: 0 8px 18px rgba(0, 43, 93, .08);
-      cursor: pointer;
-    }
-
-    .ssInput::placeholder {
-      color: #93a6bf;
-      font-weight: 700;
-    }
-
-    .ssInput:focus {
-      border-color: #2f7bd6;
-      box-shadow: 0 0 0 3px rgba(47, 123, 214, .15);
-    }
-
-    .ssCaret {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #4b6b95;
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    /* Variante compacta dentro das tabelas de cargos. */
-    .remTable .ssInput {
-      min-height: 36px;
-      font-size: 11px;
+    .remTable .ssTrigger {
+      min-height: 34px;
       border-radius: 9px;
-      padding: 0 28px 0 9px;
-      box-shadow: none;
-      border-color: rgba(0, 83, 166, .18);
-    }
-
-    .remTable .ssCaret {
-      right: 9px;
-      font-size: 11px;
-    }
-
-    /* Lista de opções: portal no <body> (position: fixed) p/ não ser cortada. */
-    .ssLista {
-      position: fixed;
-      z-index: 4000;
-      margin: 0;
-      padding: 4px;
-      list-style: none;
-      background: #fff;
-      border: 1px solid #cdd8e6;
-      border-radius: 10px;
-      box-shadow: 0 12px 30px rgba(11, 68, 136, .20);
-      max-height: 260px;
-      overflow-y: auto;
-    }
-
-    .ssItem {
-      padding: 8px 10px;
-      border-radius: 7px;
-      cursor: pointer;
-      color: #143b66;
-      font-size: 12.5px;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .ssItem:hover,
-    .ssItem.is-ativo {
-      background: #eaf2fd;
-    }
-
-    .ssItem.is-sel {
-      background: #f0f6ff;
-    }
-
-    .ssVazio {
-      padding: 10px;
-      color: #8595a8;
-      font-size: 12px;
-      text-align: center;
     }
 
     .main.view-remanejamento-active .filtersBar {

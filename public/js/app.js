@@ -13,6 +13,8 @@ import { configurarSaudeIndigena } from "./saude-indigena.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
 import { configurarOrdenacaoTabelas } from "./ordenacao-tabelas.js";
+import { ativarSelectsPesquisaveisGlobal } from "./searchable-select.js";
+import { ativarDatePickersFiltros } from "./date-picker.js";
 import { charts, pageLoadState, pageLoadingState } from "./runtime.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, part, setText } from "./utils.js";
@@ -42,6 +44,12 @@ export async function init() {
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();
+  // Padroniza TODOS os <select> nativos do app como dropdown pesquisável (e
+  // observa o DOM para cobrir selects criados dinamicamente). Os filtros
+  // multi-seleção de SI/Férias são <div> (não <select>), então não são afetados.
+  ativarSelectsPesquisaveisGlobal();
+  // Filtros de data: calendário com dropdowns de mês/ano (no lugar do nativo).
+  ativarDatePickersFiltros();
   await verificarSessaoInicial();
 }
 

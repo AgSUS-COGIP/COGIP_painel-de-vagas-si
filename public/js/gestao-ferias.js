@@ -1,383 +1,736 @@
 // =========================================================
-// Gestão de Férias (maquete interativa)
-// Renderiza as tabelas a partir de dados de exemplo e liga os
-// botões/filtros da aba. É autocontido: registra os próprios
-// ouvintes em configurarGestaoFerias(), chamado no init do app.
-// Não há backend — as ações operam sobre os dados em memória.
+// Gestão de Férias
+// Análise (somente leitura) a partir de /api/ferias — que cruza a VW_SAUDE_INDIGENA
+// (trabalhadores ativos) com a SIP_HISTORICO_AFASTAMENTO (férias), ligadas por
+// MATRICULA. KPIs no topo, alertas de "dobra" pela CLT e consulta geral.
+// O fluxo de solicitação/aprovação (escritório -> COAPE) é uma DEMONSTRAÇÃO em
+// memória (sem gravação no banco) — a integração será definida depois.
 // =========================================================
-import { escapeHtml } from "./utils.js";
-
-// ---------- Dados de exemplo ----------
-// Profissionais do lote em edição (dirigem o "Resumo do Lote").
-let loteProfissionais = [
-  {
-    nome: "João da Silva", cargo: "Enfermeiro", matricula: "125478",
-    aquisitivo: "01/01/2024 a 31/12/2024", prazo: "31/12/2025",
-    p1: "01/03/2025 a 15/03/2025", p2: "01/07/2025 a 10/07/2025", p3: "01/11/2025 a 05/11/2025",
-    abono: true, diasAbono: 10, situacao: "Em elaboração"
-  },
-  {
-    nome: "Maria Oliveira", cargo: "Médico Clínico Geral", matricula: "154789",
-    aquisitivo: "01/02/2024 a 31/01/2025", prazo: "31/01/2027",
-    p1: "15/04/2025 a 29/04/2025", p2: "—", p3: "—",
-    abono: false, diasAbono: 0, situacao: "Em elaboração"
-  }
-];
-
-// Pool usado pelo botão "Adicionar Colaborador" (apenas demonstração).
-const POOL_COLABORADORES = [
-  {
-    nome: "Antônio Lima", cargo: "Téc. de Enfermagem", matricula: "167203",
-    aquisitivo: "01/03/2024 a 28/02/2025", prazo: "28/02/2027",
-    p1: "01/06/2025 a 30/06/2025", p2: "—", p3: "—",
-    abono: false, diasAbono: 0, situacao: "Em elaboração"
-  },
-  {
-    nome: "Paula Santos", cargo: "Dentista", matricula: "178412",
-    aquisitivo: "01/04/2024 a 31/03/2025", prazo: "31/03/2027",
-    p1: "01/08/2025 a 15/08/2025", p2: "01/12/2025 a 11/12/2025", p3: "—",
-    abono: true, diasAbono: 10, situacao: "Em elaboração"
-  },
-  {
-    nome: "Carlos Mendes", cargo: "Psicólogo", matricula: "189550",
-    aquisitivo: "01/05/2024 a 30/04/2025", prazo: "30/04/2027",
-    p1: "10/09/2025 a 24/09/2025", p2: "—", p3: "—",
-    abono: false, diasAbono: 0, situacao: "Em elaboração"
-  }
-];
-let proximoDoPool = 0;
-
-// Consulta geral (filtrável).
-const CONSULTA = [
-  { prof: "João da Silva", cargo: "Enfermeiro", dsei: "DSEI Yanomami", situacao: "Em Gozo", periodo: "01/03 a 30/03/2025", pagamento: "Pago", comp: "Mar/2025" },
-  { prof: "Maria Oliveira", cargo: "Médico Clínico Geral", dsei: "DSEI Leste de Roraima", situacao: "Programado", periodo: "15/08 a 13/09/2025", pagamento: "Não Pago", comp: "Ago/2025" },
-  { prof: "Antônio Lima", cargo: "Téc. de Enfermagem", dsei: "DSEI Alto Rio Negro", situacao: "Programado", periodo: "01/06 a 30/06/2025", pagamento: "Pago", comp: "Jun/2025" },
-  { prof: "Paula Santos", cargo: "Dentista", dsei: "DSEI Kayapó do Pará", situacao: "Sem Programação", periodo: "—", pagamento: "—", comp: "—" },
-  { prof: "Carlos Mendes", cargo: "Psicólogo", dsei: "DSEI Maranhão", situacao: "Aguard. Aprovação", periodo: "10/09 a 24/09/2025", pagamento: "Não Pago", comp: "Set/2025" },
-  { prof: "Beatriz Rocha", cargo: "Enfermeiro", dsei: "CASAI Boa Vista", situacao: "Em Gozo", periodo: "05/04 a 04/05/2025", pagamento: "Pago", comp: "Abr/2025" },
-  { prof: "Rafael Souza", cargo: "Médico Clínico Geral", dsei: "DSEI Yanomami", situacao: "Programado", periodo: "01/10 a 30/10/2025", pagamento: "Não Pago", comp: "Out/2025" },
-  { prof: "Juliana Castro", cargo: "Téc. de Enfermagem", dsei: "CASAI Manaus", situacao: "Aguard. Aprovação", periodo: "12/07 a 26/07/2025", pagamento: "Não Pago", comp: "Jul/2025" }
-];
-
-// Histórico de lotes + detalhamento de cada lote.
-const HISTORICO = [
-  { data: "20/05/2024", dsei: "DSEI Yanomami", lote: "LT-2024-005", qtd: 18, responsavel: "João da Silva", status: "Em Aprovação" },
-  { data: "15/05/2024", dsei: "DSEI Alto Rio Negro", lote: "LT-2024-004", qtd: 22, responsavel: "Maria Oliveira", status: "Aprovado" },
-  { data: "10/05/2024", dsei: "DSEI Leste de Roraima", lote: "LT-2024-003", qtd: 15, responsavel: "Carlos Mendes", status: "Aprovado" },
-  { data: "05/05/2024", dsei: "DSEI Kayapó do Pará", lote: "LT-2024-002", qtd: 19, responsavel: "Ana Paula", status: "Rejeitado" },
-  { data: "01/05/2024", dsei: "DSEI Maranhão", lote: "LT-2024-001", qtd: 12, responsavel: "Paulo Santos", status: "Aprovado" }
-];
-
-const DETALHE_LOTE = {
-  "LT-2024-005": [
-    { nome: "João da Silva", cargo: "Enfermeiro", periodo: "01/03 a 15/03", abono: "Sim (10 dias)", status: "Em análise" },
-    { nome: "Maria Oliveira", cargo: "Médico Clínico Geral", periodo: "15/04 a 29/04", abono: "Não", status: "Em análise" },
-    { nome: "Antônio Lima", cargo: "Téc. de Enfermagem", periodo: "01/06 a 30/06", abono: "Não", status: "Aprovado" },
-    { nome: "Paula Santos", cargo: "Dentista", periodo: "01/08 a 15/08", abono: "Sim (10 dias)", status: "Em análise" },
-    { nome: "Carlos Mendes", cargo: "Psicólogo", periodo: "10/09 a 24/09", abono: "Não", status: "Aprovado" }
-  ],
-  "LT-2024-004": [
-    { nome: "Fernanda Dias", cargo: "Enfermeiro", periodo: "02/05 a 31/05", abono: "Não", status: "Aprovado" },
-    { nome: "Marcelo Reis", cargo: "Médico Clínico Geral", periodo: "10/06 a 09/07", abono: "Sim (10 dias)", status: "Aprovado" }
-  ],
-  "LT-2024-003": [
-    { nome: "Sandra Melo", cargo: "Téc. de Enfermagem", periodo: "01/07 a 30/07", abono: "Não", status: "Aprovado" },
-    { nome: "Bruno Alves", cargo: "Dentista", periodo: "05/08 a 19/08", abono: "Não", status: "Aprovado" }
-  ],
-  "LT-2024-002": [
-    { nome: "Ana Paula", cargo: "Dentista", periodo: "01/09 a 30/09", abono: "Sim (10 dias)", status: "Rejeitado" },
-    { nome: "Diego Nunes", cargo: "Psicólogo", periodo: "12/09 a 26/09", abono: "Não", status: "Rejeitado" }
-  ],
-  "LT-2024-001": [
-    { nome: "Paulo Santos", cargo: "Enfermeiro", periodo: "03/10 a 01/11", abono: "Não", status: "Aprovado" },
-    { nome: "Larissa Gomes", cargo: "Médico Clínico Geral", periodo: "15/10 a 13/11", abono: "Sim (10 dias)", status: "Aprovado" }
-  ]
-};
-
-// ---------- Mapas de classe das badges ----------
-const BADGE_SITUACAO = {
-  "Em elaboração": "is-elaboracao",
-  "Em aprovação": "is-aprovacao",
-  "Aprovada": "is-aprovado",
-  "Rejeitada": "is-rejeitado",
-  "Em Gozo": "is-gozo",
-  "Programado": "is-programado",
-  "Sem Programação": "is-elaboracao",
-  "Aguard. Aprovação": "is-aprovacao",
-  "Em análise": "is-aprovacao",
-  "Aprovado": "is-aprovado",
-  "Rejeitado": "is-rejeitado",
-  "Em Aprovação": "is-aprovacao"
-};
-const BADGE_PAGAMENTO = { "Pago": "is-pago", "Não Pago": "is-naopago" };
-
-function badge(texto, mapa) {
-  if (!texto || texto === "—") return "—";
-  const cls = mapa[texto] || "is-elaboracao";
-  return `<span class="gfBadge ${cls}">${escapeHtml(texto)}</span>`;
-}
+import { apiGet } from "./api.js";
+import { state } from "./state.js";
+import { escapeHtml, formatNumber } from "./utils.js";
 
 const $ = id => document.getElementById(id);
 
-// ---------- Toast simples ----------
-let toastTimer = null;
-function gfToast(mensagem, tipo) {
-  let el = $("gfToast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "gfToast";
-    el.className = "gfToast";
-    document.body.appendChild(el);
-  }
-  el.textContent = mensagem;
-  el.classList.remove("is-erro", "is-ok");
-  el.classList.add(tipo === "erro" ? "is-erro" : "is-ok", "show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
+// CLT: período concessivo encerra 24 meses após a admissão (1º ciclo).
+const MESES_LIMITE_GOZO = 24;
+
+// COAPE: por enquanto, a análise/aprovação é liberada para nível administrativo
+// (>= 2). O papel "COAPE" próprio deve ser definido depois no controle de acesso.
+const NIVEL_COAPE = 2;
+function ehCoape() {
+  return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL_COAPE;
 }
 
-// ---------- Renderização: lote (prof. incluídos + detalhamento + resumo) ----------
-function renderLote() {
-  const profBody = $("gfProfBody");
-  const detBody = $("gfDetBody");
-  if (profBody) {
-    profBody.innerHTML = loteProfissionais.map((p, i) => `
-      <tr>
-        <td>${escapeHtml(p.nome)}</td>
-        <td>${escapeHtml(p.cargo)}</td>
-        <td>${escapeHtml(p.matricula)}</td>
-        <td>${escapeHtml(p.aquisitivo)}</td>
-        <td>${escapeHtml(p.prazo)}</td>
-        <td class="gfTd-center">
-          <button class="gfIconBtn" data-gf-remover="${i}" title="Remover"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      </tr>`).join("") || `<tr><td colspan="6" class="gfTd-center">Nenhum colaborador incluído.</td></tr>`;
+// Toast simples.
+let toastTimer = null;
+function gfToast(msg, tipo) {
+  let el = document.getElementById("gfToast");
+  if (!el) { el = document.createElement("div"); el.id = "gfToast"; el.className = "gfToast"; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.toggle("is-erro", tipo === "erro");
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
+}
+
+// ---------- Estado ----------
+let dados = null;       // { rows (objetos), hoje, atualizadoEm }
+let porMatricula = new Map();
+let carregado = false;
+let carregando = false;
+let configurado = false;
+
+// Fluxo (em memória)
+let lote = [];          // solicitações em elaboração
+let coape = [];         // solicitações encaminhadas à COAPE
+let trabSelecionado = null;
+let abaAtiva = "visaoGeral"; // sub-aba ativa
+
+// ---------- Sub-abas (Visão Geral | Solicitação | Aprovação COAPE) ----------
+function trocarTab(tab) {
+  if (tab === "coape" && !ehCoape()) tab = "visaoGeral";   // COAPE só para a COAPE
+  abaAtiva = tab;
+  document.querySelectorAll("#gfTabs .gfTab").forEach(b => b.classList.toggle("is-active", b.dataset.gfTab === tab));
+  document.querySelectorAll("#gfBody .gfPane").forEach(p => { p.hidden = p.dataset.gfPane !== tab; });
+}
+// Mostra a aba da COAPE apenas para quem é COAPE; reavalia a cada render.
+function atualizarAcessoCoape() {
+  const t = $("gfTabCoape");
+  const ok = ehCoape();
+  if (t) t.hidden = !ok;
+  if (!ok && abaAtiva === "coape") trocarTab("visaoGeral");
+}
+
+// Filtros (multi-seleção) — cada um é um array de valores selecionados.
+const combos = {};
+let filtros = vazio();
+function vazio() {
+  return { nome: [], matricula: [], centro: [], cargo: [], situacao: [], tipoAdm: [], status: [], alerta: [] };
+}
+
+// ---------- Combobox multi-seleção pesquisável ----------
+function fecharTodosCombos(exceto) {
+  Object.values(combos).forEach(c => { if (c.root !== exceto) c.fechar(); });
+}
+function criarCombo(id, rotuloTodos, onChange, opts) {
+  const root = $(id);
+  if (!root) return null;
+  const maxRender = (opts && opts.maxRender) || 200;
+  const ph = (opts && opts.searchPlaceholder) || "Buscar…";
+  root.innerHTML = `
+    <button type="button" class="gfComboBtn"><span class="gfComboValor"></span><i class="fa-solid fa-chevron-down"></i></button>
+    <div class="gfComboPop" hidden>
+      <div class="gfComboSearch"><i class="fa-solid fa-magnifying-glass"></i><input type="text" class="gfComboInput" placeholder="${ph}" autocomplete="off"><button type="button" class="gfComboClear" hidden>Limpar</button></div>
+      <ul class="gfComboList"></ul>
+    </div>`;
+  const btn = root.querySelector(".gfComboBtn");
+  const valorEl = root.querySelector(".gfComboValor");
+  const pop = root.querySelector(".gfComboPop");
+  const input = root.querySelector(".gfComboInput");
+  const clearBtn = root.querySelector(".gfComboClear");
+  const list = root.querySelector(".gfComboList");
+  let opcoes = [];
+  const sel = new Set();
+  let rotuloAll = rotuloTodos;
+
+  function atualizarBotao() {
+    let txt = rotuloAll;
+    if (sel.size === 1) { const o = opcoes.find(o => o.value === [...sel][0]); txt = o ? o.label : [...sel][0]; }
+    else if (sel.size > 1) txt = `${sel.size} selecionados`;
+    valorEl.textContent = txt;
+    root.classList.toggle("temValor", sel.size > 0);
+    clearBtn.hidden = sel.size === 0;
   }
-  if (detBody) {
-    detBody.innerHTML = loteProfissionais.map(p => `
+  function renderLista(f) {
+    const q = (f || "").trim().toLowerCase();
+    const vis = opcoes.filter(o => !q || o.label.toLowerCase().includes(q));
+    const mostra = vis.slice(0, maxRender);
+    let html = mostra.map(o => `<li class="gfComboOpt${sel.has(o.value) ? " is-sel" : ""}" data-v="${escapeHtml(o.value)}" title="${escapeHtml(o.label)}"><span class="gfComboCheck"><i class="fa-solid fa-check"></i></span><span class="gfComboOptLabel">${escapeHtml(o.label)}</span></li>`).join("");
+    if (!vis.length) html = `<li class="gfComboVazio">Nenhuma opção</li>`;
+    else if (vis.length > maxRender) html += `<li class="gfComboMais">+${vis.length - maxRender} — digite para refinar…</li>`;
+    list.innerHTML = html;
+  }
+  function abrir() { fecharTodosCombos(root); pop.hidden = false; root.classList.add("aberto"); input.value = ""; renderLista(""); setTimeout(() => input.focus(), 10); }
+  function fechar() { pop.hidden = true; root.classList.remove("aberto"); }
+  function toggle(v) { if (sel.has(v)) sel.delete(v); else sel.add(v); atualizarBotao(); renderLista(input.value); if (onChange) onChange(); }
+
+  btn.addEventListener("click", e => { e.stopPropagation(); pop.hidden ? abrir() : fechar(); });
+  pop.addEventListener("click", e => e.stopPropagation());
+  input.addEventListener("input", () => renderLista(input.value));
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { const o = list.querySelector(".gfComboOpt"); if (o) toggle(o.dataset.v); e.preventDefault(); } else if (e.key === "Escape") fechar(); });
+  list.addEventListener("click", e => { const li = e.target.closest(".gfComboOpt"); if (li) toggle(li.dataset.v); });
+  clearBtn.addEventListener("click", () => { sel.clear(); atualizarBotao(); renderLista(input.value); if (onChange) onChange(); });
+
+  const inst = {
+    root,
+    setOptions(valores, rotulo) {
+      if (rotulo) rotuloAll = rotulo;
+      opcoes = valores.map(v => (v && typeof v === "object") ? { value: String(v.value), label: String(v.label) } : { value: String(v), label: String(v) });
+      atualizarBotao();
+    },
+    getValues() { return [...sel]; },
+    clear() { sel.clear(); atualizarBotao(); },
+    fechar
+  };
+  atualizarBotao();
+  combos[id] = inst;
+  return inst;
+}
+
+// ---------- Datas / CLT ----------
+function fData(iso) {
+  if (!iso) return "";
+  const [a, m, d] = String(iso).slice(0, 10).split("-");
+  return (a && m && d) ? `${d}/${m}/${a}` : "";
+}
+function somarMeses(iso, meses) {
+  const [a, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  if (!a) return "";
+  return new Date(Date.UTC(a, m - 1 + meses, d)).toISOString().slice(0, 10);
+}
+function diasEntre(isoA, isoB) {
+  const [a1, m1, d1] = String(isoA).split("-").map(Number);
+  const [a2, m2, d2] = String(isoB).split("-").map(Number);
+  if (!a1 || !a2) return null;
+  return Math.round((Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86400000);
+}
+function diasPeriodo(ini, fim) {
+  const d = diasEntre(ini, fim);
+  return d === null ? 0 : d + 1; // inclusivo (corridos)
+}
+
+// ---------- Carregamento ----------
+async function carregar() {
+  if (carregando || carregado) return;
+  carregando = true;
+  mostrarEstado("Carregando dados de férias…");
+  try {
+    const payload = await apiGet("/api/ferias");
+    dados = decodificar(payload);
+    porMatricula = new Map(dados.rows.map(r => [String(r.matricula), r]));
+    carregado = true;
+    esconderEstado();
+    preencherFiltros();
+    render();
+  } catch (e) {
+    mostrarEstado(e && e.message ? e.message : "Falha ao carregar os dados de férias.", true);
+  } finally {
+    carregando = false;
+  }
+}
+
+function decodificar(payload) {
+  const fields = payload.fields || [];
+  const rawFields = payload.rawFields || [];
+  const dim = payload.dim || {};
+  const base = fields.length;
+  const rows = (payload.rows || []).map(r => {
+    const o = {};
+    fields.forEach((f, i) => { o[f] = dim[f][r[i]]; });
+    rawFields.forEach((f, j) => { o[f] = r[base + j]; });
+    return o;
+  });
+  return { rows, hoje: payload.hoje, atualizadoEm: payload.atualizadoEm };
+}
+
+// ---------- Estado visual ----------
+function mostrarEstado(msg, erro) {
+  const el = $("gfEstado"), body = $("gfBody");
+  if (el) {
+    el.hidden = false;
+    el.classList.toggle("is-erro", !!erro);
+    el.innerHTML = erro ? `<i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(msg)}`
+      : `<span class="gfSpinner"></span> ${escapeHtml(msg)}`;
+  }
+  if (body) body.style.display = "none";
+}
+function esconderEstado() {
+  const el = $("gfEstado"); if (el) el.hidden = true;
+  const body = $("gfBody"); if (body) body.style.display = "";
+}
+
+function setText(id, v) { const el = $(id); if (el) el.textContent = v; }
+
+// ---------- Render principal ----------
+function render() {
+  if (!carregado || !dados) return;
+  const rows = aplicarFiltros();
+
+  // KPIs
+  const cont = st => rows.filter(r => r.status === st).length;
+  setText("gfKpiAtivos", formatNumber(rows.length));
+  setText("gfKpiGozo", formatNumber(cont("Em gozo")));
+  setText("gfKpiProgramadas", formatNumber(cont("Programadas")));
+  setText("gfKpiConcluidas", formatNumber(cont("Concluídas")));
+  setText("gfKpiSemProg", formatNumber(cont("Sem programação")));
+  const aler = b => rows.filter(r => r.alerta === b).length;
+  setText("gfKpiA180", formatNumber(aler("Menos de 180 dias")));
+  setText("gfKpiA90", formatNumber(aler("Menos de 90 dias")));
+  setText("gfKpiA30", formatNumber(aler("Menos de 30 dias")));
+
+  setText("gfAtualizado", dados.atualizadoEm ? new Date(dados.atualizadoEm).toLocaleDateString("pt-BR") : "—");
+
+  // Mini-cards de alerta (faixas).
+  setText("gfAlA30", formatNumber(aler("Menos de 30 dias")));
+  setText("gfAlA90", formatNumber(aler("Menos de 90 dias")));
+  setText("gfAlA180", formatNumber(aler("Menos de 180 dias")));
+
+  renderResumoFiltro(rows);
+  renderAlertas(rows);
+  renderConsulta(rows);
+  renderPedido();
+  renderCoape();
+  atualizarAcessoCoape();
+}
+
+function renderResumoFiltro(rows) {
+  const p = [];
+  const arr = (nome, lista) => { if (lista.length) p.push(lista.length <= 2 ? lista.join(", ") : `${lista.length} ${nome}`); };
+  arr("nomes", filtros.nome); arr("matrículas", filtros.matricula); arr("DSEIs/CASAIs", filtros.centro);
+  arr("cargos", filtros.cargo); arr("situações", filtros.situacao); arr("tipos de admissão", filtros.tipoAdm);
+  arr("status", filtros.status); arr("alertas", filtros.alerta);
+  setText("gfResumoFiltro", `${formatNumber(rows.length)} trabalhadores · ${p.length ? p.join(" · ") : "Todos os ativos"}`);
+}
+
+// Filtra os trabalhadores ativos conforme os filtros selecionados (multi-seleção).
+function aplicarFiltros() {
+  const f = filtros;
+  return dados.rows.filter(r =>
+    (!f.nome.length || f.nome.includes(r.nome)) &&
+    (!f.matricula.length || f.matricula.includes(String(r.matricula))) &&
+    (!f.centro.length || f.centro.includes(r.centro)) &&
+    (!f.cargo.length || f.cargo.includes(r.cargo)) &&
+    (!f.situacao.length || f.situacao.includes(r.situacaoFuncional)) &&
+    (!f.tipoAdm.length || f.tipoAdm.includes(r.tipoAdmissao)) &&
+    (!f.status.length || f.status.includes(r.status)) &&
+    (!f.alerta.length || f.alerta.includes(r.alerta)));
+}
+
+// ---------- Alertas de dobra ----------
+function corDias(d) {
+  if (d < 30) return "is-red";
+  if (d < 90) return "is-orange";
+  return "is-yellow";
+}
+function renderAlertas(rows) {
+  const body = $("gfAlertasBody");
+  if (!body) return;
+  const lista = (rows || dados.rows)
+    .filter(r => r.alerta && r.alerta !== "—" && r.dias !== "")
+    .sort((a, b) => Number(a.dias) - Number(b.dias));
+  body.innerHTML = lista.map(r => `
+    <tr>
+      <td>${escapeHtml(String(r.matricula))}</td>
+      <td>${escapeHtml(r.centro)}</td>
+      <td class="gfTdNome">${escapeHtml(r.nome)}</td>
+      <td>${escapeHtml(r.cargo)}</td>
+      <td>${fData(r.admissao)}</td>
+      <td>${fData(r.limiteGozo)}</td>
+      <td class="gfTd-center"><span class="gfDays ${corDias(Number(r.dias))}">${Number(r.dias) < 0 ? "Em dobra" : r.dias}</span></td>
+    </tr>`).join("") || `<tr><td colspan="7" class="gfVazio">Nenhum trabalhador em alerta de dobra para os filtros selecionados. 🎉</td></tr>`;
+}
+
+// ---------- Consulta geral ----------
+const BADGE_STATUS = {
+  "Em gozo": "is-gozo", "Programadas": "is-programado",
+  "Concluídas": "is-concluida", "Sem programação": "is-sem"
+};
+function badgeStatus(s) {
+  return `<span class="gfBadge ${BADGE_STATUS[s] || "is-sem"}">${escapeHtml(s)}</span>`;
+}
+
+// Popula os combos de filtro (com totais quando faz sentido) + o DSEI do pedido.
+function preencherFiltros() {
+  const rows = dados.rows;
+  const ordenar = a => [...a].sort((x, y) => String(x).localeCompare(String(y), "pt-BR"));
+  const unicos = chave => ordenar([...new Set(rows.map(r => r[chave]).filter(Boolean))]);
+  const contagem = chave => { const m = new Map(); rows.forEach(r => m.set(r[chave], (m.get(r[chave]) || 0) + 1)); return m; };
+  const comTotal = (valores, mapa) => ordenar(valores).map(v => ({ value: v, label: `${v} (${formatNumber(mapa.get(v) || 0)})` }));
+
+  // Nome e Registro: alta cardinalidade, sem total.
+  combos.gfFNome?.setOptions(unicos("nome"));
+  combos.gfFMatricula?.setOptions(unicos("matricula").map(String));
+  // Categóricos: com total na frente.
+  combos.gfFCentro?.setOptions(comTotal(unicos("centro"), contagem("centro")));
+  combos.gfFCargo?.setOptions(comTotal(unicos("cargo"), contagem("cargo")));
+  combos.gfFSituacao?.setOptions(comTotal(unicos("situacaoFuncional"), contagem("situacaoFuncional")));
+  combos.gfFTipoAdm?.setOptions(comTotal(unicos("tipoAdmissao"), contagem("tipoAdmissao")));
+  const cStatus = contagem("status");
+  combos.gfFStatus?.setOptions(comTotal(["Em gozo", "Programadas", "Concluídas", "Sem programação"], cStatus));
+  const cAlerta = contagem("alerta");
+  combos.gfFAlerta?.setOptions(comTotal(["Menos de 30 dias", "Menos de 90 dias", "Menos de 180 dias"], cAlerta));
+
+  // DSEI do registro do pedido (select nativo) + data do ofício.
+  const reg = $("gfRegDsei");
+  if (reg) reg.innerHTML = `<option value="">Selecione…</option>` + unicos("centro").map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  const dataOf = $("gfRegData");
+  if (dataOf && !dataOf.value && dados.hoje) dataOf.value = dados.hoje;
+}
+
+function lerFiltros() {
+  const cv = id => combos[id] ? combos[id].getValues() : [];
+  filtros = {
+    nome: cv("gfFNome"), matricula: cv("gfFMatricula"), centro: cv("gfFCentro"), cargo: cv("gfFCargo"),
+    situacao: cv("gfFSituacao"), tipoAdm: cv("gfFTipoAdm"), status: cv("gfFStatus"), alerta: cv("gfFAlerta")
+  };
+}
+
+function limparFiltros() {
+  Object.values(combos).forEach(c => c.clear());
+  filtros = vazio();
+  render();
+}
+
+// HTML de uma linha da Consulta Geral.
+function linhaConsultaHtml(r) {
+  const periodo = (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "—";
+  return `
+    <tr>
+      <td>${escapeHtml(String(r.matricula))}</td>
+      <td>${escapeHtml(r.centro)}</td>
+      <td class="gfTdNome">${escapeHtml(r.nome)}</td>
+      <td>${escapeHtml(r.cargo)}</td>
+      <td>${fData(r.admissao)}</td>
+      <td>${badgeStatus(r.status)}</td>
+      <td>${periodo}</td>
+    </tr>`;
+}
+
+// Paginação por rolagem infinita: renderizar a base inteira de uma vez trava a
+// aba. Mostramos 100 por vez e carregamos mais 100 ao rolar até o fim.
+const CONS_PAGINA = 100;
+let consLista = [];        // lista completa (já filtrada)
+let consRenderizadas = 0;  // quantas linhas já estão no DOM
+
+function renderConsulta(rows) {
+  const body = $("gfConsBody");
+  if (!body) return;
+  const lista = rows || dados.rows;
+  consLista = lista;
+  consRenderizadas = 0;
+  setText("gfConsCount", `${formatNumber(lista.length)} trabalhadores`);
+
+  // Volta ao topo ao trocar filtro (senão a rolagem dispararia mais lotes).
+  const wrap = body.closest(".gfTableScroll");
+  if (wrap) wrap.scrollTop = 0;
+
+  if (!lista.length) {
+    body.innerHTML = `<tr><td colspan="7" class="gfVazio">Nenhum trabalhador para os filtros selecionados.</td></tr>`;
+    setText("gfConsRegistros", "Nenhum registro");
+    return;
+  }
+  body.innerHTML = "";
+  renderProximoLoteConsulta();
+}
+
+// Acrescenta o próximo lote de linhas (append, sem reconstruir as anteriores).
+function renderProximoLoteConsulta() {
+  const body = $("gfConsBody");
+  if (!body || consRenderizadas >= consLista.length) return;
+  const fim = Math.min(consRenderizadas + CONS_PAGINA, consLista.length);
+  body.insertAdjacentHTML("beforeend",
+    consLista.slice(consRenderizadas, fim).map(linhaConsultaHtml).join(""));
+  consRenderizadas = fim;
+  const total = consLista.length;
+  setText("gfConsRegistros", consRenderizadas < total
+    ? `Mostrando ${formatNumber(consRenderizadas)} de ${formatNumber(total)} trabalhadores · role para carregar mais`
+    : `${formatNumber(total)} trabalhadores`);
+}
+
+// ---------- Fluxo: escritório registra ----------
+function buscarTrabalhador() {
+  const termo = ($("gfBuscaTrab")?.value || "").trim().toLowerCase();
+  const info = $("gfTrabInfo");
+  if (!termo) { trabSelecionado = null; if (info) info.hidden = true; return; }
+  const achado = dados.rows.find(r =>
+    String(r.matricula) === termo || (r.nome || "").toLowerCase().includes(termo));
+  if (!achado) {
+    trabSelecionado = null;
+    if (info) { info.hidden = false; info.innerHTML = `<span class="gfErro">Trabalhador não encontrado entre os ativos.</span>`; }
+    return;
+  }
+  trabSelecionado = achado;
+  const aquisitivoFim = somarMeses(achado.admissao, 12);
+  const limite = somarMeses(achado.admissao, MESES_LIMITE_GOZO);
+  if (info) {
+    info.hidden = false;
+    info.innerHTML = `
+      <div><strong>${escapeHtml(achado.nome)}</strong> · mat. ${escapeHtml(String(achado.matricula))}</div>
+      <div>${escapeHtml(achado.cargo)} · ${escapeHtml(achado.centro)}</div>
+      <div class="gfTrabClt">
+        <span>Admissão: <strong>${fData(achado.admissao)}</strong></span>
+        <span>Período aquisitivo: <strong>${fData(achado.admissao)} a ${fData(aquisitivoFim)}</strong></span>
+        <span>Prazo-limite de gozo: <strong>${fData(limite)}</strong></span>
+        <span>Status atual: ${badgeStatus(achado.status)}</span>
+      </div>`;
+  }
+}
+
+// Valida o fracionamento conforme a CLT (Art. 134 §1º) e os 30 dias.
+function validarPeriodos(periodos, abono) {
+  const msgs = [];
+  let ok = true;
+  const totalGozo = periodos.reduce((s, p) => s + p.dias, 0);
+  const diasAbono = abono ? 10 : 0;
+  const totalDevido = 30 - diasAbono;
+
+  if (!periodos.length) return { ok: false, msgs: ["Informe ao menos o Período 1."] };
+  if (periodos.length > 3) { ok = false; msgs.push("Máximo de 3 períodos (CLT Art. 134 §1º)."); }
+  if (periodos.some(p => p.dias <= 0)) { ok = false; msgs.push("Há período com data fim anterior ao início."); }
+  if (periodos.length > 1) {
+    if (!periodos.some(p => p.dias >= 14)) { ok = false; msgs.push("Um dos períodos deve ter no mínimo 14 dias."); }
+    if (periodos.some(p => p.dias < 5)) { ok = false; msgs.push("Os demais períodos devem ter no mínimo 5 dias."); }
+  }
+  if (totalGozo !== totalDevido) {
+    ok = false;
+    msgs.push(`A soma dos dias (${totalGozo}) deve ser ${totalDevido}${abono ? " (30 − 10 de abono)" : ""}.`);
+  }
+  if (ok) msgs.push("Conforme as regras da CLT. ✓");
+  return { ok, msgs };
+}
+
+function lerPeriodosForm() {
+  const par = (i) => {
+    const ini = $(`gfP${i}Ini`)?.value || "", fim = $(`gfP${i}Fim`)?.value || "";
+    if (!ini || !fim) return null;
+    return { ini, fim, dias: diasPeriodo(ini, fim) };
+  };
+  return [par(1), par(2), par(3)].filter(Boolean);
+}
+
+function atualizarValidacao() {
+  const el = $("gfValida");
+  if (!el) return;
+  const periodos = lerPeriodosForm();
+  const abono = $("gfAbono")?.checked;
+  if (!periodos.length) { el.innerHTML = ""; return; }
+  const { ok, msgs } = validarPeriodos(periodos, abono);
+  el.className = `gfValida ${ok ? "is-ok" : "is-erro"}`;
+  el.innerHTML = msgs.map(m => `<div>${escapeHtml(m)}</div>`).join("");
+}
+
+function adicionarSolicitacao() {
+  if (!trabSelecionado) { alert("Busque e selecione um trabalhador primeiro."); return; }
+  const periodos = lerPeriodosForm();
+  const abono = !!$("gfAbono")?.checked;
+  const val = validarPeriodos(periodos, abono);
+  if (!periodos.length) { alert("Informe ao menos o Período 1."); return; }
+  lote.push({
+    matricula: trabSelecionado.matricula,
+    nome: trabSelecionado.nome,
+    cargo: trabSelecionado.cargo,
+    centro: trabSelecionado.centro,
+    admissao: trabSelecionado.admissao,
+    periodos, abono,
+    diasAbono: abono ? 10 : 0,
+    clt: val,
+    situacao: "Em elaboração"
+  });
+  // Limpa o formulário.
+  ["gfP1Ini", "gfP1Fim", "gfP2Ini", "gfP2Fim", "gfP3Ini", "gfP3Fim", "gfBuscaTrab"].forEach(id => { const e = $(id); if (e) e.value = ""; });
+  if ($("gfAbono")) $("gfAbono").checked = false;
+  const info = $("gfTrabInfo"); if (info) info.hidden = true;
+  trabSelecionado = null;
+  atualizarValidacao();
+  renderPedido();
+  gfToast("Trabalhador adicionado à solicitação.");
+}
+
+function periodosTexto(periodos) {
+  return periodos.map(p => `${fData(p.ini)}–${fData(p.fim)} (${p.dias}d)`).join(" · ") || "—";
+}
+function periodoAquisitivo(adm) {
+  return adm ? `${fData(adm)} a ${fData(somarMeses(adm, 12))}` : "—";
+}
+function periodoSlot(periodos, i) {
+  return periodos && periodos[i] ? `${fData(periodos[i].ini)}–${fData(periodos[i].fim)} (${periodos[i].dias}d)` : "—";
+}
+
+// Registro do pedido = Profissionais incluídos + Detalhamento + Resumo do lote.
+function renderPedido() {
+  const prof = $("gfProfBody");
+  if (prof) {
+    prof.innerHTML = lote.map((s, i) => `
       <tr>
-        <td>${escapeHtml(p.nome)}</td>
-        <td>${escapeHtml(p.cargo)}</td>
-        <td>${escapeHtml(p.aquisitivo)}</td>
-        <td>${escapeHtml(p.p1)}</td>
-        <td>${escapeHtml(p.p2)}</td>
-        <td>${escapeHtml(p.p3)}</td>
-        <td class="gfTd-center">${p.abono ? "Sim" : "Não"}</td>
-        <td class="gfTd-center">${p.diasAbono} dias</td>
-        <td>${badge(p.situacao, BADGE_SITUACAO)}</td>
-      </tr>`).join("") || `<tr><td colspan="9" class="gfTd-center">Sem solicitações.</td></tr>`;
+        <td class="gfTdNome">${escapeHtml(s.nome)}</td>
+        <td>${escapeHtml(s.cargo)}</td>
+        <td>${escapeHtml(String(s.matricula))}</td>
+        <td>${periodoAquisitivo(s.admissao)}</td>
+        <td>${fData(somarMeses(s.admissao, MESES_LIMITE_GOZO))}</td>
+        <td class="gfTd-center"><button class="gfIconBtn is-danger" data-gf-rem-lote="${i}" title="Remover"><i class="fa-solid fa-trash"></i></button></td>
+      </tr>`).join("") || `<tr><td colspan="6" class="gfVazio">Nenhum profissional incluído. Busque um trabalhador e adicione.</td></tr>`;
+  }
+  const det = $("gfDetBody");
+  if (det) {
+    det.innerHTML = lote.map(s => `
+      <tr>
+        <td class="gfTdNome">${escapeHtml(s.nome)}</td>
+        <td>${escapeHtml(s.cargo)}</td>
+        <td>${periodoAquisitivo(s.admissao)}</td>
+        <td>${periodoSlot(s.periodos, 0)}</td>
+        <td>${periodoSlot(s.periodos, 1)}</td>
+        <td>${periodoSlot(s.periodos, 2)}</td>
+        <td class="gfTd-center">${s.abono ? "Sim" : "Não"}</td>
+        <td class="gfTd-center">${s.diasAbono || 0}</td>
+        <td><span class="gfBadge ${s.clt.ok ? "is-gozo" : "is-orange"}">${s.clt.ok ? "Conforme CLT" : "Verificar CLT"}</span></td>
+      </tr>`).join("") || `<tr><td colspan="9" class="gfVazio">Sem solicitações.</td></tr>`;
   }
   renderResumo();
 }
 
 function renderResumo() {
-  const total = loteProfissionais.length;
-  const fracionadas = loteProfissionais.filter(p => p.p2 !== "—" || p.p3 !== "—").length;
-  const integrais = total - fracionadas;
-  const comAbono = loteProfissionais.filter(p => p.abono).length;
-  const emAprovacao = loteProfissionais.filter(p => p.situacao === "Em aprovação").length;
-  const aprovadas = loteProfissionais.filter(p => p.situacao === "Aprovada").length;
-  const rejeitadas = loteProfissionais.filter(p => p.situacao === "Rejeitada").length;
-
-  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-  set("gfResTotal", total);
-  set("gfResIntegrais", integrais);
-  set("gfResFracionadas", fracionadas);
-  set("gfResAbono", comAbono);
-  set("gfResAprovacao", emAprovacao);
-  set("gfResAprovadas", aprovadas);
-  set("gfResRejeitadas", rejeitadas);
-}
-
-// ---------- Renderização: histórico + detalhamento do lote ----------
-function renderHistorico() {
-  const body = $("gfHistBody");
-  if (!body) return;
-  body.innerHTML = HISTORICO.map(h => `
-    <tr>
-      <td>${escapeHtml(h.data)}</td>
-      <td>${escapeHtml(h.dsei)}</td>
-      <td>${escapeHtml(h.lote)}</td>
-      <td class="gfTd-center">${h.qtd}</td>
-      <td>${escapeHtml(h.responsavel)}</td>
-      <td>${badge(h.status, BADGE_SITUACAO)}</td>
-      <td class="gfTd-center">
-        <button class="gfIconBtn gfView" data-gf-lote="${escapeHtml(h.lote)}" title="Ver detalhamento">
-          <i class="fa-solid fa-eye"></i>
-        </button>
-      </td>
-    </tr>`).join("");
-}
-
-function renderDetalheLote(lote) {
-  const titulo = $("gfLoteTitulo");
-  const body = $("gfLoteBody");
-  if (titulo) titulo.textContent = `Detalhamento do lote ${lote}`;
-  if (!body) return;
-  const linhas = DETALHE_LOTE[lote] || [];
-  body.innerHTML = linhas.map(l => `
-    <tr>
-      <td>${escapeHtml(l.nome)}</td>
-      <td>${escapeHtml(l.cargo)}</td>
-      <td>${escapeHtml(l.periodo)}</td>
-      <td class="gfTd-center">${escapeHtml(l.abono)}</td>
-      <td>${badge(l.status, BADGE_SITUACAO)}</td>
-    </tr>`).join("") || `<tr><td colspan="5" class="gfTd-center">Sem detalhamento para este lote.</td></tr>`;
-}
-
-// ---------- Consulta geral (filtros) ----------
-function preencherFiltrosConsulta() {
-  const opcoes = (sel, valores, rotuloTodos) => {
-    const el = $(sel);
-    if (!el) return;
-    el.innerHTML = `<option value="">${rotuloTodos}</option>` +
-      valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-  };
-  const unicos = chave => [...new Set(CONSULTA.map(r => r[chave]).filter(v => v && v !== "—"))];
-  opcoes("gfConsDsei", unicos("dsei"), "Todos");
-  opcoes("gfConsCargo", unicos("cargo"), "Todos");
-  opcoes("gfConsStatus", unicos("situacao"), "Todos");
-  opcoes("gfConsComp", unicos("comp"), "Todas");
-}
-
-function filtrosConsultaAtuais() {
-  return {
-    dsei: $("gfConsDsei")?.value || "",
-    cargo: $("gfConsCargo")?.value || "",
-    status: $("gfConsStatus")?.value || "",
-    comp: $("gfConsComp")?.value || ""
-  };
-}
-
-function consultaFiltrada() {
-  const f = filtrosConsultaAtuais();
-  return CONSULTA.filter(r =>
-    (!f.dsei || r.dsei === f.dsei) &&
-    (!f.cargo || r.cargo === f.cargo) &&
-    (!f.status || r.situacao === f.status) &&
-    (!f.comp || r.comp === f.comp));
-}
-
-function renderConsulta() {
-  const body = $("gfConsBody");
-  if (!body) return;
-  const linhas = consultaFiltrada();
-  body.innerHTML = linhas.map(r => `
-    <tr>
-      <td>${escapeHtml(r.prof)}</td>
-      <td>${escapeHtml(r.cargo)}</td>
-      <td>${escapeHtml(r.dsei)}</td>
-      <td>${badge(r.situacao, BADGE_SITUACAO)}</td>
-      <td>${escapeHtml(r.periodo)}</td>
-      <td>${badge(r.pagamento, BADGE_PAGAMENTO)}</td>
-    </tr>`).join("") ||
-    `<tr><td colspan="6" class="gfTd-center">Nenhum resultado para os filtros selecionados.</td></tr>`;
-}
-
-// ---------- Ações dos botões ----------
-function adicionarColaborador() {
-  if (proximoDoPool >= POOL_COLABORADORES.length) {
-    gfToast("Não há mais colaboradores de exemplo para adicionar.", "erro");
-    return;
-  }
-  loteProfissionais.push({ ...POOL_COLABORADORES[proximoDoPool] });
-  proximoDoPool += 1;
-  renderLote();
-  gfToast("Colaborador adicionado ao pedido.");
-}
-
-function removerColaborador(indice) {
-  if (indice < 0 || indice >= loteProfissionais.length) return;
-  const removido = loteProfissionais.splice(indice, 1)[0];
-  // Devolve ao pool para poder readicionar.
-  const ehDoPool = POOL_COLABORADORES.some(p => p.matricula === removido.matricula);
-  if (ehDoPool && proximoDoPool > 0) proximoDoPool -= 1;
-  renderLote();
-  gfToast(`"${removido.nome}" removido do pedido.`);
+  const frac = lote.filter(s => s.periodos.length > 1).length;
+  setText("gfResTotal", lote.length);
+  setText("gfResIntegrais", lote.length - frac);
+  setText("gfResFracionadas", frac);
+  setText("gfResAbono", lote.filter(s => s.abono).length);
+  setText("gfResAprovacao", coape.filter(s => s.status === "Em análise").length);
+  setText("gfResAprovadas", coape.filter(s => s.status === "Aprovado").length);
+  setText("gfResRejeitadas", coape.filter(s => s.status === "Reprovado").length);
 }
 
 function salvarLote() {
-  if (!loteProfissionais.length) {
-    gfToast("Inclua ao menos um colaborador antes de salvar.", "erro");
-    return;
-  }
+  if (!lote.length) { gfToast("Inclua ao menos um trabalhador antes de salvar.", "erro"); return; }
   const dsei = $("gfRegDsei")?.value || "—";
-  gfToast(`Lote salvo (${loteProfissionais.length} prof. · ${dsei}).`);
+  gfToast(`Lote salvo em memória (${lote.length} prof. · ${dsei}).`);
 }
 
-function encaminharAprovacao() {
-  if (!loteProfissionais.length) {
-    gfToast("Inclua ao menos um colaborador antes de encaminhar.", "erro");
-    return;
-  }
-  loteProfissionais.forEach(p => {
-    if (p.situacao === "Em elaboração") p.situacao = "Em aprovação";
-  });
-  renderLote();
-  gfToast("Lote encaminhado para aprovação.");
+function encaminharCoape() {
+  if (!lote.length) { gfToast("Adicione ao menos um trabalhador antes de encaminhar.", "erro"); return; }
+  lote.forEach(s => coape.push({ ...s, status: "Em análise", motivo: "" }));
+  lote = [];
+  renderPedido();
+  renderCoape();
+  gfToast("Solicitação encaminhada para a COAPE.");
 }
 
-function exportarRelatorio() {
-  const linhas = consultaFiltrada();
-  if (!linhas.length) {
-    gfToast("Não há dados para exportar com os filtros atuais.", "erro");
-    return;
+// ---------- Fluxo: COAPE ----------
+const BADGE_FLUXO = {
+  "Em elaboração": "is-sem", "Em análise": "is-programado",
+  "Aprovado": "is-gozo", "Reprovado": "is-red", "Ajuste solicitado": "is-orange", "Cancelado": "is-sem"
+};
+function renderCoape() {
+  // Acesso restrito à COAPE: bloqueia o conteúdo para quem não é COAPE.
+  const coapeOk = ehCoape();
+  const bloq = $("gfCoapeBloqueio");
+  const cont = $("gfCoapeConteudo");
+  if (bloq) bloq.hidden = coapeOk;
+  if (cont) cont.style.display = coapeOk ? "" : "none";
+
+  const body = $("gfCoapeBody");
+  if (!body) return;
+  body.innerHTML = coape.map((s, i) => {
+    const acoes = s.status === "Em análise"
+      ? `<button class="gfIconBtn is-ok" data-gf-coape="aprovar" data-i="${i}" title="Aprovar"><i class="fa-solid fa-check"></i></button>
+         <button class="gfIconBtn is-warn" data-gf-coape="ajustar" data-i="${i}" title="Solicitar ajuste"><i class="fa-solid fa-rotate-left"></i></button>
+         <button class="gfIconBtn is-danger" data-gf-coape="reprovar" data-i="${i}" title="Reprovar"><i class="fa-solid fa-xmark"></i></button>`
+      : `<span class="gfMotivo">${s.motivo ? escapeHtml(s.motivo) : "—"}</span>`;
+    return `
+    <tr>
+      <td class="gfTdNome">${escapeHtml(s.nome)}</td>
+      <td>${escapeHtml(s.cargo)}</td>
+      <td>${escapeHtml(periodosTexto(s.periodos))}</td>
+      <td><span class="gfBadge ${BADGE_FLUXO[s.status] || "is-sem"}">${escapeHtml(s.status)}</span></td>
+      <td class="gfTd-center gfAcoesCol">${acoes}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" class="gfVazio">Nenhuma solicitação encaminhada à COAPE.</td></tr>`;
+
+  // Acompanhamento (lado do escritório): leitura + cancelar enquanto "Em análise".
+  const acomp = $("gfAcompBody");
+  if (acomp) {
+    acomp.innerHTML = coape.map((s, i) => {
+      const cancelar = s.status === "Em análise"
+        ? `<button class="gfIconBtn is-danger" data-gf-cancelar="${i}" title="Cancelar solicitação"><i class="fa-solid fa-ban"></i></button>`
+        : "—";
+      return `
+      <tr>
+        <td class="gfTdNome">${escapeHtml(s.nome)}</td>
+        <td>${escapeHtml(s.cargo)}</td>
+        <td>${escapeHtml(periodosTexto(s.periodos))}</td>
+        <td><span class="gfBadge ${BADGE_FLUXO[s.status] || "is-sem"}">${escapeHtml(s.status)}</span></td>
+        <td class="gfMotivo">${s.motivo ? escapeHtml(s.motivo) : "—"}</td>
+        <td class="gfTd-center">${cancelar}</td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="6" class="gfVazio">Nenhuma solicitação encaminhada ainda.</td></tr>`;
   }
-  const cab = ["Profissional", "Cargo", "DSEI/CASAI", "Situação", "Período de Férias", "Pagamento"];
-  const csv = [cab.join(";")]
-    .concat(linhas.map(r => [r.prof, r.cargo, r.dsei, r.situacao, r.periodo, r.pagamento]
-      .map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")))
-    .join("\r\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+}
+
+function acaoCoape(tipo, i) {
+  const s = coape[i];
+  if (!s) return;
+  if (tipo === "aprovar") s.status = "Aprovado";
+  else if (tipo === "reprovar") {
+    const m = window.prompt("Motivo da reprovação:", "");
+    if (m === null) return;
+    s.status = "Reprovado"; s.motivo = m || "Sem motivo informado";
+  } else if (tipo === "ajustar") {
+    const m = window.prompt("O que deve ser ajustado?", "");
+    if (m === null) return;
+    s.status = "Ajuste solicitado"; s.motivo = m || "Ajuste solicitado";
+  }
+  renderCoape();
+  renderResumo();
+}
+
+function cancelarSolicitacao(i) {
+  const s = coape[i];
+  if (!s || s.status !== "Em análise") return;
+  if (!window.confirm(`Cancelar a solicitação de férias de "${s.nome}"?`)) return;
+  s.status = "Cancelado"; s.motivo = "Cancelado pelo escritório";
+  renderCoape();
+  renderResumo();
+  gfToast("Solicitação cancelada.");
+}
+
+// ---------- Exportação CSV ----------
+function baixarCsv(linhas, nome) {
+  const csv = String.fromCharCode(0xFEFF) + linhas.map(l => l.map(v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = "consulta_ferias.csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url; a.download = nome; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  gfToast(`Relatório exportado (${linhas.length} registro(s)).`);
+}
+function exportarConsulta() {
+  const lista = aplicarFiltros();
+  if (!lista.length) { gfToast("Nada para exportar com os filtros atuais.", "erro"); return; }
+  const cab = ["Matrícula", "Trabalhador", "Cargo", "DSEI/CASAI", "Admissão", "Status", "Período de Férias", "Prazo-limite"];
+  const linhas = [cab].concat(lista.map(r => [
+    r.matricula, r.nome, r.cargo, r.centro, fData(r.admissao), r.status,
+    (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "",
+    r.status === "Sem programação" ? fData(r.limiteGozo) : ""
+  ]));
+  baixarCsv(linhas, "consulta_ferias.csv");
+}
+function exportarAlertas() {
+  const lista = aplicarFiltros().filter(r => r.alerta && r.alerta !== "—" && r.dias !== "").sort((a, b) => a.dias - b.dias);
+  if (!lista.length) { gfToast("Nenhum alerta para exportar.", "erro"); return; }
+  const cab = ["Matrícula", "DSEI/CASAI", "Trabalhador", "Cargo", "Admissão", "Prazo-limite", "Dias restantes", "Faixa"];
+  const linhas = [cab].concat(lista.map(r => [r.matricula, r.centro, r.nome, r.cargo, fData(r.admissao), fData(r.limiteGozo), r.dias, r.alerta]));
+  baixarCsv(linhas, "alertas_dobra_ferias.csv");
 }
 
 // ---------- Inicialização ----------
-let gestaoFeriasConfigurada = false;
-
 export function configurarGestaoFerias() {
-  if (gestaoFeriasConfigurada) return;
+  if (configurado) return;
   const raiz = $("view-gestaoFerias");
   if (!raiz) return;
-  gestaoFeriasConfigurada = true;
+  configurado = true;
 
-  // Render inicial.
-  renderLote();
-  renderHistorico();
-  renderDetalheLote("LT-2024-005");
-  preencherFiltrosConsulta();
-  renderConsulta();
+  // Filtros (combos multi-seleção pesquisáveis) — recomputam KPIs, alertas e consulta.
+  const onFiltro = () => { lerFiltros(); render(); };
+  criarCombo("gfFNome", "Todos os trabalhadores", onFiltro, { searchPlaceholder: "Digite o nome…", maxRender: 60 });
+  criarCombo("gfFMatricula", "Todas as matrículas", onFiltro, { searchPlaceholder: "Digite a matrícula…", maxRender: 60 });
+  criarCombo("gfFCentro", "Todos os DSEIs/CASAIs", onFiltro);
+  criarCombo("gfFCargo", "Todos os cargos", onFiltro);
+  criarCombo("gfFSituacao", "Todas as situações", onFiltro);
+  criarCombo("gfFTipoAdm", "Todos os tipos", onFiltro);
+  criarCombo("gfFStatus", "Todos os status", onFiltro);
+  criarCombo("gfFAlerta", "Todos os alertas", onFiltro);
+  document.addEventListener("click", () => fecharTodosCombos(null));
+  $("gfBtnLimparFiltros")?.addEventListener("click", limparFiltros);
 
-  // Botões principais.
-  $("gfBtnAddColab")?.addEventListener("click", adicionarColaborador);
-  $("gfBtnSalvar")?.addEventListener("click", salvarLote);
-  $("gfBtnEncaminhar")?.addEventListener("click", encaminharAprovacao);
-  $("gfBtnExportar")?.addEventListener("click", exportarRelatorio);
-  $("gfBtnBuscar")?.addEventListener("click", renderConsulta);
+  // Carregamento sob demanda ao abrir a aba.
+  const navItem = document.querySelector('.navItem[data-view="gestaoFerias"]');
+  if (navItem) navItem.addEventListener("click", () => { if (!carregado && !carregando) carregar(); });
+  if (state.activeView === "gestaoFerias") carregar();
 
-  // Filtros da consulta reagem na hora.
-  ["gfConsDsei", "gfConsCargo", "gfConsStatus", "gfConsComp"].forEach(id => {
-    $(id)?.addEventListener("change", renderConsulta);
+  // Exportações.
+  $("gfBtnExportar")?.addEventListener("click", exportarConsulta);
+  $("gfBtnExportAlertas")?.addEventListener("click", exportarAlertas);
+
+  // Rolagem infinita da Consulta Geral: ao chegar perto do fim, carrega mais 100.
+  const consWrap = $("gfConsBody")?.closest(".gfTableScroll");
+  if (consWrap) {
+    consWrap.addEventListener("scroll", () => {
+      if (consWrap.scrollTop + consWrap.clientHeight >= consWrap.scrollHeight - 320) {
+        renderProximoLoteConsulta();
+      }
+    });
+  }
+
+  // Sub-abas (Visão Geral | Solicitação | Aprovação COAPE).
+  $("gfTabs")?.addEventListener("click", e => {
+    const b = e.target.closest("[data-gf-tab]");
+    if (b) trocarTab(b.dataset.gfTab);
   });
 
-  // Delegação para botões gerados dinamicamente (remover / ver lote).
-  raiz.addEventListener("click", event => {
-    const remover = event.target.closest("[data-gf-remover]");
-    if (remover) {
-      removerColaborador(Number(remover.dataset.gfRemover));
-      return;
-    }
-    const verLote = event.target.closest("[data-gf-lote]");
-    if (verLote) {
-      renderDetalheLote(verLote.dataset.gfLote);
-    }
+  // Fluxo — escritório.
+  $("gfBtnBuscarTrab")?.addEventListener("click", buscarTrabalhador);
+  $("gfBuscaTrab")?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); buscarTrabalhador(); } });
+  ["gfP1Ini", "gfP1Fim", "gfP2Ini", "gfP2Fim", "gfP3Ini", "gfP3Fim", "gfAbono"].forEach(id => $(id)?.addEventListener("input", atualizarValidacao));
+  $("gfBtnAddSolic")?.addEventListener("click", adicionarSolicitacao);
+  $("gfBtnSalvar")?.addEventListener("click", salvarLote);
+  $("gfBtnEncaminhar")?.addEventListener("click", encaminharCoape);
+
+  // Delegação: remover do lote / ações COAPE.
+  raiz.addEventListener("click", e => {
+    const rem = e.target.closest("[data-gf-rem-lote]");
+    if (rem) { lote.splice(Number(rem.dataset.gfRemLote), 1); renderPedido(); return; }
+    const co = e.target.closest("[data-gf-coape]");
+    if (co) { acaoCoape(co.dataset.gfCoape, Number(co.dataset.i)); return; }
+    const can = e.target.closest("[data-gf-cancelar]");
+    if (can) { cancelarSolicitacao(Number(can.dataset.gfCancelar)); return; }
   });
 }

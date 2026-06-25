@@ -5,7 +5,7 @@
 // KPIs, gráficos, filtros e a tabela geral 100% no cliente. Carregamento sob
 // demanda (a base tem ~20k linhas: só busca quando a aba é aberta).
 // Filtros: comboboxes pesquisáveis (criarCombo) + busca por nome + períodos.
-// Tabela: todas as linhas filtradas, com rolagem (sem paginação).
+// Tabela: rolagem infinita (100 linhas por vez) — renderizar ~20k de uma vez trava a aba.
 // =========================================================
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
@@ -13,23 +13,24 @@ import { formatNumber, formatPercent, escapeHtml, escapeAttr } from "./utils.js"
 
 const $ = id => document.getElementById(id);
 
+// Paleta base azul (SUS) — tons frios (azul/teal/verde).
 const PALETA = [
-  "#C8472B", "#E29030", "#E7B93D", "#2E8B57", "#1F7A8C", "#8C3B2E",
-  "#6B8E23", "#D96941", "#B5651D", "#3A6B7E", "#A8412A", "#4C9A6A",
-  "#9C6644", "#557A46", "#C96E50", "#2C6E76"
+  "#007de0", "#0a66b0", "#1F7A8C", "#2E8B57", "#0053a7", "#5b9bd5",
+  "#3A6B7E", "#1f8a53", "#6aa9d6", "#2C6E76", "#88b8e0", "#4C9A6A",
+  "#00b5d8", "#155e6e", "#3d8fd6", "#5aa0a8"
 ];
-const COR_INDIGENA = "#C8472B";
+const COR_INDIGENA = "#1F7A8C"; // teal — destaque dos indígenas no gráfico de raça
 const COR_SUS_AZUL = "#0a66b0";
 const COR_SUS_VERDE = "#1f8a53";
-const TEXTO = "#5a2a1e";
+const TEXTO = "#1f3a5f";
 
-// Raças/cores (ordem e cores fixas) para os gráficos empilhados.
+// Raças/cores (ordem e cores fixas) para os gráficos empilhados — tons frios.
 const RACAS = [
-  { key: "INDIGENA", label: "Indígena", cor: "#C8472B" },
-  { key: "PARDA", label: "Parda", cor: "#E29030" },
-  { key: "BRANCA", label: "Branca", cor: "#E7B93D" },
-  { key: "PRETA/NEGRA", label: "Preta/Negra", cor: "#6B4A3A" },
-  { key: "AMARELA", label: "Amarela", cor: "#2C6E76" }
+  { key: "INDIGENA", label: "Indígena", cor: "#007de0" },
+  { key: "PARDA", label: "Parda", cor: "#1F7A8C" },
+  { key: "BRANCA", label: "Branca", cor: "#6aa9d6" },
+  { key: "PRETA/NEGRA", label: "Preta/Negra", cor: "#2E8B57" },
+  { key: "AMARELA", label: "Amarela", cor: "#0053a7" }
 ];
 
 // Regra de Vínculo com a Agência (definida pela área): estas situações = Desligado;
@@ -527,17 +528,10 @@ function atualizarSetas() {
   });
 }
 
-function renderTabela(rows) {
-  const lista = ordenacao.col ? ordenarLista(rows) : rows;
-  setText("siTabelaCount", `${formatNumber(lista.length)} trabalhadores`);
-  setText("siTabelaRegistros", lista.length ? `${formatNumber(lista.length)} trabalhadores (role para ver todos)` : "Nenhum registro");
-  atualizarSetas();
-
-  const body = $("siTabelaBody");
-  if (!body) return;
-  body.innerHTML = lista.map(r => {
-    const dataAfastDeslig = r.dataDesligamento || r.situacaoDataInicio || "";
-    return `
+// HTML de uma linha da tabela.
+function linhaTabelaHtml(r) {
+  const dataAfastDeslig = r.dataDesligamento || r.situacaoDataInicio || "";
+  return `
       <tr>
         <td>${cel(r.registro)}</td>
         <td class="siTdNome">${cel(r.nome)}</td>
@@ -554,7 +548,49 @@ function renderTabela(rows) {
         <td class="siTdLocal">${cel(r.localTrabalho)}</td>
         <td class="siTdLocal">${cel(r.centroCusto)}</td>
       </tr>`;
-  }).join("") || `<tr><td colspan="14" class="siVazio">Nenhum trabalhador encontrado para os filtros selecionados.</td></tr>`;
+}
+
+// Paginação por rolagem infinita: a base tem ~20k linhas e renderizar tudo de
+// uma vez (≈280k células) trava a aba. Mostramos 100 por vez e carregamos mais
+// 100 conforme o usuário rola até o fim.
+const TABELA_PAGINA = 100;
+let tabelaLista = [];        // lista completa (filtrada + ordenada)
+let tabelaRenderizadas = 0;  // quantas linhas já estão no DOM
+
+function renderTabela(rows) {
+  const lista = ordenacao.col ? ordenarLista(rows) : rows;
+  tabelaLista = lista;
+  tabelaRenderizadas = 0;
+  setText("siTabelaCount", `${formatNumber(lista.length)} trabalhadores`);
+  atualizarSetas();
+
+  const body = $("siTabelaBody");
+  if (!body) return;
+  // Volta ao topo ao trocar filtro/ordenação (senão a rolagem dispararia mais lotes).
+  const wrap = body.closest(".siTableWrap");
+  if (wrap) wrap.scrollTop = 0;
+
+  if (!lista.length) {
+    body.innerHTML = `<tr><td colspan="14" class="siVazio">Nenhum trabalhador encontrado para os filtros selecionados.</td></tr>`;
+    setText("siTabelaRegistros", "Nenhum registro");
+    return;
+  }
+  body.innerHTML = "";
+  renderProximoLoteTabela();
+}
+
+// Acrescenta o próximo lote de linhas (append, sem reconstruir as anteriores).
+function renderProximoLoteTabela() {
+  const body = $("siTabelaBody");
+  if (!body || tabelaRenderizadas >= tabelaLista.length) return;
+  const fim = Math.min(tabelaRenderizadas + TABELA_PAGINA, tabelaLista.length);
+  body.insertAdjacentHTML("beforeend",
+    tabelaLista.slice(tabelaRenderizadas, fim).map(linhaTabelaHtml).join(""));
+  tabelaRenderizadas = fim;
+  const total = tabelaLista.length;
+  setText("siTabelaRegistros", tabelaRenderizadas < total
+    ? `Mostrando ${formatNumber(tabelaRenderizadas)} de ${formatNumber(total)} trabalhadores · role para carregar mais`
+    : `${formatNumber(total)} trabalhadores`);
 }
 
 // ---------- Exportação Excel (CSV com BOM; abre direto no Excel) ----------
@@ -669,7 +705,7 @@ function barEmpilhada(canvasId, labels, series) {
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumber(ctx.raw)}` } }
       },
       scales: {
-        x: { stacked: true, beginAtZero: true, grid: { color: "rgba(140,59,46,.1)" }, ticks: { color: "rgba(90,42,30,.7)", font: { size: 10, weight: "700" } } },
+        x: { stacked: true, beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         y: { stacked: true, grid: { display: false }, ticks: { color: TEXTO, font: { size: 10.5, weight: "800" }, autoSkip: false } }
       }
     }
@@ -691,7 +727,7 @@ function barH(canvasId, labels, values, cor) {
         tooltip: { callbacks: { label: ctx => formatNumber(ctx.raw) } }
       },
       scales: {
-        x: { beginAtZero: true, grid: { color: "rgba(140,59,46,.10)" }, ticks: { color: "rgba(90,42,30,.7)", font: { size: 10, weight: "700" } } },
+        x: { beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         y: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 10.5, weight: "800" }, autoSkip: false } }
       }
     }
@@ -712,7 +748,7 @@ function colunas(canvasId, labels, values, cor) {
         tooltip: { callbacks: { label: ctx => formatNumber(ctx.raw) } }
       },
       scales: {
-        y: { beginAtZero: true, grid: { color: "rgba(140,59,46,.10)" }, ticks: { color: "rgba(90,42,30,.7)", font: { size: 10, weight: "700" } } },
+        y: { beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         x: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 10, weight: "800" }, maxRotation: 0, minRotation: 0 } }
       }
     }
@@ -765,6 +801,16 @@ export function configurarSaudeIndigena() {
     const b = e.target.closest("[data-export]");
     if (b) exportarGrafico(b.dataset.export);
   });
+
+  // Rolagem infinita: ao chegar perto do fim, carrega mais 100 linhas.
+  const tabelaWrap = raiz.querySelector(".siTableWrap");
+  if (tabelaWrap) {
+    tabelaWrap.addEventListener("scroll", () => {
+      if (tabelaWrap.scrollTop + tabelaWrap.clientHeight >= tabelaWrap.scrollHeight - 320) {
+        renderProximoLoteTabela();
+      }
+    });
+  }
 
   // Ordenação da tabela (clique no cabeçalho alterna asc/desc).
   $("siTabelaHead")?.addEventListener("click", e => {

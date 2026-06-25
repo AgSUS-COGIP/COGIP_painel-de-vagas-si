@@ -858,7 +858,7 @@ function abrirFormulario() {
   const dPed = $("gdFDataPedido");
   if (dPed && !dPed.value) dPed.value = hojeIso();
   painel.scrollIntoView({ behavior: "smooth", block: "start" });
-  $("gdFTrabalhador")?.focus();
+  $("gdTrabTrigger")?.focus();
 }
 
 function fecharFormulario(limpar) {
@@ -871,6 +871,7 @@ function fecharFormulario(limpar) {
     if (radioLink) radioLink.checked = true;
     atualizarDocTipoGd();
     limparNovosAnexos();
+    atualizarTrabTrigger(); // reflete o gdFTrabalhador zerado no gatilho
   }
 }
 
@@ -882,123 +883,163 @@ function animarCampo(el) {
   el.classList.add("gd-autofill");
 }
 
-// ---------- Combobox de trabalhador (clicável + pesquisável) ----------
-// A matrícula é FK obrigatória do pedido, então o trabalhador precisa existir no
-// consolidado. A lista é buscada no backend conforme o usuário digita e exibida
-// num dropdown clicável; ao selecionar, auto-preenche os demais campos.
+// ---------- Combobox de trabalhador (gatilho + popup pesquisável) ----------
+// Busca assíncrona no backend (a matrícula é FK obrigatória, então o trabalhador
+// precisa existir no consolidado). Mesmo formato dos demais dropdowns do app: um
+// gatilho (botão) que abre um popup (portal no <body>, position:fixed) com campo
+// de busca interno + lista de resultados. O nome escolhido vive no input oculto
+// gdFTrabalhador (lido pelo formulário); ao selecionar, auto-preenche os campos.
 let trabalhadoresBusca = new Map(); // nome(lower) -> { matricula, cargo, dsei, polo }
 let trabalhadoresLista = [];        // resultados atuais (para render + navegação)
 let buscaTrabTimer = null;
-let comboIdx = -1;                  // item destacado pelo teclado
+let trabIdx = -1;                   // item destacado pelo teclado
+let trabMenu = null;                // popup (portal no body) — existe só aberto
+let trabSearch = null;
+let trabListaEl = null;
 
-async function buscarTrabalhadores() {
-  const termo = ($("gdFTrabalhador")?.value || "").trim();
-  if (termo.length < 2) { trabalhadoresLista = []; renderComboLista(); return; }
-  let dados;
-  try { dados = await apiGet(`/api/disciplinar/trabalhadores?q=${encodeURIComponent(termo)}`); }
-  catch (e) { trabalhadoresLista = []; renderComboLista(); return; }
-  trabalhadoresLista = dados.trabalhadores || [];
-  trabalhadoresBusca = new Map(trabalhadoresLista.map(t => [String(t.nome).toLowerCase(), t]));
-  comboIdx = -1;
-  renderComboLista();
+// Atualiza o texto do gatilho com o trabalhador selecionado (ou placeholder).
+function atualizarTrabTrigger() {
+  const combo = $("gdComboTrabalhador");
+  if (!combo) return;
+  const valorEl = combo.querySelector(".ssValor");
+  const nome = ($("gdFTrabalhador")?.value || "").trim();
+  if (valorEl) valorEl.textContent = nome || "Clique para buscar pelo nome ou matrícula";
+  combo.classList.toggle("is-vazio", !nome);
 }
 
-function comboAberto(aberto) {
-  const lista = $("gdComboTrabalhadorLista");
-  const input = $("gdFTrabalhador");
-  if (lista) lista.hidden = !aberto;
-  if (input) input.setAttribute("aria-expanded", String(!!aberto));
-  if (!aberto) comboIdx = -1;
-}
-
-function renderComboLista() {
-  const lista = $("gdComboTrabalhadorLista");
-  if (!lista) return;
-  const termo = ($("gdFTrabalhador")?.value || "").trim();
-  if (termo.length < 2) {
-    lista.innerHTML = `<li class="gdComboVazio">Digite ao menos 2 letras para buscar…</li>`;
-    return;
-  }
-  if (!trabalhadoresLista.length) {
-    lista.innerHTML = `<li class="gdComboVazio">Nenhum trabalhador encontrado.</li>`;
-    return;
-  }
-  lista.innerHTML = trabalhadoresLista.map((t, i) =>
-    `<li class="gdComboItem${i === comboIdx ? " is-ativo" : ""}" role="option" data-mat="${escapeAttr(t.matricula)}" data-nome="${escapeAttr(t.nome)}">
-      <span class="gdComboNome">${escapeHtml(t.nome)}</span>
-      <span class="gdComboMeta">${escapeHtml(t.cargo)} · ${escapeHtml(t.dsei)} · mat. ${escapeHtml(t.matricula)}</span>
+function renderTrabLista() {
+  if (!trabListaEl) return;
+  const termo = (trabSearch?.value || "").trim();
+  if (termo.length < 2) { trabListaEl.innerHTML = `<li class="ssVazio">Digite ao menos 2 letras para buscar…</li>`; return; }
+  if (!trabalhadoresLista.length) { trabListaEl.innerHTML = `<li class="ssVazio">Nenhum trabalhador encontrado.</li>`; return; }
+  trabListaEl.innerHTML = trabalhadoresLista.map((t, i) =>
+    `<li class="ssItem gdTrabItem${i === trabIdx ? " is-ativo" : ""}" role="option" data-nome="${escapeAttr(t.nome)}">
+      <span class="ssItemLabel">
+        <span class="gdTrabNome">${escapeHtml(t.nome)}</span>
+        <span class="gdTrabMeta">${escapeHtml(t.cargo)} · ${escapeHtml(t.dsei)} · mat. ${escapeHtml(t.matricula)}</span>
+      </span>
     </li>`).join("");
 }
 
-// Limpa a seleção (matrícula/cargo/polo) quando o texto muda sem uma escolha
-// válida — assim a gravação exige selecionar um trabalhador do consolidado.
-function limparSelecaoTrabalhador() {
-  ["gdFMatricula", "gdFCargo", "gdFPolo"].forEach(id => { const el = $(id); if (el) el.value = ""; });
+async function buscarTrabalhadores() {
+  const termo = (trabSearch?.value || "").trim();
+  if (termo.length < 2) { trabalhadoresLista = []; trabIdx = -1; renderTrabLista(); return; }
+  let dados;
+  try { dados = await apiGet(`/api/disciplinar/trabalhadores?q=${encodeURIComponent(termo)}`); }
+  catch (e) { trabalhadoresLista = []; trabIdx = -1; renderTrabLista(); return; }
+  trabalhadoresLista = dados.trabalhadores || [];
+  trabalhadoresBusca = new Map(trabalhadoresLista.map(t => [String(t.nome).toLowerCase(), t]));
+  trabIdx = -1;
+  renderTrabLista();
 }
 
-// Aplica a seleção de um trabalhador: preenche matrícula, cargo, DSEI e polo.
+// Aplica a seleção: grava o nome no input oculto e auto-preenche matrícula/cargo/etc.
 function selecionarTrabalhador(nome) {
-  const input = $("gdFTrabalhador");
-  if (input) input.value = nome;
+  const hidden = $("gdFTrabalhador");
+  if (hidden) hidden.value = nome;
   const d = trabalhadoresBusca.get(String(nome).toLowerCase());
-  if (!d) return;
-  const set = (id, v) => { const el = $(id); if (!el) return; el.value = v || ""; animarCampo(el); };
-  set("gdFMatricula", d.matricula);
-  set("gdFCargo", d.cargo);
-  set("gdFPolo", d.polo);
-  if (!$("gdFDsei")?.value) set("gdFDsei", d.dsei);
-}
-
-function onComboKeydown(e) {
-  if (e.key === "Escape") { comboAberto(false); return; }
-  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-    if (!trabalhadoresLista.length) return;
-    e.preventDefault();
-    comboAberto(true);
-    comboIdx += (e.key === "ArrowDown" ? 1 : -1);
-    if (comboIdx < 0) comboIdx = trabalhadoresLista.length - 1;
-    if (comboIdx >= trabalhadoresLista.length) comboIdx = 0;
-    renderComboLista();
-    $("gdComboTrabalhadorLista")?.querySelector(".is-ativo")?.scrollIntoView({ block: "nearest" });
-  } else if (e.key === "Enter" && comboIdx >= 0 && trabalhadoresLista[comboIdx]) {
-    e.preventDefault();
-    selecionarTrabalhador(trabalhadoresLista[comboIdx].nome);
-    comboAberto(false);
+  if (d) {
+    const set = (id, v) => { const el = $(id); if (!el) return; el.value = v || ""; animarCampo(el); };
+    set("gdFMatricula", d.matricula);
+    set("gdFCargo", d.cargo);
+    set("gdFPolo", d.polo);
+    if (!$("gdFDsei")?.value) set("gdFDsei", d.dsei);
   }
+  atualizarTrabTrigger();
+  fecharTrabCombo();
+  $("gdTrabTrigger")?.focus();
 }
 
-// Liga os eventos do combobox (uma vez só, na inicialização).
-function setupComboTrabalhador() {
+function posicionarTrabMenu() {
+  if (!trabMenu) return;
+  const trigger = $("gdTrabTrigger");
+  if (!trigger) return;
+  const r = trigger.getBoundingClientRect();
+  trabMenu.style.left = `${Math.round(r.left)}px`;
+  trabMenu.style.top = `${Math.round(r.bottom + 6)}px`;
+  trabMenu.style.width = `${Math.round(r.width)}px`;
+}
+const onTrabScroll = e => { if (trabMenu && e && e.target instanceof Node && trabMenu.contains(e.target)) return; fecharTrabCombo(); };
+const onTrabResize = () => posicionarTrabMenu();
+const onTrabDocDown = e => {
   const combo = $("gdComboTrabalhador");
-  const input = $("gdFTrabalhador");
-  const lista = $("gdComboTrabalhadorLista");
-  if (!combo || !input || !lista) return;
+  if (combo && !combo.contains(e.target) && (!trabMenu || !trabMenu.contains(e.target))) fecharTrabCombo();
+};
 
-  input.addEventListener("focus", () => { comboAberto(true); renderComboLista(); });
-  combo.querySelector(".gdComboCaret")?.addEventListener("mousedown", e => {
-    e.preventDefault();
-    const abrir = lista.hidden;
-    input.focus();
-    comboAberto(abrir);
-    if (abrir) renderComboLista();
+function abrirTrabCombo() {
+  if (trabMenu) return;
+  const combo = $("gdComboTrabalhador");
+  if (!combo) return;
+  combo.classList.add("aberto");
+  trabMenu = document.createElement("div");
+  trabMenu.className = "ssMenu gdTrabMenu";
+  trabMenu.innerHTML = `
+    <div class="ssSearch">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <input type="search" class="ssSearchInput" placeholder="Pesquisar trabalhador…" autocomplete="off" aria-label="Pesquisar trabalhador">
+    </div>
+    <ul class="ssLista" role="listbox"></ul>`;
+  document.body.appendChild(trabMenu);
+  trabSearch = trabMenu.querySelector(".ssSearchInput");
+  trabListaEl = trabMenu.querySelector(".ssLista");
+
+  trabMenu.addEventListener("mousedown", e => {
+    const li = e.target.closest("[data-nome]");
+    if (li) { e.preventDefault(); selecionarTrabalhador(li.dataset.nome); return; }
+    if (e.target !== trabSearch) e.preventDefault(); // mantém o foco na busca
   });
-  input.addEventListener("input", () => {
-    comboAberto(true);
-    limparSelecaoTrabalhador(); // texto digitado ainda não é uma seleção válida
+  trabSearch.addEventListener("input", () => {
+    trabIdx = -1;
+    renderTrabLista(); // hint imediato
     clearTimeout(buscaTrabTimer);
     buscaTrabTimer = setTimeout(buscarTrabalhadores, 250);
   });
-  input.addEventListener("keydown", onComboKeydown);
-  // mousedown (não click) para selecionar antes do blur fechar a lista.
-  lista.addEventListener("mousedown", e => {
-    const item = e.target.closest("[data-nome]");
-    if (!item) return;
+  trabSearch.addEventListener("keydown", onTrabKeydown);
+
+  trabIdx = -1;
+  trabalhadoresLista = [];
+  renderTrabLista();
+  posicionarTrabMenu();
+  window.addEventListener("scroll", onTrabScroll, true);
+  window.addEventListener("resize", onTrabResize);
+  document.addEventListener("mousedown", onTrabDocDown, true);
+  setTimeout(() => trabSearch && trabSearch.focus(), 10);
+}
+
+function fecharTrabCombo() {
+  if (trabMenu) { trabMenu.remove(); trabMenu = null; trabSearch = null; trabListaEl = null; }
+  $("gdComboTrabalhador")?.classList.remove("aberto");
+  trabIdx = -1;
+  window.removeEventListener("scroll", onTrabScroll, true);
+  window.removeEventListener("resize", onTrabResize);
+  document.removeEventListener("mousedown", onTrabDocDown, true);
+}
+
+function onTrabKeydown(e) {
+  if (e.key === "Escape") { fecharTrabCombo(); $("gdTrabTrigger")?.focus(); return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     e.preventDefault();
-    selecionarTrabalhador(item.dataset.nome);
-    comboAberto(false);
+    if (!trabalhadoresLista.length) return;
+    trabIdx += (e.key === "ArrowDown" ? 1 : -1);
+    if (trabIdx < 0) trabIdx = trabalhadoresLista.length - 1;
+    if (trabIdx >= trabalhadoresLista.length) trabIdx = 0;
+    renderTrabLista();
+    trabListaEl?.querySelector(".is-ativo")?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter" && trabIdx >= 0 && trabalhadoresLista[trabIdx]) {
+    e.preventDefault();
+    selecionarTrabalhador(trabalhadoresLista[trabIdx].nome);
+  }
+}
+
+// Liga os eventos do gatilho (uma vez só, na inicialização).
+function setupComboTrabalhador() {
+  const trigger = $("gdTrabTrigger");
+  if (!trigger) return;
+  trigger.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); trabMenu ? fecharTrabCombo() : abrirTrabCombo(); });
+  trigger.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!trabMenu) abrirTrabCombo(); }
   });
-  // Fecha ao clicar fora do combobox.
-  document.addEventListener("click", e => { if (!combo.contains(e.target)) comboAberto(false); });
+  atualizarTrabTrigger();
 }
 
 // Converte "aaaa-mm-dd" (input date) para "dd/mm/aaaa".

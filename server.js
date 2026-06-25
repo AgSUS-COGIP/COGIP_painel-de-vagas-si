@@ -20,6 +20,7 @@ const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterL
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirNivelMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
+const { getFeriasData } = require("./lib/ferias");
 const app = express();
 app.disable("x-powered-by"); // não revela o framework/versão
 
@@ -210,6 +211,11 @@ app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFresco
 // ---- Dashboard Saúde Indígena (nativo) ----
 app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
   res.json(await getSaudeIndigenaData());
+}));
+
+// ---- Gestão de Férias (análise — somente leitura) ----
+app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+  res.json(await getFeriasData());
 }));
 
 // ---- Entrega de Crachá ----
