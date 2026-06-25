@@ -467,6 +467,7 @@ function abrirModalEdital(id) {
   const modal = $("psModalEdital");
   if (!modal) return;
   $("psFormEdital")?.reset();
+  $("psFormAnexo")?._fi?.render(); // re-sincroniza o componente de arquivo após o reset
   const erro = $("psFormErro");
   if (erro) erro.textContent = "";
 
@@ -597,6 +598,7 @@ function abrirModalAnexo(id) {
   const modal = $("psModalAnexo");
   if (!modal) return;
   $("psFormAnexoEdital")?.reset();
+  $("psAnexoArquivo")?._fi?.render(); // re-sincroniza o componente de arquivo após o reset
   const erro = $("psAnexoErro");
   if (erro) erro.textContent = "";
   const status = $("psAnexoStatus");

@@ -126,7 +126,7 @@
 
         <div class="acField" data-acfield="cargo">
           <label class="loginLabel" for="acCargo">Cargo / Função</label>
-          <select id="acCargo" class="loginInput"></select>
+          <select id="acCargo" class="loginInput" data-ss-skip></select>
         </div>
 
         <div class="acField" data-acfield="cargoOutro">
@@ -136,12 +136,12 @@
 
         <div class="acField" data-acfield="coordenacao">
           <label class="loginLabel" for="acCoordenacao">Coordenação</label>
-          <select id="acCoordenacao" class="loginInput"></select>
+          <select id="acCoordenacao" class="loginInput" data-ss-skip></select>
         </div>
 
         <div class="acField" data-acfield="unidade">
           <label class="loginLabel" for="acUnidade">DSEI / CASAI</label>
-          <select id="acUnidade" class="loginInput"></select>
+          <select id="acUnidade" class="loginInput" data-ss-skip></select>
         </div>
 
         <div class="acField" data-acfield="justificativa">
@@ -1857,7 +1857,7 @@
                   <label class="gdRadio"><input type="radio" name="gdDocTipo" value="anexo"> Anexo (PDF)</label>
                 </div>
                 <input class="gfInput" id="gdFLink" type="url" placeholder="https://...">
-                <input class="gfInput gdInputFile" id="gdFArquivo" type="file" accept="application/pdf" hidden>
+                <input class="gdInputFile" id="gdFArquivo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
               </div>
 
               <div class="gfField gdFieldFull">
@@ -1950,7 +1950,7 @@
                 </div>
                 <div class="gfKpi">
                   <div class="gfKpiValue is-blue" id="gdKpiAguardando">0</div>
-                  <div class="gfKpiLabel">Aguardando Devolutiva do DSEI</div>
+                  <div class="gfKpiLabel">Aguardando Devolutiva do DSEI/profissional</div>
                 </div>
               </div>
 
@@ -2021,6 +2021,7 @@
               <table class="gfTable">
                 <thead>
                   <tr>
+                    <th class="gfTd-center">Dias Pendentes</th>
                     <th>Nº Processo SEI</th>
                     <th>DSEI</th>
                     <th>Trabalhador</th>
@@ -2043,7 +2044,7 @@
           </section>
 
           <!-- DETALHAMENTO DO REGISTRO SELECIONADO -->
-          <section class="gfPanel" style="margin-top:14px;">
+          <section class="gfPanel" id="gdDetPanel" style="margin-top:14px;">
             <h3 class="gfPanelTitle" id="gdDetTitulo"></h3>
             <div class="gdDetailGrid">
               <div class="gdDetailCol">
@@ -2242,10 +2243,10 @@
                     <span>Link do edital</span>
                     <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
                   </label>
-                  <label class="psField psField3" id="psDocAnexoWrap" hidden>
+                  <div class="psField psField3" id="psDocAnexoWrap" hidden>
                     <span>Anexo (PDF)</span>
-                    <input class="psInput psInputFile" id="psFormAnexo" type="file" accept="application/pdf">
-                  </label>
+                    <input class="psInputFile" id="psFormAnexo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                  </div>
                 </div>
 
                 <p class="psModalErro" id="psFormErro"></p>
@@ -2273,10 +2274,10 @@
                   <strong>Cronograma do Edital</strong> e <strong>Vagas Previstas</strong>.
                   O arquivo é processado na hora e <strong>não é salvo</strong> em lugar nenhum.
                 </p>
-                <label class="psField psField3">
+                <div class="psField psField3">
                   <span>Arquivo PDF <i class="psReq">*</i></span>
-                  <input class="psInput psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf">
-                </label>
+                  <input class="psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                </div>
                 <div class="psAnexoStatus" id="psAnexoStatus" hidden></div>
                 <p class="psModalErro" id="psAnexoErro"></p>
               </form>
@@ -2505,7 +2506,7 @@
                     placeholder="Informe a justificativa do remanejamento."></textarea>
                   <label for="remAnexoArquivo">Anexar Ofício ou Documento (PDF)</label>
                   <input id="remAnexoArquivo" type="file" accept=".pdf,application/pdf"
-                    data-change="atualizar-resumo-rem">
+                    data-change="atualizar-resumo-rem" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
                   <div id="remanejamentoAnexoPreview" class="remanejamentoHint">Clique ou arraste o arquivo para enviar.
                     PDF até 10MB.</div>
                   <div class="remDocActions">

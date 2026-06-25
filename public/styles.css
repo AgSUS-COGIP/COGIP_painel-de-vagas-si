@@ -67,6 +67,7 @@
 @import url("./styles/22-ordenacao-tabelas.css") layer(ordenacao-tabelas);
 @import url("./styles/23-filtros-padrao.css") layer(filtros-padrao);
 @import url("./styles/24-date-picker.css") layer(date-picker);
+@import url("./styles/25-file-input.css") layer(file-input);
 
 /*
   ESTADO RECOLHIDO DO MENU LATERAL -- camada-topo, vence as larguras de `.app`.

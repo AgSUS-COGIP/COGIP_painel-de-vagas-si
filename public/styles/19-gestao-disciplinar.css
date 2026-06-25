@@ -126,25 +126,12 @@
       color: #e0483b;
     }
 
+    /* O visual dos inputs (pílula branca + sombra) é centralizado em
+       23-filtros-padrao.css, aplicado a todas as telas de dados. A largura
+       (width:100%) vem da base .gfInput em 17-gestao-ferias.css. */
     :where(.gestaoDisciplinarView) .gfInput,
     :where(.gestaoDisciplinarView) .gfSelect {
-      height: 38px;
-      border: 1px solid rgba(0, 83, 166, .22);
-      border-radius: 10px;
-      background: #fff;
-      color: var(--texto);
-      font-size: 12px;
-      font-weight: 700;
-      font-family: inherit;
-      padding: 0 11px;
       width: 100%;
-      outline: none;
-    }
-
-    :where(.gestaoDisciplinarView) .gfInput:focus,
-    :where(.gestaoDisciplinarView) .gfSelect:focus {
-      border-color: var(--azul-primario);
-      box-shadow: 0 0 0 3px rgba(0, 112, 217, .14);
     }
 
     /* ---------- Botões ---------- */
@@ -460,6 +447,15 @@
       max-width: 170px;
     }
 
+    /* O <select> de tipo vira .ssCombo (a classe acima fica no select nativo, que
+       é ocultado). Constrangemos o wrapper VISÍVEL para o dropdown ser o campo
+       menor e o botão de upload ocupar o restante. */
+    .gdAnexoAdd .ssCombo {
+      flex: 0 0 170px;
+      width: 170px;
+      min-width: 0;
+    }
+
     .gdAddAnexos {
       flex: 1 1 auto;
       cursor: pointer;
@@ -488,6 +484,14 @@
     .gdNovoAnexoTipo {
       flex: 0 0 auto;
       max-width: 180px;
+    }
+
+    /* Idem ao detalhamento: o dropdown (já convertido em .ssCombo) é o campo
+       menor; "Selecionar arquivos" ocupa a maior parte da linha. */
+    .gdNovoAnexoAdd .ssCombo {
+      flex: 0 0 200px;
+      width: 200px;
+      min-width: 0;
     }
 
     .gdNovoAnexoBtn {
@@ -790,17 +794,31 @@
     }
 
     .gdStep {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      line-height: 1.25;
       font-size: 10px;
       font-weight: 800;
       color: #6b86a8;
       background: #eef4fb;
       border: 1px solid rgba(0, 83, 166, .14);
-      border-radius: 999px;
-      padding: 4px 10px;
+      border-radius: 14px;
+      padding: 5px 10px;
     }
 
     .gdStep.is-feito { background: #d7f5e3; color: #0a7a44; border-color: rgba(10, 122, 68, .25); }
     .gdStep.is-atual { background: var(--azul-primario); color: #fff; border-color: var(--azul-primario); }
+
+    /* Data em que a etapa foi concluída, exibida abaixo do rótulo da fase. */
+    .gdStepData {
+      font-size: 8.5px;
+      font-weight: 700;
+      opacity: .9;
+      white-space: nowrap;
+    }
+    .gdStepData .fa-check { font-size: 8px; margin-right: 1px; }
 
     .gdFaseAcoes {
       display: flex;
@@ -961,6 +979,29 @@
       padding: 8px 10px;
       line-height: 1.45;
       resize: vertical;
+    }
+
+    /* Aviso e barra de ações da edição inline dos dados do pedido ("Alterar"). */
+    .gdEditAviso {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 2px 0 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #eaf3ff;
+      color: var(--azul-escuro);
+      font-size: 11.5px;
+      font-weight: 700;
+      border: 1px solid rgba(0, 83, 166, .18);
+    }
+
+    .gdEditAcoes {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
     }
 
     /* Textarea "Resumo do processo" no formulário de novo registro. */

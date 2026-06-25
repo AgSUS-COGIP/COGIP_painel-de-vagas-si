@@ -479,7 +479,7 @@ export async function editarRemanejamentoPainel(idProcesso) {
   setValue("remanejamentoProcessoSei", dados.processoSei || "");
   setValue("remObservacao", dados.observacao || "");
   const anexo = document.getElementById("remAnexoArquivo");
-  if (anexo) anexo.value = "";
+  if (anexo) { anexo.value = ""; anexo._fi?.render(); }
 
   // 4) Ativa o modo edição (borda amarela + banner + botão "Atualizar").
   state.remanejamentoEditandoId = dados.idProcesso;
@@ -594,10 +594,8 @@ export function atualizarResumoRemanejamento() {
   const dseiSelect = document.getElementById("remanejamentoDsei");
   const dseiLabel = dseiSelect?.options?.[dseiSelect.selectedIndex]?.text || "DSEI não selecionado";
   const processoInput = document.getElementById("remanejamentoProcessoSei");
-  const anexoInput = document.getElementById("remAnexoArquivo");
   const anexoPreview = document.getElementById("remanejamentoAnexoPreview");
   const processo = processoInput?.value || "";
-  const anexoNome = anexoInput?.files?.[0]?.name || "";
   const resumoFinanceiro = atualizarResumoRemanejamentoPainel();
   const qtdMovimentada = soma(coletarLinhasRemanejamento("reduzido"), "quantidade") + soma(coletarLinhasRemanejamento("acrescentado"), "quantidade");
 
@@ -609,9 +607,8 @@ export function atualizarResumoRemanejamento() {
   setText("remanejamentoResultadoTotal", formatNumber(qtdMovimentada));
 
   if (anexoPreview) {
-    anexoPreview.innerHTML = anexoNome
-      ? `Anexo selecionado: <strong>${escapeHtml(anexoNome)}</strong>.`
-      : "Clique ou arraste o arquivo para enviar. PDF até 10MB.";
+    // O arquivo selecionado agora aparece no chip do componente; aqui fica só a dica.
+    anexoPreview.textContent = "Selecione o PDF pelo botão acima. Até 10MB.";
   }
 
   atualizarAvisoOciosasRemanejamento();
@@ -1009,7 +1006,7 @@ export function limparFormularioRemanejamento() {
   aplicarModoEdicaoRemanejamento(false);
 
   const anexo = document.getElementById("remAnexoArquivo");
-  if (anexo) anexo.value = "";
+  if (anexo) { anexo.value = ""; anexo._fi?.render(); }
 
   renderLinhasRemanejamento("reduzido");
   renderLinhasRemanejamento("acrescentado");

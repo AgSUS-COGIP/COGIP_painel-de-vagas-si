@@ -185,10 +185,30 @@ function interceptarValor(input, onSet) {
   });
 }
 
-// Aplica o date picker aos FILTROS de data do app (SI, Entrega de Crachá,
-// Gestão Disciplinar). Os campos de formulário continuam no <input> nativo.
-export function ativarDatePickersFiltros() {
-  document.querySelectorAll(
-    'input[type="date"][data-si-filtro], input[type="date"][data-ec-filtro], #gdFiltroDataIni, #gdFiltroDataFim'
-  ).forEach(el => tornarDatePicker(el));
+// Inputs de data elegíveis: ignora os já convertidos (.dpNativo) e os marcados
+// com data-dp-skip (caso algum precise continuar com o calendário nativo).
+const DP_SELETOR = 'input[type="date"]:not([data-dp-skip]):not(.dpNativo)';
+
+// Converte TODOS os <input type="date"> de um container de uma vez.
+export function tornarDatePickers(raiz, opts = {}) {
+  (raiz || document).querySelectorAll(DP_SELETOR).forEach(el => tornarDatePicker(el, opts));
+}
+
+// Padroniza TODOS os date pickers do app (filtros, formulários, ações em lote,
+// modais), inclusive os criados dinamicamente — observa o DOM para cobri-los.
+// Basta chamar uma vez na inicialização.
+let _dpObserver = null;
+export function ativarDatePickersGlobal(opts = {}) {
+  tornarDatePickers(document, opts);
+  if (_dpObserver || typeof MutationObserver === "undefined") return;
+  _dpObserver = new MutationObserver(muts => {
+    for (const m of muts) {
+      m.addedNodes.forEach(node => {
+        if (node.nodeType !== 1) return;
+        if (node.matches && node.matches(DP_SELETOR)) tornarDatePicker(node, opts);
+        if (node.querySelectorAll) node.querySelectorAll(DP_SELETOR).forEach(el => tornarDatePicker(el, opts));
+      });
+    }
+  });
+  _dpObserver.observe(document.body, { childList: true, subtree: true });
 }

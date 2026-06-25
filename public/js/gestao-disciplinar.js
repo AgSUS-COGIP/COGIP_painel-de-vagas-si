@@ -16,7 +16,7 @@ let REGISTROS = [];
 // ---------- Mapas de classe das badges ----------
 const BADGE_STATUS = {
   "Em análise": "is-analise",
-  "Aguardando devolutiva do DSEI": "is-aguardando",
+  "Aguardando devolutiva do DSEI/Profissional": "is-aguardando",
   "Concluída": "is-concluida",
   "Pendente": "is-pendente",
   "Desligado antes da conclusão": "is-desligado",
@@ -31,7 +31,7 @@ const BADGE_ATENDIMENTO = {
 // ---------- Fases do processo (funil linear, padrão da Entrega de Crachá) ----------
 // As fases avançam uma a uma; não é possível pular etapas. "Desligado antes da
 // conclusão" é um estado terminal alternativo (trabalhador desligado no meio).
-const STATUS_FASES = ["Pendente", "Em análise", "Aguardando devolutiva do DSEI", "Concluída"];
+const STATUS_FASES = ["Pendente", "Em análise", "Aguardando devolutiva do DSEI/Profissional", "Concluída"];
 const STATUS_DESLIGADO = "Desligado antes da conclusão";
 // "foraDoPrazo" é apenas um aviso (solicitação pelo DSEI fora do prazo): não
 // bloqueia o processo, que segue normalmente pelo fluxo de fases.
@@ -40,12 +40,48 @@ const STATUS_CONCLUIDA = "Concluída";
 // Rótulo do botão que AVANÇA a partir de cada fase.
 const AVANCO_LABEL = {
   "Pendente": "Assumir processo",
-  "Em análise": "Enviar para devolutiva do DSEI",
-  "Aguardando devolutiva do DSEI": "Concluir processo"
+  "Em análise": "Enviar para devolutiva do DSEI/Profissional",
+  "Aguardando devolutiva do DSEI/Profissional": "Concluir processo"
 };
 
 function pedidoConcluido(r) {
   return r?.statusAtual === STATUS_CONCLUIDA;
+}
+
+// Processo encerrado: não corre mais, então a contagem de dias pendentes congela.
+function pedidoEncerrado(r) {
+  return r?.statusAtual === STATUS_CONCLUIDA || r?.statusAtual === STATUS_DESLIGADO;
+}
+
+// Dias entre o início do pedido (data do pedido) e hoje. Para processos
+// encerrados, conta até a data de encerramento (conclusão/desligamento),
+// congelando o valor em vez de seguir crescendo.
+function diasPendentes(r) {
+  const ini = dataBr(r.dataPedido);
+  if (!ini) return null;
+  const fim = pedidoEncerrado(r)
+    ? (dataBr(r.dataConclusao) || dataBr(r.ultimaAtualizacao) || new Date())
+    : new Date();
+  // Compara só a parte de data (dias civis), ignorando horas.
+  const a = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate());
+  const b = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate());
+  const dias = Math.round((b - a) / 86400000);
+  return dias >= 0 ? dias : 0;
+}
+
+function diasPendentesLabel(r) {
+  const d = diasPendentes(r);
+  if (d == null) return "—";
+  return `${d} dia${d === 1 ? "" : "s"}`;
+}
+
+// Data de conclusão de cada etapa do funil (índice em STATUS_FASES): Pendente é
+// concluída ao iniciar a análise; Em análise, ao enviar ao DSEI; Aguardando, ao
+// concluir. A etapa final ("Concluída") mostra a própria data de conclusão.
+function dataConclusaoFase(r, i) {
+  const datas = [r.dataInicioAnalise, r.dataEnvioDsei, r.dataConclusao, r.dataConclusao];
+  const d = datas[i];
+  return d && d !== "—" ? d : "";
 }
 
 // Rótulo de exibição do Tipo de Sanção: a suspensão mostra os dias junto.
@@ -55,13 +91,13 @@ function tipoSancaoDisplay(r) {
 }
 
 // Opções para edição em linha no detalhamento.
-const STATUS_OPCOES = ["Em análise", "Aguardando devolutiva do DSEI", "Concluída", "Pendente"];
+const STATUS_OPCOES = ["Em análise", "Aguardando devolutiva do DSEI/Profissional", "Concluída", "Pendente"];
 const ATENDIMENTO_OPCOES = ["—", "Totalmente", "Parcialmente", "Não atendido"];
 
 // Tipo de Sanção: somente as sanções aplicáveis. A quantidade de dias da
 // "Suspensão" é informada num campo à parte (Dias de suspensão).
-const SANCAO_OPCOES = ["Advertência oral", "Advertência", "Suspensão",
-  "Justa Causa", "Não Aplicada", "Em apuração", "—"];
+const SANCAO_OPCOES = ["—", "Advertência oral", "Advertência", "Suspensão",
+  "Justa Causa", "Não Aplicada", "Em apuração"];
 
 // Decisão: somente o artigo e as alíneas do Art. 482 da CLT (hipóteses de justa causa).
 const DECISAO_OPCOES = [
@@ -290,6 +326,8 @@ function registrosFiltrados() {
 
 // ---------- Renderização da tabela ----------
 let processoSelecionado = null;
+// Edição inline dos dados-base do pedido no próprio detalhamento (botão "Alterar").
+let editandoDados = false;
 
 function renderTabela() {
   const body = $("gdTableBody");
@@ -299,6 +337,7 @@ function renderTabela() {
 
   body.innerHTML = linhas.map(r => `
     <tr class="gdRow${r.processo === processoSelecionado ? " is-selected" : ""}" data-gd-processo="${escapeHtml(r.processo)}">
+      <td class="gfTd-center">${diasPendentesLabel(r)}</td>
       <td>${r.foraDoPrazo ? `<i class="fa-solid fa-triangle-exclamation gdAvisoPrazo" title="Solicitação pelo DSEI fora do prazo"></i> ` : ""}${escapeHtml(r.processo)}</td>
       <td>${escapeHtml(r.dsei)}</td>
       <td>${escapeHtml(r.trabalhador)}</td>
@@ -313,7 +352,7 @@ function renderTabela() {
       <td>${escapeHtml(r.dataPedido)}</td>
       <td>${escapeHtml(r.responsavel || "—")}</td>
     </tr>`).join("") ||
-    `<tr><td colspan="13" class="gfTd-center">Nenhum registro para os filtros selecionados.</td></tr>`;
+    `<tr><td colspan="14" class="gfTd-center">Nenhum registro para os filtros selecionados.</td></tr>`;
 
   if (info) info.textContent = `Mostrando ${linhas.length} de ${REGISTROS.length} pedidos`;
 }
@@ -335,6 +374,30 @@ function gdSelect(campo, valor, opcoes) {
   const opts = lista.map(o =>
     `<option value="${escapeHtml(o)}"${o === valor ? " selected" : ""}>${escapeHtml(o)}</option>`).join("");
   return `<select class="gdEditField" data-gd-campo="${campo}">${opts}</select>`;
+}
+
+// Opções do "Pedido de Medida" (mesmas do formulário de cadastro).
+const PEDIDO_MEDIDA_OPCOES = ["Sem indicação", "Advertência", "Suspensão", "Justa Causa"];
+
+// Campo de edição inline dos dados-base do pedido (marcado com data-gd-base). É
+// gravado em lote pelo botão "Salvar alterações", separado da edição por campo da
+// demanda/sanção (data-gd-campo, que grava na hora).
+function baseEditField(rotulo, campo, valor, tipo) {
+  const limpo = valor && valor !== "—" && valor !== "(sem nº SEI)" ? valor : "";
+  let controle;
+  if (tipo === "data") {
+    controle = `<input type="date" class="gdEditField" data-gd-base="${campo}" value="${escapeHtml(brParaIso(valor))}">`;
+  } else if (tipo === "textarea") {
+    controle = `<textarea class="gdEditField gdEditTextarea" data-gd-base="${campo}" rows="4" placeholder="—">${escapeHtml(limpo)}</textarea>`;
+  } else if (tipo === "selectPedido") {
+    const atual = limpo || "Sem indicação";
+    const opts = [...new Set([atual, ...PEDIDO_MEDIDA_OPCOES])].map(o =>
+      `<option value="${escapeHtml(o)}"${o === atual ? " selected" : ""}>${escapeHtml(o)}</option>`).join("");
+    controle = `<select class="gdEditField" data-gd-base="${campo}">${opts}</select>`;
+  } else {
+    controle = `<input type="text" class="gdEditField" data-gd-base="${campo}" value="${escapeHtml(limpo)}" placeholder="—">`;
+  }
+  return `<div class="gdKv gdKvEdit"><span>${escapeHtml(rotulo)}</span>${controle}</div>`;
 }
 
 // Renderiza um campo do detalhamento: editável (controle conforme o tipo) quando há
@@ -362,6 +425,9 @@ function campoEditavel(rotulo, campo, valor, podeEditar) {
 
 // Limpa o painel de detalhamento (lista vazia / nada selecionado).
 function limparDetalhe(mensagem) {
+  // Sem pedido selecionado, esconde o painel inteiro (evita o bloco vazio).
+  const painel = $("gdDetPanel");
+  if (painel) painel.style.display = "none";
   const titulo = $("gdDetTitulo");
   if (titulo) titulo.innerHTML = `<span class="gdDetTituloTxt">${escapeHtml(mensagem || "Nenhum pedido selecionado")}</span>`;
   ["gdDetDados", "gdDetStatus", "gdDetSancao", "gdDetAnexos"].forEach(id => { const el = $(id); if (el) el.innerHTML = ""; });
@@ -370,6 +436,8 @@ function limparDetalhe(mensagem) {
 function renderDetalhe(processo) {
   const r = REGISTROS.find(x => x.processo === processo) || REGISTROS[0];
   if (!r) { limparDetalhe(); return; }
+  const painel = $("gdDetPanel");
+  if (painel) painel.style.display = "";
   processoSelecionado = r.processo;
   const podeEditar = podeEditarGestaoDisciplinar(r);
   const sancaoLiberada = podeEditar && pedidoConcluido(r);
@@ -380,6 +448,13 @@ function renderDetalhe(processo) {
     const ehResp = !!r.responsavel && r.responsavel === meuLogin;
     const respLabel = r.responsavel && !ehResp
       ? `<span class="gdRespAtual"><i class="fa-solid fa-user-check"></i> Resp.: ${escapeHtml(r.responsavel)}</span>`
+      : "";
+    // Corrigir os dados do pedido (erros de digitação) direto no detalhamento:
+    // disponível para quem pode editar o pedido (responsável ou super admin).
+    const botaoAlterar = podeEditar && !editandoDados
+      ? `<button type="button" class="gfBtn gfBtnGhost gdAlterarBtn" data-gd-alterar="${escapeAttr(r.processo)}">
+          <i class="fa-solid fa-pen"></i> Alterar
+        </button>`
       : "";
     // Assumir a responsabilidade e excluir são exclusivos de administradores.
     const botaoAssumir = ehAdminDisciplinar()
@@ -396,6 +471,7 @@ function renderDetalhe(processo) {
       <span class="gdDetTituloTxt">${escapeHtml(r.processo)} — ${escapeHtml(r.trabalhador)} ${badge(r.statusAtual, BADGE_STATUS)}</span>
       <span class="gdDetTituloAcoes">
         ${respLabel}
+        ${botaoAlterar}
         ${botaoAssumir}
         ${botaoExcluir}
       </span>`;
@@ -403,23 +479,50 @@ function renderDetalhe(processo) {
 
   const dados = $("gdDetDados");
   if (dados) {
-    dados.innerHTML =
-    (r.foraDoPrazo
+    const avisoPrazo = r.foraDoPrazo
       ? `<div class="gdKv"><span></span><strong><span class="gdTagPrazo"><i class="fa-solid fa-triangle-exclamation"></i> Solicitação pelo DSEI fora do prazo</span></strong></div>`
-      : "") +
-      kv("Trabalhador", r.trabalhador) +
-      kv("Matrícula", r.matricula) +
-      kv("Cargo", r.cargo) +
-      kv("DSEI/CASAI", r.dsei) +
-      kv("Polo Base", r.polo) +
-      kv("Pedido", r.pedido) +
-      kv("Data da Ocorrência", r.ocorrencia) +
-      kv("Data do Pedido", r.dataPedido) +
+      : "";
+    // Atendimento/medida/motivo seguem com a edição por campo (gravam na hora) nos
+    // dois modos; os demais dados-base só viram campos no modo "Alterar".
+    const demanda =
       campoEditavel("Atendimento", "atendimento", r.atendimento, podeEditar) +
       campoEditavel("Medida adotada (parcial)", "medidaParcial", r.medidaParcial, podeEditar) +
-      campoEditavel("Motivo do não atendimento", "motivoNaoAtendimento", r.motivoNaoAtendimento, podeEditar) +
-      kv("Nº do Processo SEI", r.processo) +
-      `<div class="gdResumo"><span>Resumo do processo</span><p>${escapeHtml(r.resumo)}</p></div>`;
+      campoEditavel("Motivo do não atendimento", "motivoNaoAtendimento", r.motivoNaoAtendimento, podeEditar);
+
+    if (editandoDados && podeEditar) {
+      dados.innerHTML =
+        avisoPrazo +
+        `<div class="gdEditAviso"><i class="fa-solid fa-pen"></i> Corrigindo os dados do pedido — as alterações só são gravadas ao clicar em “Salvar alterações”.</div>` +
+        baseEditField("Trabalhador", "trabalhador", r.trabalhador, "texto") +
+        baseEditField("Matrícula", "matricula", r.matricula, "texto") +
+        baseEditField("Cargo", "cargo", r.cargo, "texto") +
+        baseEditField("DSEI/CASAI", "dsei", r.dsei, "texto") +
+        baseEditField("Polo Base", "polo", r.polo, "texto") +
+        baseEditField("Pedido", "pedido", r.pedido, "selectPedido") +
+        baseEditField("Data da Ocorrência", "ocorrencia", r.ocorrencia, "data") +
+        baseEditField("Data do Pedido", "dataPedido", r.dataPedido, "data") +
+        baseEditField("Nº do Processo SEI", "processo", r.processo, "texto") +
+        demanda +
+        baseEditField("Resumo do processo", "resumo", r.resumo, "textarea") +
+        `<div class="gdEditAcoes">
+           <button type="button" class="gfBtn gfBtnGhost" data-gd-edit-cancelar><i class="fa-solid fa-xmark"></i> Cancelar</button>
+           <button type="button" class="gfBtn" data-gd-edit-salvar><i class="fa-solid fa-floppy-disk"></i> Salvar alterações</button>
+         </div>`;
+    } else {
+      dados.innerHTML =
+        avisoPrazo +
+        kv("Trabalhador", r.trabalhador) +
+        kv("Matrícula", r.matricula) +
+        kv("Cargo", r.cargo) +
+        kv("DSEI/CASAI", r.dsei) +
+        kv("Polo Base", r.polo) +
+        kv("Pedido", r.pedido) +
+        kv("Data da Ocorrência", r.ocorrencia) +
+        kv("Data do Pedido", r.dataPedido) +
+        demanda +
+        kv("Nº do Processo SEI", r.processo) +
+        `<div class="gdResumo"><span>Resumo do processo</span><p>${escapeHtml(r.resumo)}</p></div>`;
+    }
   }
 
   const statusBox = $("gdDetStatus");
@@ -434,10 +537,15 @@ function renderDetalhe(processo) {
     let acoes = "";
 
     // Linha do tempo das fases (não é possível pular etapas). O pedido fora do
-    // prazo é apenas um aviso e não impede a movimentação do processo.
+    // prazo é apenas um aviso e não impede a movimentação do processo. Cada etapa
+    // concluída exibe a data em que foi concluída (avançou para a seguinte).
     stepper = `<div class="gdStepper">` + STATUS_FASES.map((f, i) => {
       const cls = desligado ? "" : (i === idxFase ? "is-atual" : (idxFase > i ? "is-feito" : ""));
-      return `<span class="gdStep ${cls}">${i + 1}. ${escapeHtml(f)}</span>`;
+      const data = dataConclusaoFase(r, i);
+      const ehFinal = i === STATUS_FASES.length - 1;
+      const dataHtml = data ? `<small class="gdStepData"><i class="fa-solid fa-check"></i> ${escapeHtml(data)}</small>` : "";
+      const titulo = data ? ` title="${ehFinal ? "Concluído" : "Etapa concluída"} em ${escapeAttr(data)}"` : "";
+      return `<span class="gdStep ${cls}"${titulo}>${i + 1}. ${escapeHtml(f)}${dataHtml}</span>`;
     }).join("") + `</div>`;
 
     // Ações de fase (padrão da Entrega de Crachá: só a transição válida é habilitada).
@@ -649,6 +757,46 @@ async function aplicarAlteracao(campo, novoValor) {
   }
 }
 
+// ---------- Edição inline dos dados-base do pedido (botão "Alterar") ----------
+function entrarEdicaoDados() {
+  editandoDados = true;
+  renderDetalhe(processoSelecionado);
+}
+
+function cancelarEdicaoDados() {
+  editandoDados = false;
+  renderDetalhe(processoSelecionado);
+}
+
+// Coleta os campos data-gd-base do detalhamento e grava todos de uma vez. As datas
+// saem em ISO (input date); o backend aceita ISO e dd/mm/aaaa.
+async function salvarEdicaoDados() {
+  const r = REGISTROS.find(x => x.processo === processoSelecionado);
+  if (!r) return;
+  const campos = {};
+  document.querySelectorAll("#gdDetDados [data-gd-base]").forEach(el => {
+    campos[el.dataset.gdBase] = (el.value || "").trim();
+  });
+  if (!campos.trabalhador || !campos.dsei) { gdToast("Informe ao menos o trabalhador e o DSEI/CASAI.", "erro"); return; }
+  if (!campos.matricula) { gdToast("A matrícula é obrigatória.", "erro"); return; }
+  if (!campos.processo) { gdToast("Informe o nº do Processo SEI.", "erro"); return; }
+
+  const ok = await gdConfirmar(`Deseja salvar as alterações nos dados do pedido "${r.processo}"?`, {
+    titulo: "Salvar alterações", okTexto: "Sim, salvar", cancelTexto: "Cancelar"
+  });
+  if (!ok) return;
+
+  try {
+    const resp = await apiPost(`/api/disciplinar/${r.id}/pedido`, campos);
+    editandoDados = false;
+    if (resp && resp.pedido) aplicarPedidoAtualizado(resp.pedido);
+    gdToast("Dados do pedido atualizados.");
+  } catch (e) {
+    // Mantém o modo de edição (sem re-render) para o usuário corrigir sem perder o digitado.
+    gdToast(e && e.message ? e.message : "Falha ao salvar as alterações.", "erro");
+  }
+}
+
 // Upload do termo (comprovante) na Sanção Aplicada, com confirmação. O binário não
 // é armazenado pelo backend (sem storage de arquivo): grava-se apenas o nome.
 async function aplicarUploadTermo(arquivo) {
@@ -804,7 +952,7 @@ function renderIndicadores() {
   set("gdKpiNaoConcluidos", cont(r => r.statusAtual !== STATUS_CONCLUIDA && r.statusAtual !== STATUS_DESLIGADO));
   set("gdKpiPendentes", cont(r => r.statusAtual === "Pendente"));
   set("gdKpiEmAnalise", cont(r => r.statusAtual === "Em análise"));
-  set("gdKpiAguardando", cont(r => r.statusAtual === "Aguardando devolutiva do DSEI"));
+  set("gdKpiAguardando", cont(r => r.statusAtual === "Aguardando devolutiva do DSEI/Profissional"));
   set("gdKpiDesligados", cont(r => r.statusAtual === STATUS_DESLIGADO));
   set("gdKpiForaPrazo", cont(r => !!r.foraDoPrazo));
   // Tempo médio: dias entre a data do pedido e a data de aplicação da sanção.
@@ -837,7 +985,12 @@ function atualizarDocTipoGd() {
   const link = $("gdFLink");
   const arquivo = $("gdFArquivo");
   if (link) link.hidden = tipo !== "link";
-  if (arquivo) arquivo.hidden = tipo !== "anexo";
+  // O input de arquivo vira o componente .fiField; alternamos o WRAPPER, não o
+  // input nativo (que o componente mantém oculto).
+  if (arquivo) {
+    const alvo = arquivo.closest(".fiField") || arquivo;
+    alvo.hidden = tipo !== "anexo";
+  }
 }
 
 // Data de hoje no formato "aaaa-mm-dd" (para <input type="date">).
@@ -867,6 +1020,8 @@ function fecharFormulario(limpar) {
   painel.style.display = "none";
   if (limpar) {
     CAMPOS_FORM.forEach(id => { const el = $(id); if (el) el.value = ""; });
+    // O input de arquivo foi zerado acima; re-sincroniza o componente (chips).
+    $("gdFArquivo")?._fi?.render();
     const radioLink = document.querySelector('input[name="gdDocTipo"][value="link"]');
     if (radioLink) radioLink.checked = true;
     atualizarDocTipoGd();
@@ -1244,6 +1399,12 @@ export function configurarGestaoDisciplinar() {
     const assumir = event.target.closest("[data-gd-assumir]");
     if (assumir) { assumirResponsabilidade(assumir.dataset.gdAssumir); return; }
 
+    const alterar = event.target.closest("[data-gd-alterar]");
+    if (alterar) { entrarEdicaoDados(); return; }
+
+    if (event.target.closest("[data-gd-edit-cancelar]")) { cancelarEdicaoDados(); return; }
+    if (event.target.closest("[data-gd-edit-salvar]")) { salvarEdicaoDados(); return; }
+
     const excluir = event.target.closest("[data-gd-excluir]");
     if (excluir) { excluirPedido(excluir.dataset.gdExcluir); return; }
 
@@ -1264,7 +1425,11 @@ export function configurarGestaoDisciplinar() {
     if (anexoExcluir) { excluirAnexo(anexoExcluir.dataset.gdAnexoExcluir); return; }
 
     const linha = event.target.closest(".gdRow");
-    if (linha && linha.dataset.gdProcesso) renderDetalhe(linha.dataset.gdProcesso);
+    if (linha && linha.dataset.gdProcesso) {
+      // Trocar de pedido sai do modo de edição inline para não editar o errado.
+      if (linha.dataset.gdProcesso !== processoSelecionado) editandoDados = false;
+      renderDetalhe(linha.dataset.gdProcesso);
+    }
   });
 
   // Campos de data: abre o seletor ao clicar em qualquer parte do campo (não só
