@@ -9,6 +9,7 @@
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
 import { escapeHtml, formatNumber, baixarArquivoCsv } from "./utils.js";
+import { criarToast } from "./ui-utils.js";
 
 const $ = id => document.getElementById(id);
 
@@ -22,17 +23,8 @@ function ehCoape() {
   return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL_COAPE;
 }
 
-// Toast simples.
-let toastTimer = null;
-function gfToast(msg, tipo) {
-  let el = document.getElementById("gfToast");
-  if (!el) { el = document.createElement("div"); el.id = "gfToast"; el.className = "gfToast"; document.body.appendChild(el); }
-  el.textContent = msg;
-  el.classList.toggle("is-erro", tipo === "erro");
-  el.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
-}
+// Toast simples (controlador compartilhado em ui-utils).
+const gfToast = criarToast("gfToast", { duracaoMs: 3000 });
 
 // ---------- Estado ----------
 let dados = null;       // { rows (objetos), hoje, atualizadoEm }

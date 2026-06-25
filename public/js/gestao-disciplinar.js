@@ -6,7 +6,8 @@
 // é persistida no banco via API e o registro afetado é recarregado.
 // Obs.: por padrão do painel, as pessoas são sempre "trabalhadores".
 // =========================================================
-import { escapeHtml, escapeAttr, debounce } from "./utils.js";
+import { escapeHtml, escapeAttr, debounce, safeUrl } from "./utils.js";
+import { criarToast, preencherSelect } from "./ui-utils.js";
 import { state } from "./state.js";
 import { apiGet, apiPost, authHeaders } from "./api.js";
 
@@ -167,35 +168,14 @@ function badge(texto, mapa) {
 const $ = id => document.getElementById(id);
 
 // ---------- Toast simples ----------
-let toastTimer = null;
-function gdToast(mensagem, tipo) {
-  let el = $("gdToast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "gdToast";
-    el.className = "gfToast";
-    document.body.appendChild(el);
-  }
-  el.textContent = mensagem;
-  el.classList.remove("is-erro", "is-ok");
-  el.classList.add(tipo === "erro" ? "is-erro" : "is-ok", "show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
-}
+// Reaproveita a classe visual `gfToast`; controlador compartilhado em ui-utils.
+const gdToast = criarToast("gdToast", { className: "gfToast" });
 
 // ---------- Filtros ----------
 function preencherFiltros() {
-  const opcoes = (sel, valores, rotuloTodos) => {
-    const el = $(sel);
-    if (!el) return;
-    const atual = el.value;
-    el.innerHTML = `<option value="">${rotuloTodos}</option>` +
-      valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-    if (atual && valores.includes(atual)) el.value = atual;
-  };
   const unicos = chave => [...new Set(REGISTROS.map(r => r[chave]).filter(v => v && v !== "—"))];
-  opcoes("gdFiltroDsei", unicos("dsei"), "Todos os DSEIs/CASAIs");
-  opcoes("gdFiltroStatus", unicos("status"), "Todos os Status");
+  preencherSelect("gdFiltroDsei", unicos("dsei"), "Todos os DSEIs/CASAIs");
+  preencherSelect("gdFiltroStatus", unicos("status"), "Todos os Status");
 }
 
 // Popula a lista de autocompletar de DSEIs do formulário (a de trabalhadores é
@@ -474,7 +454,7 @@ function renderDetalhe(processo) {
     const comprovanteChip = r.comprovante
       ? `<div class="gfFileChip"><i class="fa-solid fa-file-pdf"></i><span>${escapeHtml(r.comprovante)}</span>${
           r.comprovanteUrl
-            ? `<a class="gfIconBtn" href="${escapeAttr(r.comprovanteUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
+            ? `<a class="gfIconBtn" href="${escapeAttr(safeUrl(r.comprovanteUrl))}" target="_blank" rel="noopener noreferrer" title="Abrir"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
             : `<button class="gfIconBtn" data-gd-baixar="${escapeHtml(r.comprovante)}" title="Baixar"><i class="fa-solid fa-download"></i></button>`
         }</div>`
       : `<div class="gdKv"><span>Comprovante (anexo)</span><strong>—</strong></div>`;
@@ -506,7 +486,7 @@ function renderDetalhe(processo) {
       const icone = a.ehLink ? "fa-link" : "fa-file-pdf";
       const tag = `<span class="gdAnexoTag">${escapeHtml(ANEXO_TIPO_LABEL[a.tipo] || a.tipo || "Anexo")}</span>`;
       const acao = a.disponivel
-        ? `<a class="gfIconBtn" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer" title="${a.ehLink ? "Abrir" : "Baixar"}"><i class="fa-solid ${a.ehLink ? "fa-arrow-up-right-from-square" : "fa-download"}"></i></a>`
+        ? `<a class="gfIconBtn" href="${escapeAttr(safeUrl(a.url))}" target="_blank" rel="noopener noreferrer" title="${a.ehLink ? "Abrir" : "Baixar"}"><i class="fa-solid ${a.ehLink ? "fa-arrow-up-right-from-square" : "fa-download"}"></i></a>`
         : "";
       const remover = (podeGerenciar && a.id)
         ? `<button class="gfIconBtn" data-gd-anexo-excluir="${escapeAttr(a.id)}" title="Remover anexo"><i class="fa-solid fa-trash"></i></button>`

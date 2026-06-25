@@ -868,7 +868,7 @@ app.get("*", apiLimiter, (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error(err && err.code ? `[${err.code}]` : "[erro]", err && err.stack ? err.stack : err);
   if (res.headersSent) return next(err);
 
   // Erros do multer (ex.: arquivo acima do limite) viram 400 amigável.

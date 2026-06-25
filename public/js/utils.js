@@ -137,6 +137,17 @@ export function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
 }
 
+export function safeUrl(value) {
+  // Remove espaços/quebras (evita truques como "java\tscript:" com tab/newline).
+  const url = String(value ?? "").replace(/\s+/g, "").trim();
+  if (!url) return "";
+  if (/^(https?:|blob:|mailto:|tel:)/i.test(url)) return url;
+  // Tem um esquema explícito fora da allowlist (ex.: javascript:, data:, vbscript:).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return "";
+  // Sem esquema: URL relativa, âncora (#) ou query (?) — considerada segura.
+  return url;
+}
+
 // Adia a execução de `fn` até passar `delay` ms sem novas chamadas. Usado para
 // evitar refiltrar/re-renderizar bases grandes a cada tecla digitada na busca.
 export function debounce(fn, delay = 200) {

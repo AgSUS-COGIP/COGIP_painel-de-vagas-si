@@ -27,6 +27,15 @@ export const STATIC_FILTERS = {
 
 export const REMANEJAMENTO_EMPTY_OPTION = { value: "", label: "Selecione" };
 
+// Níveis de autorização do usuário (espelha o cadastro em Solicitações de Acesso).
+// São apenas dicas de UI no front; o backend reaplica a regra a cada requisição.
+//   1 = usuário comum (aprovado)   2 = administrador   3 = super administrador
+export const NIVEL = {
+  APROVADO: 1,
+  ADMIN: 2,
+  SUPERADMIN: 3
+};
+
 export const VAGAS_TABELA_CONFIG = {
   vagas: {
     bloco: "blocoTabelaVagas",

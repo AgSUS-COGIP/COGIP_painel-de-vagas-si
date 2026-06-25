@@ -9,7 +9,7 @@
 // =========================================================
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
-import { formatNumber, formatPercent, escapeHtml, escapeAttr, valorCsv, baixarArquivoCsv } from "./utils.js";
+import { formatNumber, formatPercent, escapeHtml, escapeAttr, valorCsv, baixarArquivoCsv, debounce } from "./utils.js";
 
 const $ = id => document.getElementById(id);
 
@@ -735,7 +735,6 @@ function colunas(canvasId, labels, values, cor) {
 }
 
 // ---------- Inicialização ----------
-function debounce(fn, ms) { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; }
 
 export function configurarSaudeIndigena() {
   if (configurado) return;

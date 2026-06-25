@@ -11,7 +11,8 @@
 // Registra os ouvintes em configurarProcessosSeletivos(),
 // chamado no init do app. Somente leitura (sem cadastro).
 // =========================================================
-import { escapeAttr, escapeHtml, debounce } from "./utils.js";
+import { escapeAttr, escapeHtml, debounce, safeUrl } from "./utils.js";
+import { preencherSelect } from "./ui-utils.js";
 import { PROCESSOS_SELETIVOS_DADOS } from "./processos-seletivos-dados.js";
 import { EDITAIS_VAGAS_DADOS } from "./editais-vagas-dados.js";
 import { CRONOGRAMA_EDITAIS_DADOS } from "./cronograma-editais-dados.js";
@@ -123,23 +124,11 @@ function renderKpis() {
 
 // ---------- Selects de filtro ----------
 function preencherFiltros() {
-  const selU = $("psFiltroUnidade");
-  if (selU) {
-    const atual = selU.value;
-    const unidades = [...new Set(processos.map(p => p.unidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-    selU.innerHTML = `<option value="">Todas as unidades</option>` +
-      unidades.map(u => `<option value="${escapeAttr(u)}">${escapeHtml(u)}</option>`).join("");
-    if (unidades.includes(atual)) selU.value = atual;
-  }
+  const unidades = [...new Set(processos.map(p => p.unidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  preencherSelect("psFiltroUnidade", unidades, "Todas as unidades");
 
-  const selS = $("psFiltroStatus");
-  if (selS) {
-    const atual = selS.value;
-    const statuses = [...new Set(processos.map(p => p.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-    selS.innerHTML = `<option value="">Todos os status</option>` +
-      statuses.map(s => `<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join("");
-    if (statuses.includes(atual)) selS.value = atual;
-  }
+  const statuses = [...new Set(processos.map(p => p.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  preencherSelect("psFiltroStatus", statuses, "Todos os status");
 }
 
 // ---------- Tabela ----------
@@ -375,7 +364,7 @@ function renderDetalhe() {
   }
 
   const link = proc.linkEdital
-    ? `<a class="psDocLink" href="${escapeAttr(proc.linkEdital)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file-pdf"></i> Abrir edital</a>`
+    ? `<a class="psDocLink" href="${escapeAttr(safeUrl(proc.linkEdital))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file-pdf"></i> Abrir edital</a>`
     : "—";
 
   const observacoes = proc.observacoes

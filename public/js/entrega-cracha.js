@@ -9,6 +9,7 @@
 // mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
 import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv } from "./utils.js";
+import { criarToast, preencherSelect } from "./ui-utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 
@@ -119,21 +120,7 @@ function statusValido(val) {
 }
 
 // ---------- Toast ----------
-let toastTimer = null;
-function ecToast(mensagem, tipo) {
-  let el = $("ecToast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "ecToast";
-    el.className = "ecToast";
-    document.body.appendChild(el);
-  }
-  el.textContent = mensagem;
-  el.classList.remove("is-erro", "is-ok");
-  el.classList.add(tipo === "erro" ? "is-erro" : "is-ok", "show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
-}
+const ecToast = criarToast("ecToast");
 
 // ---------- KPIs (total, ativos e um por status do funil) ----------
 function renderKpis(lista) {
@@ -709,17 +696,9 @@ async function reverterSolicitacao(matricula) {
 // ---------- Selects (DSEIs vêm dos próprios dados) ----------
 function preencherSelects() {
   const dseis = [...new Set(solicitacoes.map(s => s.dsei).filter(Boolean))].sort();
-  const opcoes = (id, valores, rotuloTodos) => {
-    const el = $(id);
-    if (!el) return;
-    const atual = el.value;
-    el.innerHTML = `<option value="">${rotuloTodos}</option>` +
-      valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-    if (atual && valores.includes(atual)) el.value = atual;
-  };
-  opcoes("ecFiltroDsei", dseis, "Todos os DSEIs");
-  opcoes("ecFiltroStatus", STATUS_LISTA, "Todos os Status");
-  opcoes("ecFiltroEscritorio", dseis.map(escritorioDoDsei), "Todos os Escritórios");
+  preencherSelect("ecFiltroDsei", dseis, "Todos os DSEIs");
+  preencherSelect("ecFiltroStatus", STATUS_LISTA, "Todos os Status");
+  preencherSelect("ecFiltroEscritorio", dseis.map(escritorioDoDsei), "Todos os Escritórios");
   popularStatusLote();
 
   const formDsei = $("ecFormDsei");

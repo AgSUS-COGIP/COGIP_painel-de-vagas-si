@@ -1,13 +1,13 @@
 import { idSeguroAlerta } from "./alertas.js";
 import { apiGet } from "./api.js";
 import { garantirCarregamentoPagina, recarregarTodosOsDados } from "./app.js";
-import { REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
+import { NIVEL, REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
 import { atualizarModoRolagem } from "./filtros.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
-import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, setText, setValue, soma } from "./utils.js";
+import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, safeUrl, setText, setValue, soma } from "./utils.js";
 import { tornarSelectPesquisavel, sincronizarSelectPesquisavel } from "./searchable-select.js";
 
 export function configurarPainelExterno() {
@@ -286,9 +286,9 @@ export function renderRemanejamentoLista() {
   }
 
   const nivelUsuario = state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
-  const podeExcluir = nivelUsuario >= 2;
-  // Alterar remanejamento: somente nível 3.
-  const podeEditar = nivelUsuario === 3;
+  const podeExcluir = nivelUsuario >= NIVEL.ADMIN;
+  // Alterar remanejamento: somente nível super administrador.
+  const podeEditar = nivelUsuario === NIVEL.SUPERADMIN;
 
   tbody.innerHTML = rows.map(row => {
     const impacto = Number(row.impactoMensal || 0);
@@ -419,7 +419,7 @@ export function renderTabelaDetalheRemanejamento(titulo, itens) {
 export function renderDetalheRemanejamentoHtml(detalhe, rowLista) {
   const impacto = Number(detalhe.impactoMensal || 0);
   const anexo = rowLista.anexoOficioUrl
-    ? `<a class="remAnexoLink" href="${escapeAttr(rowLista.anexoOficioUrl)}" target="_blank" rel="noopener noreferrer">Abrir PDF</a>`
+    ? `<a class="remAnexoLink" href="${escapeAttr(safeUrl(rowLista.anexoOficioUrl))}" target="_blank" rel="noopener noreferrer">Abrir PDF</a>`
     : "—";
 
   return `
