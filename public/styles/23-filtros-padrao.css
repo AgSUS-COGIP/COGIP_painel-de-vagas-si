@@ -222,3 +222,82 @@
       font-weight: 700;
       text-align: center;
     }
+
+    /* =========================================================
+       Campos de TEXTO com o MESMO visual dos gatilhos
+       --------------------------------------------------------
+       Os <select> viram dropdown pesquisável (.ssTrigger) e os <input type=date>
+       viram date picker (.dpTrigger) — ambos já padronizados acima. Aqui igualamos
+       os campos de texto/busca das telas de DADOS (Gestão de Férias, Disciplinar,
+       Saúde Indígena, Entrega de Crachá e Processos Seletivos) ao mesmo visual:
+       pílula branca arredondada + sombra suave, sem borda. Login e modais de acesso
+       (.loginInput / .acessoModalInput) mantêm o design próprio. Como este é o
+       layer de filtros-padrão (importado após os módulos), vence por camada — por
+       isso não precisamos repetir a regra em cada tela.
+    ========================================================= */
+    .gfInput,
+    .ecInput,
+    .psInput,
+    .siInput {
+      border: none;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .97);
+      color: #0b2445;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      outline: none;
+      box-shadow: 0 7px 18px rgba(0, 36, 82, .18);
+    }
+
+    /* Pílula de uma linha (a textarea mantém altura própria). */
+    .gfInput:not(textarea),
+    .ecInput:not(textarea),
+    .psInput:not(textarea),
+    .siInput:not(textarea) {
+      height: 38px;
+      padding: 0 11px;
+    }
+
+    /* Textareas: mesmo visual, com respiro vertical e altura livre. */
+    textarea.gfInput,
+    textarea.ecInput,
+    textarea.psInput,
+    textarea.siInput {
+      height: auto;
+      padding: 9px 11px;
+      line-height: 1.5;
+    }
+
+    .gfInput::placeholder,
+    .ecInput::placeholder,
+    .psInput::placeholder,
+    .siInput::placeholder { color: #7a90ad; font-weight: 700; }
+
+    .gfInput:focus,
+    .ecInput:focus,
+    .psInput:focus,
+    .siInput:focus {
+      box-shadow: 0 0 0 3px rgba(0, 112, 217, .18), 0 7px 18px rgba(0, 36, 82, .18);
+    }
+
+    /* Entrega de Crachá: alguns campos ficam dentro de um wrapper com ícone
+       (.ecField), que carrega a borda — o input interno é transparente. Passamos a
+       pílula para o wrapper e mantemos o input interno plano. (Os campos de data
+       usam .ecFieldDate:has(.dpField) no layer date-picker, que neutraliza este
+       wrapper para não duplicar a pílula do date picker.) */
+    .ecField {
+      border: none;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .97);
+      box-shadow: 0 7px 18px rgba(0, 36, 82, .18);
+    }
+    .ecField .ecInput {
+      height: 100%;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .ecField:focus-within {
+      box-shadow: 0 0 0 3px rgba(0, 112, 217, .18), 0 7px 18px rgba(0, 36, 82, .18);
+    }

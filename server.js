@@ -17,7 +17,7 @@ const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atua
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
-const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
+const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirNivelMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { getFeriasData } = require("./lib/ferias");
@@ -50,6 +50,40 @@ const upload = multer({
     cb(null, true);
   }
 });
+
+// O multer (via busboy) decodifica o nome do arquivo do multipart como latin1, o
+// que corrompe acentos (ã, í, ú aparecem como "?"/�) antes mesmo de chegar ao
+// banco. Recuperamos os bytes originais e reinterpretamos como UTF-8.
+function corrigirNomeArquivoUpload(nome) {
+  if (typeof nome !== "string" || !nome) return nome;
+  try {
+    return Buffer.from(nome, "latin1").toString("utf8");
+  } catch (e) {
+    return nome;
+  }
+}
+
+// Monta o cabeçalho Content-Disposition de download preservando acentos no nome:
+// usa RFC 5987 (filename*=UTF-8'') e mantém um fallback ASCII para clientes antigos.
+// Evita que nomes acentuados baixem como texto percent-encoded ilegível.
+function dispositionAnexo(nome) {
+  const limpo = String(nome || "arquivo").replace(/[\r\n"]/g, "");
+  const ascii = limpo.replace(/[^\x20-\x7E]/g, "_") || "arquivo";
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(limpo)}`;
+}
+
+// Envolve um middleware do multer e normaliza para UTF-8 os nomes dos arquivos
+// (single/array/fields), de forma central — qualquer rota de upload herda a correção.
+function comNomesUtf8(middleware) {
+  return (req, res, next) => middleware(req, res, err => {
+    if (err) return next(err);
+    const fix = f => { if (f && typeof f.originalname === "string") f.originalname = corrigirNomeArquivoUpload(f.originalname); };
+    if (req.file) fix(req.file);
+    if (Array.isArray(req.files)) req.files.forEach(fix);
+    else if (req.files && typeof req.files === "object") Object.values(req.files).forEach(arr => (arr || []).forEach(fix));
+    next();
+  });
+}
 
 app.set("trust proxy", Number(process.env.TRUST_PROXY || 1));
 
@@ -358,7 +392,7 @@ app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, 
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "no-store"); // documento sensível: não cachear
-    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(nomeArquivo)}"`);
+    res.setHeader("Content-Disposition", dispositionAnexo(nomeArquivo));
     res.send(row.ANEXO_PROCESSO);
   } finally {
     await fecharJdbc(conn);
@@ -378,7 +412,7 @@ app.put(
   apiLimiter,
   autenticarFrescoMiddleware,
   exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
-  upload.single("anexo"),
+  comNomesUtf8(upload.single("anexo")),
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
     try {
@@ -605,7 +639,7 @@ app.get("/api/disciplinar/trabalhadores", apiLimiter, autenticarFrescoMiddleware
   }
 }));
 
-app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), upload.fields([{ name: "oficio", maxCount: 1 }, { name: "anexos", maxCount: 20 }]), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), comNomesUtf8(upload.fields([{ name: "oficio", maxCount: 1 }, { name: "anexos", maxCount: 20 }])), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = { ...(req.body || {}) };
@@ -620,6 +654,19 @@ app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirNivel
     res.json({ ok: true, pedido });
   } catch (err) {
     res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar o pedido." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+app.post("/api/disciplinar/:id/pedido", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
+    const pedido = await atualizarPedidoBaseComConn(conn, req.params.id, req.body || {});
+    res.json({ ok: true, pedido });
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao atualizar o pedido." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -652,7 +699,7 @@ app.post("/api/disciplinar/:id/sancao", apiLimiter, express.json(), autenticarFr
 }));
 
 // Upload do termo/documento comprobatório da sanção (guardado em BLOB) — exclusivo do responsável.
-app.post("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), upload.single("termo"), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), comNomesUtf8(upload.single("termo")), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
@@ -678,7 +725,7 @@ app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddlew
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(nomeArquivo)}"`);
+    res.setHeader("Content-Disposition", dispositionAnexo(nomeArquivo));
     res.send(termo.documento_sancao);
   } finally {
     await fecharJdbc(conn);
@@ -716,7 +763,7 @@ app.post("/api/disciplinar/:id/excluir", apiLimiter, autenticarFrescoMiddleware,
 }));
 
 // Anexar arquivos (vários, de um tipo) a um pedido — exclusivo do responsável atual.
-app.post("/api/disciplinar/:id/anexos", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), upload.array("anexos", 10), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/anexos", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), comNomesUtf8(upload.array("anexos", 10)), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
@@ -745,7 +792,7 @@ app.get("/api/disciplinar/anexo/:idAnexo", apiLimiter, autenticarFrescoMiddlewar
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(nomeArquivo)}"`);
+    res.setHeader("Content-Disposition", dispositionAnexo(nomeArquivo));
     res.send(prova.conteudo);
   } finally {
     await fecharJdbc(conn);
@@ -771,7 +818,7 @@ app.post(
   apiLimiter,
   autenticarFrescoMiddleware,
   exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
-  upload.single("anexo"),
+  comNomesUtf8(upload.single("anexo")),
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
     try {
@@ -841,7 +888,7 @@ app.post(
   apiLimiter,
   autenticarFrescoMiddleware,
   exigirAprovadoMiddleware,
-  upload.single("anexo"),
+  comNomesUtf8(upload.single("anexo")),
   asyncHandler(async (req, res) => {
     if (!req.file || !req.file.buffer || !req.file.buffer.length) {
       res.status(400).json({ error: "Envie um arquivo PDF no campo 'anexo'." });
@@ -914,6 +961,10 @@ if (require.main === module) {
 
   garantirColunaConteudoProva().catch(err => {
     console.error("Não foi possível garantir a coluna de conteúdo das provas disciplinares:", err && err.message ? err.message : err);
+  });
+
+  garantirColunasDatasFasesDemanda().catch(err => {
+    console.error("Não foi possível garantir as colunas de datas das etapas disciplinares:", err && err.message ? err.message : err);
   });
 }
 
