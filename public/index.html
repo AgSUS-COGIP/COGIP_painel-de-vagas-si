@@ -1779,16 +1779,17 @@
             <datalist id="gdListaDseis"></datalist>
 
             <div class="gfForm gdForm">
-              <!-- Trabalhador: combobox clicável e pesquisável; ao selecionar,
-                   auto-preenche os campos abaixo. -->
+              <!-- Trabalhador: gatilho (botão) que abre um popup com busca interna
+                   (mesmo padrão dos demais dropdowns). Ao selecionar, auto-preenche
+                   os campos abaixo. O nome escolhido fica no input oculto gdFTrabalhador. -->
               <div class="gfField gdFieldFull">
                 <label>Trabalhador <span class="req">*</span></label>
-                <div class="gdCombo" id="gdComboTrabalhador">
-                  <input class="gfInput gdComboInput" type="text" id="gdFTrabalhador" autocomplete="off"
-                    role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="gdComboTrabalhadorLista"
-                    placeholder="Clique para buscar pelo nome ou matrícula">
-                  <i class="fa-solid fa-chevron-down gdComboCaret" aria-hidden="true"></i>
-                  <ul class="gdComboLista" id="gdComboTrabalhadorLista" role="listbox" hidden></ul>
+                <div class="ssCombo gdTrabCombo" id="gdComboTrabalhador">
+                  <input type="hidden" id="gdFTrabalhador">
+                  <button type="button" class="ssTrigger" id="gdTrabTrigger" aria-haspopup="listbox">
+                    <span class="ssValor"></span>
+                    <i class="fa-solid fa-chevron-down ssCaret" aria-hidden="true"></i>
+                  </button>
                 </div>
               </div>
 

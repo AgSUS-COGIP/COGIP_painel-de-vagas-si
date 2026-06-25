@@ -12,65 +12,65 @@
 /* ---------- Layout base da Visão Geral (print) ---------- */
 #view-visaoGeral.viewPanel.active,
 #view-visaoGeral .onePageDashboard {
-  height: 100% !important;
-  min-height: 0 !important;
+  height: 100%;
+  min-height: 0;
 }
 
 #view-visaoGeral .visaoPrintLayout {
-  display: grid !important;
-  grid-template-rows: auto clamp(54px, 7.3vh, 78px) minmax(0, 1.02fr) minmax(0, .94fr) !important;
-  gap: clamp(8px, 1vh, 12px) !important;
+  display: grid;
+  grid-template-rows: auto clamp(54px, 7.3vh, 78px) minmax(0, 1.02fr) minmax(0, .94fr);
+  gap: clamp(8px, 1vh, 12px);
 }
 
 #view-visaoGeral .overviewChartsGrid {
-  display: grid !important;
-  grid-template-columns: minmax(360px, 1.05fr) minmax(300px, .74fr) minmax(400px, 1.05fr) !important;
-  gap: clamp(8px, .75vw, 12px) !important;
-  min-height: 0 !important;
+  display: grid;
+  grid-template-columns: minmax(360px, 1.05fr) minmax(300px, .74fr) minmax(400px, 1.05fr);
+  gap: clamp(8px, .75vw, 12px);
+  min-height: 0;
 }
 
 #view-visaoGeral .overviewBottomGrid {
-  display: grid !important;
-  grid-template-columns: minmax(330px, .9fr) minmax(360px, .92fr) minmax(360px, .88fr) !important;
-  gap: clamp(8px, .75vw, 12px) !important;
-  min-height: 0 !important;
+  display: grid;
+  grid-template-columns: minmax(330px, .9fr) minmax(360px, .92fr) minmax(360px, .88fr);
+  gap: clamp(8px, .75vw, 12px);
+  min-height: 0;
 }
 
 #view-visaoGeral .panel {
-  border-radius: 16px !important;
-  padding: clamp(10px, 1.2vh, 14px) clamp(12px, .95vw, 16px) !important;
+  border-radius: 16px;
+  padding: clamp(10px, 1.2vh, 14px) clamp(12px, .95vw, 16px);
 }
 
 #view-visaoGeral .panelTitle {
-  font-size: clamp(10px, 1.3vh, 12.5px) !important;
-  margin-bottom: clamp(5px, .7vh, 9px) !important;
+  font-size: clamp(10px, 1.3vh, 12.5px);
+  margin-bottom: clamp(5px, .7vh, 9px);
 }
 
 #view-visaoGeral .chartBox.smallDonut {
-  height: clamp(150px, 20.5vh, 230px) !important;
+  height: clamp(150px, 20.5vh, 230px);
 }
 
 #view-visaoGeral .chartBox.tipoGrande {
-  height: clamp(158px, 22vh, 245px) !important;
+  height: clamp(158px, 22vh, 245px);
 }
 
 #view-visaoGeral .chartBox.compactBar {
-  height: clamp(155px, 20.6vh, 230px) !important;
+  height: clamp(155px, 20.6vh, 230px);
 }
 
 #view-visaoGeral .panelTipo {
-  grid-template-columns: minmax(180px, .95fr) minmax(170px, .72fr) !important;
-  padding-right: clamp(110px, 9vw, 175px) !important;
-  position: relative !important;
+  grid-template-columns: minmax(180px, .95fr) minmax(170px, .72fr);
+  padding-right: clamp(110px, 9vw, 175px);
+  position: relative;
 }
 
 /* ---------- Faixa de Percentual de Vagas Preenchidas ---------- */
 .preenchimentoFaixa {
-  padding: 10px 16px !important;
-  display: grid !important;
-  grid-template-rows: auto 1fr auto !important;
-  align-content: center !important;
-  gap: 5px !important;
+  padding: 10px 16px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-content: center;
+  gap: 5px;
 }
 
 .preenchimentoHeader,
@@ -86,7 +86,7 @@
 }
 
 .preenchimentoHeader .panelTitle {
-  margin: 0 !important;
+  margin: 0;
 }
 
 .preenchimentoHeader strong {
@@ -258,13 +258,13 @@
 }
 
 #view-visaoGeral .panelTipo .imagemIndigenaPainel {
-  position: absolute !important;
-  right: 8px !important;
-  bottom: 0 !important;
-  width: clamp(95px, 8.7vw, 165px) !important;
-  height: 82% !important;
-  min-height: 0 !important;
-  z-index: 1 !important;
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  width: clamp(95px, 8.7vw, 165px);
+  height: 82%;
+  min-height: 0;
+  z-index: 1;
 }
 
 /* =========================================================
@@ -282,306 +282,306 @@
 }
 
 body.modoPainelFixo {
-  width: 100vw !important;
-  height: 100vh !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-  background-color: #032a57 !important;
+  width: 100vw;
+  height: 100vh;
+  min-width: 0;
+  overflow: hidden;
+  background-color: #032a57;
 }
 
 body.modoPainelFixo .app {
-  position: fixed !important;
-  left: 50% !important;
-  top: 50% !important;
-  width: var(--painel-base-width) !important;
-  height: var(--painel-base-height) !important;
-  min-width: var(--painel-base-width) !important;
-  min-height: var(--painel-base-height) !important;
-  max-width: none !important;
-  max-height: none !important;
-  display: grid !important;
-  grid-template-columns: 246px minmax(0, 1fr) !important;
-  transform: translate(-50%, -50%) scale(var(--painel-scale-x), var(--painel-scale-y)) !important;
-  transform-origin: center center !important;
-  overflow: hidden !important;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: var(--painel-base-width);
+  height: var(--painel-base-height);
+  min-width: var(--painel-base-width);
+  min-height: var(--painel-base-height);
+  max-width: none;
+  max-height: none;
+  display: grid;
+  grid-template-columns: 246px minmax(0, 1fr);
+  transform: translate(-50%, -50%) scale(var(--painel-scale-x), var(--painel-scale-y));
+  transform-origin: center center;
+  overflow: hidden;
 }
 
 body.modoPainelFixo .app.sidebar-collapsed {
-  grid-template-columns: 78px minmax(0, 1fr) !important;
+  grid-template-columns: 78px minmax(0, 1fr);
 }
 
 body.modoPainelFixo .sidebar {
-  position: relative !important;
-  top: auto !important;
-  width: auto !important;
-  height: var(--painel-base-height) !important;
-  min-height: var(--painel-base-height) !important;
-  max-height: var(--painel-base-height) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  grid-template-columns: none !important;
-  overflow: hidden !important;
-  padding: 10px 14px 8px !important;
+  position: relative;
+  top: auto;
+  width: auto;
+  height: var(--painel-base-height);
+  min-height: var(--painel-base-height);
+  max-height: var(--painel-base-height);
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  overflow: hidden;
+  padding: 10px 14px 8px;
 }
 
 body.modoPainelFixo .brand {
-  display: grid !important;
-  margin-top: 0 !important;
-  margin-bottom: 10px !important;
+  display: grid;
+  margin-top: 0;
+  margin-bottom: 10px;
 }
 
 body.modoPainelFixo .brandLogo {
-  width: 70px !important;
-  height: 70px !important;
+  width: 70px;
+  height: 70px;
 }
 
 body.modoPainelFixo .brandTitle {
-  display: block !important;
-  font-size: 24px !important;
-  line-height: .92 !important;
+  display: block;
+  font-size: 24px;
+  line-height: .92;
 }
 
 body.modoPainelFixo .brandSubtitle {
-  display: block !important;
-  font-size: 10px !important;
-  line-height: 1.05 !important;
-  margin-top: 3px !important;
+  display: block;
+  font-size: 10px;
+  line-height: 1.05;
+  margin-top: 3px;
 }
 
 body.modoPainelFixo .brandMeta {
-  display: block !important;
+  display: block;
 }
 
 body.modoPainelFixo .sidebarToggle {
-  display: grid !important;
-  width: 30px !important;
-  height: 30px !important;
-  margin: 0 auto 7px !important;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 7px;
 }
 
 body.modoPainelFixo .nav {
-  display: grid !important;
-  gap: 6px !important;
-  margin-top: 8px !important;
-  overflow: visible !important;
-  justify-content: stretch !important;
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  overflow: visible;
+  justify-content: stretch;
 }
 
 body.modoPainelFixo .navItem {
-  display: grid !important;
-  grid-template-columns: 26px minmax(0, 1fr) !important;
-  justify-items: initial !important;
-  min-width: 0 !important;
-  min-height: 34px !important;
-  padding: 8px 9px !important;
-  gap: 7px !important;
-  font-size: 11px !important;
-  border-radius: 11px !important;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  justify-items: initial;
+  min-width: 0;
+  min-height: 34px;
+  padding: 8px 9px;
+  gap: 7px;
+  font-size: 11px;
+  border-radius: 11px;
 }
 
 body.modoPainelFixo .navItem span:not(.navIcon) {
-  display: inline !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: clip !important;
+  display: inline;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 body.modoPainelFixo .navIcon {
-  width: 26px !important;
-  height: 26px !important;
-  border-radius: 9px !important;
-  font-size: 12px !important;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  font-size: 12px;
 }
 
 body.modoPainelFixo .sidebarSpacer {
-  display: block !important;
-  flex: 1 1 auto !important;
-  min-height: 6px !important;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 6px;
 }
 
 body.modoPainelFixo .sidebarCoord {
-  display: grid !important;
-  align-self: center !important;
-  width: 150px !important;
-  min-height: 178px !important;
-  margin: 8px auto 0 !important;
-  padding: 14px 10px 13px !important;
-  align-content: center !important;
-  justify-items: center !important;
-  border-radius: 18px !important;
+  display: grid;
+  align-self: center;
+  width: 150px;
+  min-height: 178px;
+  margin: 8px auto 0;
+  padding: 14px 10px 13px;
+  align-content: center;
+  justify-items: center;
+  border-radius: 18px;
 }
 
 body.modoPainelFixo .sidebarCoordImgWrap {
-  width: 70px !important;
-  height: 70px !important;
-  margin: 8px auto 10px !important;
+  width: 70px;
+  height: 70px;
+  margin: 8px auto 10px;
 }
 
 body.modoPainelFixo .sidebarCoordImg {
-  width: 52px !important;
-  height: 52px !important;
+  width: 52px;
+  height: 52px;
 }
 
 body.modoPainelFixo .sidebarCoordTitle {
-  display: block !important;
-  max-width: 118px !important;
-  font-size: 8px !important;
-  line-height: 1.24 !important;
-  text-align: center !important;
+  display: block;
+  max-width: 118px;
+  font-size: 8px;
+  line-height: 1.24;
+  text-align: center;
 }
 
 body.modoPainelFixo .main {
-  height: var(--painel-base-height) !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  display: grid !important;
-  grid-template-rows: auto minmax(0, 1fr) !important;
+  height: var(--painel-base-height);
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 body.modoPainelFixo .top {
-  position: relative !important;
-  display: grid !important;
-  grid-template-columns: minmax(620px, 1fr) auto !important;
-  align-items: start !important;
-  gap: 16px !important;
-  padding: 14px 22px 10px 24px !important;
-  min-height: 0 !important;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(620px, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 14px 22px 10px 24px;
+  min-height: 0;
 }
 
 body.modoPainelFixo .titleSmall {
-  font-size: 18px !important;
+  font-size: 18px;
 }
 
 body.modoPainelFixo .titleBig {
-  font-size: 38px !important;
+  font-size: 38px;
 }
 
 body.modoPainelFixo .filtersBar {
-  display: grid !important;
-  width: auto !important;
-  max-width: none !important;
-  grid-template-columns: 220px 220px auto auto !important;
-  justify-content: end !important;
-  align-items: end !important;
-  gap: 6px 10px !important;
-  padding-top: 12px !important;
+  display: grid;
+  width: auto;
+  max-width: none;
+  grid-template-columns: 220px 220px auto auto;
+  justify-content: end;
+  align-items: end;
+  gap: 6px 10px;
+  padding-top: 12px;
 }
 
 body.modoPainelFixo .filterGroup.tipoAlertaOnly {
-  display: none !important;
+  display: none;
 }
 
 body.modoPainelFixo .main.view-alertas-active .filterGroup.tipoAlertaOnly {
-  display: grid !important;
+  display: grid;
 }
 
 body.modoPainelFixo .clearBtn {
-  width: 112px !important;
-  min-width: 112px !important;
-  height: 40px !important;
+  width: 112px;
+  min-width: 112px;
+  height: 40px;
 }
 
 body.modoPainelFixo .updateLine {
-  position: static !important;
-  grid-column: 1 / -1 !important;
-  justify-content: flex-end !important;
-  width: auto !important;
-  max-width: none !important;
-  margin-top: 4px !important;
-  white-space: nowrap !important;
+  position: static;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  width: auto;
+  max-width: none;
+  margin-top: 4px;
+  white-space: nowrap;
 }
 
 body.modoPainelFixo .content {
-  height: auto !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  padding: 10px 22px 8px 24px !important;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 22px 8px 24px;
 }
 
 body.modoPainelFixo .viewPanel:not(.active) {
-  display: none !important;
+  display: none;
 }
 
 body.modoPainelFixo #view-visaoGeral.viewPanel.active,
 body.modoPainelFixo #view-visaoGeral .onePageDashboard {
-  height: 100% !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 body.modoPainelFixo #view-visaoGeral .visaoPrintLayout {
-  display: grid !important;
-  grid-template-rows: 142px 88px minmax(0, 1fr) minmax(0, 1fr) !important;
-  gap: 10px !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  align-content: stretch !important;
+  display: grid;
+  grid-template-rows: 142px 88px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  align-content: stretch;
 }
 
 body.modoPainelFixo #view-visaoGeral .kpiGrid {
-  display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 14px !important;
-  align-items: stretch !important;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
 }
 
 body.modoPainelFixo #view-visaoGeral .kpi {
-  height: 100% !important;
-  min-height: 0 !important;
-  border-radius: 24px !important;
-  grid-template-columns: 58px minmax(0, 1fr) !important;
-  gap: 14px !important;
-  padding: 16px 18px !important;
+  height: 100%;
+  min-height: 0;
+  border-radius: 24px;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px 18px;
 }
 
 body.modoPainelFixo #view-visaoGeral .kpiIcon {
-  width: 54px !important;
-  height: 54px !important;
-  border-radius: 20px !important;
-  font-size: 22px !important;
+  width: 54px;
+  height: 54px;
+  border-radius: 20px;
+  font-size: 22px;
 }
 
 body.modoPainelFixo #view-visaoGeral .kpiLabel {
-  font-size: 13px !important;
-  line-height: 1.02 !important;
+  font-size: 13px;
+  line-height: 1.02;
 }
 
 body.modoPainelFixo #view-visaoGeral .kpiValue {
-  font-size: 34px !important;
-  line-height: .92 !important;
-  margin-top: 4px !important;
+  font-size: 34px;
+  line-height: .92;
+  margin-top: 4px;
 }
 
 body.modoPainelFixo #view-visaoGeral .kpiSub {
-  font-size: 12px !important;
-  line-height: 1.14 !important;
-  margin-top: 7px !important;
+  font-size: 12px;
+  line-height: 1.14;
+  margin-top: 7px;
 }
 
 body.modoPainelFixo #view-visaoGeral .overviewChartsGrid,
 body.modoPainelFixo #view-visaoGeral .overviewBottomGrid {
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 10px !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
-  align-items: stretch !important;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: stretch;
 }
 
 body.modoPainelFixo #view-visaoGeral .overviewChartsGrid > .panel,
 body.modoPainelFixo #view-visaoGeral .overviewBottomGrid > .panel {
-  height: 100% !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  border-radius: 16px !important;
-  padding: 10px 12px !important;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 10px 12px;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelTitle {
-  font-size: 15px !important;
-  margin-bottom: 6px !important;
-  line-height: 1.08 !important;
+  font-size: 15px;
+  margin-bottom: 6px;
+  line-height: 1.08;
 }
 
 body.modoPainelFixo #view-visaoGeral .chartBox,
@@ -591,105 +591,105 @@ body.modoPainelFixo #view-visaoGeral .chartBox.tipoGrande,
 body.modoPainelFixo #view-visaoGeral .chartBox.compactBar,
 body.modoPainelFixo #view-visaoGeral .chartBox.coverageDonut,
 body.modoPainelFixo #view-visaoGeral .chartBox.indigenasBar {
-  width: 100% !important;
-  max-width: 100% !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  position: relative !important;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
 }
 
 body.modoPainelFixo #view-visaoGeral .chartBox canvas {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelFunnelDsei,
 body.modoPainelFixo #view-visaoGeral .panelTreemapOciosas,
 body.modoPainelFixo #view-visaoGeral .panelCoberturaAfastamentos,
 body.modoPainelFixo #view-visaoGeral .panelIndigenasGeral {
-  display: grid !important;
-  grid-template-rows: auto minmax(0, 1fr) auto !important;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 body.modoPainelFixo #view-visaoGeral .funnelDsei,
 body.modoPainelFixo #view-visaoGeral .cardsOciosas,
 body.modoPainelFixo #view-visaoGeral .rankingBars {
-  min-height: 0 !important;
-  height: 100% !important;
-  overflow: hidden !important;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 body.modoPainelFixo #view-visaoGeral .sideLegend {
-  margin-top: 4px !important;
-  gap: 4px !important;
-  font-size: 13px !important;
+  margin-top: 4px;
+  gap: 4px;
+  font-size: 13px;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelTipo {
-  display: grid !important;
-  grid-template-columns: 1fr !important;
-  grid-template-rows: auto minmax(0, 1fr) auto !important;
-  column-gap: 0 !important;
-  padding-right: 16px !important;
-  position: relative !important;
-  overflow: hidden !important;
-  align-items: stretch !important;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  column-gap: 0;
+  padding-right: 16px;
+  position: relative;
+  overflow: hidden;
+  align-items: stretch;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelTipo .panelTitle {
-  grid-column: 1 !important;
-  grid-row: 1 !important;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelTipo .chartBox.tipoGrande {
-  grid-column: 1 !important;
-  grid-row: 2 !important;
-  z-index: 2 !important;
-  align-self: stretch !important;
+  grid-column: 1;
+  grid-row: 2;
+  z-index: 2;
+  align-self: stretch;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelTipo .sideLegend {
-  grid-column: 1 !important;
-  grid-row: 3 !important;
-  align-self: start !important;
-  justify-self: start !important;
-  max-width: calc(100% - 140px) !important;
-  z-index: 3 !important;
+  grid-column: 1;
+  grid-row: 3;
+  align-self: start;
+  justify-self: start;
+  max-width: calc(100% - 140px);
+  z-index: 3;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelTipo .legendItem {
-  display: grid !important;
-  grid-template-columns: 12px minmax(0, 1fr) !important;
-  gap: 8px !important;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 8px;
 }
 
 body.modoPainelFixo #view-visaoGeral .panelTipo .imagemIndigenaPainel {
-  display: block !important;
-  position: absolute !important;
-  right: -18px !important;
-  bottom: 0 !important;
-  width: 160px !important;
-  height: 190px !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  background-size: auto 100% !important;
-  background-position: right bottom !important;
-  background-repeat: no-repeat !important;
-  transform: none !important;
-  opacity: .98 !important;
-  z-index: 1 !important;
-  pointer-events: none !important;
+  display: block;
+  position: absolute;
+  right: -18px;
+  bottom: 0;
+  width: 160px;
+  height: 190px;
+  min-height: 0;
+  max-height: none;
+  background-size: auto 100%;
+  background-position: right bottom;
+  background-repeat: no-repeat;
+  transform: none;
+  opacity: .98;
+  z-index: 1;
+  pointer-events: none;
 }
 
 body.modoPainelFixo #view-visaoGeral .imagemTrabalhadoresIndigenas {
-  width: 104px !important;
-  height: 128px !important;
+  width: 104px;
+  height: 128px;
 }
 
 body.modoPainelFixo .fullTableWrap {
-  overflow: auto !important;
+  overflow: auto;
 }
 
 /* =========================================================
@@ -697,7 +697,7 @@ body.modoPainelFixo .fullTableWrap {
    desfaz o layout fixo/escala e libera rolagem normal.
 ========================================================= */
 body:not(.modoPainelFixo) .app {
-  transform: none !important;
+  transform: none;
 }
 
 /* Sidebar: nas demais abas (sem escala) a SIDEBAR INTEIRA rola como uma única
@@ -706,13 +706,13 @@ body:not(.modoPainelFixo) .app {
    segunda barra restrita só ao menu. overscroll-behavior: contain impede que a
    rolagem "vaze" para o conteúdo da aba. */
 body:not(.modoPainelFixo) .sidebar {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+  overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 
 body:not(.modoPainelFixo) .nav {
-  flex: 0 0 auto !important;
-  min-height: auto !important;
-  overflow: visible !important;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
 }

@@ -704,7 +704,7 @@
 
     /* Ajuste solicitado: espaçamento na aba Vagas, sem Alertas aparecendo junto e 20 registros por página */
     .viewPanel:not(.active) {
-      display: none !important;
+      display: none;
     }
 
     #view-vagas.viewPanel.active {

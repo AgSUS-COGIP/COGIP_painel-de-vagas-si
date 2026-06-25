@@ -65,7 +65,7 @@
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
-  max-width: 720px;
+  max-width: 760px;
 }
 
 /* Filtros lado a lado (unidade + status). */
@@ -293,7 +293,7 @@
   text-align: center;
   color: #4a6a93;
   font-weight: 800;
-  padding: 22px 12px !important;
+  padding: 22px 12px;
 }
 
 /* ---------- Botão de ações da linha ---------- */
@@ -601,7 +601,7 @@
 }
 
 .psTotalRow td {
-  background: rgba(0, 69, 127, .08) !important;
+  background: rgba(0, 69, 127, .08);
   font-weight: 900;
   color: var(--azul-escuro);
 }
@@ -872,7 +872,7 @@
   .psFormRow.psFormRowHead { display: none; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .psKpiGrid,
   .psResumoTiles { grid-template-columns: 1fr 1fr; }
   .psHeaderFiltros { grid-template-columns: 1fr; }

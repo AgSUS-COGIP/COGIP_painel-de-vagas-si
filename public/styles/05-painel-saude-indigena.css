@@ -766,8 +766,8 @@
 .siTdLocal { white-space: normal; min-width: 150px; }
 
 .siVazio {
-  text-align: center !important;
-  padding: 32px !important;
+  text-align: center;
+  padding: 32px;
   color: #5a78a0;
   font-weight: 800;
   font-style: italic;

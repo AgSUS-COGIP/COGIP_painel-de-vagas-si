@@ -342,15 +342,10 @@ function limparFiltros() {
   render();
 }
 
-function renderConsulta(rows) {
-  const body = $("gfConsBody");
-  if (!body) return;
-  const lista = rows || dados.rows;
-  setText("gfConsCount", `${formatNumber(lista.length)} trabalhadores`);
-  setText("gfConsRegistros", lista.length ? `${formatNumber(lista.length)} trabalhadores (role para ver todos)` : "Nenhum registro");
-  body.innerHTML = lista.map(r => {
-    const periodo = (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "—";
-    return `
+// HTML de uma linha da Consulta Geral.
+function linhaConsultaHtml(r) {
+  const periodo = (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "—";
+  return `
     <tr>
       <td>${escapeHtml(String(r.matricula))}</td>
       <td>${escapeHtml(r.centro)}</td>
@@ -360,7 +355,47 @@ function renderConsulta(rows) {
       <td>${badgeStatus(r.status)}</td>
       <td>${periodo}</td>
     </tr>`;
-  }).join("") || `<tr><td colspan="7" class="gfVazio">Nenhum trabalhador para os filtros selecionados.</td></tr>`;
+}
+
+// Paginação por rolagem infinita: renderizar a base inteira de uma vez trava a
+// aba. Mostramos 100 por vez e carregamos mais 100 ao rolar até o fim.
+const CONS_PAGINA = 100;
+let consLista = [];        // lista completa (já filtrada)
+let consRenderizadas = 0;  // quantas linhas já estão no DOM
+
+function renderConsulta(rows) {
+  const body = $("gfConsBody");
+  if (!body) return;
+  const lista = rows || dados.rows;
+  consLista = lista;
+  consRenderizadas = 0;
+  setText("gfConsCount", `${formatNumber(lista.length)} trabalhadores`);
+
+  // Volta ao topo ao trocar filtro (senão a rolagem dispararia mais lotes).
+  const wrap = body.closest(".gfTableScroll");
+  if (wrap) wrap.scrollTop = 0;
+
+  if (!lista.length) {
+    body.innerHTML = `<tr><td colspan="7" class="gfVazio">Nenhum trabalhador para os filtros selecionados.</td></tr>`;
+    setText("gfConsRegistros", "Nenhum registro");
+    return;
+  }
+  body.innerHTML = "";
+  renderProximoLoteConsulta();
+}
+
+// Acrescenta o próximo lote de linhas (append, sem reconstruir as anteriores).
+function renderProximoLoteConsulta() {
+  const body = $("gfConsBody");
+  if (!body || consRenderizadas >= consLista.length) return;
+  const fim = Math.min(consRenderizadas + CONS_PAGINA, consLista.length);
+  body.insertAdjacentHTML("beforeend",
+    consLista.slice(consRenderizadas, fim).map(linhaConsultaHtml).join(""));
+  consRenderizadas = fim;
+  const total = consLista.length;
+  setText("gfConsRegistros", consRenderizadas < total
+    ? `Mostrando ${formatNumber(consRenderizadas)} de ${formatNumber(total)} trabalhadores · role para carregar mais`
+    : `${formatNumber(total)} trabalhadores`);
 }
 
 // ---------- Fluxo: escritório registra ----------
@@ -660,6 +695,16 @@ export function configurarGestaoFerias() {
   // Exportações.
   $("gfBtnExportar")?.addEventListener("click", exportarConsulta);
   $("gfBtnExportAlertas")?.addEventListener("click", exportarAlertas);
+
+  // Rolagem infinita da Consulta Geral: ao chegar perto do fim, carrega mais 100.
+  const consWrap = $("gfConsBody")?.closest(".gfTableScroll");
+  if (consWrap) {
+    consWrap.addEventListener("scroll", () => {
+      if (consWrap.scrollTop + consWrap.clientHeight >= consWrap.scrollHeight - 320) {
+        renderProximoLoteConsulta();
+      }
+    });
+  }
 
   // Sub-abas (Visão Geral | Solicitação | Aprovação COAPE).
   $("gfTabs")?.addEventListener("click", e => {

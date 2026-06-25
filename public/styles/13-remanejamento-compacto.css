@@ -176,12 +176,12 @@
 }
 
 .remHistoryTable td {
-  color: var(--azul-escuro) !important;
+  color: var(--azul-escuro);
   font-weight: 800;
 }
 
-.remGreen { color: #047857 !important; }
-.remRed { color: #b91c1c !important; }
+.remGreen { color: #047857; }
+.remRed { color: #b91c1c; }
 
 /* Em telas intermediárias, a "5. Documentação" (bloco 5) desce para baixo do
    "4. Impacto" (bloco 4), que passa a ocupar a largura toda — assim a tabela
@@ -455,15 +455,22 @@
 
 .sidebar::before,
 .sidebar::after {
-  pointer-events: none !important;
+  pointer-events: none;
 }
 .navItem {
-  grid-template-columns: 28px minmax(0, 1fr);
+  /* Coluna do icone = largura real do .navIcon (~38px), senao o icone invade o
+     espaco do rotulo e os nomes ficam "colados". gap = respiro icone<->nome. */
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  font-size: clamp(11px, 1.35vh, 12.5px);
 }
 .navItem > span:not(.navIcon) {
   min-width: 0;
   white-space: normal;
-  overflow-wrap: anywhere;
+  /* `normal` (nao `anywhere`): quebra so ENTRE palavras. Assim "Remanejamento"
+     (uma palavra) nunca cai pra segunda linha; rotulos de duas palavras ainda
+     podem quebrar entre as palavras quando necessario. */
+  overflow-wrap: normal;
   line-height: 1.15;
 }
 

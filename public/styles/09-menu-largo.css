@@ -3,260 +3,260 @@
     ========================================================= */
 
     .app {
-      grid-template-columns: clamp(218px, 14.5vw, 246px) 1fr !important;
+      grid-template-columns: clamp(218px, 14.5vw, 246px) 1fr;
     }
 
     .sidebar {
-      height: 100vh !important;
-      min-height: 0 !important;
-      overflow: hidden !important;
-      padding: clamp(10px, 1.45vh, 16px) 14px clamp(8px, 1.3vh, 14px) !important;
+      height: 100vh;
+      min-height: 0;
+      overflow: hidden;
+      padding: clamp(10px, 1.45vh, 16px) 14px clamp(8px, 1.3vh, 14px);
     }
 
     .sidebar::-webkit-scrollbar {
-      display: none !important;
+      display: none;
     }
 
     .brand {
-      margin-top: 0 !important;
-      margin-bottom: clamp(10px, 1.7vh, 18px) !important;
-      flex-shrink: 0 !important;
+      margin-top: 0;
+      margin-bottom: clamp(10px, 1.7vh, 18px);
+      flex-shrink: 0;
     }
 
     .brandLogo {
       /* Adapta ao espaço entre as bordas da sidebar (nunca corta). */
-      width: min(100%, clamp(70px, 9.8vh, 96px)) !important;
-      height: auto !important;
-      aspect-ratio: 1 / 1 !important;
-      object-fit: contain !important;
-      margin: 0 auto !important;
-      margin-bottom: 0 !important;
+      width: min(100%, clamp(70px, 9.8vh, 96px));
+      height: auto;
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      margin: 0 auto;
+      margin-bottom: 0;
     }
 
     .brandTitle {
-      font-size: clamp(24px, 3.4vh, 32px) !important;
-      line-height: .92 !important;
-      white-space: nowrap !important;
+      font-size: clamp(24px, 3.4vh, 32px);
+      line-height: .92;
+      white-space: nowrap;
     }
 
     .brandSubtitle {
-      font-size: clamp(10px, 1.55vh, 12.5px) !important;
-      line-height: 1.05 !important;
-      white-space: nowrap !important;
-      margin-top: 5px !important;
+      font-size: clamp(10px, 1.55vh, 12.5px);
+      line-height: 1.05;
+      white-space: nowrap;
+      margin-top: 5px;
     }
 
     .sidebarToggle {
-      flex-shrink: 0 !important;
-      width: clamp(30px, 4.4vh, 36px) !important;
-      height: clamp(30px, 4.4vh, 36px) !important;
-      margin: 0 auto clamp(8px, 1.45vh, 14px) !important;
+      flex-shrink: 0;
+      width: clamp(30px, 4.4vh, 36px);
+      height: clamp(30px, 4.4vh, 36px);
+      margin: 0 auto clamp(8px, 1.45vh, 14px);
     }
 
     .nav {
-      flex-shrink: 0 !important;
-      gap: clamp(7px, 1.25vh, 11px) !important;
-      margin-top: 0 !important;
+      flex-shrink: 0;
+      gap: clamp(7px, 1.25vh, 11px);
+      margin-top: 0;
       /* Coluna que pode encolher abaixo do conteúdo, para o rótulo truncar. */
-      grid-template-columns: minmax(0, 1fr) !important;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .navItem {
-      grid-template-columns: 38px minmax(0, 1fr) !important;
-      gap: 10px !important;
-      min-height: clamp(48px, 6.4vh, 58px) !important;
-      padding: 9px 12px !important;
-      border-radius: 14px !important;
-      font-size: clamp(12px, 1.65vh, 15px) !important;
-      line-height: 1 !important;
+      grid-template-columns: 38px minmax(0, 1fr);
+      gap: 10px;
+      min-height: clamp(48px, 6.4vh, 58px);
+      padding: 9px 12px;
+      border-radius: 14px;
+      font-size: clamp(12px, 1.65vh, 15px);
+      line-height: 1;
       /* Permite o item encolher (senão a palavra inteira estoura a sidebar). */
-      min-width: 0 !important;
+      min-width: 0;
     }
 
     .navItem>span:not(.navIcon) {
-      white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
-      min-width: 0 !important;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
     }
 
     .navIcon {
-      width: clamp(32px, 4.6vh, 38px) !important;
-      height: clamp(32px, 4.6vh, 38px) !important;
-      border-radius: 12px !important;
-      font-size: clamp(14px, 2vh, 17px) !important;
+      width: clamp(32px, 4.6vh, 38px);
+      height: clamp(32px, 4.6vh, 38px);
+      border-radius: 12px;
+      font-size: clamp(14px, 2vh, 17px);
     }
 
     .sidebarSpacer {
-      flex: 1 1 auto !important;
-      min-height: 6px !important;
+      flex: 1 1 auto;
+      min-height: 6px;
     }
 
     .sidebarCoord {
-      flex-shrink: 0 !important;
-      width: 100% !important;
-      max-width: 100% !important;
-      margin: clamp(8px, 1.4vh, 14px) 0 0 !important;
-      padding: clamp(11px, 1.7vh, 15px) 10px clamp(10px, 1.6vh, 14px) !important;
-      border-radius: 18px !important;
+      flex-shrink: 0;
+      width: 100%;
+      max-width: 100%;
+      margin: clamp(8px, 1.4vh, 14px) 0 0;
+      padding: clamp(11px, 1.7vh, 15px) 10px clamp(10px, 1.6vh, 14px);
+      border-radius: 18px;
     }
 
     .sidebarCoordImgWrap {
-      width: clamp(68px, 9.2vh, 86px) !important;
-      height: clamp(68px, 9.2vh, 86px) !important;
-      margin: clamp(8px, 1.3vh, 10px) auto clamp(7px, 1.2vh, 10px) !important;
-      border-radius: 20px !important;
+      width: clamp(68px, 9.2vh, 86px);
+      height: clamp(68px, 9.2vh, 86px);
+      margin: clamp(8px, 1.3vh, 10px) auto clamp(7px, 1.2vh, 10px);
+      border-radius: 20px;
     }
 
     .sidebarCoordImg {
-      width: clamp(52px, 7.2vh, 64px) !important;
-      height: clamp(52px, 7.2vh, 64px) !important;
+      width: clamp(52px, 7.2vh, 64px);
+      height: clamp(52px, 7.2vh, 64px);
     }
 
     .sidebarCoordTitle {
-      max-width: 190px !important;
-      font-size: clamp(7.4px, 1.14vh, 9px) !important;
-      line-height: 1.22 !important;
-      margin: 0 auto !important;
+      max-width: 190px;
+      font-size: clamp(7.4px, 1.14vh, 9px);
+      line-height: 1.22;
+      margin: 0 auto;
     }
 
     .app.sidebar-collapsed {
-      grid-template-columns: 78px 1fr !important;
+      grid-template-columns: 78px 1fr;
     }
 
     .app.sidebar-collapsed .sidebar {
-      padding: 14px 10px !important;
-      overflow: hidden !important;
+      padding: 14px 10px;
+      overflow: hidden;
     }
 
     .app.sidebar-collapsed .navItem {
-      grid-template-columns: 1fr !important;
-      min-height: 48px !important;
-      padding: 10px !important;
-      justify-items: center !important;
+      grid-template-columns: 1fr;
+      min-height: 48px;
+      padding: 10px;
+      justify-items: center;
     }
 
     .app.sidebar-collapsed .navIcon {
-      width: 36px !important;
-      height: 36px !important;
+      width: 36px;
+      height: 36px;
     }
 
     @media (max-height: 760px) {
       .sidebar {
-        padding-top: 8px !important;
-        padding-bottom: 8px !important;
+        padding-top: 8px;
+        padding-bottom: 8px;
       }
 
       .brandLogo {
-        width: 68px !important;
-        height: 68px !important;
+        width: 68px;
+        height: 68px;
       }
 
       .brandTitle {
-        font-size: 24px !important;
+        font-size: 24px;
       }
 
       .brandSubtitle {
-        font-size: 10px !important;
-        margin-top: 3px !important;
+        font-size: 10px;
+        margin-top: 3px;
       }
 
       .sidebarToggle {
-        width: 30px !important;
-        height: 30px !important;
-        margin-bottom: 7px !important;
+        width: 30px;
+        height: 30px;
+        margin-bottom: 7px;
       }
 
       .nav {
-        gap: 7px !important;
+        gap: 7px;
       }
 
       .navItem {
-        min-height: 45px !important;
-        padding: 8px 10px !important;
-        font-size: 12.5px !important;
+        min-height: 45px;
+        padding: 8px 10px;
+        font-size: 12.5px;
       }
 
       .navIcon {
-        width: 31px !important;
-        height: 31px !important;
-        font-size: 14px !important;
+        width: 31px;
+        height: 31px;
+        font-size: 14px;
       }
 
       .sidebarCoord {
-        padding: 9px 9px 10px !important;
-        margin-top: 8px !important;
+        padding: 9px 9px 10px;
+        margin-top: 8px;
       }
 
       .sidebarCoordImgWrap {
-        width: 62px !important;
-        height: 62px !important;
-        margin: 6px auto 6px !important;
+        width: 62px;
+        height: 62px;
+        margin: 6px auto 6px;
       }
 
       .sidebarCoordImg {
-        width: 48px !important;
-        height: 48px !important;
+        width: 48px;
+        height: 48px;
       }
 
       .sidebarCoordTitle {
-        font-size: 7.2px !important;
-        line-height: 1.16 !important;
+        font-size: 7.2px;
+        line-height: 1.16;
       }
     }
 
     @media (max-height: 660px) {
       .brandLogo {
-        width: 54px !important;
-        height: 54px !important;
+        width: 54px;
+        height: 54px;
       }
 
       .brandTitle {
-        font-size: 20px !important;
+        font-size: 20px;
       }
 
       .brandSubtitle {
-        font-size: 9px !important;
+        font-size: 9px;
       }
 
       .navItem {
-        min-height: 40px !important;
-        font-size: 11.5px !important;
+        min-height: 40px;
+        font-size: 11.5px;
       }
 
       .navIcon {
-        width: 28px !important;
-        height: 28px !important;
+        width: 28px;
+        height: 28px;
       }
 
       .sidebarCoordImgWrap {
-        width: 52px !important;
-        height: 52px !important;
+        width: 52px;
+        height: 52px;
       }
 
       .sidebarCoordImg {
-        width: 40px !important;
-        height: 40px !important;
+        width: 40px;
+        height: 40px;
       }
 
       .sidebarCoordTitle {
-        font-size: 6.8px !important;
+        font-size: 6.8px;
       }
     }
 
     @media (max-width: 980px) {
       .app {
-        grid-template-columns: 206px 1fr !important;
+        grid-template-columns: 206px 1fr;
       }
 
       .navItem {
-        font-size: 12px !important;
-        grid-template-columns: 34px minmax(0, 1fr) !important;
+        font-size: 12px;
+        grid-template-columns: 34px minmax(0, 1fr);
       }
 
       .navIcon {
-        width: 32px !important;
-        height: 32px !important;
+        width: 32px;
+        height: 32px;
       }
     }
 

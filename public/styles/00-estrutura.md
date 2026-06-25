@@ -1,12 +1,34 @@
 # Estrutura do CSS
 
-O `public/styles.css` é só um **índice de `@import`** que carrega as 18 partes desta pasta
-**na ordem da cascata**. Não reordene os imports: a ordem define a precedência.
+O `public/styles.css` é um **índice de `@import` em camadas (`@layer`)**: cada parte desta
+pasta é carregada numa camada própria, **na ordem declarada no topo do `styles.css`**.
+Não reordene as camadas nem os imports: a ordem das camadas define a precedência.
 
 ⚠️ **Importante:** o CSS cresceu por ajustes acumulados, então o estilo de um componente
-quase sempre tem uma **base** num arquivo e **overrides** em arquivos posteriores.
-Regra prática: **arquivos com número maior vencem** (vêm depois na cascata). Se mudar algo
-e "não pegar", provavelmente há um override num arquivo de número mais alto.
+quase sempre tem uma **base** numa camada e **overrides** em camadas posteriores.
+Regra prática: **arquivos com número maior vencem** (camada posterior vence anterior),
+agora **independentemente da especificidade do seletor** — é a ordem das camadas que decide.
+Se mudar algo e "não pegar", provavelmente há um override num arquivo de número mais alto.
+
+🚫 **Não use `!important`.** A precedência já vem da ordem das camadas. Num modelo de
+`@layer`, um `!important` numa camada **anterior** passa a vencer as **posteriores**
+(a importância inverte a ordem das camadas) — ou seja, ele quebra o esquema em vez de
+ajudar. Se uma regra não está vencendo, mova-a para a camada certa ou ajuste o seletor.
+Os ~900 `!important` que existiam foram removidos quando a cascata virou `@layer`.
+
+### Camadas-invariante (topo)
+
+No fim do `styles.css` há duas camadas declaradas **por último** (logo, de maior
+precedência) para invariantes de **estado** alternado por JS, que precisam vencer
+qualquer regra de layout das camadas anteriores:
+
+- **`sidebar-state`** — `.app.sidebar-collapsed` (largura recolhida do menu, ~78px).
+  Vence as várias regras `.app { grid-template-columns: <largo> }` (09, 11, …).
+- **`view-visibility`** — `.viewPanel:not(.active) { display:none }`. Vence os
+  `#view-* { display:block/grid }` que algumas views definem sem exigir `.active`.
+
+Esse é o padrão para "regra que precisa ganhar de todas": uma camada-topo dedicada
+— **não** `!important`. Antes da migração, ambas eram forçadas com `!important`.
 
 ## O que cada arquivo faz
 
@@ -50,3 +72,24 @@ e "não pegar", provavelmente há um override num arquivo de número mais alto.
 
 > Dica: pra achar a regra exata, busque o nome da classe (ex.: `grep -rn "kpiGrid" public/styles/`).
 > O arquivo de **maior número** que tiver a classe costuma ser o que está valendo.
+
+## Classes mais redefinidas (override pesado)
+
+Estas classes são redefinidas em muitos arquivos/breakpoints. **Antes de mexer,
+veja TODOS os pontos** (`grep -rn "<classe>" public/styles/`): o valor que vale
+depende do breakpoint ativo **e** da ordem dos arquivos. Não tente unificar numa
+definição só sem testar visualmente em cada combinação — cada bloco costuma ser
+um override responsivo intencional, não duplicata.
+
+| Classe | Redefinida em (≈) | Observação |
+|---|---|---|
+| `.imagemIndigenaPainel` | 03, 06 (×7), 07 (×3), 11, 12, 15 — ~18 no total | Imagem indígena dos painéis. Cada bloco ajusta largura/altura/posição por breakpoint (inclui `max-height`). Consolidar exige testar a imagem em cada combinação de **largura e altura**. |
+| `.panelTipo` | 03, 06, 07, 11, 12 — ~16 | Grid dos painéis da Visão Geral (`grid-template-columns`/`gap` variam por tela). |
+| `.app` | 01, 11 e media queries — ~14 | Grid raiz; `11-responsivo-v3.css` reescreve em camada posterior (sem `!important` — vence pela ordem das camadas). |
+
+## Tokens de cor (`:root` em `01-base.css`)
+
+Cores institucionais centralizadas: `--azul-profundo`, `--azul-menu`, `--azul-card`,
+`--azul-escuro`, `--azul-primario`, `--ciano`, `--texto`, `--muted`. Os azuis
+dominantes do tema já usam esses tokens (trocar a cor é num lugar só). Demais
+cores ainda estão como literais espalhados — tokenização incremental.

@@ -1,7 +1,7 @@
     /* Conteúdo só para leitores de tela (visualmente oculto, mas acessível).
        Usado em <caption> de tabelas e rótulos não-visuais. */
     .sr-only {
-      position: absolute !important;
+      position: absolute;
       width: 1px;
       height: 1px;
       padding: 0;

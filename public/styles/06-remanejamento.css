@@ -2,108 +2,16 @@
        Categoria Remanejamento - estrutura inicial sem persistencia
     ========================================================= */
 
-    /* ---------- Select pesquisável (combobox) ---------- */
-    .ssCombo {
-      position: relative;
-      width: 100%;
-    }
-
-    /* O <select> nativo fica escondido, mas continua sendo a fonte de verdade. */
-    .ssNativo {
-      display: none !important;
-    }
-
-    .ssInput {
-      width: 100%;
-      min-height: 42px;
-      border: 1px solid rgba(0, 83, 166, .20);
-      border-radius: 12px;
-      background: #fff;
-      color: var(--azul-escuro);
-      font-size: 13px;
-      font-weight: 800;
-      padding: 0 34px 0 12px;
-      outline: none;
-      box-shadow: 0 8px 18px rgba(0, 43, 93, .08);
-      cursor: pointer;
-    }
-
-    .ssInput::placeholder {
-      color: #93a6bf;
-      font-weight: 700;
-    }
-
-    .ssInput:focus {
-      border-color: #2f7bd6;
-      box-shadow: 0 0 0 3px rgba(47, 123, 214, .15);
-    }
-
-    .ssCaret {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #4b6b95;
-      font-size: 12px;
-      cursor: pointer;
-    }
+    /* ---------- Select pesquisável (estrutura base) ----------
+       O VISUAL fica em 23-filtros-padrao.css (padrão único do app). Aqui só a
+       estrutura e a variante compacta dentro das tabelas de cargos. */
+    .ssCombo { position: relative; width: 100%; }
+    .ssNativo { display: none; } /* o <select> nativo é a fonte de verdade */
 
     /* Variante compacta dentro das tabelas de cargos. */
-    .remTable .ssInput {
-      min-height: 36px;
-      font-size: 11px;
+    .remTable .ssTrigger {
+      min-height: 34px;
       border-radius: 9px;
-      padding: 0 28px 0 9px;
-      box-shadow: none;
-      border-color: rgba(0, 83, 166, .18);
-    }
-
-    .remTable .ssCaret {
-      right: 9px;
-      font-size: 11px;
-    }
-
-    /* Lista de opções: portal no <body> (position: fixed) p/ não ser cortada. */
-    .ssLista {
-      position: fixed;
-      z-index: 4000;
-      margin: 0;
-      padding: 4px;
-      list-style: none;
-      background: #fff;
-      border: 1px solid #cdd8e6;
-      border-radius: 10px;
-      box-shadow: 0 12px 30px rgba(11, 68, 136, .20);
-      max-height: 260px;
-      overflow-y: auto;
-    }
-
-    .ssItem {
-      padding: 8px 10px;
-      border-radius: 7px;
-      cursor: pointer;
-      color: #143b66;
-      font-size: 12.5px;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .ssItem:hover,
-    .ssItem.is-ativo {
-      background: #eaf2fd;
-    }
-
-    .ssItem.is-sel {
-      background: #f0f6ff;
-    }
-
-    .ssVazio {
-      padding: 10px;
-      color: #8595a8;
-      font-size: 12px;
-      text-align: center;
     }
 
     .main.view-remanejamento-active .filtersBar {
@@ -139,11 +47,11 @@
 
     .remanejamentoEmpty {
       text-align: center;
-      color: #315c8e !important;
-      font-size: 13px !important;
-      font-weight: 900 !important;
-      padding: 26px 14px !important;
-      background: rgba(232, 247, 255, .78) !important;
+      color: #315c8e;
+      font-size: 13px;
+      font-weight: 900;
+      padding: 26px 14px;
+      background: rgba(232, 247, 255, .78);
     }
 
     .remanejamentoFormCard {
@@ -322,7 +230,7 @@
 
     .distribuicaoWrap {
       max-height: 420px;
-      overflow: auto !important;
+      overflow: auto;
     }
 
     #view-vagas .fullTableWrap::-webkit-scrollbar,
@@ -653,11 +561,11 @@
 
     /* Cores invertidas: valor negativo (economia) em verde; positivo (acréscimo) em vermelho. */
     .remNegativo {
-      color: #047857 !important;
+      color: #047857;
     }
 
     .remPositivo {
-      color: #b91c1c !important;
+      color: #b91c1c;
     }
 
     /* Cada vaga (cargo) do remanejamento em seu próprio card destacado. */
@@ -1001,16 +909,16 @@
     #view-vagas .fullTable th.colOciosasHead,
     #view-vagas .fullTable td.colOciosas,
     #view-vagas .fullTable tr.totalRow td.colOciosas {
-      background: linear-gradient(135deg, var(--azul-menu), #003a74) !important;
-      color: #ffffff !important;
+      background: linear-gradient(135deg, var(--azul-menu), #003a74);
+      color: #ffffff;
       font-weight: 900;
       border-right: 4px solid rgba(0, 181, 216, .75);
       text-align: center;
     }
 
     #view-vagas .fullTable td.colOciosas.negativo {
-      background: linear-gradient(135deg, #003a74, #002b57) !important;
-      color: #ffffff !important;
+      background: linear-gradient(135deg, #003a74, #002b57);
+      color: #ffffff;
     }
 
     .composicaoOciosas {
@@ -1127,7 +1035,7 @@
       }
 
       .panelTipo {
-        grid-template-columns: minmax(230px, 1fr) minmax(165px, 190px) clamp(135px, 10vw, 175px) !important;
+        grid-template-columns: minmax(230px, 1fr) minmax(165px, 190px) clamp(135px, 10vw, 175px);
       }
 
       .imagemIndigenaPainel {
@@ -1142,27 +1050,27 @@
 
     /* Ajuste final: gráficos maiores, painéis menos largos e identidade indígena discreta */
     .panelCategoria .chartBox.tall {
-      height: clamp(245px, 31vh, 320px) !important;
+      height: clamp(245px, 31vh, 320px);
     }
 
     .panelTipo {
-      grid-template-columns: minmax(250px, 1fr) minmax(185px, 220px) clamp(150px, 12vw, 220px) !important;
+      grid-template-columns: minmax(250px, 1fr) minmax(185px, 220px) clamp(150px, 12vw, 220px);
       gap: 2px 10px;
     }
 
     .panelTipo .chartBox.tipoGrande {
-      height: clamp(205px, 27vh, 260px) !important;
-      min-height: 205px !important;
+      height: clamp(205px, 27vh, 260px);
+      min-height: 205px;
     }
 
     .imagemIndigenaPainel {
-      min-height: clamp(205px, 28vh, 285px) !important;
+      min-height: clamp(205px, 28vh, 285px);
       max-height: 305px;
       align-self: stretch;
       justify-self: stretch;
       opacity: .98;
-      background-position: left bottom !important;
-      background-size: contain !important;
+      background-position: left bottom;
+      background-size: contain;
       transform: translateX(-10px);
     }
 
@@ -1208,12 +1116,12 @@
 
     @media (max-height: 760px) and (min-width: 1281px) {
       .panelCategoria .chartBox.tall {
-        height: 230px !important;
+        height: 230px;
       }
 
       .panelTipo .chartBox.tipoGrande {
-        height: 210px !important;
-        min-height: 210px !important;
+        height: 210px;
+        min-height: 210px;
       }
 
       .chartBox.smallDonut {
@@ -1267,39 +1175,39 @@
     }
 
     .panelCategoria .chartBox.tall {
-      height: clamp(270px, 34vh, 350px) !important;
+      height: clamp(270px, 34vh, 350px);
     }
 
     .chartBox.smallDonut {
-      height: clamp(235px, 30vh, 310px) !important;
+      height: clamp(235px, 30vh, 310px);
     }
 
     .panelTipo {
-      grid-template-columns: minmax(245px, 1fr) minmax(180px, 230px) clamp(120px, 11vw, 180px) !important;
+      grid-template-columns: minmax(245px, 1fr) minmax(180px, 230px) clamp(120px, 11vw, 180px);
       align-items: stretch;
     }
 
     .panelTipo .chartBox.tipoGrande {
-      height: clamp(235px, 31vh, 320px) !important;
-      min-height: 235px !important;
+      height: clamp(235px, 31vh, 320px);
+      min-height: 235px;
       align-self: center;
     }
 
     .imagemIndigenaPainel {
-      width: clamp(120px, 11vw, 180px) !important;
-      min-height: clamp(220px, 30vh, 320px) !important;
-      height: 100% !important;
-      max-height: none !important;
-      align-self: stretch !important;
-      background-size: contain !important;
-      background-position: right bottom !important;
+      width: clamp(120px, 11vw, 180px);
+      min-height: clamp(220px, 30vh, 320px);
+      height: 100%;
+      max-height: none;
+      align-self: stretch;
+      background-size: contain;
+      background-position: right bottom;
       opacity: 1;
     }
 
     .chartBox.compactBar,
     .chartBox.indigenasBar,
     .chartBox.coverageDonut {
-      height: clamp(180px, 23vh, 245px) !important;
+      height: clamp(180px, 23vh, 245px);
     }
 
     .overviewBottomGrid .sideLegend {
@@ -1319,11 +1227,11 @@
       }
 
       .panelTipo {
-        grid-template-columns: minmax(220px, 1fr) minmax(165px, 205px) clamp(105px, 9vw, 145px) !important;
+        grid-template-columns: minmax(220px, 1fr) minmax(165px, 205px) clamp(105px, 9vw, 145px);
       }
 
       .imagemIndigenaPainel {
-        width: clamp(105px, 9vw, 145px) !important;
+        width: clamp(105px, 9vw, 145px);
       }
     }
 
@@ -1333,26 +1241,26 @@
       }
 
       .panelCategoria .chartBox.tall {
-        height: 235px !important;
+        height: 235px;
       }
 
       .chartBox.smallDonut {
-        height: 210px !important;
+        height: 210px;
       }
 
       .panelTipo .chartBox.tipoGrande {
-        height: 218px !important;
-        min-height: 218px !important;
+        height: 218px;
+        min-height: 218px;
       }
 
       .chartBox.compactBar,
       .chartBox.indigenasBar,
       .chartBox.coverageDonut {
-        height: 158px !important;
+        height: 158px;
       }
 
       .imagemIndigenaPainel {
-        min-height: 205px !important;
+        min-height: 205px;
       }
     }
 
@@ -1379,12 +1287,12 @@
       .exportActions,
       .tablePagination,
       .clearBtn {
-        display: none !important;
+        display: none;
       }
 
       /* Cabeçalho impresso: logo + identificação da unidade no topo da página. */
       .printHeader {
-        display: flex !important;
+        display: flex;
         align-items: center;
         gap: 12px;
         margin: 0 0 14px;
@@ -1413,53 +1321,53 @@
       .content,
       .viewPanel,
       .viewPanel.active {
-        width: 100% !important;
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-        background: #ffffff !important;
+        width: 100%;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+        background: #ffffff;
       }
 
       .app {
-        display: block !important;
+        display: block;
       }
 
       /* Garante a ordem KPIs em cima, tabela embaixo. */
       .kpiGrid,
       .alertKpiGrid {
-        display: grid !important;
-        grid-template-columns: repeat(4, 1fr) !important;
-        gap: 8px !important;
-        margin-bottom: 12px !important;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 12px;
         page-break-inside: avoid;
       }
 
       /* Alertas tem 5 cards — mantém todos na mesma linha. */
       .alertKpiGrid {
-        grid-template-columns: repeat(5, 1fr) !important;
+        grid-template-columns: repeat(5, 1fr);
       }
 
       .kpi {
-        min-height: auto !important;
+        min-height: auto;
         break-inside: avoid;
       }
 
       /* Tabela completa e estendida: sem rolagem nem corte de altura.
-         Especificidade elevada (id + 2 classes) para vencer regras
-         "!important" declaradas mais adiante no arquivo. */
+         Mantém especificidade elevada (id + 2 classes) para vencer regras
+         de menor especificidade declaradas mais adiante nesta mesma camada. */
       .fullTableWrap,
       #view-vagas.viewPanel .fullTableWrap,
       #view-alertas.viewPanel .fullTableWrap,
       .main .content .fullTableWrap {
-        overflow: visible !important;
-        max-height: none !important;
-        height: auto !important;
-        box-shadow: none !important;
+        overflow: visible;
+        max-height: none;
+        height: auto;
+        box-shadow: none;
       }
 
       .fullTableWrap table {
-        width: 100% !important;
-        table-layout: auto !important;
+        width: 100%;
+        table-layout: auto;
       }
 
       .fullTableWrap thead {
@@ -1478,34 +1386,34 @@
       .fullTable th,
       .fullTable td,
       #view-vagas .fullTable td.colOciosas {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       /* Cabeçalho sólido: o gradiente "background-attachment: fixed" não imprime
          de forma confiável; troca por uma cor sólida. */
       #view-vagas .fullTable th,
       #view-alertas .fullTable th {
-        background: #005aa9 !important;
-        background-image: none !important;
-        background-attachment: scroll !important;
+        background: #005aa9;
+        background-image: none;
+        background-attachment: scroll;
       }
 
       /* "Vagas Ociosas" vira coluna normal no PDF: sem o fundo escuro de destaque
          nem a borda lateral colorida — apenas a tabela normal. */
       #view-vagas .fullTable th.colOciosasHead {
-        background: #005aa9 !important;
-        background-image: none !important;
-        border-right: 1px solid rgba(255, 255, 255, .25) !important;
+        background: #005aa9;
+        background-image: none;
+        border-right: 1px solid rgba(255, 255, 255, .25);
       }
 
       #view-vagas .fullTable td.colOciosas,
       #view-vagas .fullTable tr.totalRow td.colOciosas,
       #view-vagas .fullTable td.colOciosas.negativo {
-        background: #ffffff !important;
-        background-image: none !important;
-        color: var(--texto) !important;
-        border-right: none !important;
+        background: #ffffff;
+        background-image: none;
+        color: var(--texto);
+        border-right: none;
       }
 
       /* Coluna de observação (Alertas): vira texto puro na impressão. */
@@ -1514,11 +1422,11 @@
       .alertaObservacaoStatus,
       .alertaObservacaoMeta,
       .alertaObservacaoCell .alertaObservacaoBtn {
-        display: none !important;
+        display: none;
       }
 
       .alertaObservacaoTextoPrint {
-        display: block !important;
+        display: block;
         white-space: pre-wrap;
         word-break: break-word;
       }
@@ -1547,25 +1455,25 @@
 
     @media (min-width: 1281px) and (max-height: 820px) {
       .panelCategoria .chartBox.tall {
-        height: clamp(230px, 29vh, 285px) !important;
+        height: clamp(230px, 29vh, 285px);
       }
 
       .chartBox.smallDonut,
       .panelTipo .chartBox.tipoGrande {
-        height: clamp(195px, 25vh, 245px) !important;
+        height: clamp(195px, 25vh, 245px);
       }
 
       .chartBox.coverageDonut {
-        height: clamp(155px, 18vh, 200px) !important;
+        height: clamp(155px, 18vh, 200px);
       }
 
       .chartBox.compactBar,
       .chartBox.indigenasBar {
-        height: clamp(150px, 18vh, 205px) !important;
+        height: clamp(150px, 18vh, 205px);
       }
 
       .imagemIndigenaPainel {
-        min-height: clamp(190px, 25vh, 260px) !important;
+        min-height: clamp(190px, 25vh, 260px);
       }
     }
 
@@ -1594,7 +1502,7 @@
       .chartBox.compactBar,
       .chartBox.indigenasBar,
       .panelCategoria .chartBox.tall {
-        height: 260px !important;
+        height: 260px;
       }
 
       .imagemIndigenaPainel {

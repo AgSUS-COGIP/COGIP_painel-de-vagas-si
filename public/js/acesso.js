@@ -538,8 +538,12 @@ function podeAtualizarSolicitacoes() {
   if (!painel || !painel.classList.contains("active")) return false; // só com a aba aberta
   const modal = el("acessoModal");
   if (modal && modal.style.display === "flex") return false;          // modal aberto
-  const ae = document.activeElement;                                  // admin mexendo num select
-  if (ae && painel.contains(ae) && ae.tagName === "SELECT") return false;
+  // Admin mexendo num dropdown: os <select> viram combo pesquisável (.ssCombo),
+  // cujo popup é um portal no <body>. Não re-renderizar (destruiria o combo).
+  if (document.querySelector(".ssMenu")) return false;                // algum combo aberto
+  const ae = document.activeElement;
+  if (ae && (ae.classList.contains("ssTrigger") || ae.classList.contains("ssSearchInput")
+      || (painel.contains(ae) && ae.tagName === "SELECT"))) return false;
   return true;
 }
 function iniciarPollSolicitacoes() {

@@ -1,27 +1,144 @@
-/* 
-  Indice de estilos -- importa as partes na ORDEM da cascata.
-   NAO reordene: a ordem define a precedencia das regras CSS.
+/*
+  Indice de estilos -- importa as partes em CAMADAS de cascata (@layer).
+
+  A ORDEM das camadas abaixo define a precedencia: uma camada posterior SEMPRE
+  vence uma anterior, independentemente da especificidade do seletor. E esse
+  mecanismo (e nao mais o `!important`) que faz os arquivos finais -- responsivo,
+  painel-fixo, notebook -- ganharem das regras-base.
+
+  REGRAS:
+  - NAO reordene as camadas: a ordem = a precedencia (equivale a antiga ordem
+    dos @import "numero maior vence").
+  - Cada arquivo vive na sua propria camada, na mesma sequencia de antes.
+  - Evite `!important`: numa arquitetura em camadas ele INVERTE a ordem (um
+    !important numa camada anterior venceria as posteriores). A precedencia
+    correta ja vem da ordem das camadas.
 */
 
-@import url("./styles/01-base.css");
-@import url("./styles/02-loading.css");
-@import url("./styles/03-layout-claro.css");
-@import url("./styles/04-loading-cores.css");
-@import url("./styles/05-painel-saude-indigena.css");
-@import url("./styles/06-remanejamento.css");
-@import url("./styles/07-visao-geral-responsiva.css");
-@import url("./styles/08-menu-lateral.css");
-@import url("./styles/09-menu-largo.css");
-@import url("./styles/10-cobertura-ajustes.css");
-@import url("./styles/11-responsivo-v3.css");
-@import url("./styles/12-notebook.css");
-@import url("./styles/13-remanejamento-compacto.css");
-@import url("./styles/14-visao-geral-pagina-unica.css");
-@import url("./styles/15-painel-fixo-visao-geral.css");
-@import url("./styles/16-acesso.css");
-@import url("./styles/17-gestao-ferias.css");
-@import url("./styles/18-entrega-cracha.css");
-@import url("./styles/19-gestao-disciplinar.css");
-@import url("./styles/20-processos-seletivos.css");
-@import url("./styles/21-login.css");
-@import url("./styles/22-ordenacao-tabelas.css");
+@layer
+  base,
+  loading,
+  layout-claro,
+  loading-cores,
+  painel-saude-indigena,
+  remanejamento,
+  visao-geral-responsiva,
+  menu-lateral,
+  menu-largo,
+  cobertura-ajustes,
+  responsivo-v3,
+  notebook,
+  remanejamento-compacto,
+  visao-geral-pagina-unica,
+  painel-fixo-visao-geral,
+  acesso,
+  gestao-ferias,
+  entrega-cracha,
+  gestao-disciplinar,
+  processos-seletivos,
+  login,
+  ordenacao-tabelas,
+  filtros-padrao,
+  date-picker,
+  sidebar-state,
+  view-visibility;
+
+@import url("./styles/01-base.css") layer(base);
+@import url("./styles/02-loading.css") layer(loading);
+@import url("./styles/03-layout-claro.css") layer(layout-claro);
+@import url("./styles/04-loading-cores.css") layer(loading-cores);
+@import url("./styles/05-painel-saude-indigena.css") layer(painel-saude-indigena);
+@import url("./styles/06-remanejamento.css") layer(remanejamento);
+@import url("./styles/07-visao-geral-responsiva.css") layer(visao-geral-responsiva);
+@import url("./styles/08-menu-lateral.css") layer(menu-lateral);
+@import url("./styles/09-menu-largo.css") layer(menu-largo);
+@import url("./styles/10-cobertura-ajustes.css") layer(cobertura-ajustes);
+@import url("./styles/11-responsivo-v3.css") layer(responsivo-v3);
+@import url("./styles/12-notebook.css") layer(notebook);
+@import url("./styles/13-remanejamento-compacto.css") layer(remanejamento-compacto);
+@import url("./styles/14-visao-geral-pagina-unica.css") layer(visao-geral-pagina-unica);
+@import url("./styles/15-painel-fixo-visao-geral.css") layer(painel-fixo-visao-geral);
+@import url("./styles/16-acesso.css") layer(acesso);
+@import url("./styles/17-gestao-ferias.css") layer(gestao-ferias);
+@import url("./styles/18-entrega-cracha.css") layer(entrega-cracha);
+@import url("./styles/19-gestao-disciplinar.css") layer(gestao-disciplinar);
+@import url("./styles/20-processos-seletivos.css") layer(processos-seletivos);
+@import url("./styles/21-login.css") layer(login);
+@import url("./styles/22-ordenacao-tabelas.css") layer(ordenacao-tabelas);
+@import url("./styles/23-filtros-padrao.css") layer(filtros-padrao);
+@import url("./styles/24-date-picker.css") layer(date-picker);
+
+/*
+  ESTADO RECOLHIDO DO MENU LATERAL -- camada-topo, vence as larguras de `.app`.
+
+  O JS alterna `.sidebar-collapsed` em `.app` (filtros.js). A largura recolhida
+  (`.app.sidebar-collapsed`, coluna de ~78px so com icones) precisa vencer as
+  varias regras `.app { grid-template-columns: <largo> }` espalhadas em camadas
+  posteriores (responsivo-v3, etc.). Mantendo o estado recolhido na camada-topo,
+  ele vence pela ORDEM DAS CAMADAS -- sem `!important`. (Antes era forcado com
+  `grid-template-columns: ... !important` em 09/11.) Quando o menu NAO esta
+  recolhido, esta regra nao casa e a largura expandida de cada camada se aplica.
+*/
+@layer sidebar-state {
+  /* Largura da barra recolhida: espaco suficiente para a logo do AgSUS nao
+     cortar e para os icones respirarem. */
+  .app.sidebar-collapsed {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  /* Item de menu recolhido: uma coluna centrada (so o icone; o rotulo fica
+     escondido). Precisa vencer as regras `.navItem { grid-template-columns:
+     <icone> minmax(0,1fr) }` de camadas posteriores (13, 15) que voltariam ao
+     layout de duas colunas e jogariam o icone para a esquerda do container. */
+  .app.sidebar-collapsed .navItem {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 10px;
+  }
+
+  /* Logo do AgSUS recolhida: tamanho que cabe na barra sem cortar. Vence a
+     regra `.brandLogo { width:68px }` sempre-ativa do 09 (camada posterior). */
+  .app.sidebar-collapsed .brandLogo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto;
+  }
+
+  /* Bloco usuario/Sair recolhido: sem caixa nem margem assimetrica, conteudo
+     centrado -- vence o `.sidebarUsuario { padding; margin:6px 8px; background }`
+     sempre-ativo do 13 que desalinhava o botao. */
+  .app.sidebar-collapsed .sidebarUsuario {
+    padding: 0;
+    margin: 6px 0;
+    background: transparent;
+    justify-items: center;
+  }
+
+  /* Botao Sair recolhido: vira um icone quadrado centrado (vence o padding do 13). */
+  .app.sidebar-collapsed .sidebarLogoutBtn {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto;
+    padding: 0;
+    border-radius: 12px;
+    font-size: 15px;
+  }
+}
+
+/*
+  INVARIANTE DE VISIBILIDADE DAS VIEWS -- ultima camada, vence todas as outras.
+
+  Cada view (#view-*) so aparece quando tem a classe .active (alternada pelo JS).
+  Algumas views definem `display:block/grid` no proprio seletor (ex.: .siDash,
+  .gfView) SEM exigir .active; numa cascata em camadas essas regras venceriam a
+  ocultacao por estarem em camada posterior. Mantendo a regra de ocultar painel
+  inativo na ULTIMA camada, ela vence qualquer display especifico de view --
+  sem precisar de `!important`. (Antes isso era feito com `display:none !important`.)
+*/
+@layer view-visibility {
+  .viewPanel:not(.active) {
+    display: none;
+  }
+}

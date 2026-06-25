@@ -56,7 +56,7 @@
     .app.sidebar-collapsed.menu-recolhido-final .sidebarUsuarioNome,
     .app.sidebar-collapsed.menu-recolhido-final .sidebarLogoutLabel,
     .app.sidebar-collapsed.menu-recolhido-final .sidebarCoordTitle {
-      display: none !important;
+      display: none;
     }
 
     .sidebar {
@@ -242,21 +242,21 @@
     .app.sidebar-collapsed .sidebarUsuarioNome,
     .app.sidebar-collapsed .sidebarLogoutLabel,
     .app.sidebar-collapsed .sidebarCoordTitle {
-      opacity: 0 !important;
-      max-width: 0 !important;
-      max-height: 0 !important;
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-      overflow: hidden !important;
+      opacity: 0;
+      max-width: 0;
+      max-height: 0;
+      margin-top: 0;
+      margin-bottom: 0;
+      overflow: hidden;
       transform: translateX(-8px) scale(.96);
       pointer-events: none;
     }
 
     /* Recolhido: o botão Sair vira apenas o ícone. */
     .app.sidebar-collapsed .sidebarUsuario {
-      background: transparent !important;
-      padding: 0 !important;
-      margin: 6px 0 !important;
+      background: transparent;
+      padding: 0;
+      margin: 6px 0;
     }
 
     .app.sidebar-collapsed .sidebarLogoutBtn {
@@ -269,27 +269,27 @@
     }
 
     .app.sidebar-collapsed .sidebarSpacer {
-      flex: 1 1 auto !important;
+      flex: 1 1 auto;
     }
 
     .app.sidebar-collapsed .sidebarCoord {
-      display: block !important;
-      margin: auto 0 6px !important;
-      padding: 4px 0 !important;
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
+      display: block;
+      margin: auto 0 6px;
+      padding: 4px 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
     }
 
     .app.sidebar-collapsed .sidebarCoordImgWrap {
-      width: 46px !important;
-      height: 46px !important;
-      margin: 0 auto !important;
+      width: 46px;
+      height: 46px;
+      margin: 0 auto;
     }
 
     .app.sidebar-collapsed .sidebarCoordImg {
-      width: 40px !important;
-      height: 40px !important;
+      width: 40px;
+      height: 40px;
     }
 
     .app.sidebar-collapsed .sidebarToggle {

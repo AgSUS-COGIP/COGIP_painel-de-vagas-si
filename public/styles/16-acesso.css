@@ -455,7 +455,7 @@
   gap: 5px;
   min-width: 0;
 }
-.acField[hidden] { display: none !important; }
+.acField[hidden] { display: none; }
 
 /* ---- Botões (tema escuro) ---- */
 .acessoCard .loginBtn {

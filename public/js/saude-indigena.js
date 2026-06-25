@@ -5,7 +5,7 @@
 // KPIs, gráficos, filtros e a tabela geral 100% no cliente. Carregamento sob
 // demanda (a base tem ~20k linhas: só busca quando a aba é aberta).
 // Filtros: comboboxes pesquisáveis (criarCombo) + busca por nome + períodos.
-// Tabela: todas as linhas filtradas, com rolagem (sem paginação).
+// Tabela: rolagem infinita (100 linhas por vez) — renderizar ~20k de uma vez trava a aba.
 // =========================================================
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
@@ -528,17 +528,10 @@ function atualizarSetas() {
   });
 }
 
-function renderTabela(rows) {
-  const lista = ordenacao.col ? ordenarLista(rows) : rows;
-  setText("siTabelaCount", `${formatNumber(lista.length)} trabalhadores`);
-  setText("siTabelaRegistros", lista.length ? `${formatNumber(lista.length)} trabalhadores (role para ver todos)` : "Nenhum registro");
-  atualizarSetas();
-
-  const body = $("siTabelaBody");
-  if (!body) return;
-  body.innerHTML = lista.map(r => {
-    const dataAfastDeslig = r.dataDesligamento || r.situacaoDataInicio || "";
-    return `
+// HTML de uma linha da tabela.
+function linhaTabelaHtml(r) {
+  const dataAfastDeslig = r.dataDesligamento || r.situacaoDataInicio || "";
+  return `
       <tr>
         <td>${cel(r.registro)}</td>
         <td class="siTdNome">${cel(r.nome)}</td>
@@ -555,7 +548,49 @@ function renderTabela(rows) {
         <td class="siTdLocal">${cel(r.localTrabalho)}</td>
         <td class="siTdLocal">${cel(r.centroCusto)}</td>
       </tr>`;
-  }).join("") || `<tr><td colspan="14" class="siVazio">Nenhum trabalhador encontrado para os filtros selecionados.</td></tr>`;
+}
+
+// Paginação por rolagem infinita: a base tem ~20k linhas e renderizar tudo de
+// uma vez (≈280k células) trava a aba. Mostramos 100 por vez e carregamos mais
+// 100 conforme o usuário rola até o fim.
+const TABELA_PAGINA = 100;
+let tabelaLista = [];        // lista completa (filtrada + ordenada)
+let tabelaRenderizadas = 0;  // quantas linhas já estão no DOM
+
+function renderTabela(rows) {
+  const lista = ordenacao.col ? ordenarLista(rows) : rows;
+  tabelaLista = lista;
+  tabelaRenderizadas = 0;
+  setText("siTabelaCount", `${formatNumber(lista.length)} trabalhadores`);
+  atualizarSetas();
+
+  const body = $("siTabelaBody");
+  if (!body) return;
+  // Volta ao topo ao trocar filtro/ordenação (senão a rolagem dispararia mais lotes).
+  const wrap = body.closest(".siTableWrap");
+  if (wrap) wrap.scrollTop = 0;
+
+  if (!lista.length) {
+    body.innerHTML = `<tr><td colspan="14" class="siVazio">Nenhum trabalhador encontrado para os filtros selecionados.</td></tr>`;
+    setText("siTabelaRegistros", "Nenhum registro");
+    return;
+  }
+  body.innerHTML = "";
+  renderProximoLoteTabela();
+}
+
+// Acrescenta o próximo lote de linhas (append, sem reconstruir as anteriores).
+function renderProximoLoteTabela() {
+  const body = $("siTabelaBody");
+  if (!body || tabelaRenderizadas >= tabelaLista.length) return;
+  const fim = Math.min(tabelaRenderizadas + TABELA_PAGINA, tabelaLista.length);
+  body.insertAdjacentHTML("beforeend",
+    tabelaLista.slice(tabelaRenderizadas, fim).map(linhaTabelaHtml).join(""));
+  tabelaRenderizadas = fim;
+  const total = tabelaLista.length;
+  setText("siTabelaRegistros", tabelaRenderizadas < total
+    ? `Mostrando ${formatNumber(tabelaRenderizadas)} de ${formatNumber(total)} trabalhadores · role para carregar mais`
+    : `${formatNumber(total)} trabalhadores`);
 }
 
 // ---------- Exportação Excel (CSV com BOM; abre direto no Excel) ----------
@@ -745,6 +780,16 @@ export function configurarSaudeIndigena() {
     const b = e.target.closest("[data-export]");
     if (b) exportarGrafico(b.dataset.export);
   });
+
+  // Rolagem infinita: ao chegar perto do fim, carrega mais 100 linhas.
+  const tabelaWrap = raiz.querySelector(".siTableWrap");
+  if (tabelaWrap) {
+    tabelaWrap.addEventListener("scroll", () => {
+      if (tabelaWrap.scrollTop + tabelaWrap.clientHeight >= tabelaWrap.scrollHeight - 320) {
+        renderProximoLoteTabela();
+      }
+    });
+  }
 
   // Ordenação da tabela (clique no cabeçalho alterna asc/desc).
   $("siTabelaHead")?.addEventListener("click", e => {
