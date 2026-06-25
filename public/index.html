@@ -1897,74 +1897,116 @@
           <section class="gfPanel">
             <h3 class="gfPanelTitle"><i class="fa-solid fa-chart-simple"></i> Indicadores Gerais</h3>
             <div class="gdKpiStack">
-              <div class="gdKpiRow gdKpiRowTopo">
-                <div class="gfKpi gdKpiCardTotal">
-                  <div class="gfKpiValue" id="gdKpiTotal">0</div>
-                  <div class="gfKpiLabel">Total de Pedidos</div>
+              <!-- Linha 1: total (com progresso) + resumo do andamento + alertas -->
+              <div class="gdKpiTopo">
+                <div class="gdKpiTotal gdKpiTotalProc">
+                  <div class="gdKpiTotalHead">
+                    <span class="gdKpiTotalIcon"><i class="fa-solid fa-briefcase"></i></span>
+                    <span>Total de Processos</span>
+                  </div>
+                  <div class="gdKpiTotalValor" id="gdKpiTotalProcessos">0</div>
+                </div>
+
+                <div class="gdKpiTotal">
+                  <div class="gdKpiTotalHead">
+                    <span class="gdKpiTotalIcon"><i class="fa-solid fa-folder-open"></i></span>
+                    <span>Total de Pedidos</span>
+                  </div>
+                  <div class="gdKpiTotalValor" id="gdKpiTotal">0</div>
+                  <div class="gdKpiProgresso"><span id="gdKpiProgressoFill"></span></div>
+                  <div class="gdKpiProgressoLabel"><strong id="gdKpiPercentLabel">0%</strong> concluído</div>
+                </div>
+
+                <div class="gdKpiCard">
+                  <div class="gdKpiCardHead"><span class="gdKpiCardIcon"><i class="fa-solid fa-chart-line"></i></span> Resumo do Andamento</div>
+                  <div class="gdKpiResumoLinha">
+                    <span class="gdKpiResumoNome"><i class="fa-solid fa-circle-check is-verde"></i> Concluídas</span>
+                    <strong class="is-verde" id="gdKpiConcluidos">0</strong>
+                  </div>
+                  <div class="gdKpiResumoLinha">
+                    <span class="gdKpiResumoNome"><i class="fa-solid fa-circle-minus is-vermelho"></i> Pedidos não concluídos</span>
+                    <strong class="is-vermelho" id="gdKpiNaoConcluidos">0</strong>
+                  </div>
+                  <p class="gdKpiHint"><i class="fa-solid fa-circle-info"></i> Acompanhe o andamento geral dos pedidos concluídos e não concluídos.</p>
                 </div>
               </div>
 
-              <div class="gdKpiRow gdKpiRowConcluidos">
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-green" id="gdKpiConcluidos">0</div>
-                  <div class="gfKpiLabel">Concluídas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-green" id="gdKpiSancaoNaoAplicada">0</div>
-                  <div class="gfKpiLabel">Sanções Não Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue" id="gdKpiAdvertenciasOrais">0</div>
-                  <div class="gfKpiLabel">Advertências Orais Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue" id="gdKpiAdvertencias">0</div>
-                  <div class="gfKpiLabel">Advertências Escritas Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-orange" id="gdKpiSuspensoes">0</div>
-                  <div class="gfKpiLabel">Suspensões Aplicadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-red" id="gdKpiJustasCausas">0</div>
-                  <div class="gfKpiLabel">Justas Causas Executadas</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-red" id="gdKpiDesligados">0</div>
-                  <div class="gfKpiLabel">Desligado antes da conclusão</div>
-                </div>
-              </div>
-
-              <div class="gdKpiRow gdKpiRowNaoConcluidos">
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-red" id="gdKpiNaoConcluidos">0</div>
-                  <div class="gfKpiLabel">Pedidos Não Concluídos</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-gray" id="gdKpiPendentes">0</div>
-                  <div class="gfKpiLabel">Pendentes</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-yellow" id="gdKpiEmAnalise">0</div>
-                  <div class="gfKpiLabel">Em Análise</div>
-                </div>
-                <div class="gfKpi">
-                  <div class="gfKpiValue is-blue" id="gdKpiAguardando">0</div>
-                  <div class="gfKpiLabel">Aguardando Devolutiva do DSEI/profissional</div>
+              <!-- Situação dos pedidos concluídos -->
+              <div class="gdKpiSecao">
+                <h4 class="gdKpiSecaoTitulo"><i class="fa-solid fa-circle-check"></i> Situação dos Pedidos Concluídos</h4>
+                <div class="gdKpiMini gdKpiMini6">
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-verde"><i class="fa-solid fa-scale-balanced"></i></span>
+                    <span class="gdMiniLabel">Sanções não aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiSancaoNaoAplicada">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon"><i class="fa-solid fa-microphone"></i></span>
+                    <span class="gdMiniLabel">Advertências orais aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiAdvertenciasOrais">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon"><i class="fa-solid fa-file-lines"></i></span>
+                    <span class="gdMiniLabel">Advertências escritas aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiAdvertencias">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-laranja"><i class="fa-solid fa-circle-pause"></i></span>
+                    <span class="gdMiniLabel">Suspensões aplicadas</span>
+                    <strong class="gdMiniValor" id="gdKpiSuspensoes">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-vermelho-bg"><i class="fa-solid fa-gavel"></i></span>
+                    <span class="gdMiniLabel">Justas causas executadas</span>
+                    <strong class="gdMiniValor" id="gdKpiJustasCausas">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-vermelho-bg"><i class="fa-solid fa-user-xmark"></i></span>
+                    <span class="gdMiniLabel">Desligado antes da conclusão</span>
+                    <strong class="gdMiniValor" id="gdKpiDesligados">0</strong>
+                  </div>
                 </div>
               </div>
 
-              <div class="gdKpiRow gdKpiRowSingle">
-                <div class="gfKpi" id="gdKpiTempoMedio">
-                  <div class="gfKpiValue" id="gdKpiTempoMedioValor">0 dias</div>
-                  <div class="gfKpiLabel">Tempo Médio p/ Aplicação da Sanção</div>
+              <!-- Situação dos pedidos não concluídos -->
+              <div class="gdKpiSecao">
+                <h4 class="gdKpiSecaoTitulo"><i class="fa-solid fa-clock"></i> Situação dos Pedidos Não Concluídos</h4>
+                <div class="gdKpiMini gdKpiMini3">
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-cinza"><i class="fa-solid fa-clock"></i></span>
+                    <span class="gdMiniLabel">Pendentes</span>
+                    <strong class="gdMiniValor" id="gdKpiPendentes">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon is-amarelo"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <span class="gdMiniLabel">Em análise</span>
+                    <strong class="gdMiniValor" id="gdKpiEmAnalise">0</strong>
+                  </div>
+                  <div class="gdMiniCard">
+                    <span class="gdMiniIcon"><i class="fa-solid fa-user-clock"></i></span>
+                    <span class="gdMiniLabel">Aguardando devolutiva do DSEI/Profissional</span>
+                    <strong class="gdMiniValor" id="gdKpiAguardando">0</strong>
+                  </div>
                 </div>
               </div>
 
-              <div class="gdKpiRow gdKpiRowSingle">
-                <div class="gfKpi" id="gdKpiForaPrazoCard">
-                  <div class="gfKpiValue is-yellow" id="gdKpiForaPrazo">0</div>
-                  <div class="gfKpiLabel">Pedidos fora do prazo</div>
+              <!-- Linha final: tempo médio + pedidos fora do prazo -->
+              <div class="gdKpiBase">
+                <div class="gdMiniCard gdMiniWide" id="gdKpiTempoMedio">
+                  <span class="gdMiniIcon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                  <span class="gdMiniWideBody">
+                    <span class="gdMiniLabel">Tempo médio p/ aplicação da sanção</span>
+                    <strong class="gdMiniValor" id="gdKpiTempoMedioValor">0 dias</strong>
+                  </span>
+                  <i class="fa-regular fa-calendar-days gdMiniDeco" aria-hidden="true"></i>
+                </div>
+                <div class="gdMiniCard gdMiniWide" id="gdKpiForaPrazoCard">
+                  <span class="gdMiniIcon is-amarelo"><i class="fa-solid fa-calendar-xmark"></i></span>
+                  <span class="gdMiniWideBody">
+                    <span class="gdMiniLabel">Pedidos fora do prazo</span>
+                    <strong class="gdMiniValor" id="gdKpiForaPrazo">0</strong>
+                  </span>
+                  <i class="fa-regular fa-calendar-days gdMiniDeco gdMiniDecoAmarelo" aria-hidden="true"></i>
                 </div>
               </div>
             </div>
@@ -1994,12 +2036,8 @@
                 <select class="gfSelect" id="gdFiltroStatus"></select>
               </div>
               <div class="gfField">
-                <label>Data Inicial</label>
-                <input class="gfInput" type="date" id="gdFiltroDataIni">
-              </div>
-              <div class="gfField">
-                <label>Data Final</label>
-                <input class="gfInput" type="date" id="gdFiltroDataFim">
+                <label>Processo SEI</label>
+                <input class="gfInput" type="text" id="gdBuscaProcessoSei" placeholder="Ex: 25000.000000/2024-00">
               </div>
               <div class="gfField">
                 <label>Buscar por trabalhador</label>
