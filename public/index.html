@@ -1073,7 +1073,7 @@
           <!-- Sub-abas -->
           <nav class="gfTabs" id="gfTabs">
             <button type="button" class="gfTab is-active" data-gf-tab="visaoGeral"><i class="fa-solid fa-chart-pie"></i> Visão Geral</button>
-            <button type="button" class="gfTab" data-gf-tab="solicitacao"><i class="fa-solid fa-calendar-plus"></i> Solicitação / Alteração / Cancelamento</button>
+            <button type="button" class="gfTab" id="gfTabSolicitacao" data-gf-tab="solicitacao"><i class="fa-solid fa-calendar-plus"></i> Solicitação / Alteração / Cancelamento</button>
             <button type="button" class="gfTab" id="gfTabCoape" data-gf-tab="coape" hidden><i class="fa-solid fa-clipboard-check"></i> Aprovação COAPE</button>
           </nav>
 
@@ -2534,7 +2534,7 @@
                       acréscimo.</span></div>
                 </section>
 
-                <section class="remBox remDocBox">
+                <section class="remBox remDocBox" id="remDocBox">
                   <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
                   <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
                   <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: AGSUS.000000/2026-00"
@@ -2630,11 +2630,91 @@
             </div>
           </div>
 
-          <h3 class="solSecaoTitulo">Pendentes</h3>
-          <div id="solicitacoesPendentes" class="solLista"></div>
+          <section class="solHistCard">
+            <div class="solHistHead">
+              <div>
+                <h3 class="solHistTitulo">Pendentes</h3>
+                <p class="solHistSub">Solicitações aguardando aprovação.</p>
+              </div>
+            </div>
+            <div class="solHistTableWrap">
+              <table class="solHistTable">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Cargo / Unidade</th>
+                    <th>Justificativa</th>
+                    <th>Data e hora</th>
+                    <th id="solPendAcoesTh" class="solHistAcoesTh" style="display:none">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="solicitacoesPendentes"></tbody>
+              </table>
+            </div>
+            <div class="solHistFooter">
+              <div id="solPendPaginacao" class="solHistPaginacao"></div>
+              <span id="solPendContagem" class="solHistContagem"></span>
+            </div>
+          </section>
 
-          <h3 class="solSecaoTitulo">Histórico</h3>
-          <div id="solicitacoesHistorico" class="solLista"></div>
+          <section class="solHistCard">
+            <div class="solHistHead">
+              <div>
+                <h3 class="solHistTitulo">Histórico</h3>
+                <p class="solHistSub">Registro das últimas solicitações de acesso.</p>
+              </div>
+            </div>
+            <div class="solHistTableWrap">
+              <table class="solHistTable">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Justificativa</th>
+                    <th>Realizado por</th>
+                    <th>Data e hora</th>
+                    <th id="solHistAcoesTh" class="solHistAcoesTh" style="display:none">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="solicitacoesHistorico"></tbody>
+              </table>
+            </div>
+            <div class="solHistFooter">
+              <div id="solHistPaginacao" class="solHistPaginacao"></div>
+              <span id="solHistContagem" class="solHistContagem"></span>
+            </div>
+          </section>
+
+          <section id="perfisAcessoSecao" class="perfisAcesso">
+            <div class="perfisHeader">
+              <div>
+                <h3 class="solSecaoTitulo perfisTitulo">Administração de Perfis de Acesso</h3>
+                <div class="perfisSub">Defina a permissão de cada usuário por módulo do sistema.</div>
+              </div>
+              <div class="perfisBuscaWrap">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" id="perfisBusca" class="perfisBusca" placeholder="Buscar por login ou nome…" autocomplete="off" aria-label="Buscar usuário">
+              </div>
+            </div>
+
+            <div class="perfisLegenda">
+              <span class="permLegItem"><span class="permLegDot permNivel0"></span>Sem acesso</span>
+              <span class="permLegItem"><span class="permLegDot permNivel1"></span>Leitor</span>
+              <span class="permLegItem"><span class="permLegDot permNivel2"></span>Editor</span>
+              <span class="permLegItem"><span class="permLegDot permNivel3"></span>Administrador</span>
+            </div>
+
+            <div class="perfisMatrizWrap">
+              <table class="perfisMatriz">
+                <thead id="perfisMatrizHead"></thead>
+                <tbody id="perfisMatrizBody"></tbody>
+              </table>
+            </div>
+            <div id="perfisRodape" class="perfisRodape"></div>
+          </section>
         </section>
 
       </section>

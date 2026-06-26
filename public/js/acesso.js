@@ -7,7 +7,7 @@ import { abrirModal } from "./modal.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { preencherSelect } from "./ui-utils.js";
-import { NIVEL } from "./constants.js";
+import { carregarPerfisAcesso, podeEditarPerfis, abrirPermissoesPendente } from "./permissoes.js";
 
 function el(id) { return document.getElementById(id); }
 function val(id) { const e = el(id); return e ? e.value : ""; }
@@ -180,6 +180,17 @@ function fmtData(v) {
   if (!v) return "—";
   const s = String(v).replace("T", " ").slice(0, 16);
   return s || "—";
+}
+
+// Coluna "Data e hora" das tabelas: horário primeiro, depois dd/mm/aaaa
+// (ex.: "12:41 26/08/2025").
+function fmtDataHora(v) {
+  if (!v) return "—";
+  const s = String(v).replace("T", " ").slice(0, 16); // "AAAA-MM-DD HH:MM"
+  const [data, hora] = s.split(" ");
+  const [a, m, d] = (data || "").split("-");
+  if (!hora || !a || !m || !d) return s || "—";
+  return `${hora} ${d}/${m}/${a}`;
 }
 
 // Popula um <select> com as opções vindas do banco, preservando o valor atual.
@@ -383,34 +394,23 @@ function cardSolicitacao(s, comAcoes) {
 
   const email = escapeHtml(String(s.EMAIL || ""));
 
-  // Conceder privilégios e excluir usuários são ações exclusivas do super
-  // administrador (nível >= 3). Esconde os controles para os demais.
-  const souSuperAdmin = Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL.SUPERADMIN;
+  // Aprovar/recusar/excluir exigem permissão de administração de perfis (Editor+
+  // no módulo "solicitacoes"); um super admin rebaixado a Leitor só visualiza.
+  const podeAgir = podeEditarPerfis();
 
-  const acoes = comAcoes
+  const acoes = (comAcoes && podeAgir)
     ? `<div class="solAcoes">
          <button type="button" class="solBtn solAprovar" data-acesso-aprovar="${id}">Aprovar</button>
          <button type="button" class="solBtn solRecusar" data-acesso-recusar="${id}">Recusar</button>
        </div>`
     : "";
 
-  const botaoExcluir = souSuperAdmin
+  const botaoExcluir = podeAgir
     ? `<button type="button" class="solExcluirBtn" title="Excluir usuário e suas solicitações" data-acesso-excluir="${email}"><i class="fa-solid fa-trash"></i></button>`
     : "";
 
-  // Privilégio: só para usuários ATIVOS (aprovados) e gerenciável por super admin.
-  const ativo = Number(s.USUARIO_ATIVO) === 1;
-  const nivelAtual = Number(s.USUARIO_NIVEL || 0);
-  const privilegio = (ativo && souSuperAdmin)
-    ? `<div class="solPrivilegio">
-         <label>Privilégio</label>
-         <select class="solNivelSelect" data-acesso-nivel="${email}">
-           <option value="1"${nivelAtual <= 1 ? " selected" : ""}>Usuário comum</option>
-           <option value="2"${nivelAtual === 2 ? " selected" : ""}>Administrador</option>
-           <option value="3"${nivelAtual >= 3 ? " selected" : ""}>Super administrador</option>
-         </select>
-       </div>`
-    : "";
+  // O privilégio (nível) deixou de ser editado aqui: a administração de acesso é
+  // feita pela matriz de Perfis de Acesso (regra mandatória, super admin).
 
   return `
     <div class="solCard">
@@ -424,7 +424,6 @@ function cardSolicitacao(s, comAcoes) {
       <div class="solGrid">${linhas}</div>
       <div class="solJustificativa"><span>Justificativa</span><p>${escapeHtml(s.JUSTIFICATIVA || "—")}</p></div>
       ${decisao}
-      ${privilegio}
       ${acoes}
     </div>`;
 }
@@ -436,7 +435,7 @@ export async function carregarSolicitacoesAdmin(silencioso) {
 
   // No polling (silencioso) não mostramos "Carregando…" para não piscar a tela.
   if (!silencioso) {
-    boxPend.innerHTML = '<div class="solVazio">Carregando…</div>';
+    boxPend.innerHTML = '<tr><td class="solHistVazio" colspan="7">Carregando…</td></tr>';
     boxHist.innerHTML = "";
   }
 
@@ -448,22 +447,194 @@ export async function carregarSolicitacoesAdmin(silencioso) {
     return;
   }
 
-  const pendentes = dados.pendentes || [];
-  const historico = dados.historico || [];
-  boxPend.innerHTML = pendentes.length
-    ? pendentes.map(s => cardSolicitacao(s, true)).join("")
-    : '<div class="solVazio">Nenhuma solicitação pendente.</div>';
-  boxHist.innerHTML = historico.length
-    ? historico.map(s => cardSolicitacao(s, false)).join("")
-    : '<div class="solVazio">Sem histórico de decisões.</div>';
+  // Pendentes e Histórico agora são tabelas paginadas (mesmo modelo).
+  pendentesCache = dados.pendentes || [];
+  renderPendentes();
+  historicoCache = dados.historico || [];
+  renderHistorico();
+}
+
+// ----------------------------------------------------------------------------
+// Pendentes — tabela paginada (Status · Data · Nome · E-mail · Cargo/Unidade · Justificativa · Ações)
+// ----------------------------------------------------------------------------
+let pendentesCache = [];
+let pendentesPagina = 1;
+const PEND_POR_PAGINA = 10;
+
+function linhaPendente(s) {
+  const id = escapeHtml(String(s.ID_SOLICITACAO));
+  const email = escapeHtml(s.EMAIL || "");
+  const unidade = s.DSEI || s.CASAI || s.COORDENACAO || "";
+  const acoesTd = podeEditarPerfis()
+    ? `<td class="solHistAcoes"><div class="solPendAcoesBtns">
+         <button type="button" class="solBtnMini solBtnPerm" data-perm-pendente="${email}" title="Definir permissões por módulo antes de aprovar"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Permissões</button>
+         <button type="button" class="solBtnMini solBtnAprovar" data-acesso-aprovar="${id}"><i class="fa-solid fa-check" aria-hidden="true"></i> Aprovar</button>
+         <button type="button" class="solBtnMini solBtnRecusar" data-acesso-recusar="${id}"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Recusar</button>
+         <button type="button" class="solExcluirBtn" data-acesso-excluir="${email}" title="Excluir usuário e suas solicitações"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+       </div></td>`
+    : "";
+  return `<tr>
+    <td>${badgeHistorico(s.STATUS)}</td>
+    <td class="solHistNome">${escapeHtml(s.NOME || "—")}</td>
+    <td class="solHistEmail">${escapeHtml(s.EMAIL || "—")}</td>
+    <td class="solHistRealizado"><span>${escapeHtml(s.CARGO || "—")}</span>${unidade ? `<span class="solHistRealizadoData">${escapeHtml(unidade)}</span>` : ""}</td>
+    <td class="solHistJust">${escapeHtml(s.JUSTIFICATIVA || "—")}</td>
+    <td class="solHistData">${escapeHtml(fmtDataHora(s.CRIADO_EM))}</td>
+    ${acoesTd}
+  </tr>`;
+}
+
+function renderPendentes() {
+  const corpo = el("solicitacoesPendentes");
+  if (!corpo) return;
+  const comAcoes = podeEditarPerfis();
+  const thAcoes = el("solPendAcoesTh");
+  if (thAcoes) thAcoes.style.display = comAcoes ? "" : "none";
+  const colspan = comAcoes ? 7 : 6;
+  const total = pendentesCache.length;
+  const cont = el("solPendContagem");
+  const pag = el("solPendPaginacao");
+  if (!total) {
+    corpo.innerHTML = `<tr><td class="solHistVazio" colspan="${colspan}">Nenhuma solicitação pendente.</td></tr>`;
+    if (cont) cont.textContent = "";
+    if (pag) pag.innerHTML = "";
+    return;
+  }
+  const totalPaginas = Math.max(1, Math.ceil(total / PEND_POR_PAGINA));
+  if (pendentesPagina > totalPaginas) pendentesPagina = totalPaginas;
+  if (pendentesPagina < 1) pendentesPagina = 1;
+  const inicio = (pendentesPagina - 1) * PEND_POR_PAGINA;
+  const pagina = pendentesCache.slice(inicio, inicio + PEND_POR_PAGINA);
+  corpo.innerHTML = pagina.map(linhaPendente).join("");
+  if (cont) cont.textContent = `${inicio + 1}–${Math.min(inicio + PEND_POR_PAGINA, total)} de ${total} registros`;
+  if (pag) pag.innerHTML = montarPaginacaoHtml(pendentesPagina, totalPaginas, "pend-pagina");
+}
+
+// ----------------------------------------------------------------------------
+// Histórico — tabela paginada (Status · Data · Nome · E-mail · Justificativa · Realizado por)
+// ----------------------------------------------------------------------------
+let historicoCache = [];
+let historicoPagina = 1;
+const HIST_POR_PAGINA = 10;
+
+function badgeHistorico(status) {
+  const st = String(status || "").toUpperCase();
+  const mapa = {
+    APROVADO: { cls: "histAprovado", icon: "fa-circle-check", txt: "Aprovado" },
+    RECUSADO: { cls: "histRecusado", icon: "fa-circle-xmark", txt: "Recusado" },
+    PENDENTE: { cls: "histPendente", icon: "fa-clock", txt: "Pendente" }
+  };
+  const m = mapa[st] || mapa.PENDENTE;
+  return `<span class="solHistBadge ${m.cls}"><i class="fa-solid ${m.icon}" aria-hidden="true"></i>${m.txt}</span>`;
+}
+
+function linhaHistorico(s) {
+  // "Justificativa": usa a observação da decisão quando houver; senão a justificativa original.
+  const justificativa = s.OBSERVACAO_DECISAO || s.JUSTIFICATIVA || "—";
+  const realizadoEm = s.DECIDIDO_EM ? fmtData(s.DECIDIDO_EM) : "";
+  const horaPor = realizadoEm ? `<span class="solHistRealizadoData">${escapeHtml(realizadoEm.slice(11))}</span>` : "";
+  // Excluir usuário (e todas as suas solicitações): só para quem administra a aba (>= Editor).
+  const email = escapeHtml(s.EMAIL || "");
+  const acoesTd = podeEditarPerfis()
+    ? `<td class="solHistAcoes"><button type="button" class="solExcluirBtn" title="Excluir usuário e suas solicitações" data-acesso-excluir="${email}"><i class="fa-solid fa-trash"></i></button></td>`
+    : "";
+  return `<tr>
+    <td>${badgeHistorico(s.STATUS)}</td>
+    <td class="solHistNome">${escapeHtml(s.NOME || "—")}</td>
+    <td class="solHistEmail">${escapeHtml(s.EMAIL || "—")}</td>
+    <td class="solHistJust">${escapeHtml(justificativa)}</td>
+    <td class="solHistRealizado"><span>${escapeHtml(s.DECIDIDO_POR || "—")}</span>${horaPor}</td>
+    <td class="solHistData">${escapeHtml(fmtDataHora(s.CRIADO_EM))}</td>
+    ${acoesTd}
+  </tr>`;
+}
+
+// Sequência de páginas com reticências (1 … vizinhas … última).
+function paginasComElipse(atual, total) {
+  const paginas = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= atual - 1 && i <= atual + 1)) paginas.push(i);
+    else if (paginas[paginas.length - 1] !== "...") paginas.push("...");
+  }
+  return paginas;
+}
+
+// Monta o HTML da paginação (setas + números com reticências). `dataAttr` define
+// o atributo de dado dos botões (ex.: "hist-pagina" ou "pend-pagina").
+function montarPaginacaoHtml(atual, totalPaginas, dataAttr) {
+  if (totalPaginas <= 1) return "";
+  const seta = (destino, icone, desativado) =>
+    `<button type="button" class="solHistPagBtn" data-${dataAttr}="${destino}"${desativado ? " disabled" : ""}><i class="fa-solid ${icone}" aria-hidden="true"></i></button>`;
+  const numeros = paginasComElipse(atual, totalPaginas).map(n =>
+    n === "..."
+      ? `<span class="solHistPagElipse">…</span>`
+      : `<button type="button" class="solHistPagBtn${n === atual ? " is-ativo" : ""}" data-${dataAttr}="${n}">${n}</button>`
+  ).join("");
+  return seta(atual - 1, "fa-angle-left", atual === 1) + numeros + seta(atual + 1, "fa-angle-right", atual === totalPaginas);
+}
+
+function renderHistPaginacao(totalPaginas) {
+  const pag = el("solHistPaginacao");
+  if (pag) pag.innerHTML = montarPaginacaoHtml(historicoPagina, totalPaginas, "hist-pagina");
+}
+
+function renderHistorico() {
+  const corpo = el("solicitacoesHistorico");
+  if (!corpo) return;
+  // Coluna "Ações" (excluir) só aparece para quem administra a aba.
+  const comAcoes = podeEditarPerfis();
+  const thAcoes = el("solHistAcoesTh");
+  if (thAcoes) thAcoes.style.display = comAcoes ? "" : "none";
+  const colspan = comAcoes ? 7 : 6;
+  const total = historicoCache.length;
+  const cont = el("solHistContagem");
+  if (!total) {
+    corpo.innerHTML = `<tr><td class="solHistVazio" colspan="${colspan}">Sem histórico de decisões.</td></tr>`;
+    if (cont) cont.textContent = "";
+    renderHistPaginacao(1);
+    return;
+  }
+  const totalPaginas = Math.max(1, Math.ceil(total / HIST_POR_PAGINA));
+  if (historicoPagina > totalPaginas) historicoPagina = totalPaginas;
+  if (historicoPagina < 1) historicoPagina = 1;
+  const inicio = (historicoPagina - 1) * HIST_POR_PAGINA;
+  const pagina = historicoCache.slice(inicio, inicio + HIST_POR_PAGINA);
+  corpo.innerHTML = pagina.map(linhaHistorico).join("");
+  if (cont) cont.textContent = `${inicio + 1}–${Math.min(inicio + HIST_POR_PAGINA, total)} de ${total} registros`;
+  renderHistPaginacao(totalPaginas);
 }
 
 async function decidir(acao, id, observacao) {
   await apiPost(`/api/acesso/solicitacoes/${encodeURIComponent(id)}/${acao}`, { observacao });
   await carregarSolicitacoesAdmin();
+  // Aprovar ativa o usuário: recarrega a matriz de Perfis para ele aparecer já.
+  carregarPerfisAcesso(true);
 }
 
 async function onClickAdmin(ev) {
+  // Paginação das tabelas (pendentes / histórico).
+  const pagHist = ev.target.closest("[data-hist-pagina]");
+  if (pagHist) {
+    historicoPagina = Number(pagHist.dataset.histPagina) || 1;
+    renderHistorico();
+    return;
+  }
+  const pagPend = ev.target.closest("[data-pend-pagina]");
+  if (pagPend) {
+    pendentesPagina = Number(pagPend.dataset.pendPagina) || 1;
+    renderPendentes();
+    return;
+  }
+
+  // Definir permissões por módulo de um solicitante pendente (antes de aprovar).
+  const permPend = ev.target.closest("[data-perm-pendente]");
+  if (permPend) {
+    const alvo = String(permPend.dataset.permPendente || "");
+    const p = pendentesCache.find(x => String(x.EMAIL || "").toLowerCase() === alvo.toLowerCase());
+    abrirPermissoesPendente(alvo, p ? p.NOME : "", (p && p.permissoes) || {});
+    return;
+  }
+
   const aprovar = ev.target.closest("[data-acesso-aprovar]");
   const recusar = ev.target.closest("[data-acesso-recusar]");
   const excluir = ev.target.closest("[data-acesso-excluir]");
@@ -479,6 +650,7 @@ async function onClickAdmin(ev) {
     try {
       await apiPost("/api/acesso/usuario/excluir", { email });
       await carregarSolicitacoesAdmin();
+      carregarPerfisAcesso(true); // some da matriz junto
     } catch (e) { alert(e && e.message ? e.message : "Falha ao excluir o usuário."); }
     return;
   }
@@ -508,25 +680,6 @@ async function onClickAdmin(ev) {
     if (!r.ok) return;
     try { await decidir("recusar", id, r.valor); } catch (e) { alert(e && e.message ? e.message : "Falha ao recusar."); }
   }
-}
-
-// Alteração de privilégio (select) — evento 'change' no painel.
-async function onChangeAdmin(ev) {
-  const sel = ev.target.closest("[data-acesso-nivel]");
-  if (!sel) return;
-  const email = sel.dataset.acessoNivel;
-  const nivel = Number(sel.value);
-  const nomeNivel = nivel >= 3 ? "Super administrador" : (nivel === 2 ? "Administrador" : "Usuário comum");
-  const r = await abrirModal({
-    titulo: "Alterar privilégio",
-    msg: `Definir "${email}" como ${nomeNivel}?`,
-    confirmarTexto: "Confirmar"
-  });
-  if (!r.ok) { await carregarSolicitacoesAdmin(); return; } // cancelou -> recarrega p/ reverter o select
-  try {
-    await apiPost("/api/acesso/usuario/nivel", { email, nivel });
-    await carregarSolicitacoesAdmin();
-  } catch (e) { alert(e && e.message ? e.message : "Falha ao alterar o privilégio."); await carregarSolicitacoesAdmin(); }
 }
 
 // Polling do painel admin: atualiza a lista enquanto a aba está aberta,
@@ -600,12 +753,11 @@ export function configurarAcesso() {
   if (painel && !painel.dataset.bound) {
     painel.dataset.bound = "1";
     painel.addEventListener("click", onClickAdmin);
-    painel.addEventListener("change", onChangeAdmin);
   }
   const navItem = document.querySelector('.navItem[data-view="solicitacoes"]');
   if (navItem && !navItem.dataset.boundAcesso) {
     navItem.dataset.boundAcesso = "1";
-    navItem.addEventListener("click", () => { carregarSolicitacoesAdmin(); });
+    navItem.addEventListener("click", () => { carregarSolicitacoesAdmin(); carregarPerfisAcesso(); });
   }
 
   iniciarPollSolicitacoes();

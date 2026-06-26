@@ -13,9 +13,17 @@
 // =========================================================
 import { escapeAttr, escapeHtml, debounce, safeUrl } from "./utils.js";
 import { preencherSelect } from "./ui-utils.js";
+import { nivelModulo } from "./permissoes.js";
 import { PROCESSOS_SELETIVOS_DADOS } from "./processos-seletivos-dados.js";
 import { EDITAIS_VAGAS_DADOS } from "./editais-vagas-dados.js";
 import { CRONOGRAMA_EDITAIS_DADOS } from "./cronograma-editais-dados.js";
+
+// Adicionar/editar edital e inserir anexo exigem Editor (>= 2) no módulo;
+// o Leitor só visualiza (tabela + detalhes).
+const NIVEL_EDITOR_PS = 2;
+function podeEditarProcessos() {
+  return nivelModulo("processosSeletivos") >= NIVEL_EDITOR_PS;
+}
 
 // ---------- Status (conforme o CSV) e badges ----------
 // "Em Andamento" e "Andamento" são tratados como o mesmo status.
@@ -379,12 +387,13 @@ function renderDetalhe() {
           Período: ${isoParaBr(proc.dataInicio)} a ${isoParaBr(proc.dataEncerramento)}</p>
       </div>
       <div class="psDetalheAcoes">
+        ${podeEditarProcessos() ? `
         <button type="button" class="psBtn psBtnGhost" data-ps-editar="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-pen-to-square"></i> Editar
         </button>
         <button type="button" class="psBtn psBtnGhost" data-ps-anexo="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-file-arrow-up"></i> Inserir anexo
-        </button>
+        </button>` : ""}
         <button type="button" class="psBtn psBtnGhost" data-ps-detalhe="${escapeAttr(proc.id)}">
           Recolher detalhes <i class="fa-solid fa-chevron-up"></i>
         </button>

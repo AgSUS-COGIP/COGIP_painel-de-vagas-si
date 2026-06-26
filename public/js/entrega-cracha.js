@@ -9,6 +9,7 @@
 // mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
 import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv } from "./utils.js";
+import { nivelModulo } from "./permissoes.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
@@ -57,7 +58,7 @@ function escritorioDoDsei(dsei) {
 }
 
 function podeEditar() {
-  return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL_ADMIN;
+  return nivelModulo("entregaCracha") >= NIVEL_ADMIN;
 }
 
 // ---------- Estado da view ----------

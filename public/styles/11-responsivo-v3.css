@@ -289,24 +289,38 @@
         min-height: 100vh;
       }
 
+      /* Barra horizontal compacta no topo: logo + ícones (roláveis) + sair.
+         Flex (não grid) para os filhos não empilharem em linhas e esticarem
+         a barra a ponto de cobrir o conteúdo. */
       .sidebar {
         position: sticky;
         top: 0;
         height: auto;
         min-height: 0;
         z-index: 3000;
-        display: grid;
-        grid-template-columns: auto 1fr;
+        display: flex;
+        flex-direction: row;   /* o .sidebar base é coluna; aqui vira barra horizontal */
+        flex-wrap: nowrap;
         align-items: center;
         gap: 8px;
         padding: 8px 10px;
+      }
+
+      /* Na barra mobile mostra só o logo, os ícones e o botão Sair. */
+      .sidebar .brandTitle,
+      .sidebar .brandSubtitle,
+      .sidebar .brandMeta,
+      .sidebar .sidebarToggle,
+      .sidebar .sidebarSpacer,
+      .sidebar .sidebarUsuarioNome {
+        display: none;
       }
 
       .brand {
         margin: 0;
         display: flex;
         align-items: center;
-        justify-content: start;
+        flex: 0 0 auto;
       }
 
       .brandLogo {
@@ -316,10 +330,22 @@
 
       .nav {
         display: flex;
+        flex-direction: row;
         gap: 6px;
         margin: 0;
-        justify-content: flex-end;
+        justify-content: flex-start;
         overflow-x: auto;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      #sidebarUsuario {
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        display: flex;
+        align-items: center;
       }
 
       .navItem {

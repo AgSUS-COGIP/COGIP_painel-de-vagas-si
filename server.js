@@ -18,6 +18,7 @@ const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataB
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
+const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
 const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirNivelMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { getFeriasData } = require("./lib/ferias");
@@ -123,6 +124,11 @@ function definirCabecalhosSeguranca(req, res, next) {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  // Respostas de API nunca devem ser cacheadas: um 200 antigo no cache do
+  // navegador poderia mascarar um 403 após a permissão ser revogada.
+  if (req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store");
+  }
   // HSTS apenas sob HTTPS/produção (não enviar em http evita travar dev local).
   if (req.secure || String(req.headers["x-forwarded-proto"] || "").toLowerCase().includes("https") || process.env.NODE_ENV === "production") {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -202,33 +208,33 @@ app.get("/api/config", apiLimiter, (req, res) => {
 
 // Dados do painel: exigem sessão fresca (lê o banco) E acesso aprovado, para que
 // usuários autenticados porém ainda pendentes/desativados não leiam os dados.
-app.get("/api/dashboard", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/dashboard", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("visaoGeral", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getDashboardData());
 }));
 
-app.get("/api/dashboard/resumo", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/dashboard/resumo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("visaoGeral", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getDashboardResumoData());
 }));
 
-app.get("/api/dashboard/apoio", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/dashboard/apoio", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("visaoGeral", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getDashboardApoioData());
 }));
 
-app.get("/api/vagas", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/vagas", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("vagas", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getVagasData());
 }));
 
-app.get("/api/alertas", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/alertas", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("alertas", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getAlertasData());
 }));
 
-app.get("/api/alertas/observacoes", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/alertas/observacoes", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("alertas", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json({ observacoes: await getAlertasObservacoesMap() });
 }));
 
 // Escrita de observação: apenas administradores (nível >= 2) editam; demais
 // usuários só visualizam. O autor é sempre derivado do token (nunca do corpo).
-app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("alertas", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = { ...(req.body || {}) };
@@ -243,24 +249,24 @@ app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFresco
 }));
 
 // ---- Dashboard Saúde Indígena (nativo) ----
-app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getSaudeIndigenaData());
 }));
 
 // ---- Gestão de Férias (análise — somente leitura) ----
-app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoFerias", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getFeriasData());
 }));
 
 // ---- Entrega de Crachá ----
-app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirAprovadoMiddleware, asyncHandler(async (req, res) => {
+app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
   res.json(await getCrachaData(forcar));
 }));
 
 // Editar overlay manual (datas / observação) — escrita: administradores.
 // Grava só os campos presentes no corpo, na tabela-companheira (por matrícula).
-app.post("/api/cracha/salvar", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/salvar", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = req.body || {};
@@ -287,7 +293,7 @@ app.post("/api/cracha/salvar", apiLimiter, express.json(), autenticarFrescoMiddl
 }));
 
 // Atualizar somente o status (avançar/voltar etapa) — grava no overlay.
-app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
@@ -302,7 +308,7 @@ app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddl
 }));
 
 // Atualizar o status de várias matrículas de uma vez (ação em lote) — overlay.
-app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
@@ -319,7 +325,7 @@ app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFresco
 
 // Aplicar vários campos (status/datas/devolvido/2ª via/motivo/observação) a um
 // lote de matrículas de uma vez — overlay. Escrita: administradores.
-app.post("/api/cracha/lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
@@ -336,7 +342,7 @@ app.post("/api/cracha/lote", apiLimiter, express.json(), autenticarFrescoMiddlew
 
 // Importar planilha (JSON com linhas já parseadas no cliente). Atualiza quem
 // existe na base e cria quem não existe (no overlay). Escrita: administradores.
-app.post("/api/cracha/importar", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/importar", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
@@ -351,7 +357,7 @@ app.post("/api/cracha/importar", apiLimiter, express.json({ limit: "8mb" }), aut
 }));
 
 // Reverter: desfaz apenas a última alteração (undo de 1 nível), restaurando o estado anterior.
-app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const registro = await reverterControleComConn(conn, (req.body || {}).matricula);
@@ -364,15 +370,15 @@ app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMid
   }
 }));
 
-app.get("/api/remanejamento/lista", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/lista", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoListaData());
 }));
 
-app.get("/api/remanejamento/cadastro", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/cadastro", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoCadastroData());
 }));
 
-app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const [rows] = await conn.query(
@@ -399,11 +405,11 @@ app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, 
   }
 }));
 
-app.get("/api/remanejamento/detalhe/:id", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/detalhe/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoDetalheData(req.params.id));
 }));
 
-app.get("/api/remanejamento/edicao/:id", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/remanejamento/edicao/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoEdicaoData(req.params.id));
 }));
 
@@ -411,8 +417,9 @@ app.put(
   "/api/remanejamento/:id",
   apiLimiter,
   autenticarFrescoMiddleware,
-  exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
-  comNomesUtf8(upload.single("anexo")),
+  exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
+  upload.single("anexo"),
+
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
     try {
@@ -429,7 +436,7 @@ app.delete(
   "/api/remanejamento/:id",
   apiLimiter,
   autenticarFrescoMiddleware,
-  exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
+  exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
     try {
@@ -446,6 +453,7 @@ app.post("/api/login", loginLimiter, express.json(), asyncHandler(async (req, re
   try {
     const resultado = await autenticarUsuario(req.body || {});
     definirCookieSessao(req, res, resultado.token);
+    await anexarPermissoesUsuario(resultado.usuario);
     // O token não é devolvido no corpo: vive só no cookie HttpOnly.
     res.json({ usuario: resultado.usuario, aprovado: resultado.aprovado });
   } catch (err) {
@@ -457,6 +465,7 @@ app.post("/api/login/google", loginLimiter, express.json(), asyncHandler(async (
   try {
     const resultado = await autenticarUsuarioGoogle(req.body || {});
     definirCookieSessao(req, res, resultado.token);
+    await anexarPermissoesUsuario(resultado.usuario);
     res.json({ usuario: resultado.usuario, aprovado: resultado.aprovado });
   } catch (err) {
     res.status(401).json({ error: err && err.message ? err.message : "Falha na autenticação Google." });
@@ -478,11 +487,72 @@ app.get("/api/sessao", apiLimiter, autenticarMiddleware, asyncHandler(async (req
       res.status(401).json({ error: "Sessão encerrada. Faça login novamente." });
       return;
     }
+    // Overrides de permissão por módulo (o front aplica o fallback p/ o nível global).
+    usuario.permissoes = usuario.aprovado ? await obterMapaPermissoesComConn(conn, usuario.email) : {};
     res.json({ usuario });
   } finally {
     await fecharJdbc(conn);
   }
 }));
+
+// Gate da aba de administração de perfis (regra mandatória = matriz). O acesso é
+// definido pelo nível do ator no módulo "solicitacoes": override na matriz ou,
+// na ausência, o padrão — super admin global tem acesso pleno; os demais, nenhum.
+//   minNivel 1 = ver a aba (somente leitura)   2 = administrar (aprovar/editar)
+function nivelAdminEfetivo(mapa, nivelGlobal) {
+  const v = mapa ? mapa.solicitacoes : undefined;
+  if (v === undefined || v === null) {
+    return Number(nivelGlobal) >= DASH_CONFIG.NIVEL_SUPERADMIN ? DASH_CONFIG.NIVEL_SUPERADMIN : 0;
+  }
+  return Number(v);
+}
+
+function exigirAdminPerfisMiddleware(minNivel) {
+  return function (req, res, next) {
+    getMysqlConnection()
+      .then(async (conn) => {
+        try {
+          const mapa = await obterMapaPermissoesComConn(conn, req.usuario.email);
+          const global = Number((req.usuario && req.usuario.nivelAutorizacao) || 0);
+          if (nivelAdminEfetivo(mapa, global) < minNivel) {
+            res.status(403).json({ error: "Você não tem permissão para administrar os perfis de acesso." });
+            return;
+          }
+          next();
+        } finally {
+          await fecharJdbc(conn);
+        }
+      })
+      .catch(next);
+  };
+}
+
+// Gate de uma aba comum pela matriz de perfis (regra mandatória): exige o nível
+// efetivo do ator no módulo informado — override da matriz ou, na ausência, o
+// nível global. Substitui as checagens por nível global nas rotas de mutação,
+// para que rebaixar alguém na matriz realmente bloqueie a edição no servidor.
+//   minNivel 1 = leitor · 2 = editor · 3 = administrador do módulo
+function exigirPermissaoModuloMiddleware(modulo, minNivel) {
+  return function (req, res, next) {
+    getMysqlConnection()
+      .then(async (conn) => {
+        try {
+          const mapa = await obterMapaPermissoesComConn(conn, req.usuario.email);
+          const global = Number((req.usuario && req.usuario.nivelAutorizacao) || 0);
+          const v = mapa[modulo];
+          const efetivo = (v === undefined || v === null) ? global : Number(v);
+          if (efetivo < minNivel) {
+            res.status(403).json({ error: "Você não tem permissão de edição neste módulo." });
+            return;
+          }
+          next();
+        } finally {
+          await fecharJdbc(conn);
+        }
+      })
+      .catch(next);
+  };
+}
 
 // ---- Fluxo de solicitação/aprovação de acesso ----
 
@@ -521,18 +591,24 @@ app.get("/api/acesso/minha-solicitacao", apiLimiter, autenticarMiddleware, async
   }
 }));
 
-// Admin: lista pendentes + histórico.
-app.get("/api/acesso/solicitacoes", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+// Super admin: lista pendentes + histórico (aba exclusiva de super administradores).
+app.get("/api/acesso/solicitacoes", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(1), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
-    res.json(await listarSolicitacoesComConn(conn));
+    const dados = await listarSolicitacoesComConn(conn);
+    // Anexa os overrides de permissão por módulo de cada pendente, para o admin
+    // poder pré-definir o acesso (por e-mail) antes mesmo de aprovar a solicitação.
+    for (const p of dados.pendentes || []) {
+      p.permissoes = await obterMapaPermissoesComConn(conn, p.EMAIL);
+    }
+    res.json(dados);
   } finally {
     await fecharJdbc(conn);
   }
 }));
 
-// Admin: aprova (libera o acesso imediatamente).
-app.post("/api/acesso/solicitacoes/:id/aprovar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+// Super admin: aprova (libera o acesso imediatamente).
+app.post("/api/acesso/solicitacoes/:id/aprovar", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const adminEmail = (req.usuario && (req.usuario.email || req.usuario.login)) || "admin";
@@ -545,8 +621,8 @@ app.post("/api/acesso/solicitacoes/:id/aprovar", apiLimiter, autenticarFrescoMid
   }
 }));
 
-// Admin: recusa (justificativa obrigatória).
-app.post("/api/acesso/solicitacoes/:id/recusar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), express.json(), asyncHandler(async (req, res) => {
+// Super admin: recusa (justificativa obrigatória).
+app.post("/api/acesso/solicitacoes/:id/recusar", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const adminEmail = (req.usuario && (req.usuario.email || req.usuario.login)) || "admin";
@@ -560,7 +636,7 @@ app.post("/api/acesso/solicitacoes/:id/recusar", apiLimiter, autenticarFrescoMid
 }));
 
 // Super admin: exclui o usuário das duas tabelas (usuários + solicitações).
-app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_SUPERADMIN), express.json(), asyncHandler(async (req, res) => {
+app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const resultado = await excluirUsuarioComConn(conn, (req.body || {}).email);
@@ -573,7 +649,7 @@ app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, 
 }));
 
 // Super admin: define o privilégio (nível) de um usuário.
-app.post("/api/acesso/usuario/nivel", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_SUPERADMIN), express.json(), asyncHandler(async (req, res) => {
+app.post("/api/acesso/usuario/nivel", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = req.body || {};
@@ -581,6 +657,69 @@ app.post("/api/acesso/usuario/nivel", apiLimiter, autenticarFrescoMiddleware, ex
     res.json({ ok: true, ...resultado });
   } catch (err) {
     res.status(400).json({ error: err && err.message ? err.message : "Falha ao alterar o privilégio." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Enriquece o objeto de usuário (devolvido no login) com os overrides de
+// permissão por módulo. Best-effort: uma falha aqui não impede o login.
+async function anexarPermissoesUsuario(usuario) {
+  if (!usuario || !usuario.aprovado) { if (usuario) usuario.permissoes = {}; return; }
+  const conn = await getMysqlConnection();
+  try {
+    usuario.permissoes = await obterMapaPermissoesComConn(conn, usuario.email);
+  } catch (e) {
+    usuario.permissoes = {};
+  } finally {
+    await fecharJdbc(conn);
+  }
+}
+
+// ---- Perfis de acesso (matriz de permissões por módulo) ----
+
+// Super admin: lista os módulos e os usuários aprovados com seus overrides.
+app.get("/api/acesso/perfis", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(1), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuarios = await listarPerfisAcessoComConn(conn);
+    res.json({ modulos: MODULOS_PERMISSAO, usuarios });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Super admin: define o nível de um usuário em um módulo (uma célula da matriz).
+app.post("/api/acesso/perfis/permissao", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    // Trava de auto-bloqueio: ninguém pode reduzir o próprio acesso à aba de
+    // administração (módulo "solicitacoes") abaixo de Editor — evita se trancar
+    // do fora. Para rebaixar a si mesmo, peça a outro super administrador.
+    const alvo = String(body.email || "").trim().toLowerCase();
+    const ator = String((req.usuario && req.usuario.email) || "").trim().toLowerCase();
+    if (alvo && alvo === ator && String(body.modulo) === "solicitacoes" && Number(body.nivel) < 2) {
+      res.status(400).json({ error: "Você não pode remover o seu próprio acesso à administração de perfis." });
+      return;
+    }
+    const resultado = await definirPermissaoModuloComConn(conn, body.email, body.modulo, body.nivel);
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao definir a permissão." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Super admin: remove todos os overrides de um usuário (volta ao nível global).
+app.post("/api/acesso/perfis/limpar", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const resultado = await limparPermissoesUsuarioComConn(conn, (req.body || {}).email);
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao limpar as permissões." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -612,7 +751,7 @@ function exigirResponsavel(req, responsavel) {
   }
 }
 
-app.get("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     res.json({ pedidos: await listarPedidosComConn(conn) });
@@ -621,7 +760,7 @@ app.get("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirNivelM
   }
 }));
 
-app.get("/api/disciplinar/categorias", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/disciplinar/categorias", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     res.json({ categorias: await listarCategoriasComConn(conn) });
@@ -630,7 +769,7 @@ app.get("/api/disciplinar/categorias", apiLimiter, autenticarFrescoMiddleware, e
   }
 }));
 
-app.get("/api/disciplinar/trabalhadores", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/disciplinar/trabalhadores", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     res.json({ trabalhadores: await buscarTrabalhadoresComConn(conn, (req.query || {}).q) });
@@ -639,7 +778,7 @@ app.get("/api/disciplinar/trabalhadores", apiLimiter, autenticarFrescoMiddleware
   }
 }));
 
-app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), comNomesUtf8(upload.fields([{ name: "oficio", maxCount: 1 }, { name: "anexos", maxCount: 20 }])), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), upload.fields([{ name: "oficio", maxCount: 1 }, { name: "anexos", maxCount: 20 }]), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = { ...(req.body || {}) };
@@ -659,7 +798,7 @@ app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirNivel
   }
 }));
 
-app.post("/api/disciplinar/:id/pedido", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/pedido", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
@@ -672,7 +811,7 @@ app.post("/api/disciplinar/:id/pedido", apiLimiter, express.json(), autenticarFr
   }
 }));
 
-app.post("/api/disciplinar/:id/demanda", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/demanda", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
@@ -685,7 +824,7 @@ app.post("/api/disciplinar/:id/demanda", apiLimiter, express.json(), autenticarF
   }
 }));
 
-app.post("/api/disciplinar/:id/sancao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/sancao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
@@ -699,7 +838,8 @@ app.post("/api/disciplinar/:id/sancao", apiLimiter, express.json(), autenticarFr
 }));
 
 // Upload do termo/documento comprobatório da sanção (guardado em BLOB) — exclusivo do responsável.
-app.post("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), comNomesUtf8(upload.single("termo")), asyncHandler(async (req, res) => {
+
+app.post("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), upload.single("termo"), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
@@ -713,7 +853,7 @@ app.post("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddle
 }));
 
 // Download do termo da sanção (qualquer usuário aprovado pode baixar).
-app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const termo = await obterTermoSancaoComConn(conn, req.params.id);
@@ -733,7 +873,7 @@ app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddlew
 }));
 
 // Assumir/delegar responsável — exclusivo de administradores.
-app.post("/api/disciplinar/:id/responsavel", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/responsavel", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const body = req.body || {};
@@ -750,7 +890,7 @@ app.post("/api/disciplinar/:id/responsavel", apiLimiter, express.json(), autenti
 }));
 
 // Excluir pedido (cascade) — exclusivo de administradores.
-app.post("/api/disciplinar/:id/excluir", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/excluir", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const resultado = await excluirPedidoComConn(conn, req.params.id);
@@ -763,7 +903,7 @@ app.post("/api/disciplinar/:id/excluir", apiLimiter, autenticarFrescoMiddleware,
 }));
 
 // Anexar arquivos (vários, de um tipo) a um pedido — exclusivo do responsável atual.
-app.post("/api/disciplinar/:id/anexos", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), comNomesUtf8(upload.array("anexos", 10)), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/:id/anexos", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), upload.array("anexos", 10), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
@@ -778,7 +918,7 @@ app.post("/api/disciplinar/:id/anexos", apiLimiter, autenticarFrescoMiddleware, 
 }));
 
 // Download de uma prova (qualquer usuário aprovado pode visualizar/baixar).
-app.get("/api/disciplinar/anexo/:idAnexo", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+app.get("/api/disciplinar/anexo/:idAnexo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const prova = await obterProvaComConn(conn, req.params.idAnexo);
@@ -800,7 +940,7 @@ app.get("/api/disciplinar/anexo/:idAnexo", apiLimiter, autenticarFrescoMiddlewar
 }));
 
 // Remover uma prova — exclusivo do responsável atual do pedido.
-app.post("/api/disciplinar/anexo/:idAnexo/excluir", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/disciplinar/anexo/:idAnexo/excluir", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     exigirResponsavel(req, await responsavelDoAnexoComConn(conn, req.params.idAnexo));
@@ -817,8 +957,8 @@ app.post(
   "/api/remanejamento/salvar",
   apiLimiter,
   autenticarFrescoMiddleware,
-  exigirNivelMiddleware(DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
-  comNomesUtf8(upload.single("anexo")),
+  exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_REMANEJAMENTO_SALVAR),
+  upload.single("anexo"),
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
     try {
@@ -887,7 +1027,7 @@ app.post(
   "/api/processos-seletivos/extrair-anexo",
   apiLimiter,
   autenticarFrescoMiddleware,
-  exigirAprovadoMiddleware,
+  exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN),
   comNomesUtf8(upload.single("anexo")),
   asyncHandler(async (req, res) => {
     if (!req.file || !req.file.buffer || !req.file.buffer.length) {
@@ -907,6 +1047,13 @@ app.post(
     }
   })
 );
+
+// Rotas de API inexistentes retornam 404 JSON (não caem no SPA). Evita devolver
+// o index.html para um /api/... errado — o que confundia testes (HTML 200) e
+// mascarava a distinção entre "rota não existe" e "sem permissão" (403).
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "Rota de API não encontrada." });
+});
 
 // Catch-all do SPA: serve o index.html. Faz acesso ao filesystem, então também
 // passa pelo rate limiter geral (mitiga DoS por rajada de requisições).
@@ -957,6 +1104,10 @@ if (require.main === module) {
 
   garantirTabelaSolicitacoesAcesso().catch(err => {
     console.error("Não foi possível garantir a tabela de solicitações de acesso:", err && err.message ? err.message : err);
+  });
+
+  garantirTabelaPermissoesModulos().catch(err => {
+    console.error("Não foi possível garantir a tabela de permissões por módulo:", err && err.message ? err.message : err);
   });
 
   garantirColunaConteudoProva().catch(err => {

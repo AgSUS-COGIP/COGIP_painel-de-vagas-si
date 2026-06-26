@@ -2,6 +2,7 @@ import { renderAlertasDaPagina, renderAlertasErro } from "./alertas.js";
 import { apiGet, apiPost, carregarConfiguracaoApp_ } from "./api.js";
 import { configurarLogin, verificarSessaoInicial } from "./auth.js";
 import { configurarAcesso } from "./acesso.js";
+import { configurarPerfisAcesso, podeVerModulo } from "./permissoes.js";
 import { aplicarAcessibilidade } from "./a11y.js";
 import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo } from "./charts.js";
 import { COLORS } from "./constants.js";
@@ -47,6 +48,7 @@ export async function init() {
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();
+  configurarPerfisAcesso();
   // Padroniza TODOS os <select> nativos do app como dropdown pesquisável (e
   // observa o DOM para cobrir selects criados dinamicamente). Os filtros
   // multi-seleção de SI/Férias são <div> (não <select>), então não são afetados.
@@ -93,11 +95,39 @@ export function configurarResponsividadePainel() {
   });
 }
 
+// Cria os multiselects do topo (DSEI, cargo, tipo de alerta) uma única vez, a
+// partir do primeiro payload que trouxer os filtros (resumo OU vagas). Assim, um
+// usuário sem acesso à Visão Geral (que não busca o resumo) ainda recebe os
+// filtros ao carregar a aba de Vagas.
+function garantirFiltrosMultiSelect(filtros) {
+  if (state.filtrosCriados) return;
+  filtros = filtros || { dseis: [], cargos: [] };
+  criarMultiSelect("fDsei", (filtros.dseis || []).map(v => ({ value: v, label: v })), "Todos os DSEIs/CASAIs");
+  criarMultiSelect("fCargo", (filtros.cargos || []).map(v => ({ value: v, label: v })), "Todos os cargos");
+  criarMultiSelect("fTipoAlerta", [
+    { value: "AFASTAMENTO_SEM_SUBSTITUTO", label: "Afastamento sem substituto" },
+    { value: "SUBSTITUICAO_SEGURANDO_VAGA", label: "Substituição sem afastado" },
+    { value: "TEMPORARIO_ATIVO", label: "Temporário ativo" },
+    { value: "VAGA_EXCEDENTE", label: "Vaga excedente" },
+    { value: "RT_EXCEDENTE", label: "RT excedente" }
+  ], "Todos os alertas");
+  state.filtrosCriados = true;
+}
+
 export function carregarDadosInicial() {
   const loading = document.getElementById("loading");
   if (loading) loading.style.display = "grid";
 
   marcarDetalhesCarregandoInicial();
+
+  // A Visão Geral é gateada como qualquer módulo: só busca o resumo quem tem
+  // acesso. Sem acesso, a aba já está oculta e a navegação redireciona para a
+  // primeira aba permitida; os filtros do topo são populados pela aba que carregar.
+  if (!podeVerModulo("visaoGeral")) {
+    if (loading) loading.style.display = "none";
+    iniciarCarregamentoPaginasEmSegundoPlano();
+    return;
+  }
 
   apiGet("/api/dashboard/resumo")
     .then(onResumoDataLoaded)
@@ -121,31 +151,7 @@ export function onResumoDataLoaded(payload) {
 
   document.getElementById("updatedAt").innerText = payload.atualizadoEm || "-";
 
-  const filtros = payload.filtros || { dseis: [], cargos: [] };
-
-  criarMultiSelect(
-    "fDsei",
-    (filtros.dseis || []).map(v => ({ value: v, label: v })),
-    "Todos os DSEIs/CASAIs"
-  );
-
-  criarMultiSelect(
-    "fCargo",
-    (filtros.cargos || []).map(v => ({ value: v, label: v })),
-    "Todos os cargos"
-  );
-
-  criarMultiSelect(
-    "fTipoAlerta",
-    [
-      { value: "AFASTAMENTO_SEM_SUBSTITUTO", label: "Afastamento sem substituto" },
-      { value: "SUBSTITUICAO_SEGURANDO_VAGA", label: "Substituição sem afastado" },
-      { value: "TEMPORARIO_ATIVO", label: "Temporário ativo" },
-      { value: "VAGA_EXCEDENTE", label: "Vaga excedente" },
-      { value: "RT_EXCEDENTE", label: "RT excedente" }
-    ],
-    "Todos os alertas"
-  );
+  garantirFiltrosMultiSelect(payload.filtros);
 
   renderResumoInicial(payload);
 
@@ -351,14 +357,19 @@ export async function recarregarTodosOsDados(botao) {
     // Garante leitura fresca do banco (monitoramento, vagas ociosas, lista, etc.).
     await apiPost("/api/cache/clear", {}).catch(() => { });
 
-    const resumo = await apiGet("/api/dashboard/resumo").catch(() => null);
-    if (resumo) renderResumoInicial(resumo);
+    if (podeVerModulo("visaoGeral")) {
+      const resumo = await apiGet("/api/dashboard/resumo").catch(() => null);
+      if (resumo) renderResumoInicial(resumo);
+    }
 
-    // Força o recarregamento de todas as páginas (carregadas ou não).
+    // Força o recarregamento das páginas que o usuário tem permissão de ver
+    // (os loaders de Vagas/Alertas já se autoguardam; o backend bloqueia o resto).
     carregarVagasEmSegundoPlano(true);
     carregarAlertasEmSegundoPlano(true);
-    carregarRemanejamentoListaEmSegundoPlano(true);
-    carregarRemanejamentoCadastroEmSegundoPlano(true);
+    if (podeVerModulo("remanejamento")) {
+      carregarRemanejamentoListaEmSegundoPlano(true);
+      carregarRemanejamentoCadastroEmSegundoPlano(true);
+    }
   } catch (error) {
     console.error("Falha ao atualizar os dados do painel:", error);
   } finally {
@@ -380,8 +391,12 @@ export function recarregarPaginasEmSegundoPlano() {
   // filtrar os dados desde a primeira tela (sem precisar abrir a aba Vagas antes).
   carregarVagasEmSegundoPlano();
   carregarAlertasEmSegundoPlano();
-  carregarRemanejamentoListaEmSegundoPlano();
-  carregarRemanejamentoCadastroEmSegundoPlano();
+  // Remanejamento só pré-carrega se o usuário tiver acesso ao módulo (evita 403
+  // desnecessário para quem está em "Sem acesso" — o backend bloqueia a leitura).
+  if (podeVerModulo("remanejamento")) {
+    carregarRemanejamentoListaEmSegundoPlano();
+    carregarRemanejamentoCadastroEmSegundoPlano();
+  }
 }
 
 export function garantirCarregamentoPagina(view) {
@@ -416,6 +431,7 @@ function carregarPaginaEmSegundoPlano({ chave, endpoint, forcar, antes, aoCarreg
 }
 
 export function carregarVagasEmSegundoPlano(forcar) {
+  if (!podeVerModulo("vagas")) return; // sem acesso à aba Vagas: backend bloqueia o GET
   carregarPaginaEmSegundoPlano({
     chave: "vagas",
     endpoint: "/api/vagas",
@@ -433,6 +449,8 @@ export function carregarVagasEmSegundoPlano(forcar) {
       if (payload.indicadores) {
         state.indicadoresResumoBase = payload.indicadores;
       }
+      // Garante os filtros do topo mesmo quando a Visão Geral (resumo) não foi carregada.
+      garantirFiltrosMultiSelect(payload.filtros);
       if (payload.atualizadoEm) document.getElementById("updatedAt").innerText = payload.atualizadoEm;
       aplicarFiltros();
     },
@@ -441,6 +459,7 @@ export function carregarVagasEmSegundoPlano(forcar) {
 }
 
 export function carregarAlertasEmSegundoPlano(forcar) {
+  if (!podeVerModulo("alertas")) return; // sem acesso à aba Alertas: backend bloqueia o GET
   carregarPaginaEmSegundoPlano({
     chave: "alertas",
     endpoint: "/api/alertas",

@@ -451,13 +451,13 @@ select.ecInput {
 
 /* Modo somente leitura (usuário sem nível de admin): esconde controles de escrita. */
 .ec-readonly #ecBtnNova,
-.ec-readonly .ecAcoesEscritorio,
-.ec-readonly .ecObsLabel,
-.ec-readonly #ecDetObs,
-.ec-readonly #ecBtnSalvarObs,
 .ec-readonly .ecColSelect,
 .ec-readonly .ecBtnImportar,
-.ec-readonly #ecLoteBar { display: none; }
+.ec-readonly #ecLoteBar,
+/* Esconde os blocos inteiros "Atualizar Status" e "Observações" do detalhe
+   (inclui títulos e contador), e não só os controles internos — assim o Leitor
+   não vê seções vazias e inúteis. */
+.ec-readonly .ecDetalheGridAcoes { display: none; }
 
 /* Resultado da importação (erros por linha). */
 .ecImportInfo {
