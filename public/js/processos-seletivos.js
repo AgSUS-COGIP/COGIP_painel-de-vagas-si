@@ -151,25 +151,25 @@ function renderTabela() {
   const pagina = lista.slice(inicio, inicio + POR_PAGINA);
 
   if (!pagina.length) {
-    body.innerHTML = `<tr><td colspan="8" class="psEmpty">Nenhum edital encontrado para os filtros selecionados.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="psEmpty">Nenhum edital encontrado para os filtros selecionados.</td></tr>`;
   } else {
     body.innerHTML = pagina.map(p => {
       const aberto = processoExpandido === p.id;
       return `
-        <tr class="${aberto ? "is-expandido" : ""}">
+        <tr class="psRow ${aberto ? "is-expandido" : ""}" data-ps-detalhe="${escapeAttr(p.id)}"
+          role="button" tabindex="0" aria-expanded="${aberto ? "true" : "false"}"
+          title="${aberto ? "Recolher detalhes do edital" : "Ver detalhes do edital"}">
           <td class="psCelNome">${escapeHtml(p.unidade)}</td>
           <td class="psTd-center">${escapeHtml(p.uf || "—")}</td>
           <td class="psTd-center">${escapeHtml(p.edital || "—")}</td>
           <td class="psTd-center">${isoParaBr(p.dataInicio)}</td>
           <td class="psTd-center">${isoParaBr(p.dataEncerramento)}</td>
           <td>${badgeStatus(p.status)}</td>
-          <td>${escapeHtml(p.responsavel || "—")}</td>
-          <td class="psTd-center">
-            <button type="button" class="psAcaoBtn ${aberto ? "is-aberto" : ""}" data-ps-detalhe="${escapeAttr(p.id)}"
-              title="Ver detalhes do edital">
-              <span>Detalhes</span>
-              <i class="fa-solid fa-chevron-down"></i>
-            </button>
+          <td>
+            <div class="psRespCel">
+              <span>${escapeHtml(p.responsavel || "—")}</span>
+              <i class="fa-solid fa-chevron-down psRowChevron ${aberto ? "is-aberto" : ""}" aria-hidden="true"></i>
+            </div>
           </td>
         </tr>`;
     }).join("");
@@ -709,5 +709,12 @@ export function configurarProcessosSeletivos() {
 
     const pag = event.target.closest("[data-ps-pagina]");
     if (pag) { paginaAtual = Number(pag.dataset.psPagina) || 1; renderTabela(); return; }
+  });
+
+  // Acessibilidade: linhas clicáveis também respondem a Enter/Espaço.
+  raiz.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const linha = event.target.closest("tr.psRow[data-ps-detalhe]");
+    if (linha) { event.preventDefault(); alternarDetalhe(linha.dataset.psDetalhe); }
   });
 }

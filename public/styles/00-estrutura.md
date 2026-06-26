@@ -54,6 +54,7 @@ Esse é o padrão para "regra que precisa ganhar de todas": uma camada-topo dedi
 | **16-acesso.css** | Página de Solicitações de Acesso e modal central reutilizável. |
 | **17-gestao-ferias.css** | Aba de Gestão de Férias (painéis, tabelas, badges, toast). |
 | **18-processos-seletivos.css** | Aba de Processos Seletivos (KPIs, tabela, badges de status, paginação, painel de detalhamento e modal de cadastro). |
+| **26-tabelas-padrao.css** | **Pele comum de TODAS as tabelas-grade** (estilo da aba Vagas): cabeçalho gradiente, listras azul-claras, hover azul e scrollbar azul. Camada-topo (`tabelas-padrao`) declarada **depois** dos módulos — vence a cascata sem `!important`. Mexa aqui para mudar o visual compartilhado das tabelas. Preserva recursos próprios (coluna destacada, linha de total, badges, linhas de estado) via `:not()`. |
 
 ## Onde mexer — referência rápida
 
@@ -62,7 +63,8 @@ Esse é o padrão para "regra que precisa ganhar de todas": uma camada-topo dedi
 | Cores / tema | `01-base.css` (`:root`) | — |
 | Menu lateral | `08-menu-lateral.css` | `09`, `10`, `11`, `12` |
 | Tela de login | `13-remanejamento-compacto.css` | — |
-| Tabelas (Vagas/Alertas) | `03-layout-claro.css` | `01`, `06`, `07`, `11` |
+| Estilo comum das tabelas (todas) | `26-tabelas-padrao.css` | vence todos os módulos |
+| Tabelas (Vagas/Alertas) | `03-layout-claro.css` | `01`, `06`, `07`, `11`, `26` |
 | KPIs / cards | `01-base.css` / `03` | `07`, `10`, `11`, `14` |
 | Gráficos da Visão Geral | `07-visao-geral-responsiva.css` | `11`, `12`, `14` |
 | Remanejamento | `06-remanejamento.css` | `13` |

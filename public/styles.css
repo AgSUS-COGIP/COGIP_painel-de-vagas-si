@@ -41,6 +41,8 @@
   filtros-padrao,
   date-picker,
   perfis-acesso,
+  file-input,
+  tabelas-padrao,
   sidebar-state,
   view-visibility;
 
@@ -69,8 +71,8 @@
 @import url("./styles/23-filtros-padrao.css") layer(filtros-padrao);
 @import url("./styles/24-date-picker.css") layer(date-picker);
 @import url("./styles/25-file-input.css") layer(file-input);
-@import url("./styles/26-perfis-acesso.css") layer(perfis-acesso);
-
+@import url("./styles/26-tabelas-padrao.css") layer(tabelas-padrao);
+@import url("./styles/27-perfis-acesso.css") layer(perfis-acesso);
 
 /*
   ESTADO RECOLHIDO DO MENU LATERAL -- camada-topo, vence as larguras de `.app`.
