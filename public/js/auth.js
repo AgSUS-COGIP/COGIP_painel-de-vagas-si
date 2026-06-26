@@ -3,6 +3,7 @@ import { carregarDadosInicial } from "./app.js";
 import { state } from "./state.js";
 import { mostrarAcessoPendente } from "./acesso.js";
 import { atualizarPermissaoGestaoDisciplinar } from "./gestao-disciplinar.js";
+import { aplicarPermissoesModulos, nivelModulo, podeVerPerfis, temAlgumModuloVisivel } from "./permissoes.js";
 
 export function configurarLogin() {
   // O acesso ao painel é exclusivamente por conta institucional (Google).
@@ -158,30 +159,41 @@ function definirVisibilidadeNav(elemento, visivel) {
 export function aplicarPermissoesUsuario() {
   const nivel = state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
 
-  // Nível 0: sem acesso à página de Remanejamento (oculta o menu).
-  definirVisibilidadeNav(document.querySelector('.navItem[data-view="remanejamento"]'), nivel >= 1);
+  // Esconde as abas marcadas como "Sem acesso" na matriz de perfis e, se a aba
+  // ativa ficou inacessível, redireciona para a primeira aba visível.
+  aplicarPermissoesModulos();
 
-  // Aba de gestão de solicitações de acesso: apenas administradores (nível >= 2).
-  definirVisibilidadeNav(document.querySelector('.navItem[data-view="solicitacoes"]'), nivel >= 2);
+  // Aba de Solicitações / Perfis de Acesso: super admin global E com o módulo
+  // "solicitacoes" liberado (a própria matriz pode rebaixar/ocultar de um super
+  // admin). É a regra mandatória de acesso à administração de permissões.
+  definirVisibilidadeNav(document.querySelector('.navItem[data-view="solicitacoes"]'), podeVerPerfis());
 
-  // Nível 1: pode visualizar, mas o botão salvar fica desabilitado. Nível 2: libera tudo.
+  // Edição de remanejamento exige permissão de Editor (nível >= 2) NO MÓDULO.
+  const nivelRemanejamento = nivelModulo("remanejamento");
+  const podeSalvarRemanejamento = nivelRemanejamento >= 2;
+
+  // Leitor não salva: o card "5. Documentação do Remanejamento" (Processo SEI,
+  // observação, anexo e botão Salvar) fica oculto para ele. O backend também
+  // bloqueia o POST /api/remanejamento/salvar por permissão de módulo.
+  const docBox = document.getElementById("remDocBox");
+  if (docBox) docBox.style.display = podeSalvarRemanejamento ? "" : "none";
+
   const btnSalvar = document.getElementById("remSaveBtn");
   if (btnSalvar) {
-    const podeSalvar = nivel >= 2;
-    btnSalvar.disabled = !podeSalvar;
-    btnSalvar.title = podeSalvar ? "" : "Você não tem permissão para salvar remanejamentos.";
+    btnSalvar.disabled = !podeSalvarRemanejamento;
+    btnSalvar.title = podeSalvarRemanejamento ? "" : "Você não tem permissão para salvar remanejamentos.";
   }
 
-  // "Mês do remanejamento" só aparece para nível 3 (mesmo nível que pode alterar
-  // remanejamentos existentes — o botão de editar é controlado no render da lista).
+  // "Mês do remanejamento" só aparece para Administrador do módulo (nível 3),
+  // mesmo nível que pode alterar remanejamentos existentes.
   const mesWrap = document.getElementById("remMesWrap");
-  if (mesWrap) mesWrap.style.display = nivel >= 3 ? "" : "none";
+  if (mesWrap) mesWrap.style.display = nivelRemanejamento >= 3 ? "" : "none";
 
-  // Se o usuário sem acesso estiver na aba de remanejamento, volta para a Visão Geral.
-  if (nivel < 1 && state.activeView === "remanejamento") {
-    const navVisao = document.querySelector('.navItem[data-view="visaoGeral"]');
-    if (navVisao) navVisao.click();
-  }
+  // Processos Seletivos: "Adicionar edital" exige Editor (>= 2). Leitor não vê o
+  // botão (os botões Editar/Inserir anexo do detalhe são ocultados no render do
+  // módulo; o backend bloqueia a extração de anexo por permissão).
+  const btnAddEdital = document.getElementById("psBtnAddEdital");
+  if (btnAddEdital) btnAddEdital.style.display = nivelModulo("processosSeletivos") >= 2 ? "" : "none";
 
   const wrap = document.getElementById("sidebarUsuario");
   const nome = document.getElementById("sidebarUsuarioNome");
@@ -193,6 +205,13 @@ export function aplicarPermissoesUsuario() {
   // O nível recém-carregado pode liberar a edição na Gestão Disciplinar: re-renderiza
   // o detalhamento para refletir a permissão (resolve o caso do 1º acesso).
   atualizarPermissaoGestaoDisciplinar();
+
+  // Sem acesso a NENHUMA aba: mostra a tela de aviso no lugar do painel.
+  const temAcesso = temAlgumModuloVisivel();
+  const telaSemAcesso = document.getElementById("semAcessoScreen");
+  const app = document.querySelector(".app");
+  if (telaSemAcesso) telaSemAcesso.style.display = temAcesso ? "none" : "grid";
+  if (app) app.style.display = temAcesso ? "" : "none";
 }
 
 // Heartbeat: revalida a sessão no servidor periodicamente.
@@ -224,7 +243,8 @@ async function verificarMudancaSessao() {
   const anterior = state.painelLoginUsuario || {};
   const mudouAprovacao = !!usuario.aprovado !== !!anterior.aprovado;
   const mudouNivel = Number(usuario.nivelAutorizacao || 0) !== Number(anterior.nivelAutorizacao || 0);
-  if (mudouAprovacao || mudouNivel) {
+  const mudouPermissoes = JSON.stringify(usuario.permissoes || {}) !== JSON.stringify(anterior.permissoes || {});
+  if (mudouAprovacao || mudouNivel || mudouPermissoes) {
     // Status ou privilégio mudou (ex.: aprovado enquanto esperava, virou/deixou de ser admin).
     state.painelLoginUsuario = usuario;
     window.location.reload();

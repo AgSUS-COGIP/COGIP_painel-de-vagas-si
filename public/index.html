@@ -179,6 +179,38 @@
     <div class="loader" aria-hidden="true"></div>
   </div>
 
+  <!-- Usuário aprovado, porém sem acesso a NENHUMA aba: aviso no lugar do painel. -->
+  <div id="semAcessoScreen" class="loginScreen acessoScreen" style="display:none;">
+    <aside class="acessoBrandPane" aria-hidden="true">
+      <img class="acessoBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+      <div class="acessoBrandTitle">Ag<strong>SUS</strong></div>
+      <div class="acessoBrandSubtitle">EGO - Ecossistema de Gerenciamento<br>Organizacional</div>
+    </aside>
+
+    <div class="loginCard acessoCard">
+      <div class="acessoCardBrand">
+        <img class="acessoCardLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+        <div class="acessoCardBrandText">Ag<strong>SUS</strong><span>SAÚDE INDÍGENA</span></div>
+      </div>
+      <div class="acessoBadge acessoBadgeWarn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Sem permissões</div>
+      <h2 class="loginTitle">Você não tem acesso a nenhuma área</h2>
+      <div class="acessoStatusBanner statusNovo">
+        Seu acesso foi aprovado, mas nenhuma aba do painel está liberada para o seu perfil.
+        Entre em contato com um administrador para solicitar as permissões necessárias.
+      </div>
+      <div class="acessoSuporte">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        <div>
+          <strong>Precisa de acesso?</strong>
+          <span>Um super administrador define suas permissões em Perfis de Acesso.</span>
+        </div>
+      </div>
+      <button type="button" class="loginBtn loginBtnSecundario acLogoutLink" data-click="logout">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sair
+      </button>
+    </div>
+  </div>
+
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
@@ -217,7 +249,7 @@
 
         <button type="button" class="navItem" data-view="painelSaudeIndigena">
           <span class="navIcon"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
-          <span>Dashboard SI</span>
+          <span>Painel da Força de Trabalho</span>
         </button>
 
         <button type="button" class="navItem" data-view="gestaoFerias">
@@ -897,7 +929,7 @@
             <!-- Destaque: composição por raça/cor (DSEIs e cargos) -->
             <h3 class="siSecTitle siSecTitleDestaque"><i class="fa-solid fa-feather-pointed"></i> Composição por Raça / Cor</h3>
             <section class="siChartsGrid">
-              <article class="siCard siCardWide">
+              <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-ranking-star"></i> Top 10 DSEIs / CASAIs por raça / cor</h3>
                   <button type="button" class="siCardExport" data-export="siChartRacaDsei" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
@@ -905,12 +937,20 @@
                 <div class="siChartBox siChartTall"><canvas id="siChartRacaDsei"></canvas></div>
               </article>
 
-              <article class="siCard siCardWide">
+              <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-id-badge"></i> Top 10 cargos por raça / cor</h3>
                   <button type="button" class="siCardExport" data-export="siChartRacaCargo" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox siChartTall"><canvas id="siChartRacaCargo"></canvas></div>
+              </article>
+
+              <article class="siCard siCardWide">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-graduation-cap"></i> Grau de instrução por raça / cor</h3>
+                  <button type="button" class="siCardExport" data-export="siChartRacaGrau" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                </div>
+                <div class="siChartBox siChartTall"><canvas id="siChartRacaGrau"></canvas></div>
               </article>
             </section>
 
@@ -965,12 +1005,39 @@
                 <div class="siChartBox siChartTall"><canvas id="siChartGrau"></canvas></div>
               </article>
 
+            </section>
+
+            <!-- Movimentação de pessoal: admissões e desligamentos no tempo -->
+            <h3 class="siSecTitle"><i class="fa-solid fa-arrow-trend-up"></i> Movimentação de pessoal</h3>
+            <section class="siChartsGrid">
               <article class="siCard siCardWide">
                 <div class="siCardHead">
-                  <h3 class="siCardTitle"><i class="fa-solid fa-map-location-dot"></i> Distribuição por UF</h3>
-                  <button type="button" class="siCardExport" data-export="siChartUf" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <h3 class="siCardTitle"><i class="fa-solid fa-user-plus"></i> Admissões por período</h3>
+                  <div class="siCardHeadAcoes">
+                    <div class="siGranToggle" role="group" aria-label="Detalhar admissões por">
+                      <button type="button" class="siGranBtn is-ativo" data-si-gran="ano" data-si-gran-alvo="admissao">Ano</button>
+                      <button type="button" class="siGranBtn" data-si-gran="mes" data-si-gran-alvo="admissao">Mês</button>
+                      <button type="button" class="siGranBtn" data-si-gran="dia" data-si-gran-alvo="admissao">Dia</button>
+                    </div>
+                    <button type="button" class="siCardExport" data-export="siChartAdmissoes" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  </div>
                 </div>
-                <div class="siChartBox"><canvas id="siChartUf"></canvas></div>
+                <div class="siChartBox"><canvas id="siChartAdmissoes"></canvas></div>
+              </article>
+
+              <article class="siCard siCardWide">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-user-minus"></i> Desligamentos por período</h3>
+                  <div class="siCardHeadAcoes">
+                    <div class="siGranToggle" role="group" aria-label="Detalhar desligamentos por">
+                      <button type="button" class="siGranBtn is-ativo" data-si-gran="ano" data-si-gran-alvo="deslig">Ano</button>
+                      <button type="button" class="siGranBtn" data-si-gran="mes" data-si-gran-alvo="deslig">Mês</button>
+                      <button type="button" class="siGranBtn" data-si-gran="dia" data-si-gran-alvo="deslig">Dia</button>
+                    </div>
+                    <button type="button" class="siCardExport" data-export="siChartDesligamentos" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  </div>
+                </div>
+                <div class="siChartBox"><canvas id="siChartDesligamentos"></canvas></div>
               </article>
             </section>
 
@@ -1015,8 +1082,7 @@
             </section>
 
             <footer class="siFooter">
-              <span><i class="fa-solid fa-database"></i> Fonte: base de pessoal da Saúde Indígena (VW_SAUDE_INDIGENA).</span>
-              <span>AgSUS — Agência para o Desenvolvimento da Atenção Primária à Saúde, a serviço do SUS.</span>
+              <span><i class="fa-solid fa-database"></i> Fonte: UGP/SIP</span>
             </footer>
           </div>
         </section>
@@ -1073,7 +1139,7 @@
           <!-- Sub-abas -->
           <nav class="gfTabs" id="gfTabs">
             <button type="button" class="gfTab is-active" data-gf-tab="visaoGeral"><i class="fa-solid fa-chart-pie"></i> Visão Geral</button>
-            <button type="button" class="gfTab" data-gf-tab="solicitacao"><i class="fa-solid fa-calendar-plus"></i> Solicitação / Alteração / Cancelamento</button>
+            <button type="button" class="gfTab" id="gfTabSolicitacao" data-gf-tab="solicitacao"><i class="fa-solid fa-calendar-plus"></i> Solicitação / Alteração / Cancelamento</button>
             <button type="button" class="gfTab" id="gfTabCoape" data-gf-tab="coape" hidden><i class="fa-solid fa-clipboard-check"></i> Aprovação COAPE</button>
           </nav>
 
@@ -1398,11 +1464,9 @@
               <select class="ecSelect" id="ecFiltroStatus" data-ec-filtro></select>
               <select class="ecSelect" id="ecFiltroEscritorio" data-ec-filtro></select>
               <div class="ecField ecFieldDate">
-                <i class="fa-regular fa-calendar"></i>
                 <input class="ecInput" type="date" id="ecFiltroDataInicial" data-ec-filtro aria-label="Data inicial">
               </div>
               <div class="ecField ecFieldDate">
-                <i class="fa-regular fa-calendar"></i>
                 <input class="ecInput" type="date" id="ecFiltroDataFinal" data-ec-filtro aria-label="Data final">
               </div>
               <button type="button" class="ecBtn ecBtnGhost" id="ecBtnLimpar">
@@ -2180,7 +2244,6 @@
                     <th class="psTd-center">Data de Encerramento</th>
                     <th>Status</th>
                     <th>Responsável</th>
-                    <th class="psTd-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody id="psTabelaBody"></tbody>
@@ -2534,7 +2597,7 @@
                       acréscimo.</span></div>
                 </section>
 
-                <section class="remBox remDocBox">
+                <section class="remBox remDocBox" id="remDocBox">
                   <h3>5. DOCUMENTAÇÃO DO REMANEJAMENTO</h3>
                   <label for="remanejamentoProcessoSei">Nº do Processo SEI</label>
                   <input id="remanejamentoProcessoSei" type="text" placeholder="Ex.: AGSUS.000000/2026-00"
@@ -2630,11 +2693,91 @@
             </div>
           </div>
 
-          <h3 class="solSecaoTitulo">Pendentes</h3>
-          <div id="solicitacoesPendentes" class="solLista"></div>
+          <section class="solHistCard">
+            <div class="solHistHead">
+              <div>
+                <h3 class="solHistTitulo">Pendentes</h3>
+                <p class="solHistSub">Solicitações aguardando aprovação.</p>
+              </div>
+            </div>
+            <div class="solHistTableWrap">
+              <table class="solHistTable">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Cargo / Unidade</th>
+                    <th>Justificativa</th>
+                    <th>Data e hora</th>
+                    <th id="solPendAcoesTh" class="solHistAcoesTh" style="display:none">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="solicitacoesPendentes"></tbody>
+              </table>
+            </div>
+            <div class="solHistFooter">
+              <div id="solPendPaginacao" class="solHistPaginacao"></div>
+              <span id="solPendContagem" class="solHistContagem"></span>
+            </div>
+          </section>
 
-          <h3 class="solSecaoTitulo">Histórico</h3>
-          <div id="solicitacoesHistorico" class="solLista"></div>
+          <section class="solHistCard">
+            <div class="solHistHead">
+              <div>
+                <h3 class="solHistTitulo">Histórico</h3>
+                <p class="solHistSub">Registro das últimas solicitações de acesso.</p>
+              </div>
+            </div>
+            <div class="solHistTableWrap">
+              <table class="solHistTable">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Justificativa</th>
+                    <th>Realizado por</th>
+                    <th>Data e hora</th>
+                    <th id="solHistAcoesTh" class="solHistAcoesTh" style="display:none">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="solicitacoesHistorico"></tbody>
+              </table>
+            </div>
+            <div class="solHistFooter">
+              <div id="solHistPaginacao" class="solHistPaginacao"></div>
+              <span id="solHistContagem" class="solHistContagem"></span>
+            </div>
+          </section>
+
+          <section id="perfisAcessoSecao" class="perfisAcesso">
+            <div class="perfisHeader">
+              <div>
+                <h3 class="solSecaoTitulo perfisTitulo">Administração de Perfis de Acesso</h3>
+                <div class="perfisSub">Defina a permissão de cada usuário por módulo do sistema.</div>
+              </div>
+              <div class="perfisBuscaWrap">
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" id="perfisBusca" class="perfisBusca" placeholder="Buscar por login ou nome…" autocomplete="off" aria-label="Buscar usuário">
+              </div>
+            </div>
+
+            <div class="perfisLegenda">
+              <span class="permLegItem"><span class="permLegDot permNivel0"></span>Sem acesso</span>
+              <span class="permLegItem"><span class="permLegDot permNivel1"></span>Leitor</span>
+              <span class="permLegItem"><span class="permLegDot permNivel2"></span>Editor</span>
+              <span class="permLegItem"><span class="permLegDot permNivel3"></span>Administrador</span>
+            </div>
+
+            <div class="perfisMatrizWrap">
+              <table class="perfisMatriz">
+                <thead id="perfisMatrizHead"></thead>
+                <tbody id="perfisMatrizBody"></tbody>
+              </table>
+            </div>
+            <div id="perfisRodape" class="perfisRodape"></div>
+          </section>
         </section>
 
       </section>

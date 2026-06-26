@@ -1,4 +1,5 @@
 import { apiPost } from "./api.js";
+import { nivelModulo } from "./permissoes.js";
 import { filtrarRowsBase, getSelectedValues } from "./filtros.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
@@ -144,9 +145,9 @@ export function renderAlertasTable(rows) {
   }
 }
 
-// Só administradores (nível >= 2) podem editar observações de alertas.
+// Editar observações de alertas exige permissão de Editor (nível >= 2) no módulo.
 function podeEditarObservacaoAlerta() {
-  return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= 2;
+  return nivelModulo("alertas") >= 2;
 }
 
 export function renderObservacaoAlertaHtml(chave, obs, infoObs) {

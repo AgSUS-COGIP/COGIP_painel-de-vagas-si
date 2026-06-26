@@ -9,6 +9,7 @@
 // mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
 import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv } from "./utils.js";
+import { nivelModulo } from "./permissoes.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
@@ -57,7 +58,7 @@ function escritorioDoDsei(dsei) {
 }
 
 function podeEditar() {
-  return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL_ADMIN;
+  return nivelModulo("entregaCracha") >= NIVEL_ADMIN;
 }
 
 // ---------- Estado da view ----------
@@ -631,7 +632,13 @@ function abrirModal(editId) {
   sincronizarMotivo2via();
 
   const modal = $("ecModal");
-  if (modal) modal.hidden = false;
+  if (modal) {
+    // Porta o modal para o <body> (uma vez) para escapar de qualquer contexto
+    // de empilhamento ancestral (ex.: na barra/cabeçalho fixos em telas ≤760px,
+    // que senão cobririam o topo do modal mesmo com z-index alto).
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+    modal.hidden = false;
+  }
 }
 
 function fecharModal() {

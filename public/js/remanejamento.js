@@ -1,4 +1,5 @@
 import { idSeguroAlerta } from "./alertas.js";
+import { nivelModulo } from "./permissoes.js";
 import { apiGet } from "./api.js";
 import { garantirCarregamentoPagina, recarregarTodosOsDados } from "./app.js";
 import { NIVEL, REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
@@ -135,9 +136,10 @@ export function montarOpcoesDseiRemanejamento() {
 // O super administrador (nível 3) pode liberar pontualmente os demais cargos do
 // DSEI, mas o(s) cargo(s) do próprio processo seletivo permanece(m) bloqueado(s).
 
-// Nível do usuário logado (0 se não autenticado). 3 = super administrador.
+// Nível efetivo do usuário no módulo Remanejamento (override por perfil de
+// acesso ou, na ausência, o nível global). 2 = Editor, 3 = Administrador.
 function nivelUsuarioRemanejamento() {
-  return state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
+  return state.painelLoginUsuario ? nivelModulo("remanejamento") : 0;
 }
 
 // Nome (texto) do DSEI selecionado no formulário — usado para cruzar com o PSS.

@@ -1,0 +1,297 @@
+/* =========================================================
+   Administração de Perfis de Acesso (matriz de permissões)
+   Tema claro, alinhado ao painel de Solicitações (.solCard).
+========================================================= */
+
+.perfisAcesso {
+  margin-top: 26px;
+  padding: 22px 24px 24px;
+  background: #fff;
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 16px;
+  box-shadow: 0 14px 32px rgba(0, 43, 93, .10);
+}
+
+.perfisHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.perfisTitulo { margin: 0; }
+.perfisSub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  max-width: 640px;
+}
+
+/* Busca */
+.perfisBuscaWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.perfisBuscaWrap i {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+.perfisBusca {
+  width: 260px;
+  max-width: 100%;
+  height: 38px;
+  padding: 0 12px 0 32px;
+  border: 1px solid rgba(0, 83, 166, .2);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--azul-escuro);
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+.perfisBusca:focus {
+  border-color: rgba(0, 83, 166, .55);
+  box-shadow: 0 0 0 3px rgba(0, 83, 166, .12);
+}
+
+/* Legenda */
+.perfisLegenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.permLegItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--azul-escuro);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.permLegDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+/* Tabela (matriz) — rola horizontalmente quando há muitos módulos */
+.perfisMatrizWrap {
+  overflow-x: auto;
+  border: 1px solid rgba(0, 83, 166, .12);
+  border-radius: 14px;
+  background: #fff;
+}
+.perfisMatriz {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+.perfisMatriz th,
+.perfisMatriz td {
+  padding: 10px 10px;
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(0, 83, 166, .08);
+}
+.perfisMatriz thead th {
+  position: sticky;
+  top: 0;
+  background: #f4f8fd;
+  color: var(--azul-escuro);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  z-index: 1;
+}
+.permModuloTh {
+  white-space: nowrap;
+}
+.permModuloTh i {
+  display: block;
+  margin-bottom: 4px;
+  color: #0053a6;
+  font-size: 13px;
+}
+.permModuloTh span { display: block; font-size: 10px; }
+
+/* Coluna do usuário (fixa à esquerda na rolagem) */
+.permUserTh,
+.permUser {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: left !important;
+  background: #fff;
+  min-width: 180px;
+}
+.permUserTh { background: #f4f8fd; z-index: 3; }
+.permUser { box-shadow: 1px 0 0 rgba(0, 83, 166, .08); }
+.permLogin {
+  display: block;
+  color: var(--azul-escuro);
+  font-size: 13px;
+  font-weight: 900;
+}
+.permNome {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.permRow:hover td { background: #f7fbff; }
+.permRow:hover .permUser { background: #f7fbff; }
+
+/* Selects de nível — coloridos por permissão */
+.permSel {
+  width: 100%;
+  min-width: 116px;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  outline: none;
+  border: 1px solid transparent;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23334155' d='M1.4 1.4 6 6l4.6-4.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  padding-right: 26px;
+}
+.permSel:disabled { cursor: default; opacity: .85; }
+.permSel:focus { box-shadow: 0 0 0 3px rgba(0, 83, 166, .14); }
+
+/* Níveis: 0 sem acesso · 1 leitor · 2 editor · 3 administrador
+   Usa background-COLOR (não o shorthand) para não apagar a setinha do .permSel. */
+.permNivel0 { background-color: #fdecec; border-color: #f3b4b4; color: #b91c1c; }
+.permNivel1 { background-color: #eef1f5; border-color: #cdd6e2; color: #46586f; }
+.permNivel2 { background-color: #e7f1fd; border-color: #aacdf3; color: #0053a6; }
+.permNivel3 { background-color: #e6f7ee; border-color: #9bdcbb; color: #047857; }
+
+/* Pontos da legenda usam as mesmas cores de fundo/borda */
+.permLegDot.permNivel0 { background-color: #fdecec; border-color: #f3b4b4; }
+.permLegDot.permNivel1 { background-color: #eef1f5; border-color: #cdd6e2; }
+.permLegDot.permNivel2 { background-color: #e7f1fd; border-color: #aacdf3; }
+.permLegDot.permNivel3 { background-color: #e6f7ee; border-color: #9bdcbb; }
+
+/* Marca de override personalizado */
+.permSel.permCustom { font-weight: 900; box-shadow: inset 0 0 0 1px currentColor; }
+
+/* Ações da linha */
+.permAcoes { white-space: nowrap; }
+.permAcaoBtn {
+  border: 1px solid rgba(0, 83, 166, .18);
+  background: #fff;
+  color: #46586f;
+  border-radius: 8px;
+  padding: 6px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.permAcaoBtn:hover:not(:disabled) { background: #eef4fb; color: #0053a6; }
+.permAcaoBtn:disabled { opacity: .4; cursor: default; }
+
+.permVazio {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 20px;
+  text-align: center;
+}
+
+.perfisRodape {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .perfisBusca { width: 100%; }
+  .perfisBuscaWrap { width: 100%; }
+}
+
+/* =========================================================
+   Modal: permissões de um solicitante pendente
+========================================================= */
+.permPendOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 30, 70, .55);
+  padding: 20px;
+}
+.permPendBox {
+  width: min(96vw, 560px);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 30, 70, .35);
+  padding: 20px 22px;
+}
+.permPendHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.permPendHead h3 { margin: 0; color: var(--azul-escuro); font-size: 16px; font-weight: 900; }
+.permPendHead p { margin: 4px 0 0; color: var(--muted); font-size: 12px; font-weight: 600; line-height: 1.4; }
+.permPendClose {
+  flex: 0 0 auto;
+  border: none;
+  background: #eef2f7;
+  color: #46586f;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.permPendClose:hover { background: #e2e8f0; }
+.permPendGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.permPendItem { display: grid; gap: 5px; }
+.permPendLabel { color: var(--azul-escuro); font-size: 12px; font-weight: 800; display: flex; align-items: center; gap: 7px; }
+.permPendLabel i { color: #0053a6; }
+.permPendItem .permSel { width: 100%; }
+.permPendFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+.permPendStatus { font-size: 12px; font-weight: 800; }
+.permPendStatus.is-ok { color: #047857; }
+.permPendStatus.is-erro { color: #b91c1c; }
+.permPendOk {
+  border: none;
+  background: linear-gradient(135deg, #2f7fe0, #1a5bb5);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}

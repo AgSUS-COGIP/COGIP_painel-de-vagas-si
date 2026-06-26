@@ -10,6 +10,7 @@ import { escapeHtml, escapeAttr, debounce, safeUrl } from "./utils.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
 import { state } from "./state.js";
 import { apiGet, apiPost, authHeaders } from "./api.js";
+import { nivelModulo } from "./permissoes.js";
 
 // Pedidos carregados do backend (formato já pronto para a UI).
 let REGISTROS = [];
@@ -149,9 +150,11 @@ function ehResponsavel(r) {
 const NIVEL_SUPERADMIN_DISCIPLINAR = 3;
 function podeEditarGestaoDisciplinar(r) {
   if (!r) return false;
-  const nivel = Number(state.painelLoginUsuario?.nivelAutorizacao || 0);
-  if (nivel >= NIVEL_SUPERADMIN_DISCIPLINAR) return true;
-  return ehResponsavel(r);
+  // Permissão efetiva no módulo (override por usuário ou nível global).
+  const nivel = nivelModulo("gestaoDisciplinar");
+  if (nivel < 2) return false;                               // Leitor: somente visualiza
+  if (nivel >= NIVEL_SUPERADMIN_DISCIPLINAR) return true;    // Administrador: edita qualquer um
+  return ehResponsavel(r);                                   // Editor: só os pedidos sob sua responsabilidade
 }
 
 // Quem pode anexar/remover anexos: o responsável pelo pedido (ou super admin).
@@ -171,14 +174,23 @@ const ANEXO_TIPO_LABEL = {
 // Indicadores/ações restritos a administradores (nível >= 2, mesmo patamar das telas de admin).
 const NIVEL_ADMIN_DISCIPLINAR = 2;
 function ehAdminDisciplinar() {
-  return Number(state.painelLoginUsuario?.nivelAutorizacao || 0) >= NIVEL_ADMIN_DISCIPLINAR;
+  return nivelModulo("gestaoDisciplinar") >= NIVEL_ADMIN_DISCIPLINAR;
+}
+
+// Criar um novo pedido exige Editor (>= 2) no módulo — Leitor só visualiza.
+function podeCriarPedidoDisciplinar() {
+  return nivelModulo("gestaoDisciplinar") >= NIVEL_ADMIN_DISCIPLINAR;
 }
 
 // Ajusta a visão dos indicadores conforme o nível do usuário. "Tempo Médio p/
 // Aplicação da Sanção" e o campo de delegação só aparecem para admin.
 function aplicarVisibilidadeCardsDisciplinar() {
   const admin = ehAdminDisciplinar();
-  const cardTempo = document.getElementById("gdKpiTempoMedio");
+
+  // Criar pedido exige Editor (>= 2) no módulo; Leitor não vê o botão "Novo Pedido".
+  const btnNovo = document.getElementById("gdBtnNovo");
+  if (btnNovo) btnNovo.style.display = podeCriarPedidoDisciplinar() ? "" : "none";
+  const cardTempo = document.getElementById("gdKpiTempoMedio")?.closest(".gfKpi");
   if (cardTempo) cardTempo.style.display = admin ? "" : "none";
   // Usa display (não o atributo hidden): .gfField tem `display: grid`, que
   // sobrescreveria o hidden e deixaria a caixa visível para o usuário comum.
@@ -991,6 +1003,10 @@ function hojeIso() {
 }
 
 function abrirFormulario() {
+  if (!podeCriarPedidoDisciplinar()) {
+    gdToast("Você não tem permissão para criar pedidos disciplinares.", "erro");
+    return;
+  }
   const painel = $("gdFormPanel");
   if (!painel) return;
   painel.style.display = "";

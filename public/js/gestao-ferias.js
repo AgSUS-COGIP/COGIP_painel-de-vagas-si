@@ -7,6 +7,7 @@
 // memória (sem gravação no banco) — a integração será definida depois.
 // =========================================================
 import { apiGet } from "./api.js";
+import { nivelModulo } from "./permissoes.js";
 import { state } from "./state.js";
 import { escapeHtml, formatNumber, baixarArquivoCsv } from "./utils.js";
 import { criarToast } from "./ui-utils.js";
@@ -20,7 +21,13 @@ const MESES_LIMITE_GOZO = 24;
 // (>= 2). O papel "COAPE" próprio deve ser definido depois no controle de acesso.
 const NIVEL_COAPE = 2;
 function ehCoape() {
-  return Number((state.painelLoginUsuario || {}).nivelAutorizacao || 0) >= NIVEL_COAPE;
+  return nivelModulo("gestaoFerias") >= NIVEL_COAPE;
+}
+
+// Solicitação / alteração / cancelamento de férias exigem Editor (>= 2) no
+// módulo. O Leitor só vê a aba "Visão Geral" (análise somente leitura).
+function podeSolicitarFerias() {
+  return nivelModulo("gestaoFerias") >= NIVEL_COAPE;
 }
 
 // Toast simples (controlador compartilhado em ui-utils).
@@ -41,17 +48,26 @@ let abaAtiva = "visaoGeral"; // sub-aba ativa
 
 // ---------- Sub-abas (Visão Geral | Solicitação | Aprovação COAPE) ----------
 function trocarTab(tab) {
-  if (tab === "coape" && !ehCoape()) tab = "visaoGeral";   // COAPE só para a COAPE
+  if (tab === "coape" && !ehCoape()) tab = "visaoGeral";          // COAPE só para a COAPE
+  if (tab === "solicitacao" && !podeSolicitarFerias()) tab = "visaoGeral"; // Leitor não solicita
   abaAtiva = tab;
   document.querySelectorAll("#gfTabs .gfTab").forEach(b => b.classList.toggle("is-active", b.dataset.gfTab === tab));
   document.querySelectorAll("#gfBody .gfPane").forEach(p => { p.hidden = p.dataset.gfPane !== tab; });
 }
-// Mostra a aba da COAPE apenas para quem é COAPE; reavalia a cada render.
+// Mostra a aba da COAPE só para a COAPE e a aba de Solicitação só para Editor+;
+// o Leitor fica apenas com a Visão Geral. Reavalia a cada render.
 function atualizarAcessoCoape() {
-  const t = $("gfTabCoape");
-  const ok = ehCoape();
-  if (t) t.hidden = !ok;
-  if (!ok && abaAtiva === "coape") trocarTab("visaoGeral");
+  const tCoape = $("gfTabCoape");
+  const okCoape = ehCoape();
+  if (tCoape) tCoape.hidden = !okCoape;
+
+  const tSolic = $("gfTabSolicitacao");
+  const okSolic = podeSolicitarFerias();
+  if (tSolic) tSolic.hidden = !okSolic;
+
+  if ((!okCoape && abaAtiva === "coape") || (!okSolic && abaAtiva === "solicitacao")) {
+    trocarTab("visaoGeral");
+  }
 }
 
 // Filtros (multi-seleção) — cada um é um array de valores selecionados.

@@ -30,6 +30,7 @@ export function atualizarModoRolagem(view) {
   main.classList.toggle("view-gestao-active", view === "gestaoDisciplinar");
   main.classList.toggle("view-processos-active", view === "processosSeletivos");
   main.classList.toggle("view-remanejamento-active", view === "remanejamento" || view === "remanejamentoFormulario");
+  main.classList.toggle("view-solicitacoes-active", view === "solicitacoes");
 
   if (isVisaoGeral) {
     ajustarEscalaPainelFixo();

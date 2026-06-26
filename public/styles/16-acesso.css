@@ -642,6 +642,11 @@
   cursor: pointer;
 }
 
+/* Os filtros do topo (DSEI/Cargo) são da Visão Geral/Vagas/Alertas — não se
+   aplicam à aba de Solicitações. Esconde-os e deixa o título ocupar o topo. */
+.main.view-solicitacoes-active .filtersBar { display: none; }
+.main.view-solicitacoes-active .top { grid-template-columns: minmax(330px, 1fr); }
+
 /* ---- Tela do admin: gestão de solicitações ---- */
 .solSecaoTitulo {
   margin: 18px 0 10px;
@@ -742,4 +747,137 @@
   text-align: center;
   background: rgba(0, 83, 166, .04);
   border-radius: 12px;
+}
+
+/* =========================================================
+   Histórico de solicitações — tabela de registros (decisões)
+========================================================= */
+.solHistCard {
+  margin-top: 18px;
+  background: #fff;
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 16px;
+  box-shadow: 0 14px 32px rgba(0, 43, 93, .10);
+  padding: 20px 22px 16px;
+}
+.solHistHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.solHistTitulo {
+  margin: 0;
+  color: var(--azul-escuro);
+  font-size: 15px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.solHistSub { margin: 4px 0 0; color: var(--muted); font-size: 12px; font-weight: 600; }
+
+.solHistTableWrap {
+  overflow-x: auto;
+  border: 1px solid rgba(0, 83, 166, .10);
+  border-radius: 12px;
+}
+.solHistTable { width: 100%; border-collapse: collapse; min-width: 880px; }
+.solHistTable thead th {
+  text-align: left;
+  background: #f4f8fd;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding: 11px 14px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(0, 83, 166, .10);
+}
+.solHistTable tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(0, 83, 166, .07);
+  vertical-align: middle;
+  font-size: 12.5px;
+  color: var(--azul-escuro);
+}
+.solHistTable tbody tr:last-child td { border-bottom: none; }
+.solHistTable tbody tr:hover td { background: #f7fbff; }
+.solHistData { white-space: nowrap; color: #46586f; font-weight: 700; }
+.solHistNome { font-weight: 800; }
+.solHistEmail { color: #315c8e; font-weight: 700; overflow-wrap: anywhere; }
+.solHistJust { color: #46586f; font-weight: 600; line-height: 1.35; max-width: 380px; }
+.solHistRealizado { white-space: nowrap; }
+.solHistRealizado span { display: block; color: #315c8e; font-weight: 700; overflow-wrap: anywhere; }
+.solHistRealizadoData { display: block; color: var(--muted); font-size: 11px; font-weight: 700; }
+.solHistVazio { text-align: center; color: var(--muted); font-weight: 800; padding: 22px; }
+.solHistTable th.solHistAcoesTh, .solHistTable td.solHistAcoes { text-align: center; white-space: nowrap; }
+
+/* Botões de ação na tabela de Pendentes (Aprovar / Recusar / Excluir) */
+.solPendAcoesBtns { display: inline-flex; align-items: center; gap: 6px; }
+.solBtnMini {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 11.5px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.solBtnAprovar { background: linear-gradient(135deg, #49d18d, #047857); color: #fff; }
+.solBtnRecusar { background: rgba(220, 63, 63, .12); color: #b91c1c; border: 1px solid rgba(220, 63, 63, .3); }
+.solBtnPerm { background: rgba(0, 83, 166, .10); color: #0053a6; border: 1px solid rgba(0, 83, 166, .26); }
+.solBtnPerm:hover { background: rgba(0, 83, 166, .18); }
+
+/* Badge de status com ícone */
+.solHistBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.solHistBadge i { font-size: 12px; }
+.histAprovado { background: rgba(73, 209, 141, .16); color: #047857; }
+.histRecusado { background: rgba(220, 63, 63, .14); color: #b91c1c; }
+.histPendente { background: rgba(243, 187, 24, .18); color: #8a6d00; }
+
+/* Rodapé: paginação centralizada + contagem à direita */
+.solHistFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+  position: relative;
+}
+.solHistPaginacao { display: flex; align-items: center; gap: 6px; }
+.solHistPagBtn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid rgba(0, 83, 166, .18);
+  background: #fff;
+  color: var(--azul-escuro);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.solHistPagBtn:hover:not(:disabled):not(.is-ativo) { background: #eef4fb; }
+.solHistPagBtn.is-ativo { background: #0053a6; color: #fff; border-color: #0053a6; }
+.solHistPagBtn:disabled { opacity: .4; cursor: default; }
+.solHistPagElipse { color: var(--muted); font-weight: 800; padding: 0 2px; }
+.solHistContagem { color: var(--muted); font-size: 12px; font-weight: 700; position: absolute; right: 0; }
+
+@media (max-width: 720px) {
+  .solHistFooter { flex-direction: column; gap: 8px; }
+  .solHistContagem { position: static; }
 }

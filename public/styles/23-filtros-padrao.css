@@ -85,11 +85,21 @@
       box-shadow: 0 22px 42px rgba(0, 24, 61, .38);
       padding: 10px;
     }
-    /* O menu do searchable-select é um portal no <body> (position: fixed via JS). */
-    .ssMenu { position: fixed; z-index: 99999; }
+    /* O menu do searchable-select é um portal no <body> (position: fixed via JS).
+       Flex column + overflow hidden: o JS define um max-height conforme o espaço
+       na viewport (abrindo p/ cima ou p/ baixo), e a busca fica fixa enquanto só
+       a lista rola dentro do espaço restante — assim o popup nunca é cortado. */
+    .ssMenu {
+      position: fixed;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .ssMenu .ssSearch { flex: 0 0 auto; }
     /* Rolagem só na lista (a busca fica fixa no topo) — evita barra dupla.
        .siComboList/.gfComboList já rolam sozinhas nos arquivos 05/17. */
-    .ssLista { max-height: 260px; overflow-y: auto; }
+    .ssLista { flex: 1 1 auto; min-height: 0; max-height: 260px; overflow-y: auto; }
 
     /* ---------- Campo de busca dentro do menu ---------- */
     .siComboSearch,
