@@ -179,6 +179,38 @@
     <div class="loader" aria-hidden="true"></div>
   </div>
 
+  <!-- Usuário aprovado, porém sem acesso a NENHUMA aba: aviso no lugar do painel. -->
+  <div id="semAcessoScreen" class="loginScreen acessoScreen" style="display:none;">
+    <aside class="acessoBrandPane" aria-hidden="true">
+      <img class="acessoBrandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+      <div class="acessoBrandTitle">Ag<strong>SUS</strong></div>
+      <div class="acessoBrandSubtitle">EGO - Ecossistema de Gerenciamento<br>Organizacional</div>
+    </aside>
+
+    <div class="loginCard acessoCard">
+      <div class="acessoCardBrand">
+        <img class="acessoCardLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
+        <div class="acessoCardBrandText">Ag<strong>SUS</strong><span>SAÚDE INDÍGENA</span></div>
+      </div>
+      <div class="acessoBadge acessoBadgeWarn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Sem permissões</div>
+      <h2 class="loginTitle">Você não tem acesso a nenhuma área</h2>
+      <div class="acessoStatusBanner statusNovo">
+        Seu acesso foi aprovado, mas nenhuma aba do painel está liberada para o seu perfil.
+        Entre em contato com um administrador para solicitar as permissões necessárias.
+      </div>
+      <div class="acessoSuporte">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        <div>
+          <strong>Precisa de acesso?</strong>
+          <span>Um super administrador define suas permissões em Perfis de Acesso.</span>
+        </div>
+      </div>
+      <button type="button" class="loginBtn loginBtnSecundario acLogoutLink" data-click="logout">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sair
+      </button>
+    </div>
+  </div>
+
   <div class="app">
     <aside class="sidebar">
       <div class="brand">

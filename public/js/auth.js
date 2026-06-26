@@ -3,7 +3,7 @@ import { carregarDadosInicial } from "./app.js";
 import { state } from "./state.js";
 import { mostrarAcessoPendente } from "./acesso.js";
 import { atualizarPermissaoGestaoDisciplinar } from "./gestao-disciplinar.js";
-import { aplicarPermissoesModulos, nivelModulo, podeVerPerfis } from "./permissoes.js";
+import { aplicarPermissoesModulos, nivelModulo, podeVerPerfis, temAlgumModuloVisivel } from "./permissoes.js";
 
 export function configurarLogin() {
   // O acesso ao painel é exclusivamente por conta institucional (Google).
@@ -205,6 +205,13 @@ export function aplicarPermissoesUsuario() {
   // O nível recém-carregado pode liberar a edição na Gestão Disciplinar: re-renderiza
   // o detalhamento para refletir a permissão (resolve o caso do 1º acesso).
   atualizarPermissaoGestaoDisciplinar();
+
+  // Sem acesso a NENHUMA aba: mostra a tela de aviso no lugar do painel.
+  const temAcesso = temAlgumModuloVisivel();
+  const telaSemAcesso = document.getElementById("semAcessoScreen");
+  const app = document.querySelector(".app");
+  if (telaSemAcesso) telaSemAcesso.style.display = temAcesso ? "none" : "grid";
+  if (app) app.style.display = temAcesso ? "" : "none";
 }
 
 // Heartbeat: revalida a sessão no servidor periodicamente.

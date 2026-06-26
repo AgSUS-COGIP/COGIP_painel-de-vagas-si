@@ -72,6 +72,13 @@ function nivelAdminLogado() {
 export function podeVerPerfis() { return nivelAdminLogado() >= NIVEL.APROVADO; }
 export function podeEditarPerfis() { return nivelAdminLogado() >= NIVEL.ADMIN; }
 
+// true se o usuário logado vê AO MENOS UMA aba (qualquer módulo funcional ou a
+// aba de administração de perfis). Quando false, o painel não tem nada a mostrar.
+export function temAlgumModuloVisivel() {
+  const algumModulo = MODULOS_PERMISSAO.some(m => m.chave !== MODULO_ADMIN && podeVerModulo(m.chave));
+  return algumModulo || podeVerPerfis();
+}
+
 // Esconde as abas sem acesso (nível 0) e, se a aba ativa ficou inacessível,
 // redireciona para a primeira aba visível. Chamado por aplicarPermissoesUsuario().
 export function aplicarPermissoesModulos() {
