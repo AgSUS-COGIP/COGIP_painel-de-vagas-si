@@ -58,6 +58,10 @@ const combos = {};          // id -> instância de combobox pesquisável
 const exportGraficos = {};  // canvasId -> { colLabel, nome, pares } para exportar cada gráfico
 let ordenacao = { col: null, dir: 1 }; // ordenação da tabela
 
+// Granularidade dos gráficos de movimentação (admissões/desligamentos): ano | mes | dia.
+let granAdmissao = "ano";
+let granDeslig = "ano";
+
 let filtros = vazio();
 function vazio() {
   return {
@@ -272,7 +276,17 @@ function preencherSelects() {
   combos.siFiltroTerritorio?.setOptions(comTotal(dim.localTrabalho, contagem("localTrabalho")));
   combos.siFiltroAtuacao?.setOptions(comTotal(dim.tipoAtuacao, contagem("tipoAtuacao")));
   combos.siFiltroTipoAdmissao?.setOptions(comTotal(dim.tipoAdmissao, contagem("tipoAdmissao")));
-  combos.siFiltroTipoDeslig?.setOptions(comTotal(dim.tipoDesligamento, contagem("tipoDesligamento")));
+
+  // Tipo de Desligamento: só conta quem realmente foi desligado (vínculo =
+  // Desligado). Pessoa ativa não tem desligamento, então fica de fora — inclusive
+  // do "Sem informação". O desligado sem tipo informado segue como "Sem informação".
+  const contagemDeslig = new Map();
+  dados.rows.forEach(r => {
+    if (r.vinculo !== "Desligado") return;
+    const k = r.tipoDesligamento;
+    contagemDeslig.set(k, (contagemDeslig.get(k) || 0) + 1);
+  });
+  combos.siFiltroTipoDeslig?.setOptions(comTotal([...contagemDeslig.keys()], contagemDeslig));
 }
 
 function lerFiltros() {
@@ -309,7 +323,9 @@ function aplicarFiltros() {
     if (f.territorio.length && !f.territorio.includes(r.localTrabalho)) return false;
     if (f.atuacao.length && !f.atuacao.includes(r.tipoAtuacao)) return false;
     if (f.tipoAdmissao.length && !f.tipoAdmissao.includes(r.tipoAdmissao)) return false;
-    if (f.tipoDeslig.length && !f.tipoDeslig.includes(r.tipoDesligamento)) return false;
+    // Tipo de Desligamento só se aplica a desligados (ativo não tem desligamento,
+    // mesmo quando "Sem informação" está selecionado).
+    if (f.tipoDeslig.length && (r.vinculo !== "Desligado" || !f.tipoDeslig.includes(r.tipoDesligamento))) return false;
     if (f.admIni && (!r.dataAdmissao || r.dataAdmissao < f.admIni)) return false;
     if (f.admFim && (!r.dataAdmissao || r.dataAdmissao > f.admFim)) return false;
     if (f.deslIni && (!r.dataDesligamento || r.dataDesligamento < f.deslIni)) return false;
@@ -342,6 +358,43 @@ function ordenarFaixas(mapa) {
     if (isNaN(na)) return 1; if (isNaN(nb)) return -1;
     return na - nb;
   });
+}
+
+// Série temporal de movimentação: conta REGISTRO distinto por período
+// (ano/mês/dia) a partir de um campo de data ISO (YYYY-MM-DD). Cada período
+// é ordenado cronologicamente pela chave ISO e rotulado conforme a granularidade.
+function serieTemporal(rows, campoData, granularidade) {
+  const buckets = new Map(); // chaveOrdenavel -> { label, regs:Set }
+  rows.forEach(r => {
+    const iso = r[campoData];
+    if (!iso) return;
+    const [a, m, d] = String(iso).slice(0, 10).split("-");
+    if (!a || !m || !d) return;
+    let chave, label;
+    if (granularidade === "ano") { chave = a; label = a; }
+    else if (granularidade === "dia") { chave = `${a}-${m}-${d}`; label = `${d}/${m}/${a}`; }
+    else { chave = `${a}-${m}`; label = `${m}/${a}`; }
+    let b = buckets.get(chave);
+    if (!b) { b = { label, regs: new Set() }; buckets.set(chave, b); }
+    if (r.registro != null && r.registro !== "") b.regs.add(r.registro);
+  });
+  return [...buckets.entries()]
+    .sort((x, y) => x[0].localeCompare(y[0]))
+    .map(([, b]) => [b.label, b.regs.size]);
+}
+
+function rotuloGran(g) { return g === "dia" ? "Dia" : g === "mes" ? "Mês/Ano" : "Ano"; }
+
+function renderSerieAdmissao(rows) {
+  const serie = serieTemporal(rows, "dataAdmissao", granAdmissao);
+  desenharSerie("siChartAdmissoes", serie, COR_SUS_VERDE);
+  regExport("siChartAdmissoes", rotuloGran(granAdmissao), "admissoes_por_periodo", serie);
+}
+
+function renderSerieDeslig(rows) {
+  const serie = serieTemporal(rows, "dataDesligamento", granDeslig);
+  desenharSerie("siChartDesligamentos", serie, "#c0392b");
+  regExport("siChartDesligamentos", rotuloGran(granDeslig), "desligamentos_por_periodo", serie);
 }
 
 // Gráfico empilhado: Top 10 categorias (por total) x composição de raça/cor.
@@ -387,6 +440,7 @@ function render() {
   // --- Destaque: composição por raça/cor (DSEIs e cargos) ---
   empilhadoPorRaca("siChartRacaDsei", rows, "centroCusto", "DSEI / CASAI", "dseis_por_raca_cor");
   empilhadoPorRaca("siChartRacaCargo", rows, "cargo", "Cargo", "cargos_por_raca_cor");
+  empilhadoPorRaca("siChartRacaGrau", rows, "grauInstrucao", "Grau de instrução", "grau_instrucao_por_raca_cor");
 
   // --- Indicadores gerais ---
   const situ = topN(contar(rows, "situacao"), 10);
@@ -403,8 +457,13 @@ function render() {
   regExport("siChartRaca", "Raça / Cor", "trabalhadores_por_raca_cor", raca);
 
   const sexo = topN(contar(rows, "sexo"));
-  rosca("siChartSexo", sexo.map(d => d[0]), sexo.map(d => d[1]),
-    sexo.map(s => s[0] === "Feminino" ? "#C85A8E" : s[0] === "Masculino" ? COR_SUS_AZUL : null));
+  const corSexo = v => {
+    const s = norm(v);
+    if (s.startsWith("f")) return "#C85A8E";    // Feminino → rosa
+    if (s.startsWith("m")) return COR_SUS_AZUL; // Masculino → azul
+    return null;
+  };
+  rosca("siChartSexo", sexo.map(d => d[0]), sexo.map(d => d[1]), sexo.map(s => corSexo(s[0])), { legendReverse: true });
   regExport("siChartSexo", "Sexo", "trabalhadores_por_sexo", sexo);
 
   const atuacao = topN(contar(rows, "tipoAtuacao"));
@@ -415,9 +474,9 @@ function render() {
   colunas("siChartFaixa", faixas.map(d => d[0]), faixas.map(d => d[1]), PALETA[2]);
   regExport("siChartFaixa", "Faixa etária", "trabalhadores_por_faixa_etaria", faixas);
 
-  const ufs = topN(contar(rows, "uf"));
-  colunas("siChartUf", ufs.map(d => d[0]), ufs.map(d => d[1]), COR_SUS_VERDE);
-  regExport("siChartUf", "UF", "trabalhadores_por_uf", ufs);
+  // --- Movimentação de pessoal (admissões/desligamentos por período) ---
+  renderSerieAdmissao(rows);
+  renderSerieDeslig(rows);
 
   renderTabela(rows);
 }
@@ -646,19 +705,27 @@ function coresPara(labels, overrides) {
   return labels.map((_, i) => (overrides && overrides[i]) ? overrides[i] : PALETA[i % PALETA.length]);
 }
 
-function rosca(canvasId, labels, values, overrides) {
+function rosca(canvasId, labels, values, overrides, opts) {
   if (typeof Chart === "undefined" || semDados(canvasId, values)) return;
   destruir(canvasId);
   const cores = coresPara(labels, overrides);
   const total = values.reduce((a, b) => a + b, 0);
+  // legendReverse: numa rosca de 2 fatias, a 1ª fatia fica à direita e a 2ª à
+  // esquerda; invertendo a legenda, cada rótulo fica do lado da sua fatia.
+  const legendReverse = !!(opts && opts.legendReverse);
   chartsSI[canvasId] = new Chart($(canvasId), {
     type: "doughnut",
     data: { labels, datasets: [{ data: values, backgroundColor: cores, borderColor: "#fff", borderWidth: 3, hoverOffset: 6 }] },
     options: {
       responsive: true, maintainAspectRatio: false, cutout: "58%", layout: { padding: 10 },
       plugins: {
-        legend: { position: "bottom", labels: { color: TEXTO, font: { size: 11, weight: "700" }, boxWidth: 12, padding: 10 } },
-        datalabels: { color: "#fff", font: { size: 12, weight: "900" }, formatter: v => total > 0 && (v / total) >= 0.05 ? formatPercent(v / total * 100) : "" },
+        legend: { position: "bottom", reverse: legendReverse, labels: { color: TEXTO, font: { size: 11, weight: "700" }, boxWidth: 12, padding: 10 } },
+        datalabels: {
+          color: "#fff", font: { size: 14, weight: "900" },
+          textStrokeColor: "rgba(0,0,0,.55)", textStrokeWidth: 3,
+          textShadowBlur: 5, textShadowColor: "rgba(0,0,0,.45)",
+          formatter: v => total > 0 && (v / total) >= 0.03 ? formatPercent(v / total * 100) : ""
+        },
         tooltip: { callbacks: { label: ctx => `${ctx.label}: ${formatNumber(ctx.raw)} (${formatPercent(total ? ctx.raw / total * 100 : 0)})` } }
       }
     }
@@ -684,7 +751,7 @@ function barEmpilhada(canvasId, labels, series) {
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumber(ctx.raw)}` } }
       },
       scales: {
-        x: { stacked: true, beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
+        x: { stacked: true, beginAtZero: true, grid: { display: false }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         y: { stacked: true, grid: { display: false }, ticks: { color: TEXTO, font: { size: 10.5, weight: "800" }, autoSkip: false } }
       }
     }
@@ -696,7 +763,7 @@ function barH(canvasId, labels, values, cor) {
   destruir(canvasId);
   chartsSI[canvasId] = new Chart($(canvasId), {
     type: "bar",
-    data: { labels, datasets: [{ data: values, backgroundColor: cor, borderRadius: 7, barPercentage: 0.82, categoryPercentage: 0.82 }] },
+    data: { labels, datasets: [{ data: values, backgroundColor: cor, borderRadius: 6, barPercentage: 0.6, categoryPercentage: 0.8, maxBarThickness: 26 }] },
     options: {
       indexAxis: "y", responsive: true, maintainAspectRatio: false,
       layout: { padding: { right: 38, left: 2, top: 2, bottom: 2 } },
@@ -706,7 +773,7 @@ function barH(canvasId, labels, values, cor) {
         tooltip: { callbacks: { label: ctx => formatNumber(ctx.raw) } }
       },
       scales: {
-        x: { beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
+        x: { beginAtZero: true, grid: { display: false }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
         y: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 10.5, weight: "800" }, autoSkip: false } }
       }
     }
@@ -718,7 +785,7 @@ function colunas(canvasId, labels, values, cor) {
   destruir(canvasId);
   chartsSI[canvasId] = new Chart($(canvasId), {
     type: "bar",
-    data: { labels, datasets: [{ data: values, backgroundColor: cor, borderRadius: 7, barPercentage: 0.74, categoryPercentage: 0.8 }] },
+    data: { labels, datasets: [{ data: values, backgroundColor: cor, borderRadius: 6, barPercentage: 0.55, categoryPercentage: 0.78, maxBarThickness: 46 }] },
     options: {
       responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20, right: 6, bottom: 2, left: 6 } },
       plugins: {
@@ -727,11 +794,51 @@ function colunas(canvasId, labels, values, cor) {
         tooltip: { callbacks: { label: ctx => formatNumber(ctx.raw) } }
       },
       scales: {
-        y: { beginAtZero: true, grid: { color: "rgba(0, 83, 166, .12)" }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
-        x: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 10, weight: "800" }, maxRotation: 0, minRotation: 0 } }
+        y: { beginAtZero: true, grid: { display: false }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
+        x: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 10, weight: "800" }, autoSkip: false, maxRotation: 0, minRotation: 0 } }
       }
     }
   });
+}
+
+// Linha temporal: melhor que barras quando há muitos períodos (ex.: detalhe por
+// dia). Área suave, sem rótulos por ponto (poluiria) e eixo X com autoSkip.
+function linhaTempo(canvasId, labels, values, cor) {
+  if (typeof Chart === "undefined" || semDados(canvasId, values)) return;
+  destruir(canvasId);
+  chartsSI[canvasId] = new Chart($(canvasId), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        data: values, borderColor: cor, backgroundColor: cor + "22",
+        fill: true, tension: 0.25, borderWidth: 2,
+        pointRadius: labels.length > 90 ? 0 : 2, pointHoverRadius: 5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18, right: 12, bottom: 2, left: 6 } },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        datalabels: { display: false },
+        tooltip: { callbacks: { label: ctx => formatNumber(ctx.raw) } }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { display: false }, ticks: { color: "rgba(7, 52, 107, .72)", font: { size: 10, weight: "700" } } },
+        x: { grid: { display: false }, ticks: { color: TEXTO, font: { size: 9.5, weight: "700" }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } }
+      }
+    }
+  });
+}
+
+// Escolhe a forma do gráfico de movimentação: barras para poucos períodos,
+// linha para muitos (detalhe por dia/mês com muitos pontos fica ilegível em barras).
+function desenharSerie(canvasId, serie, cor) {
+  const labels = serie.map(d => d[0]);
+  const values = serie.map(d => d[1]);
+  if (labels.length > 24) linhaTempo(canvasId, labels, values, cor);
+  else colunas(canvasId, labels, values, cor);
 }
 
 // ---------- Inicialização ----------
@@ -778,6 +885,20 @@ export function configurarSaudeIndigena() {
   raiz.addEventListener("click", e => {
     const b = e.target.closest("[data-export]");
     if (b) exportarGrafico(b.dataset.export);
+  });
+
+  // Detalhamento dos gráficos de movimentação por Ano / Mês / Dia.
+  raiz.querySelectorAll("[data-si-gran]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const alvo = btn.dataset.siGranAlvo; // "admissao" | "deslig"
+      const val = btn.dataset.siGran;      // "ano" | "mes" | "dia"
+      if (alvo === "admissao") granAdmissao = val; else granDeslig = val;
+      raiz.querySelectorAll(`[data-si-gran-alvo="${alvo}"]`)
+        .forEach(b => b.classList.toggle("is-ativo", b === btn));
+      if (!carregado || !dados) return;
+      const rows = aplicarFiltros();
+      if (alvo === "admissao") renderSerieAdmissao(rows); else renderSerieDeslig(rows);
+    });
   });
 
   // Rolagem infinita: ao chegar perto do fim, carrega mais 100 linhas.
