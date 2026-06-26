@@ -1051,6 +1051,28 @@ select.ecInput {
 
 .ecModalAcoes .ecBtnPrimary { margin-left: 0; }
 
+/* O modal de edição precisa caber na viewport mesmo em telas baixas (ex.:
+   < 760px de altura): em vez de o cartão inteiro estourar a tela — ficando
+   cortado em cima (atrás do cabeçalho da página) e embaixo —, limitamos sua
+   altura ao espaço disponível e deixamos só o FORMULÁRIO rolar. Cabeçalho,
+   mensagem de erro e botões de ação ficam sempre visíveis (fixos). */
+#ecModal .ecModalBox {
+  max-height: calc(100vh - 36px); /* 18px de respiro do overlay em cima/embaixo */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#ecModal .ecModalHead,
+#ecModal .ecModalErro,
+#ecModal .ecModalAcoes { flex: 0 0 auto; }
+#ecModal .ecModalForm {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;  /* afasta a barra de rolagem dos campos */
+  margin-right: -4px;
+}
+
 /* ---------- Modal de pré-visualização da importação ---------- */
 .ecModalBoxWide { width: min(1100px, 100%); }
 

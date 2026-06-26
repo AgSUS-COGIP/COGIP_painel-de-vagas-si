@@ -55,10 +55,38 @@ export function tornarSelectPesquisavel(select, opts = {}) {
 
   const posicionar = () => {
     if (!menu) return;
+    const margem = 8;             // respiro até a borda da viewport
+    const vaoTrigger = 6;         // espaço entre gatilho e popup
     const r = trigger.getBoundingClientRect();
-    menu.style.left = `${Math.round(r.left)}px`;
-    menu.style.top = `${Math.round(r.bottom + 6)}px`;
-    menu.style.width = `${Math.round(r.width)}px`;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+
+    // Largura: acompanha o gatilho, mas nunca estoura a viewport.
+    const larguraMax = vw - margem * 2;
+    const largura = Math.min(Math.round(r.width), larguraMax);
+    menu.style.width = `${largura}px`;
+
+    // Decide abrir para cima ou para baixo conforme o espaço disponível, para
+    // o popup nunca ficar cortado no rodapé (ele é fixed e a página não rola).
+    const altura = menu.offsetHeight;
+    const espacoAbaixo = vh - r.bottom - vaoTrigger - margem;
+    const espacoAcima = r.top - vaoTrigger - margem;
+    const abrirAcima = espacoAbaixo < altura && espacoAcima > espacoAbaixo;
+
+    // Limita a altura ao espaço disponível no lado escolhido (a lista rola).
+    const alturaMax = Math.max(120, Math.floor(abrirAcima ? espacoAcima : espacoAbaixo));
+    menu.style.maxHeight = `${alturaMax}px`;
+
+    let top = abrirAcima
+      ? r.top - vaoTrigger - Math.min(altura, alturaMax)
+      : r.bottom + vaoTrigger;
+    top = Math.max(margem, Math.min(top, vh - margem - Math.min(altura, alturaMax)));
+
+    let left = Math.round(r.left);
+    left = Math.max(margem, Math.min(left, vw - margem - largura));
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${Math.round(top)}px`;
   };
   // Fecha ao rolar o fundo (o popup é fixed); ignora rolagem dentro do popup.
   const onScroll = e => { if (menu && e && e.target instanceof Node && menu.contains(e.target)) return; fechar(); };

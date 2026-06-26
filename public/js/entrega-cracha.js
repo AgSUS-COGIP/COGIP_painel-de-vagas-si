@@ -632,7 +632,13 @@ function abrirModal(editId) {
   sincronizarMotivo2via();
 
   const modal = $("ecModal");
-  if (modal) modal.hidden = false;
+  if (modal) {
+    // Porta o modal para o <body> (uma vez) para escapar de qualquer contexto
+    // de empilhamento ancestral (ex.: na barra/cabeçalho fixos em telas ≤760px,
+    // que senão cobririam o topo do modal mesmo com z-index alto).
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+    modal.hidden = false;
+  }
 }
 
 function fecharModal() {
