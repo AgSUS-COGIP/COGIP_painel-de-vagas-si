@@ -7,6 +7,16 @@
        detalhamento do pedido selecionado.
     ========================================================= */
 
+    /* Esta aba tem filtros próprios; esconde a barra de filtros do topo
+       (DSEI/CASAI, Cargo, Limpar Filtros) e ocupa toda a largura do cabeçalho. */
+    .main.view-gestao-active .filtersBar {
+      display: none;
+    }
+
+    .main.view-gestao-active .top {
+      grid-template-columns: minmax(330px, 1fr);
+    }
+
     /* =========================================================
        Componentes-base (gf*) — ESCOPADOS nesta aba.
        --------------------------------------------------------
