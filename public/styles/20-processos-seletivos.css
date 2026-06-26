@@ -296,27 +296,31 @@
   padding: 22px 12px;
 }
 
-/* ---------- Botão de ações da linha ---------- */
-.psAcaoBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid rgba(0, 83, 166, .26);
-  background: #fff;
-  color: #0b4488;
-  font-size: 11px;
-  font-weight: 900;
-  font-family: inherit;
-  padding: 6px 11px;
-  border-radius: 9px;
-  cursor: pointer;
-  transition: .16s ease;
+/* ---------- Linha clicável (abre os detalhes do edital) ---------- */
+.psTable tbody tr.psRow { cursor: pointer; }
+.psTable tbody tr.psRow:focus-visible {
+  outline: 2px solid var(--azul-primario);
+  outline-offset: -2px;
 }
 
-.psAcaoBtn:hover { background: #eaf4ff; }
-.psAcaoBtn i { transition: transform .2s ease; font-size: 11px; }
-.psAcaoBtn.is-aberto { background: var(--azul-primario); color: #fff; border-color: var(--azul-primario); }
-.psAcaoBtn.is-aberto i { transform: rotate(180deg); }
+/* Célula do Responsável com a seta indicadora de "expandir" à direita. */
+.psRespCel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.psRowChevron {
+  flex: none;
+  font-size: 11px;
+  color: #0b4488;
+  opacity: .5;
+  transition: transform .2s ease, opacity .16s ease;
+}
+
+.psTable tbody tr.psRow:hover .psRowChevron { opacity: .85; }
+.psRowChevron.is-aberto { transform: rotate(180deg); opacity: 1; }
 
 /* ---------- Rodapé / paginação ---------- */
 .psTableFoot {
