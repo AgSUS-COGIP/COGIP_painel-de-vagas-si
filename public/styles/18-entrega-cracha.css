@@ -260,6 +260,30 @@ select.ecInput {
   padding: 8px 8px 12px;
 }
 
+/* Ações em lote e filtros agora vivem DENTRO do card da tabela: deixam de ser
+   cartões flutuantes (sem moldura/sombra/fundo próprios) e viram seções do
+   mesmo cartão. Ordem no card: ações em lote (topo) → filtros → tabela. */
+.ecCard > .ecLoteBar,
+.ecCard > .ecToolbar {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  margin: 0;
+}
+
+/* Ações em lote no topo, separadas dos filtros por uma linha sutil. */
+.ecCard > .ecLoteBar {
+  padding: 4px 6px 12px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 83, 166, .14);
+}
+
+/* Filtros colados na tabela (respiro pequeno abaixo). */
+.ecCard > .ecToolbar {
+  padding: 4px 6px 10px;
+}
+
 .ecTableWrap {
   overflow-x: auto;
   border-radius: 12px;
@@ -1076,6 +1100,11 @@ select.ecInput {
 /* ---------- Modal de pré-visualização da importação ---------- */
 .ecModalBoxWide { width: min(1100px, 100%); }
 
+/* Botão de fechar (X) no canto direito do cabeçalho do preview; o título ocupa
+   o restante da linha e empurra o X para a borda direita (deixa de ficar colado). */
+#ecImportModal .ecModalHead { align-items: center; }
+#ecImportModal .ecModalHead h3 { flex: 1; min-width: 0; }
+
 /* Cola o modal à esquerda (após o menu) e o posiciona ABAIXO do cabeçalho da
    página (cuja altura é medida em JS e exposta em --ec-preview-top). */
 #ecImportModal {
@@ -1088,22 +1117,16 @@ select.ecInput {
 #ecImportModal .ecModalBox {
   width: 100%;
   max-width: 1500px;
-  /* Cabe entre o cabeçalho e a base da tela: corpo em coluna flexível e a
-     tabela rola internamente, mantendo cabeçalho, painel de lote e rodapé visíveis. */
+  /* O preview inteiro rola verticalmente quando não cabe entre o cabeçalho da
+     página e a base da tela. */
   max-height: calc(100vh - var(--ec-preview-top, 18px) - 18px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
-/* Cabeçalho, subtítulo, toolbar, aviso, painel de lote, erro e ações: fixos.
-   Só a tabela ocupa o espaço restante e rola. */
-#ecImportModal .ecModalBox > *:not(.ecImportTableWrap) { flex: 0 0 auto; }
-
+/* A tabela acompanha a rolagem do modal (sem rolagem interna própria). */
 #ecImportModal .ecImportTableWrap {
-  flex: 1 1 auto;
-  min-height: 0;
   max-height: none;
+  overflow-x: auto;
 }
 
 /* Em telas estreitas o layout do menu muda: volta ao modal centralizado. */

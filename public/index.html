@@ -1457,103 +1457,107 @@
             </div>
           </section>
 
-          <!-- Barra de filtros, buscas e ações (duas linhas no mesmo card) -->
-          <div class="ecToolbar">
-            <div class="ecToolbarLinha">
-              <select class="ecSelect" id="ecFiltroDsei" data-ec-filtro></select>
-              <select class="ecSelect" id="ecFiltroStatus" data-ec-filtro></select>
-              <select class="ecSelect" id="ecFiltroEscritorio" data-ec-filtro></select>
-              <div class="ecField ecFieldDate">
-                <input class="ecInput" type="date" id="ecFiltroDataInicial" data-ec-filtro aria-label="Data inicial">
-              </div>
-              <div class="ecField ecFieldDate">
-                <input class="ecInput" type="date" id="ecFiltroDataFinal" data-ec-filtro aria-label="Data final">
-              </div>
-              <button type="button" class="ecBtn ecBtnGhost" id="ecBtnLimpar">
-                <i class="fa-solid fa-filter-circle-xmark"></i> Limpar filtros
-              </button>
-              <button type="button" class="ecBtn ecBtnGhost" id="ecBtnAtualizar"
-                title="Recarregar dados do banco (ETL e alterações manuais)">
-                <i class="fa-solid fa-rotate"></i> Atualizar
-              </button>
-            </div>
-
-            <div class="ecToolbarLinha">
-              <div class="ecField ecFieldSearch">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input class="ecInput" type="search" id="ecBuscaNome" data-ec-filtro
-                  placeholder="Buscar por nome do trabalhador...">
-              </div>
-              <div class="ecField ecFieldSearch">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input class="ecInput" type="search" id="ecBuscaCargo" data-ec-filtro placeholder="Buscar por cargo...">
-              </div>
-              <button type="button" class="ecBtn ecBtnPrimary" id="ecBtnExportar">
-                <i class="fa-solid fa-file-excel"></i> Baixar Excel
-              </button>
-              <button type="button" class="ecBtn ecBtnPrimary ecBtnImportar" id="ecBtnImportar">
-                <i class="fa-solid fa-file-import"></i> Importar planilha
-              </button>
-              <input type="file" id="ecInputImport" accept=".csv,text/csv" hidden>
-            </div>
-          </div>
-
           <!-- Resultado da importação de planilha -->
           <div class="ecImportInfo" id="ecImportInfo" hidden></div>
 
-          <!-- Painel de ação em lote (aparece quando há linhas selecionadas; só admin).
-               Aplica os campos preenchidos a todos os selecionados de uma vez. -->
-          <div class="ecLoteBar" id="ecLoteBar" hidden>
-            <div class="ecLoteHead">
-              <span class="ecLoteSecaoIcone"><i class="fa-solid fa-sliders"></i></span>
-              <h3 class="ecLoteTitulo">Ações em lote</h3>
-              <span class="ecLoteBadge"><strong id="ecLoteQtd">0</strong> selecionado(s)</span>
-              <span class="ecLoteSub">Preencha os campos que quiser mudar — os demais ficam como estão.</span>
-              <div class="ecLoteHeadAcoes">
-                <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecLoteLimpar">
-                  <i class="fa-solid fa-eraser"></i> Limpar seleção
-                </button>
-                <button type="button" class="ecLoteToggle" id="ecLoteToggle" aria-label="Recolher ou expandir">
-                  <i class="fa-solid fa-chevron-up"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="ecLoteCorpo">
-              <div class="ecLoteGrid">
-                <label>Status<select class="ecSelect" id="ecLoteStatus"></select></label>
-                <label>Crachá Devolvido<select class="ecSelect" id="ecLoteDevolvido">
-                    <option value="">— Selecionar</option>
-                    <option value="sim">Sim</option>
-                    <option value="nao">Não</option>
-                  </select></label>
-                <label>Solicitação 2ª Via<select class="ecSelect" id="ecLoteSegundaVia">
-                    <option value="">— Selecionar</option>
-                    <option value="sim">Sim</option>
-                    <option value="nao">Não</option>
-                  </select></label>
-                <label>Motivo da 2ª Via<input type="text" class="ecInput" id="ecLoteMotivo" placeholder="(manter)"></label>
-                <label>Observação<input type="text" class="ecInput" id="ecLoteObservacao" placeholder="(manter)"></label>
-                <label>Data da Solicitação<input type="date" class="ecInput" id="ecLoteDataSolic"></label>
-                <label>Data de Envio à Gráfica<input type="date" class="ecInput" id="ecLoteDataEnvio"></label>
-                <label>Data de Confecção<input type="date" class="ecInput" id="ecLoteDataConfeccao"></label>
-                <label>Receb. Escritório<input type="date" class="ecInput" id="ecLoteRecebEsc"></label>
-                <label>Receb. Trabalhador<input type="date" class="ecInput" id="ecLoteRecebTrab"></label>
-
-                <div class="ecLoteAcoes">
-                  <button type="button" class="ecBtn ecBtnGhost" id="ecLoteLimparCampos">
-                    <i class="fa-solid fa-rotate"></i> Limpar campos
+          <!-- Tabela + filtros + ações em lote no MESMO card:
+               (1) ações em lote no topo (aparece quando há seleção),
+               (2) filtros/buscas colados na tabela,
+               (3) tabela. -->
+          <div class="ecCard">
+            <!-- Painel de ação em lote (aparece quando há linhas selecionadas; só admin).
+                 Aplica os campos preenchidos a todos os selecionados de uma vez. -->
+            <div class="ecLoteBar" id="ecLoteBar" hidden>
+              <div class="ecLoteHead">
+                <span class="ecLoteSecaoIcone"><i class="fa-solid fa-sliders"></i></span>
+                <h3 class="ecLoteTitulo">Ações em lote</h3>
+                <span class="ecLoteBadge"><strong id="ecLoteQtd">0</strong> selecionado(s)</span>
+                <span class="ecLoteSub">Preencha os campos que quiser mudar — os demais ficam como estão.</span>
+                <div class="ecLoteHeadAcoes">
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecLoteLimpar">
+                    <i class="fa-solid fa-eraser"></i> Limpar seleção
                   </button>
-                  <button type="button" class="ecBtn ecBtnPrimary" id="ecLoteAplicar">
-                    <i class="fa-solid fa-check"></i> Aplicar aos selecionados
+                  <button type="button" class="ecLoteToggle" id="ecLoteToggle" aria-label="Recolher ou expandir">
+                    <i class="fa-solid fa-chevron-up"></i>
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <!-- Tabela principal -->
-          <div class="ecCard">
+              <div class="ecLoteCorpo">
+                <div class="ecLoteGrid">
+                  <label>Status<select class="ecSelect" id="ecLoteStatus"></select></label>
+                  <label>Crachá Devolvido<select class="ecSelect" id="ecLoteDevolvido">
+                      <option value="">— Selecionar</option>
+                      <option value="sim">Sim</option>
+                      <option value="nao">Não</option>
+                    </select></label>
+                  <label>Solicitação 2ª Via<select class="ecSelect" id="ecLoteSegundaVia">
+                      <option value="">— Selecionar</option>
+                      <option value="sim">Sim</option>
+                      <option value="nao">Não</option>
+                    </select></label>
+                  <label>Motivo da 2ª Via<input type="text" class="ecInput" id="ecLoteMotivo" placeholder="(manter)"></label>
+                  <label>Observação<input type="text" class="ecInput" id="ecLoteObservacao" placeholder="(manter)"></label>
+                  <label>Data da Solicitação<input type="date" class="ecInput" id="ecLoteDataSolic"></label>
+                  <label>Data de Envio à Gráfica<input type="date" class="ecInput" id="ecLoteDataEnvio"></label>
+                  <label>Data de Confecção<input type="date" class="ecInput" id="ecLoteDataConfeccao"></label>
+                  <label>Receb. Escritório<input type="date" class="ecInput" id="ecLoteRecebEsc"></label>
+                  <label>Receb. Trabalhador<input type="date" class="ecInput" id="ecLoteRecebTrab"></label>
+
+                  <div class="ecLoteAcoes">
+                    <button type="button" class="ecBtn ecBtnGhost" id="ecLoteLimparCampos">
+                      <i class="fa-solid fa-rotate"></i> Limpar campos
+                    </button>
+                    <button type="button" class="ecBtn ecBtnPrimary" id="ecLoteAplicar">
+                      <i class="fa-solid fa-check"></i> Aplicar aos selecionados
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Barra de filtros, buscas e ações (colada na tabela) -->
+            <div class="ecToolbar">
+              <div class="ecToolbarLinha">
+                <select class="ecSelect" id="ecFiltroDsei" data-ec-filtro></select>
+                <select class="ecSelect" id="ecFiltroStatus" data-ec-filtro></select>
+                <select class="ecSelect" id="ecFiltroEscritorio" data-ec-filtro></select>
+                <div class="ecField ecFieldDate">
+                  <input class="ecInput" type="date" id="ecFiltroDataInicial" data-ec-filtro aria-label="Data inicial">
+                </div>
+                <div class="ecField ecFieldDate">
+                  <input class="ecInput" type="date" id="ecFiltroDataFinal" data-ec-filtro aria-label="Data final">
+                </div>
+                <button type="button" class="ecBtn ecBtnGhost" id="ecBtnLimpar">
+                  <i class="fa-solid fa-filter-circle-xmark"></i> Limpar filtros
+                </button>
+                <button type="button" class="ecBtn ecBtnGhost" id="ecBtnAtualizar"
+                  title="Recarregar dados do banco (ETL e alterações manuais)">
+                  <i class="fa-solid fa-rotate"></i> Atualizar
+                </button>
+              </div>
+
+              <div class="ecToolbarLinha">
+                <div class="ecField ecFieldSearch">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input class="ecInput" type="search" id="ecBuscaNome" data-ec-filtro
+                    placeholder="Buscar por nome do trabalhador...">
+                </div>
+                <div class="ecField ecFieldSearch">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input class="ecInput" type="search" id="ecBuscaCargo" data-ec-filtro placeholder="Buscar por cargo...">
+                </div>
+                <button type="button" class="ecBtn ecBtnPrimary" id="ecBtnExportar">
+                  <i class="fa-solid fa-file-excel"></i> Baixar Excel
+                </button>
+                <button type="button" class="ecBtn ecBtnPrimary ecBtnImportar" id="ecBtnImportar">
+                  <i class="fa-solid fa-file-import"></i> Importar planilha
+                </button>
+                <input type="file" id="ecInputImport" accept=".csv,text/csv" hidden>
+              </div>
+            </div>
+
+            <!-- Tabela principal -->
             <div class="ecTableWrap">
               <table class="ecTable">
                 <caption class="sr-only">Solicitações de entrega de crachá</caption>
