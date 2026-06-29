@@ -11,7 +11,7 @@
 import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv } from "./utils.js";
 import { nivelModulo } from "./permissoes.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
-import { apiGet, apiPost } from "./api.js";
+import { apiGet, apiPost, apiDelete } from "./api.js";
 import { state } from "./state.js";
 
 const PAGE_SIZE_OPCOES = [10, 25, 50, 100];
@@ -122,6 +122,38 @@ function statusValido(val) {
 
 // ---------- Toast ----------
 const ecToast = criarToast("ecToast");
+
+// ---------- Overlay de carregamento ----------
+// Feedback visual para operações que demoram (ex.: importação de planilhas
+// grandes — montar a pré-visualização e enviar/recarregar a base). Criado sob
+// demanda e portado para o <body> para cobrir a tela inteira por cima de tudo.
+let ecLoadingEl = null;
+function ecMostrarLoading(titulo, sub = "") {
+  if (!ecLoadingEl) {
+    ecLoadingEl = document.createElement("div");
+    ecLoadingEl.className = "ecLoadingOverlay";
+    ecLoadingEl.innerHTML =
+      `<div class="ecLoadingBox" role="status" aria-live="polite" aria-busy="true">
+        <span class="ecLoadingSpinner"><i class="fa-solid fa-spinner fa-spin"></i></span>
+        <div class="ecLoadingTexto">
+          <strong class="ecLoadingTitulo"></strong>
+          <span class="ecLoadingSub"></span>
+        </div>
+      </div>`;
+    document.body.appendChild(ecLoadingEl);
+  }
+  ecLoadingEl.querySelector(".ecLoadingTitulo").textContent = titulo || "Processando…";
+  const subEl = ecLoadingEl.querySelector(".ecLoadingSub");
+  subEl.textContent = sub;
+  subEl.hidden = !sub;
+  ecLoadingEl.classList.add("is-visivel");
+}
+function ecEsconderLoading() {
+  if (ecLoadingEl) ecLoadingEl.classList.remove("is-visivel");
+}
+// Garante que o overlay seja efetivamente pintado antes de iniciar um trabalho
+// síncrono pesado (o navegador só repinta ao ceder o thread).
+const proximoFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 // ---------- KPIs (total, ativos e um por status do funil) ----------
 function renderKpis(lista) {
@@ -577,13 +609,23 @@ async function salvarObservacao() {
 // indicadores (devolvido / 2ª via + motivo).
 let modalEditId = null;
 
+// Estado da foto no modal: data URL de uma nova foto a enviar (ou null) e flag
+// para remover a foto existente ao salvar.
+let fotoPendente = null;
+let fotoRemoverPendente = false;
+const FOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB (igual ao limite do servidor)
+
 const MOTIVOS_2VIA = ["Perda", "Roubo", "Dano", "Extravio", "Outro"];
 
-// Atualiza o contador do campo "Descreva o motivo".
+// "Descreva o Motivo" só aparece quando o motivo da 2ª via é "Outro";
+// também atualiza o contador do campo.
 function sincronizarMotivo2via() {
   const ta = $("ecFormMotivo2viaOutro");
   const cont = $("ecFormMotivoContador");
   if (ta && cont) cont.textContent = `${ta.value.length}/200`;
+  const wrap = $("ecFormMotivo2viaOutroWrap");
+  const ehOutro = ($("ecFormMotivo2via")?.value || "") === "Outro";
+  if (wrap) wrap.hidden = !ehOutro;
 }
 
 // Lê/define os grupos de rádio (Não/Sim) do modal de edição.
@@ -631,12 +673,21 @@ function abrirModal(editId) {
   $("ecFormMotivo2viaOutro").value = ehFixo ? "" : motivo;
   sincronizarMotivo2via();
 
+  // Foto: carrega a existente (se houver) e zera o estado pendente.
+  fotoPendente = null;
+  fotoRemoverPendente = false;
+  // cache-bust para refletir uma troca recente de foto da mesma matrícula
+  exibirFotoModal(s.temFoto && s.fotoUrl ? `${s.fotoUrl}?t=${Date.now()}` : "");
+  const inputFoto = $("ecFotoInput");
+  if (inputFoto) inputFoto.value = "";
+
   const modal = $("ecModal");
   if (modal) {
     // Porta o modal para o <body> (uma vez) para escapar de qualquer contexto
     // de empilhamento ancestral (ex.: na barra/cabeçalho fixos em telas ≤760px,
     // que senão cobririam o topo do modal mesmo com z-index alto).
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
+    ajustarLayoutModalCheio(modal, "ec-edit-aberto"); // tela cheia, igual ao preview
     modal.hidden = false;
   }
 }
@@ -644,7 +695,51 @@ function abrirModal(editId) {
 function fecharModal() {
   const modal = $("ecModal");
   if (modal) modal.hidden = true;
+  document.body.classList.remove("ec-edit-aberto"); // restaura o cabeçalho da página
   modalEditId = null;
+}
+
+// Mostra a foto no modal (src vazio = "sem foto") e alterna o botão "Remover".
+function exibirFotoModal(src) {
+  const img = $("ecFotoImg");
+  const vazio = $("ecFotoVazio");
+  const btnRemover = $("ecFotoRemover");
+  const tem = !!src;
+  if (img) { if (tem) img.src = src; else img.removeAttribute("src"); img.hidden = !tem; }
+  if (vazio) vazio.hidden = tem;
+  if (btnRemover) btnRemover.hidden = !tem;
+}
+
+// Liga os controles de foto do modal (selecionar arquivo, pré-visualizar, remover).
+// A foto só é enviada ao servidor quando o usuário clica em "Salvar alterações".
+function ecBindFoto() {
+  $("ecFotoSelecionar")?.addEventListener("click", () => $("ecFotoInput")?.click());
+  $("ecFotoRemover")?.addEventListener("click", () => {
+    fotoPendente = null;
+    fotoRemoverPendente = true; // será efetivado no salvar (se houver foto guardada)
+    exibirFotoModal("");
+  });
+  $("ecFotoInput")?.addEventListener("change", e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // permite reescolher o mesmo arquivo depois
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
+      ecToast("Formato não suportado. Use JPG, PNG ou WEBP.", "erro");
+      return;
+    }
+    if (file.size > FOTO_MAX_BYTES) {
+      ecToast("Imagem muito grande (máx. 5 MB).", "erro");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      fotoPendente = String(reader.result || "");
+      fotoRemoverPendente = false;
+      exibirFotoModal(fotoPendente);
+    };
+    reader.onerror = () => ecToast("Não foi possível ler a imagem.", "erro");
+    reader.readAsDataURL(file);
+  });
 }
 
 async function salvarModal() {
@@ -655,11 +750,19 @@ async function salvarModal() {
 
   const segundaVia = lerRadioBool("ecFormSegundaVia");
   const motivoSel = $("ecFormMotivo2via")?.value || "";
-  const motivoFinal = !segundaVia ? "" : (motivoSel === "Outro" ? ($("ecFormMotivo2viaOutro")?.value || "").trim() : motivoSel);
-  if (segundaVia && !motivoFinal) {
-    if (erro) erro.textContent = "Informe o motivo da 2ª via.";
-    return;
+  const descricaoOutro = ($("ecFormMotivo2viaOutro")?.value || "").trim();
+  if (segundaVia) {
+    if (!motivoSel) {
+      if (erro) erro.textContent = "Selecione o motivo da 2ª via.";
+      return;
+    }
+    if (motivoSel === "Outro" && !descricaoOutro) {
+      if (erro) erro.textContent = 'Descreva o motivo da 2ª via (obrigatório quando o motivo é "Outro").';
+      $("ecFormMotivo2viaOutro")?.focus();
+      return;
+    }
   }
+  const motivoFinal = !segundaVia ? "" : (motivoSel === "Outro" ? descricaoOutro : motivoSel);
 
   try {
     const resp = await apiPost("/api/cracha/salvar", {
@@ -673,7 +776,16 @@ async function salvarModal() {
       segundaVia,
       motivoSegundaVia: motivoFinal
     });
-    aplicarRegistro(resp.registro);
+    // Foto: envia a nova (se escolhida) ou remove a existente (se solicitado).
+    let registro = resp.registro;
+    if (fotoPendente) {
+      const r = await apiPost("/api/cracha/foto", { matricula: s.matricula, dataUrl: fotoPendente });
+      registro = r.registro;
+    } else if (fotoRemoverPendente && s.temFoto) {
+      const r = await apiDelete(`/api/cracha/foto/${encodeURIComponent(s.matricula)}`);
+      registro = r.registro;
+    }
+    aplicarRegistro(registro);
     ecToast("Crachá atualizado.");
     fecharModal();
     render();
@@ -879,6 +991,12 @@ async function importarPlanilha(file) {
   try { buffer = await file.arrayBuffer(); } catch (e) { ecToast("N\u00E3o foi poss\u00EDvel ler o arquivo.", "erro"); return; }
   const bytes = new Uint8Array(buffer);
 
+  // Planilhas grandes travam o thread no parse/render: mostra o loading e cede
+  // um frame para ele pintar antes do trabalho síncrono pesado abaixo.
+  ecMostrarLoading("Lendo arquivo importado…", "Processando os registros do arquivo. Isso pode levar alguns instantes.");
+  await proximoFrame();
+  try {
+
   // O Excel exporta CSV em v\u00E1rios encodings (UTF-8, ANSI/Windows-1252 ou
   // CP850 no "CSV (MS-DOS)"). Testamos cada um e ficamos com aquele cujo
   // cabe\u00E7alho reconhece a coluna "Matr\u00EDcula".
@@ -925,6 +1043,9 @@ async function importarPlanilha(file) {
   // Em vez de importar direto, abre a pr\u00E9-visualiza\u00E7\u00E3o do lote para o usu\u00E1rio
   // marcar/desmarcar quais linhas ser\u00E3o de fato enviadas.
   abrirPreviewImport(linhas);
+  } finally {
+    ecEsconderLoading();
+  }
 }
 
 // ---------- Pr\u00E9-visualiza\u00E7\u00E3o do lote de importa\u00E7\u00E3o ----------
@@ -941,17 +1062,23 @@ function abrirPreviewImport(linhas) {
   renderPreviewImport();
   const modal = $("ecImportModal");
   if (modal) {
-    posicionarPreviewAbaixoDoCabecalho(modal);
+    ajustarLayoutModalCheio(modal, "ec-import-aberto");
     modal.hidden = false;
   }
 }
 
-// Posiciona o modal abaixo do cabeçalho da página (que tem z-index acima do
-// painel da aba), medindo a altura real do cabeçalho.
-function posicionarPreviewAbaixoDoCabecalho(modal) {
-  const header = document.querySelector(".top");
-  const base = header ? Math.ceil(header.getBoundingClientRect().bottom) : 0;
-  modal.style.setProperty("--ec-preview-top", `${Math.max(18, base + 10)}px`);
+// Faz um modal ocupar a tela toda (ocultando o cabeçalho da página via classeBody)
+// porém respeitando a largura do menu lateral — começa após ele. Usado tanto pelo
+// preview de importação quanto pelo modal de edição. Revertido ao fechar.
+function ajustarLayoutModalCheio(modal, classeBody) {
+  if (classeBody) document.body.classList.add(classeBody);
+  // Mede a largura atual da sidebar (cobre os estados expandido/recolhido). Em
+  // telas estreitas ela vira barra no topo (ocupa a largura toda): nesse caso
+  // não desloca o modal para a direita.
+  const sb = document.querySelector(".sidebar");
+  const r = sb ? sb.getBoundingClientRect() : null;
+  const offset = r && r.right < window.innerWidth * 0.5 ? Math.ceil(r.right) : 0;
+  modal.style.setProperty("--ec-sidebar-w", `${offset}px`);
 }
 
 // IDs dos controles do painel "Aplicar aos selecionados".
@@ -1020,6 +1147,7 @@ function aplicarLoteImport() {
 function fecharPreviewImport() {
   const modal = $("ecImportModal");
   if (modal) modal.hidden = true;
+  document.body.classList.remove("ec-import-aberto"); // restaura o cabeçalho da página
   importLinhas = [];
   importSelecionadas.clear();
 }
@@ -1051,7 +1179,7 @@ function celulaPreview(linha, key, idx) {
     const invalida = val && !dataBrValida(val);
     const classe = "ecImportEdit ecImportEditDate" + (invalida ? " is-invalido" : "");
     const titulo = invalida ? ' title="Data inválida — selecione uma data válida (dd/mm/aaaa)"' : "";
-    return `<td><input type="date" class="${classe}" ${attr} value="${escapeAttr(brParaISOInput(val || ""))}"${titulo}></td>`;
+    return `<td><input type="date" class="${classe}" data-dp-skip ${attr} value="${escapeAttr(brParaISOInput(val || ""))}"${titulo}></td>`;
   }
 
   if (tipo === "bool") {
@@ -1060,7 +1188,7 @@ function celulaPreview(linha, key, idx) {
     const classe = "ecImportEdit" + (invalido ? " is-invalido" : "");
     const titulo = invalido ? ` title="Valor inv\u00E1lido \u2014 selecione Sim ou N\u00E3o"` : "";
     const optInv = invalido ? `<option value="__inv" selected disabled>${escapeHtml(String(val))} (inv\u00E1lido)</option>` : "";
-    return `<td><select class="${classe}" ${attr}${titulo}>
+    return `<td><select class="${classe}" data-ss-skip ${attr}${titulo}>
       ${optInv}
       <option value=""${sel === "" ? " selected" : ""}>\u2014</option>
       <option value="sim"${sel === "sim" ? " selected" : ""}>Sim</option>
@@ -1076,7 +1204,7 @@ function celulaPreview(linha, key, idx) {
     const optInv = invalido ? `<option value="__inv" selected disabled>${escapeHtml(String(val))} (inv\u00e1lido)</option>` : "";
     const opts = [optInv, `<option value=""${!val ? " selected" : ""}>\u2014</option>`]
       .concat(STATUS_LISTA.map(s => `<option value="${escapeAttr(s)}"${s === match ? " selected" : ""}>${escapeHtml(s)}</option>`));
-    return `<td><select class="${classe}" ${attr}${titulo}>${opts.join("")}</select></td>`;
+    return `<td><select class="${classe}" data-ss-skip ${attr}${titulo}>${opts.join("")}</select></td>`;
   }
 
   // text (situa\u00E7\u00E3o funcional, motivo da 2\u00AA via, observa\u00E7\u00E3o)
@@ -1216,6 +1344,10 @@ async function confirmarImportacao() {
 
   const btn = $("ecImportConfirmar");
   if (btn) btn.disabled = true;
+  ecMostrarLoading(
+    "Importando registros\u2026",
+    `Enviando ${linhas.length} registro(s) e atualizando a tabela. Isso pode levar alguns instantes.`
+  );
   try {
     const resp = await apiPost("/api/cracha/importar", { linhas });
     fecharPreviewImport();
@@ -1224,6 +1356,7 @@ async function confirmarImportacao() {
   } catch (e) {
     if (erro) erro.textContent = e && e.message ? e.message : "Falha ao importar a planilha.";
   } finally {
+    ecEsconderLoading();
     if (btn) btn.disabled = false;
   }
 }
@@ -1282,6 +1415,7 @@ export function configurarEntregaCracha() {
   ecBindDetalhe();
   ecBindLote();
   ecBindModal();
+  ecBindFoto();
   ecBindDelegacao(raiz);
 }
 
@@ -1362,6 +1496,7 @@ function ecBindModal() {
   $("ecModalCancelar")?.addEventListener("click", fecharModal);
   $("ecModalSalvar")?.addEventListener("click", salvarModal);
   $("ecFormMotivo2viaOutro")?.addEventListener("input", sincronizarMotivo2via);
+  $("ecFormMotivo2via")?.addEventListener("change", sincronizarMotivo2via);
   $("ecModal")?.addEventListener("click", event => {
     if (event.target === $("ecModal")) fecharModal();
   });

@@ -1724,7 +1724,6 @@
                   <label>Recebimento pelo Trabalhador</label>
                   <input class="ecInput" type="date" id="ecFormDataRecebTrab">
                 </div>
-                <div class="ecField" aria-hidden="true"></div>
                 <div class="ecField">
                   <label>Solicitação de 2ª Via</label>
                   <div class="ecRadioGrupo" role="radiogroup" aria-label="Solicitação de 2ª Via">
@@ -1750,11 +1749,29 @@
                     <option value="Outro">Outro</option>
                   </select>
                 </div>
-                <div class="ecField" id="ecFormMotivo2viaOutroWrap">
-                  <label>Descreva o Motivo</label>
+                <div class="ecField" id="ecFormMotivo2viaOutroWrap" hidden>
+                  <label>Descreva o Motivo <span class="req">*</span></label>
                   <textarea class="ecTextarea" id="ecFormMotivo2viaOutro" rows="2" maxlength="200"
                     placeholder="Descreva o motivo da solicitação da 2ª via"></textarea>
                   <div class="ecObsRodape"><span class="ecObsContador" id="ecFormMotivoContador">0/200</span></div>
+                </div>
+                <div class="ecField ecFieldFoto">
+                  <label>Foto do Trabalhador</label>
+                  <div class="ecFoto">
+                    <div class="ecFotoPreview">
+                      <img id="ecFotoImg" alt="Foto do trabalhador" hidden>
+                      <span class="ecFotoVazio" id="ecFotoVazio"><i class="fa-regular fa-image"></i> Sem foto</span>
+                    </div>
+                    <div class="ecFotoAcoes">
+                      <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecFotoSelecionar">
+                        <i class="fa-solid fa-upload"></i> Selecionar foto
+                      </button>
+                      <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecFotoRemover" hidden>
+                        <i class="fa-solid fa-trash"></i> Remover
+                      </button>
+                    </div>
+                    <input type="file" id="ecFotoInput" accept="image/png,image/jpeg,image/webp" hidden>
+                  </div>
                 </div>
               </div>
               <div class="ecModalErro" id="ecModalErro"></div>
@@ -1775,8 +1792,6 @@
                 <button type="button" class="ecModalClose" id="ecImportFechar" aria-label="Fechar"><i
                     class="fa-solid fa-xmark"></i></button>
               </div>
-              <p class="ecImportSub">Confira as linhas do lote e marque ou desmarque quais deseja importar. Somente as
-                linhas selecionadas serão enviadas.</p>
               <div class="ecImportToolbar">
                 <label class="ecImportSelAll"><input type="checkbox" id="ecImportSelAll"> Selecionar todas</label>
                 <span class="ecImportContador" id="ecImportContador">0 de 0 selecionada(s)</span>
@@ -1810,8 +1825,8 @@
                   <label>Data de Confecção<input type="date" class="ecImportEdit" id="ecImpBulkDataConfeccao"></label>
                   <label>Receb. Escritório<input type="date" class="ecImportEdit" id="ecImpBulkRecebEsc"></label>
                   <label>Receb. Trabalhador<input type="date" class="ecImportEdit" id="ecImpBulkRecebTrab"></label>
+                  <button type="button" class="ecBtn ecBtnPrimary ecImpBulkBtn" id="ecImpBulkAplicar">Aplicar aos selecionados</button>
                 </div>
-                <button type="button" class="ecBtn ecBtnPrimary" id="ecImpBulkAplicar">Aplicar aos selecionados</button>
               </div>
 
               <div class="ecImportTableWrap">

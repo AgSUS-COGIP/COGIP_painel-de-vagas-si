@@ -54,6 +54,14 @@
     .gfCombo:not(.temValor) .gfComboValor,
     .ssCombo.is-vazio .ssValor { color: #7a90ad; font-weight: 700; }
 
+    /* Combo de um <select> desabilitado (ex.: DSEI no modal de edição): mostra o
+       valor, mas não permite abrir/alterar. (.ssNativo é irmão imediato do gatilho.) */
+    .ssNativo:disabled + .ssTrigger {
+      opacity: .6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
     /* Seta (chevron) consistente */
     .siComboBtn i,
     .gfComboBtn i,
@@ -91,7 +99,9 @@
        a lista rola dentro do espaço restante — assim o popup nunca é cortado. */
     .ssMenu {
       position: fixed;
-      z-index: 99999;
+      /* acima dos modais de crachá (overlay 100001) — senão o popup abre ATRÁS
+         do modal portado ao <body>. */
+      z-index: 100050;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -311,3 +321,31 @@
     .ecField:focus-within {
       box-shadow: 0 0 0 3px rgba(0, 112, 217, .18), 0 7px 18px rgba(0, 36, 82, .18);
     }
+
+    /* No MODAL de edição, o .ecField é só o agrupador rótulo + campo: sem o
+       "card branco" (pílula/sombra). Precisa ficar NESTE layer (filtros-padrao)
+       para vencer a regra .ecField acima — em outro layer perderia mesmo sendo
+       mais específico. */
+    .ecModalForm .ecField,
+    .ecModalForm .ecField:focus-within {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+    /* Sem o card, os campos de TEXTO/textarea ganham a própria borda plana (os
+       selects e datas já têm seus próprios controles). Fica neste layer para
+       vencer o `.ecInput { border: none }` definido acima. */
+    .ecModalForm .ecInput:not(textarea),
+    .ecModalForm .ecTextarea {
+      background: #fff;
+      border: 1px solid rgba(0, 83, 166, .22);
+      border-radius: 10px;
+      box-shadow: none;
+    }
+    /* Sem o card, o `.ecField .ecInput { height:100%; padding:0 }` do layer faria
+       o input colapsar (campo "minúsculo"); fixa altura e respiro próprios. */
+    .ecModalForm .ecInput:not(textarea) {
+      height: 38px;
+      padding: 0 11px;
+    }
+    .ecModalForm .ecTextarea { padding: 9px 11px; }

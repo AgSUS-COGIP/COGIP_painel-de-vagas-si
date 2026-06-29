@@ -64,3 +64,23 @@ export async function apiPost(path, body) {
 
   return response.json();
 }
+
+export async function apiDelete(path) {
+  const response = await fetch(path, {
+    method: "DELETE",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    let message = `Erro ${response.status}`;
+
+    try {
+      const payload = await response.json();
+      if (payload && payload.error) message = payload.error;
+    } catch (err) { }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}

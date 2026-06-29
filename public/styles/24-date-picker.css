@@ -38,7 +38,9 @@
     /* ---------- Popup do calendário ---------- */
     .dpPop {
       position: fixed;
-      z-index: 99999;
+      /* acima dos modais de crachá (overlay 100001) — senão o calendário abre
+         ATRÁS do modal portado ao <body>. */
+      z-index: 100050;
       background: #fff;
       border: 1px solid rgba(0, 83, 166, .18);
       border-radius: 14px;

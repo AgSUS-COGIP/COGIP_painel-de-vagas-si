@@ -928,6 +928,48 @@ select.ecInput {
 
 .ecModalOverlay[hidden] { display: none; }
 
+/* ---------- Overlay de carregamento ----------
+   Feedback de tela cheia enquanto o sistema trabalha (ex.: importar planilhas
+   grandes). Fica acima dos modais. Criado/portado ao <body> via JS. */
+.ecLoadingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100010; /* acima dos modais de crachá (100001/100002) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(3, 24, 54, .55);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .15s ease;
+}
+
+.ecLoadingOverlay.is-visivel { opacity: 1; visibility: visible; }
+
+.ecLoadingBox {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: min(420px, 92vw);
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 26px;
+  box-shadow: 0 28px 60px rgba(0, 24, 61, .5);
+}
+
+.ecLoadingSpinner {
+  flex: none;
+  font-size: 26px;
+  color: #0070d9;
+}
+
+.ecLoadingTexto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ecLoadingTitulo { color: var(--azul-escuro); font-size: 14px; font-weight: 900; }
+.ecLoadingSub { color: #64789c; font-size: 12px; font-weight: 600; line-height: 1.35; }
+.ecLoadingSub[hidden] { display: none; }
+
 .ecModalBox {
   width: min(560px, 100%);
   background: #fff;
@@ -1020,10 +1062,70 @@ select.ecInput {
   height: auto;
   border: none;
   background: transparent;
+  /* Sem o "card branco" (pílula + sombra) que o layer de filtros-padrão aplica a
+     todo .ecField — no modal o .ecField é só o agrupador de rótulo + campo. */
+  box-shadow: none;
   padding: 0;
 }
+/* Mantém plano também ao focar (o layer de filtros-padrão reativa a sombra em
+   .ecField:focus-within; esta regra é mais específica e vence). */
+.ecModalForm .ecField:focus-within { box-shadow: none; }
+/* O display:grid acima sobrepõe o [hidden] do navegador; restaura o ocultar
+   (ex.: "Descreva o Motivo", que só aparece quando o motivo é "Outro"). */
+.ecModalForm .ecField[hidden] { display: none; }
 
 .ecModalForm .ecFieldFull { grid-column: 1 / -1; }
+
+/* ---------- Campo de foto do trabalhador (modal de edição) ---------- */
+.ecFieldFoto .ecFoto {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ecFotoPreview {
+  flex: none;
+  width: 96px;
+  height: 120px;            /* proporção de retrato (crachá) */
+  border-radius: 10px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  background: #f3f8fe;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A imagem preenche a caixa; quando não há foto (img[hidden]) some de fato —
+   o [hidden] precisa vencer o display abaixo, senão aparece a imagem quebrada. */
+.ecFotoPreview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ecFotoPreview img[hidden] { display: none; }
+
+.ecFotoVazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px;
+  color: #8aa0bd;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  text-align: center;
+  line-height: 1.1;
+}
+.ecFotoVazio[hidden] { display: none; }
+.ecFotoVazio i { font-size: 24px; opacity: .8; }
+
+.ecFotoAcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.ecFotoAcoes .ecBtn { justify-content: flex-start; }
 
 /* Campo de checkbox no modal (devolvido / 2ª via). */
 .ecModalForm .ecFieldCheck { justify-content: center; }
@@ -1070,7 +1172,7 @@ select.ecInput {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 0px;
 }
 
 .ecModalAcoes .ecBtnPrimary { margin-left: 0; }
@@ -1080,8 +1182,23 @@ select.ecInput {
    cortado em cima (atrás do cabeçalho da página) e embaixo —, limitamos sua
    altura ao espaço disponível e deixamos só o FORMULÁRIO rolar. Cabeçalho,
    mensagem de erro e botões de ação ficam sempre visíveis (fixos). */
+/* Mesmas regras do preview de importação: o modal de edição ocupa toda a tela
+   disponível (oculta o cabeçalho da página, respeita a largura do menu lateral)
+   e só o FORMULÁRIO rola internamente — cabeçalho, erro e ações ficam fixos. */
+#ecModal {
+  justify-items: stretch;
+  align-items: stretch;
+  padding: 14px 14px 14px calc(var(--ec-sidebar-w, 0px) + 14px);
+}
+@media (max-width: 600px) {
+  #ecModal { padding: 6px; }
+}
+body.ec-edit-aberto .top { visibility: hidden; }
+
 #ecModal .ecModalBox {
-  max-height: calc(100vh - 36px); /* 18px de respiro do overlay em cima/embaixo */
+  width: 100%;
+  max-width: none;
+  max-height: none; /* a altura vem do stretch (100vh - margens) */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1100,42 +1217,65 @@ select.ecInput {
 /* ---------- Modal de pré-visualização da importação ---------- */
 .ecModalBoxWide { width: min(1100px, 100%); }
 
+/* Enquanto o preview está aberto, oculta o cabeçalho da página para o modal
+   ocupar a tela inteira (o JS define --ec-preview-top: 18px). Usa visibility
+   para não reflowar o conteúdo atrás do modal. */
+body.ec-import-aberto .top { visibility: hidden; }
+
 /* Botão de fechar (X) no canto direito do cabeçalho do preview; o título ocupa
    o restante da linha e empurra o X para a borda direita (deixa de ficar colado). */
 #ecImportModal .ecModalHead { align-items: center; }
 #ecImportModal .ecModalHead h3 { flex: 1; min-width: 0; }
 
-/* Cola o modal à esquerda (após o menu) e o posiciona ABAIXO do cabeçalho da
-   página (cuja altura é medida em JS e exposta em --ec-preview-top). */
+/* O preview ocupa TODA a tela disponível: estica o cartão na grade do overlay
+   (cobrindo inclusive o espaço do cabeçalho, que é ocultado) deixando só uma
+   margem uniforme pequena — responsivo em qualquer largura/altura. */
 #ecImportModal {
-  justify-items: start;
-  align-items: start;
-  padding-left: calc(clamp(218px, 14.5vw, 246px) + 16px);
-  padding-top: var(--ec-preview-top, 18px);
+  justify-items: stretch;
+  align-items: stretch;
+  /* Respeita a largura do menu lateral: começa após ele (medido em JS e exposto
+     em --ec-sidebar-w; 0 em telas estreitas, onde o menu vira barra no topo). */
+  padding: 14px 14px 14px calc(var(--ec-sidebar-w, 0px) + 14px);
 }
 
 #ecImportModal .ecModalBox {
   width: 100%;
-  max-width: 1500px;
-  /* O preview inteiro rola verticalmente quando não cabe entre o cabeçalho da
-     página e a base da tela. */
-  max-height: calc(100vh - var(--ec-preview-top, 18px) - 18px);
+  max-width: none;
+  max-height: none; /* a altura vem do stretch (100vh - margens) */
+  /* Só a TABELA rola; o restante (cabeçalho, lote, ações) fica fixo. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Cabeçalho, subtítulo, toolbar, aviso, erro e ações: fixos. */
+#ecImportModal .ecModalBox > *:not(.ecImportTableWrap):not(.ecImportLote) { flex: 0 0 auto; }
+
+/* O painel "Aplicar aos selecionados" mantém a altura natural (para os campos
+   serem usáveis); em telas baixas é limitado por max-height e rola internamente,
+   nunca sendo espremido pela tabela. */
+#ecImportModal .ecImportLote {
+  flex: 0 0 auto;
+  max-height: 40vh;
   overflow-y: auto;
 }
 
-/* A tabela acompanha a rolagem do modal (sem rolagem interna própria). */
+/* A tabela é a área de rolagem (vertical E horizontal) e preenche só o espaço
+   RESTANTE (flex-basis 0 — senão o conteúdo gigante a tornaria "gananciosa" e
+   espremeria o painel de lote):
+   - o cabeçalho (thead sticky) permanece visível no topo ao rolar as linhas;
+   - a barra de rolagem horizontal fica na base da ÁREA VISÍVEL (não no fim de
+     toda a tabela), acompanhando a rolagem vertical — sempre acessível. */
 #ecImportModal .ecImportTableWrap {
+  flex: 1 1 0;
+  min-height: 180px;
   max-height: none;
-  overflow-x: auto;
+  overflow: auto;
 }
 
-/* Em telas estreitas o layout do menu muda: volta ao modal centralizado. */
-@media (max-width: 980px) {
-  #ecImportModal {
-    justify-items: center;
-    padding-left: 18px;
-  }
-  #ecImportModal .ecModalBox { max-width: 100%; }
+/* Em telas pequenas reduz a margem para aproveitar ainda mais o espaço. */
+@media (max-width: 600px) {
+  #ecImportModal { padding: 6px; }
 }
 
 .ecImportSub {
@@ -1297,6 +1437,16 @@ select.ecInput {
 .ecImportLoteGrid .ecImportEdit { width: 100%; margin-top: auto; }
 
 .ecImportLote .ecBtn { margin-left: 0; }
+
+/* Botão "Aplicar" vive como item do grid (na mesma linha das opções, ocupando
+   células vazias da última linha) — economiza a linha dedicada e sobra espaço
+   para a tabela. Alinha à base da célula, junto dos campos. */
+.ecImportLoteGrid .ecImpBulkBtn {
+  grid-column: span 2;
+  align-self: end;
+  height: 38px;
+  white-space: nowrap;
+}
 
 .ecImportAviso::before {
   content: "\26A0"; /* ⚠ */

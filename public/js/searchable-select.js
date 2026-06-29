@@ -172,8 +172,15 @@ export function tornarSelectPesquisavel(select, opts = {}) {
     }
   }
 
-  trigger.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); menu ? fechar() : abrir(); });
+  // Respeita o estado disabled do <select> nativo (ex.: campos só-leitura como
+  // DSEI no modal de edição): o gatilho não abre nem reage ao teclado.
+  trigger.addEventListener("click", e => {
+    e.preventDefault(); e.stopPropagation();
+    if (select.disabled) return;
+    menu ? fechar() : abrir();
+  });
   trigger.addEventListener("keydown", e => {
+    if (select.disabled) return;
     if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!menu) abrir(); }
   });
 
