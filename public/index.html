@@ -652,7 +652,7 @@
                   <thead>
                     <tr id="processoSeletivoHeaderRow">
                       <th>DSEI/CASAI</th>
-                      <th>Normais/Temporárias</th>
+                      <th>Vagas ociosas</th>
                       <th>Temporárias</th>
                       <th>Total Processo Seletivo</th>
                     </tr>
@@ -2247,24 +2247,12 @@
                     <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
                   </label>
                   <label class="psField">
-                    <span>Processo SEI</span>
-                    <input class="psInput" id="psFormSei" type="text" autocomplete="off">
-                  </label>
-                  <label class="psField">
-                    <span>Ciclo</span>
-                    <input class="psInput" id="psFormCiclo" type="text" autocomplete="off">
-                  </label>
-                  <label class="psField">
                     <span>Total de vagas previstas</span>
                     <input class="psInput" id="psFormVagas" type="number" min="0">
                   </label>
                   <label class="psField">
                     <span>Total de contratados</span>
                     <input class="psInput" id="psFormContratados" type="number" min="0">
-                  </label>
-                  <label class="psField">
-                    <span>Inscritos</span>
-                    <input class="psInput" id="psFormInscritos" type="number" min="0">
                   </label>
                   <label class="psField">
                     <span>Risco</span>
@@ -2353,6 +2341,79 @@
                 <button type="submit" form="psFormAnexoEdital" class="psBtn" id="psAnexoEnviar">
                   <i class="fa-solid fa-wand-magic-sparkles"></i> Extrair dados
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: aprovado da vaga (criar/editar) -->
+          <div class="psModalOverlay" id="psModalAprovado" hidden>
+            <div class="psModalCard psModalCardSm" role="dialog" aria-modal="true" aria-labelledby="psModalAprovadoTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalAprovadoTitulo"><i class="fa-solid fa-user-plus"></i> Adicionar aprovado</h3>
+                <button type="button" class="psModalClose" id="psModalAprovadoFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormAprovado">
+                <div class="psFormGrid">
+                  <label class="psField psField2">
+                    <span>Nome <i class="psReq">*</i></span>
+                    <input class="psInput" id="psAprovadoNome" type="text" autocomplete="off">
+                  </label>
+                  <label class="psField">
+                    <span>Nota</span>
+                    <input class="psInput" id="psAprovadoNota" type="number" min="0" step="0.01">
+                  </label>
+                  <label class="psField">
+                    <span>Tipo</span>
+                    <select class="psSelect" id="psAprovadoTipo">
+                      <option value="NORMAL">Normal</option>
+                      <option value="PcD">PcD</option>
+                      <option value="PPIQ">PPIQ</option>
+                    </select>
+                  </label>
+                  <label class="psField">
+                    <span>Status</span>
+                    <select class="psSelect" id="psAprovadoStatus">
+                      <option value="Convocado">Convocado</option>
+                      <option value="Aguardando" selected>Aguardando</option>
+                      <option value="Desistiu">Desistiu</option>
+                    </select>
+                  </label>
+                  <div class="psField psField3" id="psAprovadoDocWrap" hidden>
+                    <span>Documento de desistência (PDF)</span>
+                    <input class="psInputFile" id="psAprovadoDoc" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                  </div>
+                </div>
+                <p class="psModalErro" id="psAprovadoErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psBtnAprovadoCancelar">Cancelar</button>
+                <button type="submit" form="psFormAprovado" class="psBtn" id="psBtnAprovadoSalvar"><i class="fa-solid fa-check"></i> Salvar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: configuração da classificação (por edital) -->
+          <div class="psModalOverlay" id="psModalConfig" hidden>
+            <div class="psModalCard psModalCardSm" role="dialog" aria-modal="true" aria-labelledby="psModalConfigTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalConfigTitulo"><i class="fa-solid fa-sliders"></i> Configurar classificação</h3>
+                <button type="button" class="psModalClose" id="psModalConfigFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormConfig">
+                <label class="psCheck"><input type="checkbox" id="psConfMostrarPosicoes"> Mostrar as posições da classificação na tabela</label>
+                <label class="psField psField3" style="margin-top:14px;">
+                  <span>Mostrar 1 PcD/PPIQ a cada N normais <small>(0 = desativado)</small></span>
+                  <input class="psInput" id="psConfIntervalo" type="number" min="0" step="1" value="0">
+                </label>
+                <p class="psModalErro" id="psConfigErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalConfigCancelar">Cancelar</button>
+                <button type="submit" form="psFormConfig" class="psBtn" id="psModalConfigSalvar"><i class="fa-solid fa-check"></i> Salvar</button>
               </div>
             </div>
           </div>

@@ -613,7 +613,7 @@ export function atualizarCabecalhoProcessoSeletivo() {
     header.innerHTML = `
           ${thOrdVagas("DSEI/CASAI", "dseiCasai")}
           ${thOrdVagas("Cargo", "cargo")}
-          ${thOrdVagas("Normais", "distNormalTemp")}
+          ${thOrdVagas("Vagas ociosas", "distNormalTemp")}
           ${thOrdVagas("Temporárias", "distTemporario")}
           ${thOrdVagas("Total Processo Seletivo", "distProcessoSeletivo")}
         `;
@@ -630,14 +630,14 @@ export function atualizarCabecalhoProcessoSeletivo() {
       `;
   header.innerHTML = `
         ${thOrdVagas(primeiraColuna, "label")}
-        ${thOrdVagas("Normais", "distNormalTemp")}
+        ${thOrdVagas("vagas ociosas", "distNormalTemp")}
         ${thOrdVagas("Temporárias", "distTemporario")}
         ${thOrdVagas("Total Processo Seletivo", "distProcessoSeletivo")}
       `;
   if (descricao) {
     descricao.textContent = state.vagasViewAtual === "cargo"
-      ? "Normais somadas às temporárias (total para processo seletivo) por cargo."
-      : "Normais somadas às temporárias (total para processo seletivo) por DSEI/CASAI.";
+      ? "Vagas ociosas somadas às temporárias (total para processo seletivo) por cargo."
+      : "Vagas ociosas somadas às temporárias (total para processo seletivo) por DSEI/CASAI.";
   }
 }
 
@@ -826,7 +826,7 @@ export function linhaVagasZerada(row) {
 export function montarComposicaoOciosas(row) {
   return `
         <div class="composicaoOciosas">
-          <div><strong>Vagas normais:</strong> ${formatNumber(row.quantitativoPlano)}</div>
+          <div><strong>Vagas ociosas:</strong> ${formatNumber(row.quantitativoPlano)}</div>
           <div><strong>Substituições:</strong> ${formatNumber(row.contratadosSubstituicao)}</div>
           <div><strong>Temporárias:</strong> ${formatNumber(row.contratadosTemporario)}</div>
           <div><strong>Afastados:</strong> ${formatNumber(row.afastados)}</div>
