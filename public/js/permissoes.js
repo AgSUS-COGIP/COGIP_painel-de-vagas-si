@@ -10,6 +10,7 @@ import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { NIVEL } from "./constants.js";
 import { abrirModal } from "./modal.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 // Módulos (abas) na ordem da matriz. As chaves casam com o data-view do menu.
 // Espelha lib/permissoes.js (o backend é a fonte de verdade ao salvar/validar).
@@ -137,7 +138,9 @@ function niveisDisponiveis(modulo) {
   return MODULOS_SOMENTE_LEITURA.has(modulo) ? NIVEIS.filter(n => n.valor <= NIVEL.APROVADO) : NIVEIS;
 }
 
-function celulaSelect(usuario, modulo) {
+// HTML do <select> de permissão de uma célula (sem <td>: vai num formatter do
+// Tabulator). Mantém os data-* (perm-email/perm-modulo) para a delegação existente.
+function selectPermHtml(usuario, modulo) {
   const email = escapeHtml(usuario.email || "");
   const niveis = niveisDisponiveis(modulo);
   const maxNivel = niveis[niveis.length - 1].valor;
@@ -156,13 +159,9 @@ function celulaSelect(usuario, modulo) {
     `<option value="${n.valor}"${n.valor === atual ? " selected" : ""}>${n.rotulo}</option>`
   ).join("");
   // data-ss-skip mantém o <select> nativo (não vira combo pesquisável).
-  return `<td class="permCell">
-    <select class="permSel ${classeNivel(atual)}${personalizado ? " permCustom" : ""}"
+  return `<select class="permSel ${classeNivel(atual)}${personalizado ? " permCustom" : ""}"
             data-perm-email="${email}" data-perm-modulo="${escapeHtml(modulo)}"
-            data-ss-skip${desabilita} title="${escapeHtml(titulo)}">
-      ${opcoes}
-    </select>
-  </td>`;
+            data-ss-skip${desabilita} title="${escapeHtml(titulo)}">${opcoes}</select>`;
 }
 
 // Resumo textual do escopo de DSEI do usuário ("Todos os DSEIs" ou "N DSEI(s)").
@@ -173,63 +172,60 @@ function resumoEscopo(usuario) {
   return n ? `${n} DSEI(s)` : "Nenhum DSEI";
 }
 
-// Célula da coluna "Escopo (DSEI)". Editor+ vê um botão que abre o modal; o leitor
-// vê só o resumo. O escopo é por pessoa (vale para todos os módulos).
-function celulaEscopo(usuario) {
+// Conteúdo da célula "Escopo (DSEI)" (sem <td>: vai num formatter do Tabulator).
+// Editor+ vê o botão que abre o modal (data-perm-escopo → onClickPerfis); o leitor
+// vê só o chip. O escopo é por pessoa (vale para todos os módulos).
+function escopoCelulaHtml(usuario) {
   const email = escapeHtml(usuario.email || "");
   const resumo = escapeHtml(resumoEscopo(usuario));
   const restrito = usuario.escopo && usuario.escopo.todos === false;
   const classe = restrito ? "permEscopoRestrito" : "permEscopoTodos";
   if (!podeEditarPerfis() || !usuario.email) {
-    return `<td class="permEscopoCell"><span class="permEscopoChip ${classe}">${resumo}</span></td>`;
+    return `<span class="permEscopoChip ${classe}">${resumo}</span>`;
   }
-  return `<td class="permEscopoCell">
-    <button type="button" class="permEscopoBtn ${classe}" data-perm-escopo="${email}" title="Definir os DSEIs que este usuário pode acessar">
-      <i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${resumo}
-    </button>
-  </td>`;
+  return `<button type="button" class="permEscopoBtn ${classe}" data-perm-escopo="${email}" title="Definir os DSEIs que este usuário pode acessar"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${resumo}</button>`;
 }
 
-function linhaUsuario(usuario) {
-  const login = escapeHtml(usuario.login || usuario.email || "—");
-  const nome = escapeHtml(usuario.nome || "—");
-  const email = escapeHtml(usuario.email || "");
-  const temOverride = usuario.permissoes && Object.keys(usuario.permissoes).length > 0;
-  const acaoLimpar = (podeEditarPerfis() && usuario.email)
-    ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Remover todas as permissões (deixa sem acesso a todas as abas)"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
-    : "";
-  // Coluna "Ações" só existe para quem pode editar (Editor+); o leitor não a vê.
-  const acoesTd = podeEditarPerfis() ? `<td class="permAcoes">${acaoLimpar}</td>` : "";
-  const celulas = MODULOS_PERMISSAO.map(m => celulaSelect(usuario, m.chave)).join("");
-  const escopoTd = celulaEscopo(usuario);
-  return `<tr class="permRow">
-    <td class="permUser">
-      <span class="permLogin">${login}</span>
-      <span class="permNome">${nome}</span>
-    </td>
-    ${celulas}
-    ${escopoTd}
-    ${acoesTd}
-  </tr>`;
-}
+// Grade Tabulator (modo SÓ-ESTILO: sem arrastar colunas/linhas). 1ª coluna
+// (Usuário) fixa e azul; cabeçalhos de módulo com ícone branco; selects e botões
+// inline preservam os data-* para a delegação (salvar/restaurar/escopo) valer.
+let gradePerfis = null;
 
-// Total de colunas da matriz (usuário + módulos + Escopo + Ações quando editável).
-function colspanMatriz() {
-  return MODULOS_PERMISSAO.length + 2 + (podeEditarPerfis() ? 1 : 0);
-}
-
-function cabecalhoModulos() {
-  const cols = MODULOS_PERMISSAO.map(m =>
-    `<th class="permModuloTh"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i><span>${escapeHtml(m.rotulo)}</span></th>`
-  ).join("");
-  const acoesTh = podeEditarPerfis() ? `<th class="permAcoesTh">Ações</th>` : "";
-  const escopoTh = `<th class="permEscopoTh"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span>Escopo (DSEI)</span></th>`;
-  return `<tr>
-    <th class="permUserTh">Usuário</th>
-    ${cols}
-    ${escopoTh}
-    ${acoesTh}
-  </tr>`;
+function colsPerfis() {
+  const cols = [
+    {
+      title: "Usuário", field: "login", frozen: true, width: 220, cssClass: "permUserCol",
+      formatter: c => {
+        const u = c.getData();
+        return `<span class="permLogin">${escapeHtml(u.login || u.email || "—")}</span>` +
+               `<span class="permNome">${escapeHtml(u.nome || "—")}</span>`;
+      },
+    },
+    ...MODULOS_PERMISSAO.map(m => ({
+      title: m.rotulo, field: m.chave, width: 132, hozAlign: "center", headerHozAlign: "center",
+      titleFormatter: () => `<span class="permHeadIcon"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i></span><span class="permHeadTxt">${escapeHtml(m.rotulo)}</span>`,
+      formatter: c => selectPermHtml(c.getData(), m.chave),
+    })),
+    // Escopo (DSEI): por pessoa, vale para todos os módulos. O botão (Editor+) abre
+    // o modal via delegação data-perm-escopo (ver onClickPerfis).
+    {
+      title: "Escopo (DSEI)", field: "_escopo", width: 150, hozAlign: "center", headerHozAlign: "center", cssClass: "permEscopoCell",
+      titleFormatter: () => `<span class="permHeadIcon"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></span><span class="permHeadTxt">Escopo (DSEI)</span>`,
+      formatter: c => escopoCelulaHtml(c.getData()),
+    },
+  ];
+  if (podeEditarPerfis()) cols.push({
+    title: "Ações", field: "_acoes", width: 84, hozAlign: "center", headerHozAlign: "center",
+    formatter: c => {
+      const u = c.getData();
+      const email = escapeHtml(u.email || "");
+      const temOverride = u.permissoes && Object.keys(u.permissoes).length > 0;
+      return u.email
+        ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Restaurar tudo para o nível global"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
+        : "";
+    },
+  });
+  return cols;
 }
 
 function usuariosFiltrados() {
@@ -243,29 +239,30 @@ function usuariosFiltrados() {
 }
 
 function renderMatriz() {
-  const corpo = el("perfisMatrizBody");
-  const cabeca = el("perfisMatrizHead");
-  if (!corpo || !cabeca) return;
-  cabeca.innerHTML = cabecalhoModulos();
+  if (!el("perfisMatrizTab")) return;
   const lista = usuariosFiltrados();
-  corpo.innerHTML = lista.length
-    ? lista.map(linhaUsuario).join("")
-    : `<tr><td class="permVazio" colspan="${colspanMatriz()}">Nenhum usuário encontrado.</td></tr>`;
+  if (!gradePerfis) gradePerfis = criarTabelaArrastavel({
+    elemento: "perfisMatrizTab", colunas: colsPerfis(),
+    persistID: "perfisMatriz", indexField: "email",
+    movableColumns: false, movableRows: false, // só o estilo do Tabulator
+    layout: "fitData",                          // colunas no tamanho do conteúdo (rola na horizontal; 1ª fixa)
+    altura: "560px", vazio: "Nenhum usuário encontrado.",
+  });
+  gradePerfis?.render(lista);
   const rodape = el("perfisRodape");
   if (rodape) rodape.textContent = `Mostrando ${lista.length} de ${perfisCache.length} usuários`;
 }
 
 export async function carregarPerfisAcesso(silencioso) {
-  const corpo = el("perfisMatrizBody");
-  if (!corpo) return;
-  if (!silencioso) {
-    corpo.innerHTML = `<tr><td class="permVazio" colspan="${colspanMatriz()}">Carregando…</td></tr>`;
-  }
+  if (!el("perfisMatrizTab")) return;
   let dados;
   try {
     dados = await apiGet("/api/acesso/perfis");
   } catch (e) {
-    if (!silencioso) corpo.innerHTML = `<tr><td class="permVazio" colspan="${colspanMatriz()}">Não foi possível carregar os perfis.</td></tr>`;
+    if (!silencioso) {
+      const rodape = el("perfisRodape");
+      if (rodape) rodape.textContent = "Não foi possível carregar os perfis.";
+    }
     return;
   }
   perfisCache = dados.usuarios || [];
@@ -296,8 +293,8 @@ async function onChangePerfis(ev) {
     // Recolore o select e marca como personalizado.
     sel.className = `permSel ${classeNivel(nivel)} permCustom`;
     sel.title = "Permissão definida";
-    // Reabilita o botão "limpar" da linha.
-    const btn = sel.closest("tr")?.querySelector("[data-perm-limpar]");
+    // Reabilita o botão "restaurar" da linha.
+    const btn = sel.closest(".tabulator-row")?.querySelector("[data-perm-limpar]");
     if (btn) btn.disabled = false;
   } catch (e) {
     if (anterior !== undefined) sel.value = anterior; // reverte em caso de erro

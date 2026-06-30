@@ -107,7 +107,10 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline' https://accounts.google.com https://cdnjs.cloudflare.com",
   "img-src 'self' data: https:",
   "font-src 'self' data: https://cdnjs.cloudflare.com",
-  "connect-src 'self' https://accounts.google.com https://cdn.jsdelivr.net",
+  // jsdelivr/cdnjs liberados aqui (além de script/style/font-src) só para o fetch
+  // dos sourcemaps (.map) de Chart.js e FontAwesome — evita o aviso de CSP no
+  // DevTools. São os mesmos CDNs já confiáveis usados para os próprios assets.
+  "connect-src 'self' https://accounts.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
   `frame-src ${FRAME_SRC.join(" ")}`,
   "object-src 'none'",
   "base-uri 'self'",

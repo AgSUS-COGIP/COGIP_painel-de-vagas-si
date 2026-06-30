@@ -9,6 +9,11 @@ import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { cssEscapeAttr, escapeAttr, escapeHtml, formatCurrency, formatNumber, normalizarTextoPainel, safeUrl, setText, setValue, soma } from "./utils.js";
 import { tornarSelectPesquisavel, sincronizarSelectPesquisavel } from "./searchable-select.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
+
+// Grade Tabulator do histórico (só colunas) e id do remanejamento com detalhe aberto.
+let gradeRem = null;
+let remDetalheAberto = null;
 
 export function configurarPainelExterno() {
   const iframe = document.getElementById("iframeDashboardSaudeIndigena");
@@ -222,18 +227,102 @@ export function preencherSelectRemanejamento(id, items, labelFn) {
   sincronizarSelectPesquisavel(select);
 }
 
+export function abrirFormularioRemanejamento() {
+  exibirViewRemanejamento("remanejamento");
+  inicializarFormularioRemanejamento();
+  atualizarResumoRemanejamento();
+}
+
+export function voltarListaRemanejamento() {
+  exibirViewRemanejamento("remanejamento");
+}
+
+export function exibirViewRemanejamento(view) {
+  state.activeView = view;
+
+  document.querySelectorAll(".viewPanel").forEach(panel => panel.classList.remove("active"));
+  const panel = document.getElementById("view-remanejamento");
+  if (panel) panel.classList.add("active");
+
+  document.querySelectorAll(".navItem").forEach(item => {
+    item.classList.toggle("active", item.dataset.view === "remanejamento");
+  });
+
+  atualizarModoRolagem("remanejamento");
+  garantirCarregamentoPagina("remanejamento");
+}
+
+// Botões de ação da linha (delegação `data-click` global trata os cliques).
+// Permissões reavaliadas a cada render (o nível do usuário pode mudar após login).
+function acoesRemHtml(row) {
+  // Nível EFETIVO no módulo Remanejamento (override por perfil de acesso ou, na
+  // ausência, o global) — não o global puro. Assim um perfil "Administrador" no
+  // módulo enxerga as ações corretamente.
+  const nivelUsuario = nivelUsuarioRemanejamento();
+  const podeExcluir = nivelUsuario >= NIVEL.ADMIN;      // Excluir: Editor(2)/Admin(3)
+  const podeEditar = nivelUsuario >= NIVEL.SUPERADMIN;  // Alterar: só Admin(3)
+  const id = escapeAttr(row.idProcesso);
+  const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-rem" data-id="${id}"><i class="fa-solid fa-info"></i></button>`;
+  const btnEditar = podeEditar
+    ? `<button type="button" class="remAcaoBtn remAcaoEditar" title="Alterar remanejamento" data-click="editar-rem" data-id="${id}"><i class="fa-solid fa-pen-to-square"></i></button>`
+    : "";
+  const btnExcluir = podeExcluir
+    ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" data-click="excluir-rem" data-id="${id}"><i class="fa-solid fa-trash"></i></button>`
+    : "";
+  return `${btnDetalhe}${btnEditar}${btnExcluir}`;
+}
+
+const REM_COLS = [
+  { title: "Data", field: "dataCriacaoFormatada", minWidth: 90,
+    formatter: c => { const r = c.getRow().getData(); return escapeHtml(r.dataCriacaoFormatada || r.dataCriacao || "-"); } },
+  { title: "DSEI", field: "dseiCasai", minWidth: 90, formatter: c => escapeHtml(c.getValue() || "-") },
+  { title: "Competência", field: "competencia", minWidth: 90, formatter: c => escapeHtml(c.getValue() || "-") },
+  { title: "Vaga Reduzida", field: "cargosReduzidos", minWidth: 160, formatter: c => formatarCargosRemanejamento(c.getValue(), "reduzido") },
+  { title: "Valor Reduzido", field: "totalReduzidoPeriodo", minWidth: 110, cssClass: "remValorReduzido", formatter: c => formatCurrency(c.getValue()) },
+  { title: "Vaga Acrescentada", field: "cargosAcrescentados", minWidth: 160, formatter: c => formatarCargosRemanejamento(c.getValue(), "acrescentado") },
+  { title: "Valor Acrescentado", field: "totalAcrescentadoPeriodo", minWidth: 110, cssClass: "remValorAcrescentado", formatter: c => formatCurrency(c.getValue()) },
+  { title: "Impacto Mensal", field: "impactoMensal", minWidth: 110,
+    formatter: c => { const v = Number(c.getValue() || 0); return `<span class="${classeValorImpacto(v)}">${formatCurrency(v)}</span>`; } },
+  { title: "Responsável", field: "inseridoPorEmail", minWidth: 120,
+    formatter: c => { const r = c.getRow().getData(); return escapeHtml(r.inseridoPorEmail || r.criadoPor || "-"); } },
+  { title: "Ações", field: "_acoes", headerSort: false, minWidth: 110, cssClass: "remAcoesCell", formatter: c => acoesRemHtml(c.getRow().getData()) }
+];
+
+function garantirGradeRem() {
+  if (!gradeRem) {
+    gradeRem = criarTabelaArrastavel({
+      elemento: "remanejamentoBody",
+      colunas: REM_COLS,
+      persistID: "remHistoricoV1",
+      indexField: "idProcesso",
+      movableRows: false,
+      idSelecionado: () => remDetalheAberto,
+      vazio: "Nenhum remanejamento registrado."
+    });
+  }
+  return gradeRem;
+}
+
+// Fecha o painel de detalhe (some ao re-renderizar a lista, como era no antigo <tr>).
+function fecharDetalheRem() {
+  remDetalheAberto = null;
+  const panel = document.getElementById("remDetalhePanel");
+  if (panel) { panel.hidden = true; panel.innerHTML = ""; }
+}
+
 export function renderRemanejamentoLista() {
-  const tbody = document.getElementById("remanejamentoBody");
   atualizarIndicadoresRemanejamento();
-  if (!tbody) return;
+  if (!document.getElementById("remanejamentoBody")) return;
+
+  const grade = garantirGradeRem();
+  fecharDetalheRem();
 
   if (!pageLoadState.remanejamentoLista) {
-    tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="10">Carregando dados de remanejamento...</td></tr>';
+    grade.render([], "Carregando dados de remanejamento...");
     return;
   }
-
   if (!state.remanejamentoListaRows.length) {
-    tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="10">Nenhum remanejamento registrado.</td></tr>';
+    grade.render([], "Nenhum remanejamento registrado.");
     return;
   }
 
@@ -257,47 +346,13 @@ export function renderRemanejamentoLista() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td class="remanejamentoEmpty" colspan="10">Nenhum remanejamento encontrado para a busca informada.</td></tr>';
+    grade.render([], "Nenhum remanejamento encontrado para a busca informada.");
     return;
   }
 
-  // Usa o nível EFETIVO no módulo Remanejamento (override por perfil de acesso
-  // ou, na ausência, o nível global) — não o nível global puro. Assim um perfil
-  // marcado como "Administrador" (3) no módulo enxerga as ações corretamente.
-  const nivelUsuario = nivelUsuarioRemanejamento();
-  // Excluir: Editor (2) ou Administrador (3) do módulo.
-  const podeExcluir = nivelUsuario >= NIVEL.ADMIN;
-  // Alterar remanejamento: somente Administrador (3) do módulo.
-  const podeEditar = nivelUsuario >= NIVEL.SUPERADMIN;
-
-  tbody.innerHTML = rows.map(row => {
-    const impacto = Number(row.impactoMensal || 0);
-    const impactoClass = classeValorImpacto(impacto);
-    const idAttr = escapeAttr(row.idProcesso);
-
-    const btnDetalhe = `<button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-info"></i></button>`;
-    const btnEditar = podeEditar
-      ? `<button type="button" class="remAcaoBtn remAcaoEditar" title="Alterar remanejamento" data-click="editar-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-pen-to-square"></i></button>`
-      : "";
-    const btnExcluir = podeExcluir
-      ? `<button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir remanejamento" data-click="excluir-rem" data-id="${escapeAttr(row.idProcesso)}"><i class="fa-solid fa-trash"></i></button>`
-      : "";
-
-    return `
-          <tr data-rem-id="${idAttr}">
-            <td>${escapeHtml(row.dataCriacaoFormatada || row.dataCriacao)}</td>
-            <td>${escapeHtml(row.dseiCasai || "-")}</td>
-            <td>${escapeHtml(row.competencia || "-")}</td>
-            <td>${formatarCargosRemanejamento(row.cargosReduzidos, "reduzido")}</td>
-            <td class="remValorReduzido">${formatCurrency(row.totalReduzidoPeriodo)}</td>
-            <td>${formatarCargosRemanejamento(row.cargosAcrescentados, "acrescentado")}</td>
-            <td class="remValorAcrescentado">${formatCurrency(row.totalAcrescentadoPeriodo)}</td>
-            <td class="${impactoClass}">${formatCurrency(row.impactoMensal)}</td>
-            <td>${escapeHtml(row.inseridoPorEmail || row.criadoPor || "-")}</td>
-            <td class="remAcoesCell">${btnDetalhe}${btnEditar}${btnExcluir}</td>
-          </tr>
-        `;
-  }).join("");
+  // Linhas vão para a grade Tabulator; o cabeçalho/ações ficam nas colunas
+  // (REM_COLS). As permissões dos botões são avaliadas no formatter (acoesRemHtml).
+  grade.render(rows);
 }
 
 // Separa as vagas (vindas como "CARGO x2 | OUTRO x1") em divs distintos e troca
@@ -325,23 +380,22 @@ export function classeValorImpacto(valor) {
 }
 
 export async function alternarDetalheRemanejamento(idProcesso) {
-  const tbody = document.getElementById("remanejamentoBody");
-  if (!tbody) return;
+  const panel = document.getElementById("remDetalhePanel");
+  if (!panel) return;
 
-  const existente = document.getElementById(`remDetalhe-${idSeguroAlerta(idProcesso)}`);
-  if (existente) {
-    existente.remove();
+  // Toggle: clicar de novo no mesmo remanejamento fecha o painel.
+  if (remDetalheAberto != null && String(remDetalheAberto) === String(idProcesso)) {
+    fecharDetalheRem();
+    gradeRem?.marcarSelecionada();
     return;
   }
 
-  const linhaPrincipal = tbody.querySelector(`tr[data-rem-id="${cssEscapeAttr(idProcesso)}"]`);
-  if (!linhaPrincipal) return;
-
-  const detalheTr = document.createElement("tr");
-  detalheTr.id = `remDetalhe-${idSeguroAlerta(idProcesso)}`;
-  detalheTr.className = "remDetalheRow";
-  detalheTr.innerHTML = `<td colspan="10" class="remDetalheCell">Carregando detalhes...</td>`;
-  linhaPrincipal.after(detalheTr);
+  remDetalheAberto = String(idProcesso);
+  gradeRem?.marcarSelecionada();   // destaca a linha do detalhe aberto
+  panel.hidden = false;
+  panel.innerHTML = `<div class="remDetalheCell">Carregando detalhes...</div>`;
+  // A tabela pode ser longa e o painel abre abaixo dela: traz à vista.
+  setTimeout(() => panel.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
 
   try {
     let detalhe = detalhesRemanejamentoCache[idProcesso];
@@ -349,10 +403,13 @@ export async function alternarDetalheRemanejamento(idProcesso) {
       detalhe = await apiGet(`/api/remanejamento/detalhe/${encodeURIComponent(idProcesso)}`);
       detalhesRemanejamentoCache[idProcesso] = detalhe;
     }
+    // O usuário pode ter fechado/trocado enquanto carregava: não sobrescreve.
+    if (String(remDetalheAberto) !== String(idProcesso)) return;
     const rowLista = (state.remanejamentoListaRows || []).find(r => String(r.idProcesso) === String(idProcesso)) || {};
-    detalheTr.querySelector("td").innerHTML = renderDetalheRemanejamentoHtml(detalhe, rowLista);
+    panel.innerHTML = renderDetalheRemanejamentoHtml(detalhe, rowLista);
   } catch (error) {
-    detalheTr.querySelector("td").innerHTML = `Erro ao carregar detalhes: ${escapeHtml(error && error.message ? error.message : String(error))}`;
+    if (String(remDetalheAberto) !== String(idProcesso)) return;
+    panel.innerHTML = `<div class="remDetalheCell">Erro ao carregar detalhes: ${escapeHtml(error && error.message ? error.message : String(error))}</div>`;
   }
 }
 
@@ -550,10 +607,9 @@ export async function excluirRemanejamentoPainel(idProcesso) {
 }
 
 export function renderRemanejamentoListaErro(error) {
-  const tbody = document.getElementById("remanejamentoBody");
-  if (!tbody) return;
-
-  tbody.innerHTML = `<tr><td class="remanejamentoEmpty" colspan="10">Erro ao carregar remanejamentos: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+  if (!document.getElementById("remanejamentoBody")) return;
+  fecharDetalheRem();
+  garantirGradeRem().render([], `Erro ao carregar remanejamentos: ${escapeHtml(error && error.message ? error.message : String(error))}`);
 }
 
 export function atualizarVagasOrigemPorDsei() {

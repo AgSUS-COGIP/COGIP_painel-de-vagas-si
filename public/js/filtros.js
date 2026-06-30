@@ -4,6 +4,8 @@ import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
 import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirRemanejamentoPainel, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
+import { renderEntregaCrachaAoMostrar } from "./entrega-cracha.js";
+import { renderProcessosSeletivosAoMostrar } from "./processos-seletivos.js";
 import { charts, filterConfigs, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, normalizarTextoPainel, debounce } from "./utils.js";
@@ -148,6 +150,15 @@ export function configurarNavegacao() {
 
       atualizarModoRolagem(view);
       garantirCarregamentoPagina(view);
+
+      // A grade Tabulator de Alertas pode ter sido montada com a aba oculta
+      // (carga em segundo plano). Reconstrói/recalcula agora que está visível.
+      if (view === "alertas") renderAlertasDaPagina();
+      if (view === "processosSeletivos") renderProcessosSeletivosAoMostrar();
+      if (view === "entregaCracha") renderEntregaCrachaAoMostrar();
+      // Vagas: as grades Tabulator não montam com a aba oculta — re-renderiza ao abrir.
+      if (view === "vagas") renderVagasDaPagina();
+      if (view === "remanejamento") renderRemanejamentoLista();
 
       if (view === "painelSaudeIndigena") {
         carregarPainelExternoSobDemanda();

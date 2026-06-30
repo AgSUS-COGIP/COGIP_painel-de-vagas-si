@@ -937,15 +937,195 @@
       font-weight: 800;
     }
 
-    /* ---------- Linhas clicáveis da tabela ---------- */
-    .gdRow {
+    /* ---------- Grade Tabulator (Pedidos Disciplinares) ----------
+       Skin no padrão da aba: cabeçalho azul em gradiente (branco/maiúsculo),
+       listras azul-claras, hover e linha selecionada. O tema base do Tabulator
+       carrega na camada `tabulator-base` (styles.css), ANTERIOR a esta camada,
+       então estas regras vencem pela ordem de @layer — sem !important. Colunas e
+       linhas são arrastáveis (movableColumns/movableRows em gestao-disciplinar.js). */
+    .gestaoDisciplinarView .tabulator {
+      background: transparent;
+      border: 1px solid rgba(0, 83, 166, .14);
+      border-radius: 12px;
+      font-family: inherit;
+      overflow: hidden;
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-header {
+      background: linear-gradient(135deg, #00457f, var(--azul-card));
+      border-bottom: none;
+      color: #fff;
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-header .tabulator-col {
+      background: transparent;
+      border-right: 1px solid rgba(255, 255, 255, .2);
+      cursor: grab;
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-header .tabulator-col:last-child {
+      border-right: none;
+    }
+
+    /* Centraliza o título no meio do cabeçalho (horizontal e vertical), mesmo
+       quando o texto quebra em duas linhas. */
+    .gestaoDisciplinarView .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-col-title {
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      white-space: normal;
+      text-align: center;
+      width: 100%;
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-row {
+      background: #fff;
+      border-bottom: 1px solid rgba(0, 86, 167, .12);
       cursor: pointer;
     }
 
-    .gfTable tbody tr.gdRow.is-selected td {
+    .gestaoDisciplinarView .tabulator .tabulator-row.tabulator-row-even {
+      background: rgba(232, 247, 255, .55);
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-row:hover {
+      background: rgba(0, 112, 217, .08);
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-cell {
+      border-right: none;
+      color: #143a63;
+      font-weight: 800;
+      font-size: 12px;
+      padding: 9px 12px;
+      /* Quebra o texto ao encolher a coluna (em vez de reticências). A altura da
+         linha é reajustada só ao soltar o redimensionamento (columnResized), não
+         continuamente — bem mais leve que variableHeight. */
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+    }
+
+    /* Linha do pedido selecionado: mesmo destaque da versão anterior. */
+    .gestaoDisciplinarView .tabulator .tabulator-row.gd-selected,
+    .gestaoDisciplinarView .tabulator .tabulator-row.gd-selected:hover {
       background: rgba(0, 112, 217, .16);
       box-shadow: inset 0 3px 0 var(--azul-primario), inset 0 -3px 0 var(--azul-primario);
     }
+
+    /* Clone arrastado (coluna/linha em movimento) e mensagem de vazio. */
+    .gestaoDisciplinarView .tabulator .tabulator-col.tabulator-moving,
+    .gestaoDisciplinarView .tabulator .tabulator-row.tabulator-moving {
+      cursor: grabbing;
+    }
+
+    .gestaoDisciplinarView .tabulator .tabulator-placeholder,
+    .gestaoDisciplinarView .tabulator .tabulator-placeholder-contents {
+      color: #4a6a93;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    /* ---------- Coachmarks (dica de uso da grade arrastável) ---------- */
+    .gestaoDisciplinarView .gdTabelaWrap {
+      position: relative;
+    }
+
+    .gestaoDisciplinarView .gdCoach {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      border-radius: 12px;
+      background: rgba(7, 52, 107, .34);
+      animation: gdCoachFade .25s ease;
+    }
+
+    .gestaoDisciplinarView .gdCoach[hidden] {
+      display: none;
+    }
+
+    @keyframes gdCoachFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .gestaoDisciplinarView .gdCoachBubble {
+      position: absolute;
+      max-width: 290px;
+      background: #fff;
+      color: #07346b;
+      font-size: 12.5px;
+      font-weight: 800;
+      line-height: 1.35;
+      padding: 12px 15px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 83, 166, .25);
+      box-shadow: 0 16px 32px rgba(0, 43, 93, .35);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .gestaoDisciplinarView .gdCoachBubble[hidden] {
+      display: none;
+    }
+
+    /* Botão "Entendi" dentro de cada balão. */
+    .gestaoDisciplinarView .gdCoachBtn {
+      align-self: flex-end;
+      padding: 6px 13px;
+      font-size: 11px;
+    }
+
+    /* Seta comum dos balões (triângulo branco). */
+    .gestaoDisciplinarView .gdCoachBubble::after {
+      content: "";
+      position: absolute;
+      border: 10px solid transparent;
+    }
+
+    /* Balão das COLUNAS: topo-centro, seta apontando para cima (cabeçalho). */
+    .gestaoDisciplinarView .gdCoachBubble--cols {
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+
+    .gestaoDisciplinarView .gdCoachBubble--cols .gdCoachBtn {
+      align-self: center;
+    }
+
+    .gestaoDisciplinarView .gdCoachBubble--cols::after {
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-top: 0;
+      border-bottom-color: #fff;
+    }
+
+    /* Balão das LINHAS: à esquerda, mais abaixo, seta apontando para baixo (linhas). */
+    .gestaoDisciplinarView .gdCoachBubble--rows {
+      top: 188px;
+      left: 26px;
+    }
+
+    .gestaoDisciplinarView .gdCoachBubble--rows::after {
+      bottom: -10px;
+      left: 40px;
+      border-bottom: 0;
+      border-top-color: #fff;
+    }
+
 
     /* ---------- Badges específicas de status / atendimento ---------- */
     .gfBadge.is-analise { background: #fff2d6; color: #8a5a00; }

@@ -381,8 +381,12 @@
       position: absolute;
       top: calc(100% + 6px);
       left: 0;
-      right: 0;
+      right: auto;
+      /* Largura acompanha a maior opção (no mínimo a do gatilho), limitada à
+         viewport/560px. Opções longas continuam quebrando linha (sem barra). */
       min-width: 100%;
+      width: max-content;
+      max-width: min(92vw, 560px);
       max-height: 290px;
       overflow: auto;
       border-radius: 16px;

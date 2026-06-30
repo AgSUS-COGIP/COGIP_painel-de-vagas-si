@@ -16,6 +16,7 @@
 */
 
 @layer
+  tabulator-base,
   base,
   loading,
   layout-claro,
@@ -43,9 +44,16 @@
   perfis-acesso,
   file-input,
   tabelas-padrao,
+  tabela-arrastavel,
   sidebar-state,
   view-visibility;
 
+/* Tema base do Tabulator (grade de Gestão Disciplinar), servido localmente em
+   public/vendor (conta como 'self' na CSP — o style-src não libera CDNs além do
+   cdnjs). Vai na PRIMEIRA camada para que o "skin" da aba (camada
+   gestao-disciplinar) sobreponha o tema padrão sem !important — CSS não-camada
+   venceria as camadas, então o tema entra numa camada anterior a todas. */
+@import url("./vendor/tabulator/tabulator.min.css") layer(tabulator-base);
 @import url("./styles/01-base.css") layer(base);
 @import url("./styles/02-loading.css") layer(loading);
 @import url("./styles/03-layout-claro.css") layer(layout-claro);
@@ -73,6 +81,7 @@
 @import url("./styles/25-file-input.css") layer(file-input);
 @import url("./styles/26-tabelas-padrao.css") layer(tabelas-padrao);
 @import url("./styles/27-perfis-acesso.css") layer(perfis-acesso);
+@import url("./styles/28-tabela-arrastavel.css") layer(tabela-arrastavel);
 
 /*
   ESTADO RECOLHIDO DO MENU LATERAL -- camada-topo, vence as larguras de `.app`.
