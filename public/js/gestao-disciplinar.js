@@ -460,8 +460,8 @@ function renderDetalhe(id) {
       <span class="gdDetTituloTxt">${escapeHtml(r.processo)} — ${escapeHtml(r.trabalhador)} ${badge(r.statusAtual, BADGE_STATUS)}</span>
       <span class="gdDetTituloAcoes">
         ${respLabel}
-        ${botaoAlterar}
         ${botaoAssumir}
+        ${botaoAlterar}
         ${botaoExcluir}
       </span>`;
   }

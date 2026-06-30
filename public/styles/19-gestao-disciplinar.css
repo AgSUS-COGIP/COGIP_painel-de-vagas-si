@@ -175,6 +175,39 @@
       box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
     }
 
+    :where(.gestaoDisciplinarView) .gfBtn.gdExcluirBtn {
+      background: #fff;
+      color: #d11a2a;
+      border: 1px solid rgba(209, 26, 42, .4);
+      box-shadow: 0 8px 16px rgba(209, 26, 42, .12);
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn.gdExcluirBtn i {
+      color: #d11a2a;
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn.gdExcluirBtn:hover {
+      background: #d11a2a;
+      color: #fff;
+      border-color: #d11a2a;
+      box-shadow: 0 16px 26px rgba(209, 26, 42, .28);
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn.gdExcluirBtn:hover i {
+      color: #fff;
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn.gdAlterarBtn:hover {
+      background: #0055a7;
+      color: #fff;
+      border-color: #0055a7;
+      box-shadow: 0 16px 26px rgba(0, 43, 93, .28);
+    }
+
+    :where(.gestaoDisciplinarView) .gfBtn.gdAlterarBtn:hover i {
+      color: #fff;
+    }
+
     :where(.gestaoDisciplinarView) .gfBtn.gfBtnBlock {
       width: 100%;
     }
@@ -195,6 +228,8 @@
     /* ---------- Tabelas ---------- */
     :where(.gestaoDisciplinarView) .gfTableWrap {
       overflow-x: auto;
+      overflow-y: auto;
+      max-height: 480px;
       border-radius: 12px;
       border: 1px solid rgba(0, 83, 166, .14);
       scrollbar-width: thin;
@@ -202,6 +237,7 @@
     }
 
     :where(.gestaoDisciplinarView) .gfTableWrap::-webkit-scrollbar {
+      width: 9px;
       height: 9px;
     }
 
@@ -237,6 +273,7 @@
       letter-spacing: .3px;
       position: sticky;
       top: 0;
+      z-index: 2;
     }
 
     :where(.gestaoDisciplinarView) .gfTable tbody td {
