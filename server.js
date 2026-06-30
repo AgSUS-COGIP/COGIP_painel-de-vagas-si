@@ -12,8 +12,9 @@ const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atua
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
 const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
-const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
+const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
+const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn } = require("./lib/escopo");
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { getFeriasData } = require("./lib/ferias");
@@ -204,23 +205,23 @@ app.get("/api/config", apiLimiter, (req, res) => {
 // Dados do painel: exigem sessão fresca (lê o banco) E acesso aprovado, para que
 // usuários autenticados porém ainda pendentes/desativados não leiam os dados.
 app.get("/api/dashboard", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("visaoGeral", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getDashboardData());
+  res.json(await getDashboardData(req.usuario.escopo));
 }));
 
 app.get("/api/dashboard/resumo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("visaoGeral", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getDashboardResumoData());
+  res.json(await getDashboardResumoData(req.usuario.escopo));
 }));
 
 app.get("/api/dashboard/apoio", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("visaoGeral", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getDashboardApoioData());
+  res.json(await getDashboardApoioData(req.usuario.escopo));
 }));
 
 app.get("/api/vagas", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("vagas", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getVagasData());
+  res.json(await getVagasData(req.usuario.escopo));
 }));
 
 app.get("/api/alertas", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("alertas", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getAlertasData());
+  res.json(await getAlertasData(req.usuario.escopo));
 }));
 
 app.get("/api/alertas/observacoes", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("alertas", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
@@ -245,18 +246,18 @@ app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFresco
 
 // ---- Dashboard Saúde Indígena (nativo) ----
 app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getSaudeIndigenaData());
+  res.json(await getSaudeIndigenaData(req.usuario.escopo));
 }));
 
 // ---- Gestão de Férias (análise — somente leitura) ----
 app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoFerias", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getFeriasData());
+  res.json(await getFeriasData(req.usuario.escopo));
 }));
 
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
-  res.json(await getCrachaData(forcar));
+  res.json(await getCrachaData(forcar, req.usuario.escopo));
 }));
 
 // Editar overlay manual (datas / observação) — escrita: administradores.
@@ -412,11 +413,11 @@ app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMid
 }));
 
 app.get("/api/remanejamento/lista", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getRemanejamentoListaData());
+  res.json(await getRemanejamentoListaData(req.usuario.escopo));
 }));
 
 app.get("/api/remanejamento/cadastro", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getRemanejamentoCadastroData());
+  res.json(await getRemanejamentoCadastroData(req.usuario.escopo));
 }));
 
 app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
@@ -447,11 +448,11 @@ app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, 
 }));
 
 app.get("/api/remanejamento/detalhe/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getRemanejamentoDetalheData(req.params.id));
+  res.json(await getRemanejamentoDetalheData(req.params.id, req.usuario.escopo));
 }));
 
 app.get("/api/remanejamento/edicao/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getRemanejamentoEdicaoData(req.params.id));
+  res.json(await getRemanejamentoEdicaoData(req.params.id, req.usuario.escopo));
 }));
 
 app.put(
@@ -725,7 +726,14 @@ app.get("/api/acesso/perfis", apiLimiter, autenticarFrescoMiddleware, exigirAdmi
   try {
     res.setHeader("Cache-Control", "no-store"); // dados de permissão: sempre frescos
     const usuarios = await listarPerfisAcessoComConn(conn);
-    res.json({ modulos: MODULOS_PERMISSAO, usuarios });
+    // Anexa o escopo de DSEI de cada usuário + a lista de DSEIs disponíveis, para
+    // a matriz exibir/editar o acesso por unidade (sede = todos; restrito = lista).
+    const escopos = await obterEscoposMapaComConn(conn);
+    for (const u of usuarios) {
+      u.escopo = escopos[String(u.email || "").trim().toLowerCase()] || { todos: true, dseis: [] };
+    }
+    const dseisDisponiveis = await listarDseisComConn(conn);
+    res.json({ modulos: MODULOS_PERMISSAO, usuarios, dseisDisponiveis });
   } finally {
     await fecharJdbc(conn);
   }
@@ -767,6 +775,21 @@ app.post("/api/acesso/perfis/limpar", apiLimiter, autenticarFrescoMiddleware, ex
   }
 }));
 
+// Super admin: define o escopo de DSEI de um usuário (acesso total ou restrito a
+// um conjunto de DSEIs). É um atributo da pessoa (vale para todos os módulos).
+app.post("/api/acesso/perfis/escopo", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const resultado = await definirEscopoUsuarioComConn(conn, body.email, body.todos, body.dseis);
+    res.json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao definir o escopo de DSEI." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
 // ---- Gestão Disciplinar (pedidos de sanção) ----
 // Edição liberada a usuários aprovados (nível >= 1); assumir/delegar responsável e
 // excluir são exclusivos de administradores (nível >= 2). O autor/login é sempre
@@ -799,7 +822,7 @@ function exigirResponsavel(req, responsavel) {
 app.get("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
-    res.json({ pedidos: await listarPedidosComConn(conn) });
+    res.json({ pedidos: await listarPedidosComConn(conn, req.usuario.escopo) });
   } finally {
     await fecharJdbc(conn);
   }
@@ -1157,12 +1180,20 @@ if (require.main === module) {
     console.error("Não foi possível garantir a tabela de permissões por módulo:", err && err.message ? err.message : err);
   });
 
+  garantirEstruturaEscopoDsei().catch(err => {
+    console.error("Não foi possível garantir a estrutura de escopo de DSEI:", err && err.message ? err.message : err);
+  });
+
   garantirColunaConteudoProva().catch(err => {
     console.error("Não foi possível garantir a coluna de conteúdo das provas disciplinares:", err && err.message ? err.message : err);
   });
 
   garantirColunasDatasFasesDemanda().catch(err => {
     console.error("Não foi possível garantir as colunas de datas das etapas disciplinares:", err && err.message ? err.message : err);
+  });
+
+  garantirColunaDseiPedidoSancao().catch(err => {
+    console.error("Não foi possível garantir a coluna id_dsei_casai em PEDIDO_SANCAO:", err && err.message ? err.message : err);
   });
 }
 

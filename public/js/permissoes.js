@@ -108,6 +108,8 @@ export function aplicarPermissoesModulos() {
 // ----------------------------------------------------------------------------
 let perfisCache = [];
 let filtroBusca = "";
+// DSEIs disponíveis para o seletor de escopo (vêm do GET /api/acesso/perfis).
+let dseisDisponiveis = [];
 
 function mesmoUsuarioLogado(email) {
   const meu = String((state.painelLoginUsuario || {}).email || "").trim().toLowerCase();
@@ -163,6 +165,31 @@ function celulaSelect(usuario, modulo) {
   </td>`;
 }
 
+// Resumo textual do escopo de DSEI do usuário ("Todos os DSEIs" ou "N DSEI(s)").
+function resumoEscopo(usuario) {
+  const esc = usuario.escopo || { todos: true, dseis: [] };
+  if (esc.todos !== false) return "Todos os DSEIs";
+  const n = (esc.dseis || []).length;
+  return n ? `${n} DSEI(s)` : "Nenhum DSEI";
+}
+
+// Célula da coluna "Escopo (DSEI)". Editor+ vê um botão que abre o modal; o leitor
+// vê só o resumo. O escopo é por pessoa (vale para todos os módulos).
+function celulaEscopo(usuario) {
+  const email = escapeHtml(usuario.email || "");
+  const resumo = escapeHtml(resumoEscopo(usuario));
+  const restrito = usuario.escopo && usuario.escopo.todos === false;
+  const classe = restrito ? "permEscopoRestrito" : "permEscopoTodos";
+  if (!podeEditarPerfis() || !usuario.email) {
+    return `<td class="permEscopoCell"><span class="permEscopoChip ${classe}">${resumo}</span></td>`;
+  }
+  return `<td class="permEscopoCell">
+    <button type="button" class="permEscopoBtn ${classe}" data-perm-escopo="${email}" title="Definir os DSEIs que este usuário pode acessar">
+      <i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${resumo}
+    </button>
+  </td>`;
+}
+
 function linhaUsuario(usuario) {
   const login = escapeHtml(usuario.login || usuario.email || "—");
   const nome = escapeHtml(usuario.nome || "—");
@@ -174,19 +201,21 @@ function linhaUsuario(usuario) {
   // Coluna "Ações" só existe para quem pode editar (Editor+); o leitor não a vê.
   const acoesTd = podeEditarPerfis() ? `<td class="permAcoes">${acaoLimpar}</td>` : "";
   const celulas = MODULOS_PERMISSAO.map(m => celulaSelect(usuario, m.chave)).join("");
+  const escopoTd = celulaEscopo(usuario);
   return `<tr class="permRow">
     <td class="permUser">
       <span class="permLogin">${login}</span>
       <span class="permNome">${nome}</span>
     </td>
     ${celulas}
+    ${escopoTd}
     ${acoesTd}
   </tr>`;
 }
 
-// Total de colunas da matriz (usuário + módulos + Ações quando editável).
+// Total de colunas da matriz (usuário + módulos + Escopo + Ações quando editável).
 function colspanMatriz() {
-  return MODULOS_PERMISSAO.length + 1 + (podeEditarPerfis() ? 1 : 0);
+  return MODULOS_PERMISSAO.length + 2 + (podeEditarPerfis() ? 1 : 0);
 }
 
 function cabecalhoModulos() {
@@ -194,9 +223,11 @@ function cabecalhoModulos() {
     `<th class="permModuloTh"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i><span>${escapeHtml(m.rotulo)}</span></th>`
   ).join("");
   const acoesTh = podeEditarPerfis() ? `<th class="permAcoesTh">Ações</th>` : "";
+  const escopoTh = `<th class="permEscopoTh"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span>Escopo (DSEI)</span></th>`;
   return `<tr>
     <th class="permUserTh">Usuário</th>
     ${cols}
+    ${escopoTh}
     ${acoesTh}
   </tr>`;
 }
@@ -238,6 +269,7 @@ export async function carregarPerfisAcesso(silencioso) {
     return;
   }
   perfisCache = dados.usuarios || [];
+  dseisDisponiveis = dados.dseisDisponiveis || [];
   renderMatriz();
 }
 
@@ -277,6 +309,8 @@ async function onChangePerfis(ev) {
 }
 
 async function onClickPerfis(ev) {
+  const escopoBtn = ev.target.closest("[data-perm-escopo]");
+  if (escopoBtn) { abrirEscopoDsei(escopoBtn.dataset.permEscopo); return; }
   const limpar = ev.target.closest("[data-perm-limpar]");
   if (!limpar) return;
   const email = limpar.dataset.permLimpar;
@@ -420,5 +454,97 @@ export function abrirPermissoesPendente(email, nome, permissoesAtuais) {
     sel.className = `permSel ${classeNivel(Number(sel.value))}`;
     sujo = true;
     if (status) { status.textContent = "Alterações não salvas — clique em Concluir para gravar."; status.className = "permPendStatus"; }
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Editor de ESCOPO de DSEI de um usuário (modal)
+// Define se o usuário vê TODOS os DSEIs (sede) ou fica restrito a um conjunto.
+// ----------------------------------------------------------------------------
+function fecharEscopoDsei() {
+  const ov = document.getElementById("escDseiOverlay");
+  if (ov) ov.remove();
+}
+
+function abrirEscopoDsei(email) {
+  const e = String(email || "").trim();
+  if (!e) return;
+  const usuario = perfisCache.find(x => String(x.email || "").toLowerCase() === e.toLowerCase());
+  if (!usuario) return;
+  fecharEscopoDsei();
+
+  const escAtual = usuario.escopo || { todos: true, dseis: [] };
+  const selecionados = new Set((escAtual.dseis || []).map(Number));
+  const todosInicial = escAtual.todos !== false;
+
+  const opcoesDsei = dseisDisponiveis.length
+    ? dseisDisponiveis.map(d =>
+        `<label class="escDseiItem">
+          <input type="checkbox" class="escDseiCheck" value="${Number(d.id)}"${selecionados.has(Number(d.id)) ? " checked" : ""}>
+          <span>${escapeHtml(d.nome)}</span>
+        </label>`
+      ).join("")
+    : `<p class="escDseiVazio">Nenhum DSEI disponível para seleção.</p>`;
+
+  const overlay = document.createElement("div");
+  overlay.className = "permPendOverlay";
+  overlay.id = "escDseiOverlay";
+  overlay.innerHTML = `
+    <div class="permPendBox" role="dialog" aria-modal="true" aria-label="Acesso por DSEI">
+      <div class="permPendHead">
+        <div>
+          <h3>Acesso por DSEI</h3>
+          <p>Defina quais DSEIs <b>${escapeHtml(usuario.nome || e)}</b> pode acessar. "Todos" libera todas as unidades (sede); "Apenas os selecionados" restringe aos marcados.</p>
+        </div>
+        <button type="button" class="permPendClose" data-esc-fechar aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="escDseiModo">
+        <label><input type="radio" name="escModo" value="todos"${todosInicial ? " checked" : ""}> Todos os DSEIs (sede)</label>
+        <label><input type="radio" name="escModo" value="restrito"${todosInicial ? "" : " checked"}> Apenas os DSEIs selecionados</label>
+      </div>
+      <div class="escDseiLista${todosInicial ? " is-desabilitado" : ""}" id="escDseiLista">${opcoesDsei}</div>
+      <div class="permPendFoot">
+        <span class="permPendStatus" id="escDseiStatus"></span>
+        <button type="button" class="permPendOk" data-esc-concluir>Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const lista = overlay.querySelector("#escDseiLista");
+  const status = overlay.querySelector("#escDseiStatus");
+  const modoEhTodos = () => overlay.querySelector('input[name="escModo"]:checked')?.value === "todos";
+
+  function sincronizarLista() {
+    const todos = modoEhTodos();
+    lista.classList.toggle("is-desabilitado", todos);
+    lista.querySelectorAll(".escDseiCheck").forEach(c => { c.disabled = todos; });
+  }
+  sincronizarLista();
+
+  overlay.addEventListener("change", ev => {
+    if (ev.target && ev.target.name === "escModo") sincronizarLista();
+  });
+
+  overlay.addEventListener("click", async ev => {
+    if (ev.target === overlay || ev.target.closest("[data-esc-fechar]")) { fecharEscopoDsei(); return; }
+    const btn = ev.target.closest("[data-esc-concluir]");
+    if (!btn) return;
+    const todos = modoEhTodos();
+    const dseis = todos ? [] : Array.from(overlay.querySelectorAll(".escDseiCheck:checked")).map(c => Number(c.value));
+    if (!todos && !dseis.length) {
+      if (status) { status.textContent = "Selecione ao menos um DSEI ou escolha \"Todos\"."; status.className = "permPendStatus is-erro"; }
+      return;
+    }
+    btn.disabled = true;
+    if (status) { status.textContent = "Salvando..."; status.className = "permPendStatus"; }
+    try {
+      await apiPost("/api/acesso/perfis/escopo", { email: e, todos, dseis });
+      usuario.escopo = { todos, dseis };
+      renderMatriz();
+      fecharEscopoDsei();
+    } catch (err) {
+      btn.disabled = false;
+      if (status) { status.textContent = (err && err.message) ? err.message : "Falha ao salvar o escopo."; status.className = "permPendStatus is-erro"; }
+    }
   });
 }

@@ -295,3 +295,55 @@
   font-weight: 900;
   cursor: pointer;
 }
+
+/* =========================================================
+   Coluna "Escopo (DSEI)" da matriz + modal de escopo
+========================================================= */
+.permEscopoTh { white-space: nowrap; text-align: center; }
+.permEscopoTh i { margin-right: 6px; }
+.permEscopoCell { text-align: center; white-space: nowrap; }
+
+.permEscopoBtn,
+.permEscopoChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.permEscopoBtn { border: 1px solid rgba(0, 83, 166, .25); background: #fff; cursor: pointer; }
+.permEscopoBtn:hover { background: rgba(0, 83, 166, .06); }
+.permEscopoTodos { color: #1a5bb5; }
+.permEscopoRestrito { color: #9a5b00; border-color: rgba(154, 91, 0, .35); background: rgba(255, 184, 77, .12); }
+
+.escDseiModo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 4px 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.escDseiModo label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
+.escDseiLista {
+  max-height: 320px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  padding: 12px;
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 12px;
+  background: rgba(0, 83, 166, .03);
+}
+.escDseiLista.is-desabilitado { opacity: .45; pointer-events: none; }
+.escDseiItem { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
+.escDseiItem input { flex: none; }
+.escDseiVazio { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--texto-secundario, #667); }
+
+@media (max-width: 640px) {
+  .escDseiLista { grid-template-columns: 1fr; }
+}
