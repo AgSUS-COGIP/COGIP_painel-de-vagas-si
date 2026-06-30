@@ -95,13 +95,14 @@ test("remanejamento: grava o processo e uma movimentação por cargo (DECRESCIMO
     processoSei: "  SEI-12345  ",
     observacao: "remanejamento teste",
     usuario: "tester",
+    mes: 1, // N_MESES = 13 - 1 = 12 (determinístico no teste)
     linhasReduzido: JSON.stringify([{ idCargoFuncao: 10, quantidade: 2 }]),
     linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 2 }])
   }, null);
 
-  // Processo gravado com os dados corretos (anexo nulo quando não há arquivo).
+  // Processo gravado com os dados corretos (N_MESES no índice 3; anexo nulo quando não há arquivo).
   const proc = conn.calls.execute.find(c => /PROCESSO_REMANEJAMENTO/.test(c.sql));
-  assert.deepEqual(proc.params, ["SEI-12345", "remanejamento teste", "tester", null, null, null, null]);
+  assert.deepEqual(proc.params, ["SEI-12345", "remanejamento teste", "tester", 12, null, null, null, null]);
 
   // Uma movimentação por cargo, com tipo e quantidade corretos.
   const movs = conn.calls.execute.filter(c => /MOVIMENTACAO_REMANEJAMENTO/.test(c.sql));
@@ -125,15 +126,18 @@ test("remanejamento: grava metadados do anexo quando há arquivo", async () => {
   await salvarRemanejamento(conn, {
     idDseiCasai: "1",
     processoSei: "SEI-1",
+    mes: 6, // N_MESES = 13 - 6 = 7 (índice 3); o anexo vem depois
     linhasReduzido: JSON.stringify([{ idCargoFuncao: 10, quantidade: 1 }]),
     linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }])
   }, file);
 
+  // Ordem do INSERT: [processoSei, observacao, criadoPor, N_MESES, anexoBuffer, nome, mime, tamanho].
   const proc = conn.calls.execute.find(c => /PROCESSO_REMANEJAMENTO/.test(c.sql));
-  assert.equal(proc.params[3], file.buffer);
-  assert.equal(proc.params[4], "oficio.pdf");
-  assert.equal(proc.params[5], "application/pdf");
-  assert.equal(proc.params[6], 3);
+  assert.equal(proc.params[3], 7);
+  assert.equal(proc.params[4], file.buffer);
+  assert.equal(proc.params[5], "oficio.pdf");
+  assert.equal(proc.params[6], "application/pdf");
+  assert.equal(proc.params[7], 3);
 });
 
 test("remanejamento: impacto financeiro positivo é bloqueado e nada é gravado", async () => {

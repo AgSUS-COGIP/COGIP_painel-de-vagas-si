@@ -6,13 +6,13 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const { DASH_CONFIG, resolverPortaAplicacao } = require("./lib/config");
-const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
+const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
-const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
+const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
 const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
-const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
+const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, garantirEscopoPedidoComConn, garantirEscopoAnexoComConn, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
 const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn } = require("./lib/escopo");
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
@@ -225,7 +225,7 @@ app.get("/api/alertas", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoM
 }));
 
 app.get("/api/alertas/observacoes", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("alertas", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json({ observacoes: await getAlertasObservacoesMap() });
+  res.json({ observacoes: await getAlertasObservacoesMap(req.usuario.escopo) });
 }));
 
 // Escrita de observação: apenas administradores (nível >= 2) editam; demais
@@ -278,11 +278,12 @@ app.post("/api/cracha/salvar", apiLimiter, express.json(), autenticarFrescoMiddl
     if (body.segundaVia !== undefined) campos.segundaVia = body.segundaVia;
     if (body.motivoSegundaVia !== undefined) campos.motivoSegundaVia = body.motivoSegundaVia;
     if (body.observacao !== undefined) campos.observacao = body.observacao;
+    await garantirEscopoMatriculaComConn(conn, body.matricula, req.usuario.escopo);
     const registro = await salvarControleComConn(conn, body.matricula, campos, usuario);
     limparCacheDashboard();
     res.json({ ok: true, registro });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar o crachá." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar o crachá." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -293,11 +294,12 @@ app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddl
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    await garantirEscopoMatriculaComConn(conn, (req.body || {}).matricula, req.usuario.escopo);
     const registro = await atualizarStatusCrachaComConn(conn, (req.body || {}).matricula, (req.body || {}).status, usuario);
     limparCacheDashboard();
     res.json({ ok: true, registro });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao atualizar o status." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao atualizar o status." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -309,11 +311,12 @@ app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFresco
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
     const { matriculas, status } = req.body || {};
+    await garantirEscopoMatriculasComConn(conn, matriculas, req.usuario.escopo);
     const { registros, erros } = await atualizarStatusLoteComConn(conn, matriculas, status, usuario);
     limparCacheDashboard();
     res.json({ ok: true, registros, erros });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao atualizar os status em lote." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao atualizar os status em lote." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -326,11 +329,12 @@ app.post("/api/cracha/lote", apiLimiter, express.json(), autenticarFrescoMiddlew
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
     const { matriculas, campos } = req.body || {};
+    await garantirEscopoMatriculasComConn(conn, matriculas, req.usuario.escopo);
     const { registros, erros } = await atualizarLoteComConn(conn, matriculas, campos, usuario);
     limparCacheDashboard();
     res.json({ ok: true, registros, erros });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao aplicar as alterações em lote." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao aplicar as alterações em lote." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -342,11 +346,13 @@ app.post("/api/cracha/importar", apiLimiter, express.json({ limit: "8mb" }), aut
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
-    const resultado = await importarCrachasComConn(conn, (req.body || {}).linhas, usuario);
+    const linhas = (req.body || {}).linhas;
+    await garantirEscopoMatriculasComConn(conn, (Array.isArray(linhas) ? linhas : []).map(l => l && l.matricula), req.usuario.escopo);
+    const resultado = await importarCrachasComConn(conn, linhas, usuario);
     limparCacheDashboard();
     res.json({ ok: true, ...resultado });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao importar a planilha." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao importar a planilha." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -358,12 +364,13 @@ app.post("/api/cracha/foto", apiLimiter, express.json({ limit: "8mb" }), autenti
   try {
     const body = req.body || {};
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    await garantirEscopoMatriculaComConn(conn, body.matricula, req.usuario.escopo);
     const { buffer, mime } = decodificarImagemDataUrl(body.dataUrl);
     const registro = await salvarFotoCrachaComConn(conn, body.matricula, buffer, mime, usuario);
     limparCacheDashboard();
     res.json({ ok: true, registro });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar a foto." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar a foto." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -374,11 +381,12 @@ app.delete("/api/cracha/foto/:matricula", apiLimiter, autenticarFrescoMiddleware
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    await garantirEscopoMatriculaComConn(conn, req.params.matricula, req.usuario.escopo);
     const registro = await removerFotoCrachaComConn(conn, req.params.matricula, usuario);
     limparCacheDashboard();
     res.json({ ok: true, registro });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao remover a foto." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao remover a foto." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -388,6 +396,7 @@ app.delete("/api/cracha/foto/:matricula", apiLimiter, autenticarFrescoMiddleware
 app.get("/api/cracha/foto/:matricula", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoMatriculaComConn(conn, req.params.matricula, req.usuario.escopo); // escopo por DSEI
     const foto = await obterFotoCrachaComConn(conn, req.params.matricula);
     if (!foto) return res.status(404).end();
     res.set("Content-Type", foto.mime);
@@ -402,11 +411,12 @@ app.get("/api/cracha/foto/:matricula", apiLimiter, autenticarFrescoMiddleware, e
 app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoMatriculaComConn(conn, (req.body || {}).matricula, req.usuario.escopo);
     const registro = await reverterControleComConn(conn, (req.body || {}).matricula);
     limparCacheDashboard();
     res.json({ ok: true, registro });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao reverter o crachá." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao reverter o crachá." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -423,6 +433,7 @@ app.get("/api/remanejamento/cadastro", apiLimiter, autenticarFrescoMiddleware, e
 app.get("/api/remanejamento/anexo/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoProcessoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     const [rows] = await conn.query(
       `SELECT ANEXO_PROCESSO, ANEXO_NOME_ARQUIVO, ANEXO_MIME_TYPE FROM \`${DASH_CONFIG.DB_SCHEMA}\`.\`PROCESSO_REMANEJAMENTO\` WHERE ID_PROCESSO_REMANEJAMENTO = ? LIMIT 1`,
       [req.params.id]
@@ -465,7 +476,7 @@ app.put(
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
     try {
-      const resultado = await atualizarRemanejamentoComConn(conn, req.params.id, req.body || {}, req.file || null);
+      const resultado = await atualizarRemanejamentoComConn(conn, req.params.id, req.body || {}, req.file || null, req.usuario.escopo);
       limparCacheDashboard();
       res.json({ ok: true, ...resultado });
     } finally {
@@ -482,7 +493,7 @@ app.delete(
   asyncHandler(async (req, res) => {
     const conn = await getMysqlConnection();
     try {
-      await excluirRemanejamentoComConn(conn, req.params.id);
+      await excluirRemanejamentoComConn(conn, req.params.id, req.usuario.escopo);
       limparCacheDashboard();
       res.json({ ok: true });
     } finally {
@@ -840,7 +851,7 @@ app.get("/api/disciplinar/categorias", apiLimiter, autenticarFrescoMiddleware, e
 app.get("/api/disciplinar/trabalhadores", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
-    res.json({ trabalhadores: await buscarTrabalhadoresComConn(conn, (req.query || {}).q) });
+    res.json({ trabalhadores: await buscarTrabalhadoresComConn(conn, (req.query || {}).q, req.usuario.escopo) });
   } finally {
     await fecharJdbc(conn);
   }
@@ -858,7 +869,7 @@ app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirPermi
     const anexos = (req.files && req.files.anexos) || [];
     let tipos = [];
     try { tipos = JSON.parse(body.anexosTipos || "[]"); } catch (e) { tipos = []; }
-    const pedido = await criarPedidoComConn(conn, body, loginDoToken(req), oficio, anexos, tipos);
+    const pedido = await criarPedidoComConn(conn, body, loginDoToken(req), oficio, anexos, tipos, req.usuario.escopo);
     res.json({ ok: true, pedido });
   } catch (err) {
     res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar o pedido." });
@@ -870,6 +881,7 @@ app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirPermi
 app.post("/api/disciplinar/:id/pedido", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
     const pedido = await atualizarPedidoBaseComConn(conn, req.params.id, req.body || {});
     res.json({ ok: true, pedido });
@@ -883,6 +895,7 @@ app.post("/api/disciplinar/:id/pedido", apiLimiter, express.json(), autenticarFr
 app.post("/api/disciplinar/:id/demanda", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
     const pedido = await atualizarDemandaComConn(conn, req.params.id, req.body || {});
     res.json({ ok: true, pedido });
@@ -896,6 +909,7 @@ app.post("/api/disciplinar/:id/demanda", apiLimiter, express.json(), autenticarF
 app.post("/api/disciplinar/:id/sancao", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
     const pedido = await atualizarSancaoComConn(conn, req.params.id, req.body || {}, loginDoToken(req));
     res.json({ ok: true, pedido });
@@ -911,6 +925,7 @@ app.post("/api/disciplinar/:id/sancao", apiLimiter, express.json(), autenticarFr
 app.post("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), upload.single("termo"), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
     const pedido = await definirTermoSancaoComConn(conn, req.params.id, req.file || null, loginDoToken(req));
     res.json({ ok: true, pedido });
@@ -925,6 +940,7 @@ app.post("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddle
 app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     const termo = await obterTermoSancaoComConn(conn, req.params.id);
     if (!termo || !termo.documento_sancao) {
       res.status(404).json({ error: "Termo não encontrado." });
@@ -945,6 +961,7 @@ app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddlew
 app.post("/api/disciplinar/:id/responsavel", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     const body = req.body || {};
     // Sem "responsavel" no corpo => o admin está assumindo para si (login do token).
     const novo = String(body.responsavel || "").trim() || loginDoToken(req);
@@ -962,6 +979,7 @@ app.post("/api/disciplinar/:id/responsavel", apiLimiter, express.json(), autenti
 app.post("/api/disciplinar/:id/excluir", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     const resultado = await excluirPedidoComConn(conn, req.params.id);
     res.json({ ok: true, ...resultado });
   } catch (err) {
@@ -975,6 +993,7 @@ app.post("/api/disciplinar/:id/excluir", apiLimiter, autenticarFrescoMiddleware,
 app.post("/api/disciplinar/:id/anexos", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), upload.array("anexos", 10), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoPedidoComConn(conn, req.params.id, req.usuario.escopo); // escopo por DSEI
     exigirResponsavel(req, await obterResponsavelPedidoComConn(conn, req.params.id));
     const tipo = (req.body || {}).tipo;
     const pedido = await adicionarAnexosComConn(conn, req.params.id, req.files || [], tipo, loginDoToken(req));
@@ -990,6 +1009,7 @@ app.post("/api/disciplinar/:id/anexos", apiLimiter, autenticarFrescoMiddleware, 
 app.get("/api/disciplinar/anexo/:idAnexo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoAnexoComConn(conn, req.params.idAnexo, req.usuario.escopo); // escopo por DSEI
     const prova = await obterProvaComConn(conn, req.params.idAnexo);
     if (!prova || !prova.conteudo) {
       res.status(404).json({ error: "Prova não encontrada." });
@@ -1012,6 +1032,7 @@ app.get("/api/disciplinar/anexo/:idAnexo", apiLimiter, autenticarFrescoMiddlewar
 app.post("/api/disciplinar/anexo/:idAnexo/excluir", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    await garantirEscopoAnexoComConn(conn, req.params.idAnexo, req.usuario.escopo); // escopo por DSEI
     exigirResponsavel(req, await responsavelDoAnexoComConn(conn, req.params.idAnexo));
     const pedido = await excluirProvaComConn(conn, req.params.idAnexo);
     res.json({ ok: true, pedido });
@@ -1032,7 +1053,7 @@ app.post(
     const conn = await getMysqlConnection();
     try {
       const body = { ...(req.body || {}), criadoPor: (req.usuario && (req.usuario.email || req.usuario.login)) || "painel" };
-      const resultado = await salvarRemanejamentoComConn(conn, body, req.file || null);
+      const resultado = await salvarRemanejamentoComConn(conn, body, req.file || null, req.usuario.escopo);
       limparCacheDashboard();
       res.json({ ok: true, ...resultado });
     } catch (err) {
