@@ -632,13 +632,20 @@ function renderDetalhe(id) {
 }
 
 // ---------- Carga e sincronização com o backend ----------
+// Guarda contra cargas concorrentes (ex.: cliques repetidos na aba).
+let carregandoPedidos = false;
+
 async function carregarPedidos() {
+  if (carregandoPedidos) return;
+  carregandoPedidos = true;
   try {
     const dados = await apiGet("/api/disciplinar");
     REGISTROS = Array.isArray(dados.pedidos) ? dados.pedidos : [];
   } catch (e) {
     REGISTROS = [];
     gdToast(e && e.message ? e.message : "Não foi possível carregar os pedidos disciplinares.", "erro");
+  } finally {
+    carregandoPedidos = false;
   }
   if (!REGISTROS.some(r => r.id === pedidoSelecionadoId)) {
     pedidoSelecionadoId = REGISTROS[0] ? REGISTROS[0].id : null;
@@ -1370,7 +1377,16 @@ export function configurarGestaoDisciplinar() {
   gestaoDisciplinarConfigurada = true;
 
   aplicarVisibilidadeCardsDisciplinar();
-  carregarPedidos();
+
+  // Carregamento sob demanda: busca os pedidos ao ABRIR a aba (recarregando a
+  // cada abertura, para refletir mudanças feitas por outro admin/ETL). NÃO pode
+  // ser eager no init(): configurarGestaoDisciplinar() roda ANTES de
+  // verificarSessaoInicial(), então no 1º login a sessão ainda não existe e o
+  // GET /api/disciplinar volta vazio (antes exigia recarregar a página). Mesmo
+  // padrão da Entrega de Crachá.
+  const navItem = document.querySelector('.navItem[data-view="gestaoDisciplinar"]');
+  if (navItem) navItem.addEventListener("click", () => { if (!carregandoPedidos) carregarPedidos(); });
+  if (state.activeView === "gestaoDisciplinar") carregarPedidos();
 
   // Filtros reagem na hora.
   ["gdFiltroDsei", "gdFiltroStatus"].forEach(id => $(id)?.addEventListener("change", renderTabela));

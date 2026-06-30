@@ -1026,11 +1026,11 @@ app.post("/api/cache/clear", apiLimiter, autenticarFrescoMiddleware, exigirNivel
 }));
 
 // Extrai o quadro de vagas e o cronograma de um PDF de anexo enviado pelo usuário
-// (aba Processos Seletivos). Reaproveita o extrator Python (mock/script/
+// (aba Processos Seletivos). Reaproveita o extrator Python (scripts/
 // extrair_anexo_local.py), que recebe o PDF por stdin e devolve JSON. O arquivo é
 // processado em memória e NÃO é gravado em lugar nenhum.
 const PYTHON_BIN = process.env.PYTHON_BIN || "python";
-const EXTRATOR_ANEXO = path.join(__dirname, "mock", "script", "extrair_anexo_local.py");
+const EXTRATOR_ANEXO = path.join(__dirname, "scripts", "extrair_anexo_local.py");
 
 function extrairAnexoPdf(buffer) {
   return new Promise((resolve, reject) => {
