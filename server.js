@@ -235,10 +235,10 @@ app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFresco
   try {
     const body = { ...(req.body || {}) };
     body.usuario = req.usuario.email || req.usuario.login || "painel";
-    const resultado = await salvarObservacaoAlertaComConn(conn, body);
+    const resultado = await salvarObservacaoAlertaComConn(conn, body, req.usuario.escopo);
     res.json({ ok: true, ...resultado });
   } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar a observação." });
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar a observação." });
   } finally {
     await fecharJdbc(conn);
   }
