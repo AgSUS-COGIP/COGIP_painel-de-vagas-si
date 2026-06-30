@@ -9,13 +9,24 @@
 import { apiGet } from "./api.js";
 import { nivelModulo } from "./permissoes.js";
 import { state } from "./state.js";
-import { escapeHtml, formatNumber, baixarArquivoCsv } from "./utils.js";
+import { escapeHtml, escapeAttr, formatNumber, baixarArquivoCsv, valorCsv, isoParaDataBr as fData } from "./utils.js";
 import { criarToast } from "./ui-utils.js";
+import { abrirModal, abrirAviso } from "./modal.js";
 
 const $ = id => document.getElementById(id);
 
 // CLT: período concessivo encerra 24 meses após a admissão (1º ciclo).
 const MESES_LIMITE_GOZO = 24;
+
+// Regras de fracionamento de férias (CLT Art. 134 §1º). Centralizadas para que a
+// validação não dependa de números soltos espalhados pela função.
+const CLT_FERIAS = {
+  TOTAL_DIAS: 30,          // total de dias de férias devidos
+  ABONO_DIAS: 10,          // dias vendidos no abono pecuniário (1/3)
+  MAX_PERIODOS: 3,         // máximo de frações permitidas
+  MIN_DIAS_PERIODO_PRINCIPAL: 14, // um dos períodos não pode ser inferior a 14 dias
+  MIN_DIAS_DEMAIS: 5       // os demais períodos não podem ser inferiores a 5 dias
+};
 
 // COAPE: por enquanto, a análise/aprovação é liberada para nível administrativo
 // (>= 2). O papel "COAPE" próprio deve ser definido depois no controle de acesso.
@@ -87,11 +98,18 @@ function criarCombo(id, rotuloTodos, onChange, opts) {
   const maxRender = (opts && opts.maxRender) || 200;
   const ph = (opts && opts.searchPlaceholder) || "Buscar…";
   root.innerHTML = `
-    <button type="button" class="gfComboBtn"><span class="gfComboValor"></span><i class="fa-solid fa-chevron-down"></i></button>
+    <button type="button" class="gfComboBtn" aria-haspopup="listbox" aria-expanded="false"><span class="gfComboValor" id="${id}-valor"></span><i class="fa-solid fa-chevron-down"></i></button>
     <div class="gfComboPop" hidden>
-      <div class="gfComboSearch"><i class="fa-solid fa-magnifying-glass"></i><input type="text" class="gfComboInput" placeholder="${ph}" autocomplete="off"><button type="button" class="gfComboClear" hidden>Limpar</button></div>
-      <ul class="gfComboList"></ul>
+      <div class="gfComboSearch"><i class="fa-solid fa-magnifying-glass"></i><input type="text" class="gfComboInput" placeholder="${escapeAttr(ph)}" autocomplete="off" aria-label="${escapeAttr(ph)}"><button type="button" class="gfComboClear" hidden>Limpar</button></div>
+      <ul class="gfComboList" role="listbox" aria-multiselectable="true"></ul>
     </div>`;
+  // Nome acessível: associa o rótulo do campo (span irmão) ao botão e à lista.
+  const campoLabel = root.parentElement?.querySelector(".gfFieldLabel");
+  if (campoLabel) {
+    if (!campoLabel.id) campoLabel.id = `${id}-label`;
+    root.querySelector(".gfComboBtn")?.setAttribute("aria-labelledby", `${campoLabel.id} ${id}-valor`);
+    root.querySelector(".gfComboList")?.setAttribute("aria-label", campoLabel.textContent.trim());
+  }
   const btn = root.querySelector(".gfComboBtn");
   const valorEl = root.querySelector(".gfComboValor");
   const pop = root.querySelector(".gfComboPop");
@@ -114,13 +132,13 @@ function criarCombo(id, rotuloTodos, onChange, opts) {
     const q = (f || "").trim().toLowerCase();
     const vis = opcoes.filter(o => !q || o.label.toLowerCase().includes(q));
     const mostra = vis.slice(0, maxRender);
-    let html = mostra.map(o => `<li class="gfComboOpt${sel.has(o.value) ? " is-sel" : ""}" data-v="${escapeHtml(o.value)}" title="${escapeHtml(o.label)}"><span class="gfComboCheck"><i class="fa-solid fa-check"></i></span><span class="gfComboOptLabel">${escapeHtml(o.label)}</span></li>`).join("");
+    let html = mostra.map(o => `<li class="gfComboOpt${sel.has(o.value) ? " is-sel" : ""}" data-v="${escapeHtml(o.value)}" title="${escapeHtml(o.label)}" role="option" aria-selected="${sel.has(o.value)}"><span class="gfComboCheck"><i class="fa-solid fa-check"></i></span><span class="gfComboOptLabel">${escapeHtml(o.label)}</span></li>`).join("");
     if (!vis.length) html = `<li class="gfComboVazio">Nenhuma opção</li>`;
     else if (vis.length > maxRender) html += `<li class="gfComboMais">+${vis.length - maxRender} — digite para refinar…</li>`;
     list.innerHTML = html;
   }
-  function abrir() { fecharTodosCombos(root); pop.hidden = false; root.classList.add("aberto"); input.value = ""; renderLista(""); setTimeout(() => input.focus(), 10); }
-  function fechar() { pop.hidden = true; root.classList.remove("aberto"); }
+  function abrir() { fecharTodosCombos(root); pop.hidden = false; root.classList.add("aberto"); btn.setAttribute("aria-expanded", "true"); input.value = ""; renderLista(""); setTimeout(() => input.focus(), 10); }
+  function fechar() { pop.hidden = true; root.classList.remove("aberto"); btn.setAttribute("aria-expanded", "false"); }
   function toggle(v) { if (sel.has(v)) sel.delete(v); else sel.add(v); atualizarBotao(); renderLista(input.value); if (onChange) onChange(); }
 
   btn.addEventListener("click", e => { e.stopPropagation(); pop.hidden ? abrir() : fechar(); });
@@ -147,11 +165,7 @@ function criarCombo(id, rotuloTodos, onChange, opts) {
 }
 
 // ---------- Datas / CLT ----------
-function fData(iso) {
-  if (!iso) return "";
-  const [a, m, d] = String(iso).slice(0, 10).split("-");
-  return (a && m && d) ? `${d}/${m}/${a}` : "";
-}
+// fData (ISO -> dd/mm/aaaa) vem de utils.js (isoParaDataBr).
 function somarMeses(iso, meses) {
   const [a, m, d] = String(iso).slice(0, 10).split("-").map(Number);
   if (!a) return "";
@@ -440,15 +454,15 @@ function validarPeriodos(periodos, abono) {
   const msgs = [];
   let ok = true;
   const totalGozo = periodos.reduce((s, p) => s + p.dias, 0);
-  const diasAbono = abono ? 10 : 0;
-  const totalDevido = 30 - diasAbono;
+  const diasAbono = abono ? CLT_FERIAS.ABONO_DIAS : 0;
+  const totalDevido = CLT_FERIAS.TOTAL_DIAS - diasAbono;
 
   if (!periodos.length) return { ok: false, msgs: ["Informe ao menos o Período 1."] };
-  if (periodos.length > 3) { ok = false; msgs.push("Máximo de 3 períodos (CLT Art. 134 §1º)."); }
+  if (periodos.length > CLT_FERIAS.MAX_PERIODOS) { ok = false; msgs.push(`Máximo de ${CLT_FERIAS.MAX_PERIODOS} períodos (CLT Art. 134 §1º).`); }
   if (periodos.some(p => p.dias <= 0)) { ok = false; msgs.push("Há período com data fim anterior ao início."); }
   if (periodos.length > 1) {
-    if (!periodos.some(p => p.dias >= 14)) { ok = false; msgs.push("Um dos períodos deve ter no mínimo 14 dias."); }
-    if (periodos.some(p => p.dias < 5)) { ok = false; msgs.push("Os demais períodos devem ter no mínimo 5 dias."); }
+    if (!periodos.some(p => p.dias >= CLT_FERIAS.MIN_DIAS_PERIODO_PRINCIPAL)) { ok = false; msgs.push(`Um dos períodos deve ter no mínimo ${CLT_FERIAS.MIN_DIAS_PERIODO_PRINCIPAL} dias.`); }
+    if (periodos.some(p => p.dias < CLT_FERIAS.MIN_DIAS_DEMAIS)) { ok = false; msgs.push(`Os demais períodos devem ter no mínimo ${CLT_FERIAS.MIN_DIAS_DEMAIS} dias.`); }
     // Dois períodos de férias não podem se sobrepor no calendário (o trabalhador
     // não pode gozar duas frações ao mesmo tempo). Intervalos [iniA,fimA] e
     // [iniB,fimB] se sobrepõem quando iniA <= fimB && iniB <= fimA (datas ISO).
@@ -458,7 +472,7 @@ function validarPeriodos(periodos, abono) {
   }
   if (totalGozo !== totalDevido) {
     ok = false;
-    msgs.push(`A soma dos dias (${totalGozo}) deve ser ${totalDevido}${abono ? " (30 − 10 de abono)" : ""}.`);
+    msgs.push(`A soma dos dias (${totalGozo}) deve ser ${totalDevido}${abono ? ` (${CLT_FERIAS.TOTAL_DIAS} − ${CLT_FERIAS.ABONO_DIAS} de abono)` : ""}.`);
   }
   if (ok) msgs.push("Conforme as regras da CLT. ✓");
   return { ok, msgs };
@@ -485,11 +499,11 @@ function atualizarValidacao() {
 }
 
 function adicionarSolicitacao() {
-  if (!trabSelecionado) { alert("Busque e selecione um trabalhador primeiro."); return; }
+  if (!trabSelecionado) { abrirAviso({ titulo: "Atenção", msg: "Busque e selecione um trabalhador primeiro.", perigo: true }); return; }
   const periodos = lerPeriodosForm();
   const abono = !!$("gfAbono")?.checked;
   const val = validarPeriodos(periodos, abono);
-  if (!periodos.length) { alert("Informe ao menos o Período 1."); return; }
+  if (!periodos.length) { abrirAviso({ titulo: "Atenção", msg: "Informe ao menos o Período 1.", perigo: true }); return; }
   lote.push({
     matricula: trabSelecionado.matricula,
     nome: trabSelecionado.nome,
@@ -630,27 +644,28 @@ function renderCoape() {
   }
 }
 
-function acaoCoape(tipo, i) {
+async function acaoCoape(tipo, i) {
   const s = coape[i];
   if (!s) return;
   if (tipo === "aprovar") s.status = "Aprovado";
   else if (tipo === "reprovar") {
-    const m = window.prompt("Motivo da reprovação:", "");
-    if (m === null) return;
-    s.status = "Reprovado"; s.motivo = m || "Sem motivo informado";
+    const r = await abrirModal({ titulo: "Reprovar solicitação", msg: "Informe o motivo da reprovação:", comInput: true, inputLabel: "Motivo", confirmarTexto: "Reprovar", perigo: true });
+    if (!r.ok) return;
+    s.status = "Reprovado"; s.motivo = r.valor;
   } else if (tipo === "ajustar") {
-    const m = window.prompt("O que deve ser ajustado?", "");
-    if (m === null) return;
-    s.status = "Ajuste solicitado"; s.motivo = m || "Ajuste solicitado";
+    const r = await abrirModal({ titulo: "Solicitar ajuste", msg: "O que deve ser ajustado?", comInput: true, inputLabel: "Ajuste necessário", confirmarTexto: "Solicitar ajuste" });
+    if (!r.ok) return;
+    s.status = "Ajuste solicitado"; s.motivo = r.valor;
   }
   renderCoape();
   renderResumo();
 }
 
-function cancelarSolicitacao(i) {
+async function cancelarSolicitacao(i) {
   const s = coape[i];
   if (!s || s.status !== "Em análise") return;
-  if (!window.confirm(`Cancelar a solicitação de férias de "${s.nome}"?`)) return;
+  const r = await abrirModal({ titulo: "Cancelar solicitação", msg: `Cancelar a solicitação de férias de "${s.nome}"?`, confirmarTexto: "Sim, cancelar", perigo: true });
+  if (!r.ok) return;
   s.status = "Cancelado"; s.motivo = "Cancelado pelo escritório";
   renderCoape();
   renderResumo();
@@ -659,7 +674,7 @@ function cancelarSolicitacao(i) {
 
 // ---------- Exportação CSV ----------
 function baixarCsv(linhas, nome) {
-  const csv = String.fromCharCode(0xFEFF) + linhas.map(l => l.map(v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const csv = String.fromCharCode(0xFEFF) + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
   baixarArquivoCsv(csv, nome);
 }
 function exportarConsulta() {

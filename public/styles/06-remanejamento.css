@@ -204,11 +204,11 @@
     }
 
     .remanejamentoResumoValor.negativo {
-      color: #047857;
+      color: var(--status-ok);
     }
 
     .remanejamentoResumoValor.positivo {
-      color: #b91c1c;
+      color: var(--status-erro);
     }
 
     .remanejamentoFormFooter {
@@ -561,11 +561,11 @@
 
     /* Cores invertidas: valor negativo (economia) em verde; positivo (acréscimo) em vermelho. */
     .remNegativo {
-      color: #047857;
+      color: var(--status-ok);
     }
 
     .remPositivo {
-      color: #b91c1c;
+      color: var(--status-erro);
     }
 
     /* Cada vaga (cargo) do remanejamento em seu próprio card destacado. */
@@ -594,14 +594,14 @@
     .remCargoReduzido {
       background: rgba(220, 63, 63, .08);
       border-color: rgba(220, 63, 63, .22);
-      border-left-color: #c0392b;
+      border-left-color: var(--status-perigo);
       color: #9b1c1c;
     }
 
     .remCargoAcrescentado {
       background: rgba(4, 120, 87, .08);
       border-color: rgba(4, 120, 87, .22);
-      border-left-color: #047857;
+      border-left-color: var(--status-ok);
       color: #065f46;
     }
 

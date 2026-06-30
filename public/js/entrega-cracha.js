@@ -8,10 +8,11 @@
 // CRUD persistido no banco (editar datas/observação, avançar/voltar status,
 // mudança de status em lote), disponível apenas para administradores (nível >= 2).
 // =========================================================
-import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv } from "./utils.js";
+import { escapeHtml, escapeAttr, valorCsv, debounce, baixarArquivoCsv, dataBrValida, dataBrParaDate, dataBrParaIso as brParaISO, isoParaDataBr as isoParaBR } from "./utils.js";
 import { nivelModulo } from "./permissoes.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
 import { apiGet, apiPost, apiDelete } from "./api.js";
+import { abrirModal as abrirConfirmacao } from "./modal.js";
 import { state } from "./state.js";
 
 const PAGE_SIZE_OPCOES = [10, 25, 50, 100];
@@ -75,42 +76,18 @@ const selecionados = new Set(); // matrículas marcadas para ação em lote
 const $ = id => document.getElementById(id);
 
 // ---------- Datas ----------
-function brParaISO(br) {
-  if (!br) return "";
-  const [d, m, a] = br.split("/");
-  if (!d || !m || !a) return "";
-  return `${a}-${m}-${d}`;
-}
+// brParaISO (dd/mm/aaaa -> ISO), isoParaBR (ISO -> dd/mm/aaaa) e dataBrValida
+// vêm de utils.js. Mantidos aqui apenas os derivados específicos deste módulo.
 
-function isoParaBR(iso) {
-  if (!iso) return "";
-  const [a, m, d] = iso.split("-");
-  if (!a || !m || !d) return "";
-  return `${d}/${m}/${a}`;
-}
-
+// "dd/mm/aaaa" -> timestamp (ms) ou null se inválido.
 function brParaTime(br) {
-  if (!br) return null;
-  const [d, m, a] = br.split("/");
-  if (!d || !m || !a) return null;
-  return new Date(Number(a), Number(m) - 1, Number(d)).getTime();
+  const dt = dataBrParaDate(br);
+  return dt ? dt.getTime() : null;
 }
 
-// dd/mm/aaaa e calendário válido (rejeita 32/13, 30/02, etc.). Vazio = falso.
-function dataBrValida(br) {
-  const m = String(br || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return false;
-  const d = +m[1], mes = +m[2], a = +m[3];
-  if (mes < 1 || mes > 12 || d < 1 || d > 31) return false;
-  const dt = new Date(a, mes - 1, d);
-  return dt.getFullYear() === a && dt.getMonth() === mes - 1 && dt.getDate() === d;
-}
-
-// dd/mm/aaaa -> aaaa-mm-dd com zero à esquerda (formato exigido pelo input date).
+// dd/mm/aaaa -> aaaa-mm-dd, mas só quando o calendário é válido (input date).
 function brParaISOInput(br) {
-  if (!dataBrValida(br)) return "";
-  const [d, m, a] = br.split("/");
-  return `${a}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  return dataBrValida(br) ? brParaISO(br) : "";
 }
 
 // Status válido = está na lista do funil (sem diferenciar acento? só caixa). Vazio = ok.
@@ -412,7 +389,8 @@ async function aplicarStatusLote() {
   Object.keys(datas).forEach(k => { const v = $(datas[k])?.value || ""; if (v) campos[k] = v; });
 
   if (!Object.keys(campos).length) { ecToast("Preencha ao menos um campo para aplicar.", "erro"); return; }
-  if (!window.confirm(`Aplicar as alterações a ${matriculas.length} trabalhador(es) selecionado(s)?`)) return;
+  const conf = await abrirConfirmacao({ titulo: "Aplicar em lote", msg: `Aplicar as alterações a ${matriculas.length} trabalhador(es) selecionado(s)?`, confirmarTexto: "Aplicar" });
+  if (!conf.ok) return;
 
   try {
     const resp = await apiPost("/api/cracha/lote", { matriculas, campos });
@@ -800,7 +778,8 @@ async function salvarModal() {
 async function reverterSolicitacao(matricula) {
   const s = solicitacoes.find(r => r.id === matricula);
   if (!s) return;
-  if (!window.confirm(`Desfazer a última alteração de "${s.nome}" (matrícula ${s.matricula})?`)) return;
+  const conf = await abrirConfirmacao({ titulo: "Desfazer alteração", msg: `Desfazer a última alteração de "${s.nome}" (matrícula ${s.matricula})?`, confirmarTexto: "Desfazer", perigo: true });
+  if (!conf.ok) return;
   try {
     const resp = await apiPost("/api/cracha/reverter", { matricula });
     aplicarRegistro(resp.registro);

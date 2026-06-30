@@ -6,7 +6,7 @@
 // é persistida no banco via API e o registro afetado é recarregado.
 // Obs.: por padrão do painel, as pessoas são sempre "trabalhadores".
 // =========================================================
-import { escapeHtml, escapeAttr, debounce, safeUrl } from "./utils.js";
+import { escapeHtml, escapeAttr, debounce, safeUrl, isoParaDataBr, dataBrParaIso as brParaIso, dataBrParaDate as dataBr } from "./utils.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
 import { state } from "./state.js";
 import { apiGet, apiPost, authHeaders } from "./api.js";
@@ -279,12 +279,8 @@ function preencherSelectResponsavel() {
   if (atual && ADMINS_DELEGAVEIS.some(a => a.login === atual)) sel.value = atual;
 }
 
-// Converte "dd/mm/aaaa" para Date (para comparar com os inputs de data).
-function dataBr(str) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(str || "").trim());
-  if (!m) return null;
-  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-}
+// dataBr (dd/mm/aaaa -> Date) e brParaIso (dd/mm/aaaa -> aaaa-mm-dd) vêm de
+// utils.js (dataBrParaDate / dataBrParaIso).
 
 // Filtro rápido "processos em que eu sou o responsável".
 let filtroMeusProcessos = false;
@@ -351,11 +347,6 @@ function kv(rotulo, valor) {
   return `<div class="gdKv"><span>${escapeHtml(rotulo)}</span><strong>${escapeHtml(valor || "—")}</strong></div>`;
 }
 
-// "dd/mm/aaaa" -> "aaaa-mm-dd" (para preencher <input type="date">). Vazio se não casar.
-function brParaIso(valor) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(valor || "").trim());
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
-}
 
 // <select> de edição em linha; garante que o valor atual esteja entre as opções.
 function gdSelect(campo, valor, opcoes) {
@@ -431,6 +422,21 @@ function renderDetalhe(id) {
   const podeEditar = podeEditarGestaoDisciplinar(r);
   const sancaoLiberada = podeEditar && pedidoConcluido(r);
 
+  // Cada seção do detalhamento escreve no seu próprio nó e foi extraída para uma
+  // função dedicada — renderDetalhe orquestra, sem ser uma função-monólito.
+  renderDetalheTitulo(r, podeEditar);
+  renderDetalheDados(r, podeEditar);
+  renderDetalheStatus(r, podeEditar);
+  renderDetalheSancao(r, sancaoLiberada);
+  renderDetalheAnexos(r);
+
+  // Reflete a seleção na tabela.
+  document.querySelectorAll(".gdRow").forEach(tr => {
+    tr.classList.toggle("is-selected", Number(tr.dataset.gdId) === r.id);
+  });
+}
+
+function renderDetalheTitulo(r, podeEditar) {
   const titulo = $("gdDetTitulo");
   if (titulo) {
     const meuLogin = loginResponsavel();
@@ -465,7 +471,9 @@ function renderDetalhe(id) {
         ${botaoExcluir}
       </span>`;
   }
+}
 
+function renderDetalheDados(r, podeEditar) {
   const dados = $("gdDetDados");
   if (dados) {
     const avisoPrazo = r.foraDoPrazo
@@ -513,7 +521,9 @@ function renderDetalhe(id) {
         `<div class="gdResumo"><span>Resumo do processo</span><p>${escapeHtml(r.resumo)}</p></div>`;
     }
   }
+}
 
+function renderDetalheStatus(r, podeEditar) {
   const statusBox = $("gdDetStatus");
   if (statusBox) {
     const idxFase = STATUS_FASES.indexOf(r.statusAtual);
@@ -565,7 +575,9 @@ function renderDetalhe(id) {
       kv("Data do pedido", r.dataPedido) +
       campoEditavel("Observações", "observacoesStatus", r.observacoesStatus, podeEditar);
   }
+}
 
+function renderDetalheSancao(r, sancaoLiberada) {
   const sancao = $("gdDetSancao");
   if (sancao) {
     const comprovanteChip = r.comprovante
@@ -595,7 +607,9 @@ function renderDetalhe(id) {
       comprovanteUpload +
       campoEditavel("Descrição da sanção aplicada", "observacoesSancao", r.observacoesSancao, sancaoLiberada);
   }
+}
 
+function renderDetalheAnexos(r) {
   const anexos = $("gdDetAnexos");
   if (anexos) {
     const podeGerenciar = podeGerenciarAnexos(r);
@@ -624,11 +638,6 @@ function renderDetalhe(id) {
       : "";
     anexos.innerHTML = (lista || `<div class="gdKv"><span>Anexos</span><strong>—</strong></div>`) + addCtrl;
   }
-
-  // Reflete a seleção na tabela.
-  document.querySelectorAll(".gdRow").forEach(tr => {
-    tr.classList.toggle("is-selected", Number(tr.dataset.gdId) === r.id);
-  });
 }
 
 // ---------- Carga e sincronização com o backend ----------
@@ -1215,11 +1224,8 @@ function setupComboTrabalhador() {
   atualizarTrabTrigger();
 }
 
-// Converte "aaaa-mm-dd" (input date) para "dd/mm/aaaa".
-function dataParaBr(valor) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(valor || "").trim());
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
-}
+// "aaaa-mm-dd" (input date) -> "dd/mm/aaaa"; "—" quando vazio/inválido (placeholder de tabela).
+const dataParaBr = (valor) => isoParaDataBr(valor, "—");
 
 // ---------- Anexos do novo pedido (preparados no formulário) ----------
 // Como o pedido ainda não existe, os arquivos ficam "em espera" e são enviados

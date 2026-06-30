@@ -161,7 +161,7 @@
 
 .psBtn.psBtnGhost {
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   border: 1px solid rgba(0, 83, 166, .3);
   box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
 }
@@ -223,7 +223,7 @@
 .psKpiValue.is-muted { color: #6b7d96; }
 .psKpiValue.is-green { color: #0a8a4d; }
 .psKpiValue.is-orange { color: #d98200; }
-.psKpiValue.is-red { color: #c0392b; }
+.psKpiValue.is-red { color: var(--status-perigo); }
 
 /* ---------- Painel / tabela principal ---------- */
 .psPanel {
@@ -314,7 +314,7 @@
 .psRowChevron {
   flex: none;
   font-size: 11px;
-  color: #0b4488;
+  color: var(--texto-link);
   opacity: .5;
   transition: transform .2s ease, opacity .16s ease;
 }
@@ -341,7 +341,7 @@
   height: 30px;
   border: 1px solid rgba(0, 83, 166, .24);
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 12px;
   font-weight: 900;
   font-family: inherit;
@@ -462,7 +462,7 @@
 }
 
 .psTileValue.is-green { color: #0a8a4d; }
-.psTileValue.is-red { color: #c0392b; }
+.psTileValue.is-red { color: var(--status-perigo); }
 .psTileValue.is-blue { color: #0a5bb0; }
 
 .psTileLabel {
@@ -485,7 +485,7 @@
 
 .psBlocoTitulo {
   margin: 0 0 9px 0;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
@@ -560,7 +560,7 @@
 .psChip {
   border: 1px solid rgba(0, 83, 166, .26);
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 10.5px;
   font-weight: 900;
   font-family: inherit;
@@ -678,7 +678,7 @@
 }
 
 .psDot.is-green { background: #0a8a4d; }
-.psDot.is-red { background: #c0392b; }
+.psDot.is-red { background: var(--status-perigo); }
 
 /* ============================================================
    Modal de cadastro de novo processo
@@ -734,7 +734,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 12px;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 12px;
   font-weight: 800;
 }
@@ -842,7 +842,7 @@
 
 .psFormSecaoHead h4 {
   margin: 0;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
@@ -887,7 +887,7 @@
 .psCheck input { width: 16px; height: 16px; }
 
 .psModalErro {
-  color: #c0392b;
+  color: var(--status-perigo);
   font-size: 12px;
   font-weight: 800;
   margin-top: 10px;

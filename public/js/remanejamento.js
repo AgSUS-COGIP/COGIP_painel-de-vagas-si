@@ -2,7 +2,7 @@ import { idSeguroAlerta } from "./alertas.js";
 import { nivelModulo } from "./permissoes.js";
 import { apiGet } from "./api.js";
 import { recarregarTodosOsDados } from "./app.js";
-import { NIVEL, REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
+import { NIVEL, REMANEJAMENTO_EMPTY_OPTION, REMANEJAMENTO_MESES_PADRAO } from "./constants.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
@@ -559,8 +559,8 @@ export function renderRemanejamentoListaErro(error) {
 export function atualizarVagasOrigemPorDsei() {
   // Troca de DSEI cancela qualquer liberação pontual concedida pelo super admin.
   state.remanejamentoPssLiberadoDsei = null;
-  state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
-  state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })];
+  state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
+  state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
   renderLinhasRemanejamento("reduzido");
   renderLinhasRemanejamento("acrescentado");
   atualizarResumoRemanejamento();
@@ -695,11 +695,11 @@ export function inicializarFormularioRemanejamento(resetar) {
   }
 
   if (resetar || !state.remanejamentoLinhas.reduzido.length) {
-    state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })];
+    state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
   }
 
   if (resetar || !state.remanejamentoLinhas.acrescentado.length) {
-    state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })];
+    state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
   }
 
   renderLinhasRemanejamento("reduzido");
@@ -749,7 +749,7 @@ export function alterarMesRemanejamento() {
 
 export function adicionarLinhaRemanejamento(tipo) {
   state.remanejamentoLinhas[tipo] = state.remanejamentoLinhas[tipo] || [];
-  state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: 6 }));
+  state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO }));
   renderLinhasRemanejamento(tipo);
   atualizarResumoRemanejamento();
 }
@@ -757,7 +757,7 @@ export function adicionarLinhaRemanejamento(tipo) {
 export function removerLinhaRemanejamento(tipo, id) {
   state.remanejamentoLinhas[tipo] = (state.remanejamentoLinhas[tipo] || []).filter(item => item.id !== id);
   if (!state.remanejamentoLinhas[tipo].length) {
-    state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: 6 }));
+    state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO }));
   }
   renderLinhasRemanejamento(tipo);
   atualizarResumoRemanejamento();
@@ -964,8 +964,8 @@ export function limparFormularioRemanejamento() {
   // Limpar também cancela qualquer liberação pontual de PSS concedida pelo super admin.
   state.remanejamentoPssLiberadoDsei = null;
   state.remanejamentoLinhas = {
-    reduzido: [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: 6 })],
-    acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: 6 })]
+    reduzido: [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })],
+    acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })]
   };
 
   setValue("remanejamentoProcessoSei", "");
@@ -1062,6 +1062,13 @@ export async function salvarRemanejamentoPainel() {
   });
   if (!confirmacao.ok) return;
 
+  await enviarRemanejamento({ idDseiCasai, processoSei, observacao, anexo, linhasReduzido, linhasAcrescentado, editandoId });
+}
+
+// Monta o FormData, envia ao backend (cria ou atualiza) e trata sucesso/erro com
+// feedback visual. Extraído de salvarRemanejamentoPainel para separar o envio das
+// validações e da confirmação.
+async function enviarRemanejamento({ idDseiCasai, processoSei, observacao, anexo, linhasReduzido, linhasAcrescentado, editandoId }) {
   const formData = new FormData();
   formData.append("idDseiCasai", idDseiCasai);
   formData.append("processoSei", processoSei);

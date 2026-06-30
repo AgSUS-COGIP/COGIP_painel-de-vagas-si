@@ -105,7 +105,7 @@
   border-radius: 12px;
   background: #fdecea;
   border: 1px solid #f1b0ab;
-  border-left: 5px solid #c0392b;
+  border-left: 5px solid var(--status-perigo);
   color: #8a1f17;
   font-size: 13.5px;
   line-height: 1.65;
@@ -115,7 +115,7 @@
 .processoSeletivoSugestao i {
   flex: 0 0 auto;
   margin-top: 2px;
-  color: #c0392b;
+  color: var(--status-perigo);
   font-size: 20px;
 }
 

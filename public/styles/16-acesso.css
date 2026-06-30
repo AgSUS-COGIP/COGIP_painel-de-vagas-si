@@ -616,7 +616,7 @@
   color: var(--azul-escuro);
   outline: none;
 }
-.acessoModalErro { color: #b91c1c; font-size: 12px; font-weight: 800; min-height: 0; }
+.acessoModalErro { color: var(--status-erro); font-size: 12px; font-weight: 800; min-height: 0; }
 
 /* Seletor de privilégio no card do admin */
 .solPrivilegio { display: grid; gap: 4px; }
@@ -686,7 +686,7 @@
 .solExcluirBtn {
   border: none;
   background: rgba(220, 63, 63, .10);
-  color: #b91c1c;
+  color: var(--status-erro);
   border-radius: 8px;
   padding: 4px 8px;
   font-size: 11px;
@@ -702,8 +702,8 @@
   border-radius: 999px;
 }
 .tagPendente { background: rgba(243, 187, 24, .22); color: #8a6d00; }
-.tagAprovado { background: rgba(73, 209, 141, .20); color: #047857; }
-.tagRecusado { background: rgba(220, 63, 63, .16); color: #b91c1c; }
+.tagAprovado { background: rgba(73, 209, 141, .20); color: var(--status-ok); }
+.tagRecusado { background: rgba(220, 63, 63, .16); color: var(--status-erro); }
 
 .solGrid {
   display: grid;
@@ -737,8 +737,8 @@
   font-weight: 900;
   cursor: pointer;
 }
-.solAprovar { background: linear-gradient(135deg, #49d18d, #047857); color: #fff; }
-.solRecusar { background: rgba(220, 63, 63, .12); color: #b91c1c; border: 1px solid rgba(220, 63, 63, .3); }
+.solAprovar { background: linear-gradient(135deg, #49d18d, var(--status-ok)); color: #fff; }
+.solRecusar { background: rgba(220, 63, 63, .12); color: var(--status-erro); border: 1px solid rgba(220, 63, 63, .3); }
 
 .solVazio {
   grid-column: 1 / -1;
@@ -830,8 +830,8 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.solBtnAprovar { background: linear-gradient(135deg, #49d18d, #047857); color: #fff; }
-.solBtnRecusar { background: rgba(220, 63, 63, .12); color: #b91c1c; border: 1px solid rgba(220, 63, 63, .3); }
+.solBtnAprovar { background: linear-gradient(135deg, #49d18d, var(--status-ok)); color: #fff; }
+.solBtnRecusar { background: rgba(220, 63, 63, .12); color: var(--status-erro); border: 1px solid rgba(220, 63, 63, .3); }
 .solBtnPerm { background: rgba(0, 83, 166, .10); color: #0053a6; border: 1px solid rgba(0, 83, 166, .26); }
 .solBtnPerm:hover { background: rgba(0, 83, 166, .18); }
 
@@ -847,8 +847,8 @@
   white-space: nowrap;
 }
 .solHistBadge i { font-size: 12px; }
-.histAprovado { background: rgba(73, 209, 141, .16); color: #047857; }
-.histRecusado { background: rgba(220, 63, 63, .14); color: #b91c1c; }
+.histAprovado { background: rgba(73, 209, 141, .16); color: var(--status-ok); }
+.histRecusado { background: rgba(220, 63, 63, .14); color: var(--status-erro); }
 .histPendente { background: rgba(243, 187, 24, .18); color: #8a6d00; }
 
 /* Rodapé: paginação centralizada + contagem à direita */

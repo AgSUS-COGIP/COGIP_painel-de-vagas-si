@@ -95,13 +95,40 @@ export function renderTreemap(containerId, cfg) {
   }).join("");
 }
 
+// onClick de filtro compartilhado: lê filterType/filterValues do cfg passado.
+// Extraído para poder ser reatribuído ao atualizar o gráfico (sem recriá-lo),
+// garantindo que o clique filtre pelos valores atuais, não pelos do render anterior.
+function montarOnClickGrafico(cfg) {
+  return function (event, elements) {
+    if (!elements || !elements.length) return;
+    const index = elements[0].index;
+    if (cfg.filterType && cfg.filterValues) {
+      alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
+    }
+  };
+}
+
 export function renderDoughnut(canvasId, cfg) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  if (charts[canvasId]) {
-    charts[canvasId].destroy();
+  // Atualiza no lugar quando já existe um doughnut neste canvas: evita destruir/
+  // recriar a cada filtro (menos GC e sem reanimação). O texto central é lido
+  // dinamicamente pelo plugin (chart.$center*), então basta atualizá-lo aqui.
+  const existente = charts[canvasId];
+  if (existente && existente.config.type === "doughnut") {
+    existente.data.labels = cfg.labels;
+    existente.data.datasets[0].data = cfg.values;
+    existente.data.datasets[0].backgroundColor = cfg.colors;
+    existente.$center = cfg.center;
+    existente.$centerSub = cfg.centerSub;
+    existente.$centerFontSize = cfg.centerFontSize;
+    existente.$centerSubFontSize = cfg.centerSubFontSize;
+    existente.options.onClick = montarOnClickGrafico(cfg);
+    existente.update();
+    return;
   }
+  if (existente) existente.destroy();
 
   charts[canvasId] = new Chart(canvas, {
     type: "doughnut",
@@ -120,13 +147,7 @@ export function renderDoughnut(canvasId, cfg) {
       maintainAspectRatio: false,
       cutout: cfg.cutout || "60%",
       radius: cfg.radius || undefined,
-      onClick: function (event, elements) {
-        if (!elements || !elements.length) return;
-        const index = elements[0].index;
-        if (cfg.filterType && cfg.filterValues) {
-          alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
-        }
-      },
+      onClick: montarOnClickGrafico(cfg),
       layout: { padding: cfg.layoutPadding !== undefined ? cfg.layoutPadding : 8 },
       plugins: {
         legend: { display: false },
@@ -177,14 +198,24 @@ export function renderBar(canvasId, cfg) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  if (charts[canvasId]) {
-    charts[canvasId].destroy();
-  }
-
   const labelsOriginais = cfg.labels || [];
   const labelsGrafico = cfg.wrapLabels
     ? labelsOriginais.map(label => quebrarLabelGrafico(label, cfg.maxCharsPerLine || 18, cfg.maxLines || 2))
     : labelsOriginais;
+
+  // Atualiza no lugar quando já existe uma barra neste canvas (evita destruir/
+  // recriar a cada filtro). O tooltip lê os rótulos originais de chart.$labelsOriginais.
+  const existente = charts[canvasId];
+  if (existente && existente.config.type === "bar") {
+    existente.data.labels = labelsGrafico;
+    existente.data.datasets[0].data = cfg.values;
+    existente.data.datasets[0].backgroundColor = cfg.color;
+    existente.$labelsOriginais = labelsOriginais;
+    existente.options.onClick = montarOnClickGrafico(cfg);
+    existente.update();
+    return;
+  }
+  if (existente) existente.destroy();
 
   charts[canvasId] = new Chart(canvas, {
     type: "bar",
@@ -202,13 +233,7 @@ export function renderBar(canvasId, cfg) {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      onClick: function (event, elements) {
-        if (!elements || !elements.length) return;
-        const index = elements[0].index;
-        if (cfg.filterType && cfg.filterValues) {
-          alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
-        }
-      },
+      onClick: montarOnClickGrafico(cfg),
       layout: {
         padding: { right: cfg.rightPadding ?? 44, left: cfg.leftPadding ?? 0, top: cfg.topPadding ?? 4, bottom: cfg.bottomPadding ?? 2 }
       },
@@ -226,7 +251,9 @@ export function renderBar(canvasId, cfg) {
           callbacks: {
             title: function (items) {
               if (!items || !items.length) return "";
-              return labelsOriginais[items[0].dataIndex] || "";
+              // Prioriza os rótulos atualizados no update; fallback no 1º render.
+              const orig = items[0].chart.$labelsOriginais || labelsOriginais;
+              return orig[items[0].dataIndex] || "";
             },
             label: ctx => formatNumber(ctx.raw)
           }
@@ -269,6 +296,13 @@ export function centerTextPlugin(text, subtext, fontSize, subFontSize) {
       const area = chart.chartArea;
       if (!area) return;
 
+      // Valores dinâmicos (definidos no update sem recriar o gráfico) têm
+      // prioridade; os capturados na criação servem de fallback no 1º render.
+      const textoCentral = chart.$center !== undefined ? chart.$center : text;
+      const subtextoCentral = chart.$centerSub !== undefined ? chart.$centerSub : subtext;
+      const tamFonte = chart.$centerFontSize !== undefined ? chart.$centerFontSize : fontSize;
+      const tamSubFonte = chart.$centerSubFontSize !== undefined ? chart.$centerSubFontSize : subFontSize;
+
       const ctx = chart.ctx;
       const centerX = (area.left + area.right) / 2;
       const centerY = (area.top + area.bottom) / 2;
@@ -276,14 +310,14 @@ export function centerTextPlugin(text, subtext, fontSize, subFontSize) {
       const firstArc = meta && meta.data && meta.data[0];
       const innerRadius = firstArc && firstArc.innerRadius ? firstArc.innerRadius : Math.min(area.width, area.height) * .26;
       const maxTextWidth = Math.max(42, innerRadius * 1.54);
-      const mainText = text || "0";
-      const subText = subtext || "";
+      const mainText = textoCentral || "0";
+      const subText = subtextoCentral || "";
 
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      let mainFontSize = fontSize || 25;
+      let mainFontSize = tamFonte || 25;
       ctx.font = `900 ${mainFontSize}px Arial`;
       while (ctx.measureText(mainText).width > maxTextWidth && mainFontSize > 14) {
         mainFontSize -= 1;
@@ -294,7 +328,7 @@ export function centerTextPlugin(text, subtext, fontSize, subFontSize) {
       ctx.fillText(mainText, centerX, subText ? centerY - 6 : centerY);
 
       if (subText) {
-        let secondaryFontSize = subFontSize || 9;
+        let secondaryFontSize = tamSubFonte || 9;
         ctx.font = `900 ${secondaryFontSize}px Arial`;
         while (ctx.measureText(subText).width > maxTextWidth && secondaryFontSize > 7) {
           secondaryFontSize -= 1;

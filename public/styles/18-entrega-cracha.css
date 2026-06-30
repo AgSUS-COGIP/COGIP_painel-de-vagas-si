@@ -242,7 +242,7 @@ select.ecInput {
 
 .ecBtnGhost {
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   border: 1px solid rgba(0, 83, 166, .3);
   box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
 }
@@ -342,7 +342,7 @@ select.ecInput {
 }
 
 .ecFotoSim { color: #0a8a4d; font-weight: 900; }
-.ecFotoNao { color: #c0392b; font-weight: 900; }
+.ecFotoNao { color: var(--status-perigo); font-weight: 900; }
 
 /* ---------- Badges de status ---------- */
 .ecBadge {
@@ -394,7 +394,7 @@ select.ecInput {
 }
 
 .ecIconBtn:hover { background: rgba(0, 112, 217, .12); }
-.ecIconBtnDanger { color: #c0392b; }
+.ecIconBtnDanger { color: var(--status-perigo); }
 .ecIconBtnDanger:hover { background: rgba(192, 57, 43, .12); }
 
 /* ---------- Rodapé / paginação ---------- */
@@ -450,7 +450,7 @@ select.ecInput {
   border: 1px solid rgba(0, 83, 166, .22);
   border-radius: 8px;
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 12px;
   font-weight: 800;
   font-family: inherit;
@@ -570,7 +570,7 @@ select.ecInput {
   border-radius: 10px;
   border: 1px solid rgba(0, 83, 166, .22);
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   cursor: pointer;
   transition: transform .2s ease, background .15s ease;
 }
@@ -687,7 +687,7 @@ select.ecInput {
   align-items: center;
   gap: 9px;
   margin: 0 0 12px 0;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 11.5px;
   font-weight: 900;
   text-transform: uppercase;
@@ -1161,7 +1161,7 @@ select.ecInput {
 .ecModalForm .ecTextarea { padding-right: 10px; }
 
 .ecModalErro {
-  color: #c0392b;
+  color: var(--status-perigo);
   font-size: 11.5px;
   font-weight: 800;
   min-height: 16px;
@@ -1482,7 +1482,7 @@ body.ec-import-aberto .top { visibility: hidden; }
 }
 
 .ecToast.is-ok { background: linear-gradient(135deg, #0e9f5d, #0a7a44); }
-.ecToast.is-erro { background: linear-gradient(135deg, #e0594b, #c0392b); }
+.ecToast.is-erro { background: linear-gradient(135deg, #e0594b, var(--status-perigo)); }
 .ecToast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);

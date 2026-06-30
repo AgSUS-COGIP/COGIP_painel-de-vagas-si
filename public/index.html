@@ -19,6 +19,7 @@
 </head>
 
 <body class="modoPainelFixo">
+  <a href="#conteudo" class="skipLink">Pular para o conteúdo</a>
   <div id="loading" class="loading">
     <div class="loadingDecorLeft" aria-hidden="true"></div>
     <div class="loadingDecorRight" aria-hidden="true"></div>
@@ -64,7 +65,7 @@
             <button id="loginBtn" type="submit" class="loginSubmitBtn">Entrar</button>
           </form>
 
-          <div id="loginErro" class="loginErro"></div>
+          <div id="loginErro" class="loginErro" role="alert" aria-live="assertive"></div>
 
           <!-- Usuário novo: vai direto à tela de solicitação de acesso (informa os
                dados e define a senha; o cadastro fica pendente de aprovação). -->
@@ -184,7 +185,7 @@
         </div>
 
         <button type="submit" class="loginBtn" id="acSubmitBtn">Enviar solicitação</button>
-        <div id="acErro" class="loginErro"></div>
+        <div id="acErro" class="loginErro" role="alert" aria-live="assertive"></div>
         <button type="button" class="acLogoutLink" id="acLogoutBtn">Sair</button>
       </form>
     </div>
@@ -320,7 +321,10 @@
 
     </aside>
 
-    <main class="main">
+    <main class="main" id="conteudo" tabindex="-1">
+      <!-- Título-raiz da página (h1) acessível: invisível, atualizado por JS a cada
+           troca de view para refletir a tela atual a leitores de tela. -->
+      <h1 id="tituloPagina" class="sr-only">Visão Geral</h1>
       <header class="top">
         <div>
           <div class="titleSmall">Monitoramento de Vagas</div>
@@ -355,7 +359,7 @@
         </div>
       </header>
 
-      <div id="errorBox" class="errorBox"></div>
+      <div id="errorBox" class="errorBox" role="alert" aria-live="assertive"></div>
 
       <section class="content">
         <!-- Cabeçalho exibido apenas na impressão/PDF (logo + identificação). -->
@@ -900,7 +904,7 @@
           </div>
 
           <!-- Estado de carregamento / erro -->
-          <div class="siEstado" id="siEstado" hidden></div>
+          <div class="siEstado" id="siEstado" hidden aria-live="polite"></div>
 
           <!-- Conteúdo do dashboard -->
           <div class="siBody" id="siBody">
@@ -965,7 +969,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-ranking-star"></i> Top 10 DSEIs / CASAIs por raça / cor</h3>
-                  <button type="button" class="siCardExport" data-export="siChartRacaDsei" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartRacaDsei" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox siChartTall"><canvas id="siChartRacaDsei"></canvas></div>
               </article>
@@ -973,7 +977,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-id-badge"></i> Top 10 cargos por raça / cor</h3>
-                  <button type="button" class="siCardExport" data-export="siChartRacaCargo" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartRacaCargo" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox siChartTall"><canvas id="siChartRacaCargo"></canvas></div>
               </article>
@@ -981,7 +985,7 @@
               <article class="siCard siCardWide">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-graduation-cap"></i> Grau de instrução por raça / cor</h3>
-                  <button type="button" class="siCardExport" data-export="siChartRacaGrau" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartRacaGrau" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox siChartTall"><canvas id="siChartRacaGrau"></canvas></div>
               </article>
@@ -993,7 +997,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-feather-pointed"></i> Raça / Cor</h3>
-                  <button type="button" class="siCardExport" data-export="siChartRaca" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartRaca" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox"><canvas id="siChartRaca"></canvas></div>
               </article>
@@ -1001,7 +1005,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-venus-mars"></i> Sexo</h3>
-                  <button type="button" class="siCardExport" data-export="siChartSexo" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartSexo" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox"><canvas id="siChartSexo"></canvas></div>
               </article>
@@ -1009,7 +1013,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-chart-column"></i> Faixa Etária</h3>
-                  <button type="button" class="siCardExport" data-export="siChartFaixa" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartFaixa" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox"><canvas id="siChartFaixa"></canvas></div>
               </article>
@@ -1017,7 +1021,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-sitemap"></i> Tipo de Atuação</h3>
-                  <button type="button" class="siCardExport" data-export="siChartAtuacao" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartAtuacao" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox"><canvas id="siChartAtuacao"></canvas></div>
               </article>
@@ -1025,7 +1029,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-notes-medical"></i> Situação Detalhada</h3>
-                  <button type="button" class="siCardExport" data-export="siChartSituacao" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartSituacao" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox siChartTall"><canvas id="siChartSituacao"></canvas></div>
               </article>
@@ -1033,7 +1037,7 @@
               <article class="siCard">
                 <div class="siCardHead">
                   <h3 class="siCardTitle"><i class="fa-solid fa-graduation-cap"></i> Grau de Instrução</h3>
-                  <button type="button" class="siCardExport" data-export="siChartGrau" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <button type="button" class="siCardExport" data-export="siChartGrau" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
                 <div class="siChartBox siChartTall"><canvas id="siChartGrau"></canvas></div>
               </article>
@@ -1052,7 +1056,7 @@
                       <button type="button" class="siGranBtn" data-si-gran="mes" data-si-gran-alvo="admissao">Mês</button>
                       <button type="button" class="siGranBtn" data-si-gran="dia" data-si-gran-alvo="admissao">Dia</button>
                     </div>
-                    <button type="button" class="siCardExport" data-export="siChartAdmissoes" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                    <button type="button" class="siCardExport" data-export="siChartAdmissoes" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                   </div>
                 </div>
                 <div class="siChartBox"><canvas id="siChartAdmissoes"></canvas></div>
@@ -1067,7 +1071,7 @@
                       <button type="button" class="siGranBtn" data-si-gran="mes" data-si-gran-alvo="deslig">Mês</button>
                       <button type="button" class="siGranBtn" data-si-gran="dia" data-si-gran-alvo="deslig">Dia</button>
                     </div>
-                    <button type="button" class="siCardExport" data-export="siChartDesligamentos" title="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                    <button type="button" class="siCardExport" data-export="siChartDesligamentos" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                   </div>
                 </div>
                 <div class="siChartBox"><canvas id="siChartDesligamentos"></canvas></div>
@@ -1079,7 +1083,7 @@
               <div class="siTableHead">
                 <h3 class="siTableTitle"><i class="fa-solid fa-table-list"></i> Tabela Geral de Trabalhadores</h3>
                 <div class="siTableHeadAcoes">
-                  <span class="siTableCount" id="siTabelaCount">—</span>
+                  <span class="siTableCount" id="siTabelaCount" aria-live="polite">—</span>
                   <button type="button" class="siBtnExportar" id="siBtnExportar">
                     <i class="fa-solid fa-file-excel"></i> Exportar Excel
                   </button>
@@ -1176,7 +1180,7 @@
             <button type="button" class="gfTab" id="gfTabCoape" data-gf-tab="coape" hidden><i class="fa-solid fa-clipboard-check"></i> Aprovação COAPE</button>
           </nav>
 
-          <div class="gfEstado" id="gfEstado" hidden></div>
+          <div class="gfEstado" id="gfEstado" hidden aria-live="polite"></div>
 
           <div class="gfBody" id="gfBody">
 
@@ -1237,7 +1241,7 @@
               <section class="gfCard">
                 <div class="gfCardHead">
                   <h3 class="gfCardTitle"><i class="fa-solid fa-table-list"></i> Consulta Geral de Férias</h3>
-                  <span class="gfCardCount" id="gfConsCount">—</span>
+                  <span class="gfCardCount" id="gfConsCount" aria-live="polite">—</span>
                   <button type="button" class="gfBtnExportar" id="gfBtnExportar"><i class="fa-solid fa-file-excel"></i> Exportar</button>
                 </div>
                 <div class="gfTableWrap gfTableScroll">
@@ -1279,7 +1283,7 @@
                       <label>Trabalhador (nome ou matrícula)</label>
                       <div class="gfBuscaRow">
                         <input class="gfInput" id="gfBuscaTrab" placeholder="Digite e clique em buscar…" autocomplete="off">
-                        <button type="button" class="gfBtn" id="gfBtnBuscarTrab"><i class="fa-solid fa-magnifying-glass"></i></button>
+                        <button type="button" class="gfBtn" id="gfBtnBuscarTrab" aria-label="Buscar trabalhador" title="Buscar trabalhador"><i class="fa-solid fa-magnifying-glass"></i></button>
                       </div>
                       <div class="gfTrabInfo" id="gfTrabInfo" hidden></div>
                     </div>
@@ -1807,7 +1811,7 @@
                   </div>
                 </div>
               </div>
-              <div class="ecModalErro" id="ecModalErro"></div>
+              <div class="ecModalErro" id="ecModalErro" role="alert" aria-live="assertive"></div>
               <div class="ecModalAcoes">
                 <button type="button" class="ecBtn ecBtnGhost" id="ecModalCancelar">Cancelar</button>
                 <button type="button" class="ecBtn ecBtnPrimary" id="ecModalSalvar">
@@ -2390,7 +2394,7 @@
                   </div>
                 </div>
 
-                <p class="psModalErro" id="psFormErro"></p>
+                <p class="psModalErro" id="psFormErro" role="alert" aria-live="assertive"></p>
               </form>
               <div class="psModalFoot">
                 <button type="button" class="psBtn psBtnGhost" id="psModalCancelar">Cancelar</button>

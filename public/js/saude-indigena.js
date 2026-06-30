@@ -9,7 +9,8 @@
 // =========================================================
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
-import { formatNumber, formatPercent, escapeHtml, escapeAttr, valorCsv, baixarArquivoCsv, debounce } from "./utils.js";
+import { formatNumber, formatPercent, escapeHtml, escapeAttr, valorCsv, baixarArquivoCsv, debounce, isoParaDataBr as fData } from "./utils.js";
+import { abrirAviso } from "./modal.js";
 
 const $ = id => document.getElementById(id);
 
@@ -83,17 +84,25 @@ function criarCombo(containerId, rotuloTodos, onChange, opts) {
   const maxRender = (opts && opts.maxRender) || 200;
   const buscaPlaceholder = (opts && opts.searchPlaceholder) || "Buscar…";
   root.innerHTML = `
-    <button type="button" class="siComboBtn">
-      <span class="siComboValor"></span><i class="fa-solid fa-chevron-down"></i>
+    <button type="button" class="siComboBtn" aria-haspopup="listbox" aria-expanded="false">
+      <span class="siComboValor" id="${containerId}-valor"></span><i class="fa-solid fa-chevron-down"></i>
     </button>
     <div class="siComboPop" hidden>
       <div class="siComboSearch">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" class="siComboInput" placeholder="${escapeAttr(buscaPlaceholder)}" autocomplete="off">
+        <input type="text" class="siComboInput" placeholder="${escapeAttr(buscaPlaceholder)}" autocomplete="off" aria-label="${escapeAttr(buscaPlaceholder)}">
         <button type="button" class="siComboClear" hidden>Limpar</button>
       </div>
-      <ul class="siComboList"></ul>
+      <ul class="siComboList" role="listbox" aria-multiselectable="true"></ul>
     </div>`;
+
+  // Nome acessível: associa o rótulo do campo (span irmão) ao botão e à lista.
+  const campoLabel = root.parentElement?.querySelector(".siFieldLabel");
+  if (campoLabel) {
+    if (!campoLabel.id) campoLabel.id = `${containerId}-label`;
+    root.querySelector(".siComboBtn")?.setAttribute("aria-labelledby", `${campoLabel.id} ${containerId}-valor`);
+    root.querySelector(".siComboList")?.setAttribute("aria-label", campoLabel.textContent.trim());
+  }
 
   const btn = root.querySelector(".siComboBtn");
   const valorEl = root.querySelector(".siComboValor");
@@ -124,7 +133,7 @@ function criarCombo(containerId, rotuloTodos, onChange, opts) {
     const vis = opcoes.filter(o => !f || o.label.toLowerCase().includes(f));
     const mostrados = vis.slice(0, maxRender);
     let html = mostrados.map(o =>
-      `<li class="siComboOpt${selecionados.has(o.value) ? " is-sel" : ""}" data-v="${escapeAttr(o.value)}" title="${escapeAttr(o.label)}">
+      `<li class="siComboOpt${selecionados.has(o.value) ? " is-sel" : ""}" data-v="${escapeAttr(o.value)}" title="${escapeAttr(o.label)}" role="option" aria-selected="${selecionados.has(o.value)}">
         <span class="siComboCheck"><i class="fa-solid fa-check"></i></span>
         <span class="siComboOptLabel">${escapeHtml(o.label)}</span>
       </li>`).join("");
@@ -136,11 +145,12 @@ function criarCombo(containerId, rotuloTodos, onChange, opts) {
     fecharTodosCombos(root);
     pop.hidden = false;
     root.classList.add("aberto");
+    btn.setAttribute("aria-expanded", "true");
     input.value = "";
     renderLista("");
     setTimeout(() => input.focus(), 10);
   }
-  function fechar() { pop.hidden = true; root.classList.remove("aberto"); }
+  function fechar() { pop.hidden = true; root.classList.remove("aberto"); btn.setAttribute("aria-expanded", "false"); }
   function toggle(v) {
     if (selecionados.has(v)) selecionados.delete(v); else selecionados.add(v);
     atualizarBotao();
@@ -510,7 +520,7 @@ function regExportMatriz(canvasId, nome, header, linhas) {
 
 function exportarGrafico(canvasId) {
   const d = exportGraficos[canvasId];
-  if (!d || !d.linhas || !d.linhas.length) { window.alert("Sem dados para exportar neste gráfico."); return; }
+  if (!d || !d.linhas || !d.linhas.length) { abrirAviso({ titulo: "Exportação", msg: "Sem dados para exportar neste gráfico.", perigo: true }); return; }
   baixarCsv([d.header, ...d.linhas], d.nome);
 }
 
@@ -567,12 +577,7 @@ function renderResumo(rows) {
 }
 
 // ---------- Tabela geral (todas as linhas, com rolagem) ----------
-function fData(iso) {
-  if (!iso) return "";
-  const [a, m, d] = String(iso).slice(0, 10).split("-");
-  if (!a || !m || !d) return "";
-  return `${d}/${m}/${a}`;
-}
+// fData (ISO -> dd/mm/aaaa) vem de utils.js (isoParaDataBr).
 function cel(v) { return v ? escapeHtml(v) : "—"; }
 
 // Ordenação por coluna (clique no cabeçalho).
@@ -680,7 +685,7 @@ function baixarCsv(linhas, nome) {
 function exportarExcel() {
   if (!carregado || !dados) return;
   const rows = aplicarFiltros();
-  if (!rows.length) { window.alert("Nenhum trabalhador para exportar com os filtros atuais."); return; }
+  if (!rows.length) { abrirAviso({ titulo: "Exportação", msg: "Nenhum trabalhador para exportar com os filtros atuais.", perigo: true }); return; }
 
   const headers = ["Registro", "Nome", "Data de Nascimento", "Sexo", "Admissão", "Tipo Admissão",
     "Substituição / Data Fim", "Cargo", "Situação", "Tipo de Desligamento",

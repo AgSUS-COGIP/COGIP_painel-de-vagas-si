@@ -11,7 +11,7 @@
 // Registra os ouvintes em configurarProcessosSeletivos(),
 // chamado no init do app. Somente leitura (sem cadastro).
 // =========================================================
-import { escapeAttr, escapeHtml, debounce, safeUrl } from "./utils.js";
+import { escapeAttr, escapeHtml, debounce, safeUrl, isoParaDataBr } from "./utils.js";
 import { preencherSelect, criarToast } from "./ui-utils.js";
 import { abrirModal } from "./modal.js";
 import { nivelModulo } from "./permissoes.js";
@@ -113,12 +113,8 @@ function badgeStatus(status) {
   return `<span class="psBadge ${cls}">${escapeHtml(status)}</span>`;
 }
 
-// "2025-06-09" -> "09/06/2025"; mantém o valor original se não for ISO.
-function isoParaBr(iso) {
-  if (!iso) return "—";
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
+// "2025-06-09" -> "09/06/2025"; "—" quando vazio/inválido. Vem de utils.js.
+const isoParaBr = (iso) => isoParaDataBr(iso, "—");
 
 const numFmt = n => Number(n || 0).toLocaleString("pt-BR");
 

@@ -175,10 +175,10 @@
 
 /* Níveis: 0 sem acesso · 1 leitor · 2 editor · 3 administrador
    Usa background-COLOR (não o shorthand) para não apagar a setinha do .permSel. */
-.permNivel0 { background-color: #fdecec; border-color: #f3b4b4; color: #b91c1c; }
+.permNivel0 { background-color: #fdecec; border-color: #f3b4b4; color: var(--status-erro); }
 .permNivel1 { background-color: #eef1f5; border-color: #cdd6e2; color: #46586f; }
 .permNivel2 { background-color: #e7f1fd; border-color: #aacdf3; color: #0053a6; }
-.permNivel3 { background-color: #e6f7ee; border-color: #9bdcbb; color: #047857; }
+.permNivel3 { background-color: #e6f7ee; border-color: #9bdcbb; color: var(--status-ok); }
 
 /* Pontos da legenda usam as mesmas cores de fundo/borda */
 .permLegDot.permNivel0 { background-color: #fdecec; border-color: #f3b4b4; }
@@ -283,8 +283,8 @@
   margin-top: 16px;
 }
 .permPendStatus { font-size: 12px; font-weight: 800; }
-.permPendStatus.is-ok { color: #047857; }
-.permPendStatus.is-erro { color: #b91c1c; }
+.permPendStatus.is-ok { color: var(--status-ok); }
+.permPendStatus.is-erro { color: var(--status-erro); }
 .permPendOk {
   border: none;
   background: linear-gradient(135deg, #2f7fe0, #1a5bb5);

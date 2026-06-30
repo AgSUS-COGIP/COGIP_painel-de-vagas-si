@@ -12,6 +12,9 @@ export const COLORS = {
 
 export const REMANEJAMENTO_EMPTY_OPTION = { value: "", label: "Selecione" };
 
+// Duração padrão (em meses) de uma nova linha de remanejamento até o usuário ajustar.
+export const REMANEJAMENTO_MESES_PADRAO = 6;
+
 // Níveis de permissão POR MÓDULO (não há mais nível global). São apenas dicas de
 // UI no front; o backend reaplica a regra por módulo a cada requisição.
 //   1 = Leitor   2 = Editor   3 = Administrador (no módulo "solicitacoes" = super admin)
