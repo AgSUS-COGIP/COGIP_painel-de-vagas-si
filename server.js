@@ -13,7 +13,7 @@ const { DASH_CONFIG, getMysqlConfig, resolverPortaAplicacao, parseJdbcUrl } = re
 const { DASH_SQL, montarCaseCargoSql } = require("./lib/sql");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, obterRemanejamentoListaComCache, obterRemanejamentoCadastroComCache, montarOpcoesRemanejamentoAPartirDasRows, obterUltimaAtualizacaoRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
-const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle } = require("./lib/cracha");
+const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
@@ -351,6 +351,52 @@ app.post("/api/cracha/importar", apiLimiter, express.json({ limit: "8mb" }), aut
     res.json({ ok: true, ...resultado });
   } catch (err) {
     res.status(400).json({ error: err && err.message ? err.message : "Falha ao importar a planilha." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Foto do crachá — upload (data URL base64): administradores.
+app.post("/api/cracha/foto", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const { buffer, mime } = decodificarImagemDataUrl(body.dataUrl);
+    const registro = await salvarFotoCrachaComConn(conn, body.matricula, buffer, mime, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao salvar a foto." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Foto do crachá — remover: administradores.
+app.delete("/api/cracha/foto/:matricula", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    const registro = await removerFotoCrachaComConn(conn, req.params.matricula, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao remover a foto." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Foto do crachá — servir a imagem: mesmo nível de leitura do GET /api/cracha.
+app.get("/api/cracha/foto/:matricula", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const foto = await obterFotoCrachaComConn(conn, req.params.matricula);
+    if (!foto) return res.status(404).end();
+    res.set("Content-Type", foto.mime);
+    res.set("Cache-Control", "private, no-cache");
+    res.send(foto.dados);
   } finally {
     await fecharJdbc(conn);
   }
