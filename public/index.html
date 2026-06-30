@@ -7,8 +7,13 @@
   <title>Monitoramento de Vagas - Saúde Indígena</title>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <!-- Versões pinadas + defer (não bloqueia o parser, executa antes do app.js) + SRI (integridade verificada). -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.js"
+    integrity="sha384-MH1axGwz/uQzfIcjFdjEfsM0xlf5mmWfAwwggaOh5IPFvgKFGbJ2PZ4VBbgSYBQN"
+    crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"
+    integrity="sha384-y49Zu59jZHJL/PLKgZPv3k2WI9c0Yp3pWB76V8OBVCb0QBKS8l4Ff3YslzHVX76Y"
+    crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -2541,7 +2546,7 @@
                 </section>
 
                 <section class="remBox remResumoTopoBox">
-                  <h3>RESUMO DO REMANEJAMENTO ⓘ</h3>
+                  <h3>RESUMO DO REMANEJAMENTO</h3>
                   <div class="remResumoTopoGrid">
                     <div>
                       <span>Total Reduzido</span>
@@ -2627,7 +2632,7 @@
 
               <div class="remBottomGrid remBottomGridWide">
                 <section class="remBox">
-                  <h3>4. IMPACTO DO REMANEJAMENTO ⓘ</h3>
+                  <h3>4. IMPACTO DO REMANEJAMENTO</h3>
                   <div class="remImpactoGrid">
                     <div class="remImpactoCards">
                       <div><span>Total Reduzido (Mensal)</span><strong id="remTotalReduzidoMensal" class="remRed">R$

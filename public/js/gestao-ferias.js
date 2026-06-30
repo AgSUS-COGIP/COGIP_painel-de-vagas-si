@@ -449,6 +449,12 @@ function validarPeriodos(periodos, abono) {
   if (periodos.length > 1) {
     if (!periodos.some(p => p.dias >= 14)) { ok = false; msgs.push("Um dos períodos deve ter no mínimo 14 dias."); }
     if (periodos.some(p => p.dias < 5)) { ok = false; msgs.push("Os demais períodos devem ter no mínimo 5 dias."); }
+    // Dois períodos de férias não podem se sobrepor no calendário (o trabalhador
+    // não pode gozar duas frações ao mesmo tempo). Intervalos [iniA,fimA] e
+    // [iniB,fimB] se sobrepõem quando iniA <= fimB && iniB <= fimA (datas ISO).
+    const temSobreposicao = periodos.some((a, i) =>
+      periodos.some((b, j) => j > i && a.ini <= b.fim && b.ini <= a.fim));
+    if (temSobreposicao) { ok = false; msgs.push("Há períodos com datas sobrepostas."); }
   }
   if (totalGozo !== totalDevido) {
     ok = false;

@@ -288,7 +288,3 @@ export function salvarObservacaoAlertaPainel(chave) {
       alert(error && error.message ? error.message : String(error));
     });
 }
-
-export function mudarPaginaAlertas(delta) {
-  renderAlertasTable(state.alertasRows);
-}

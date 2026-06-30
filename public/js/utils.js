@@ -25,13 +25,6 @@ export function quebrarLabelGrafico(label, maxChars, maxLines) {
   return reduzidas;
 }
 
-export function limitarLabelGrafico(label, limite) {
-  const texto = String(label || "");
-  const max = limite || 14;
-  if (texto.length <= max) return texto;
-  return texto.slice(0, max - 1).trim() + "…";
-}
-
 export function normalizarNomeCargo(cargo) {
   return String(cargo || "")
     .normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
@@ -66,19 +59,6 @@ export function cssEscapeAttr(valor) {
   return String(valor ?? "")
     .replace(/\\/g, "\\\\")
     .replace(/"/g, '\\"');
-}
-
-export function mesesAteFimDoAno() {
-  const mes = new Date().getMonth() + 1; // 1..12
-  return Math.max(1, 13 - mes);
-}
-
-export function aplicarClasseResultado(id, value) {
-  const el = document.getElementById(id);
-  if (!el) return;
-
-  el.classList.toggle("positivo", Number(value || 0) > 0);
-  el.classList.toggle("negativo", Number(value || 0) < 0);
 }
 
 export function formatCurrency(value) {

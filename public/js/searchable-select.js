@@ -219,11 +219,6 @@ export function sincronizarSelectPesquisavel(select) {
 // marcados com data-ss-skip (caso algum precise continuar nativo).
 const SS_SELETOR = "select:not([data-ss-skip]):not([multiple]):not(.ssNativo)";
 
-// Enha (ou re-sincroniza) TODOS os <select> de um container de uma vez.
-export function tornarSelectsPesquisaveis(raiz, opts = {}) {
-  (raiz || document).querySelectorAll(SS_SELETOR).forEach(sel => tornarSelectPesquisavel(sel, opts));
-}
-
 // Padroniza TODOS os <select> do app como dropdown pesquisável, de uma vez:
 //  1) enha os que já existem; 2) observa o DOM para enhar selects criados depois
 //  e re-sincronizar o texto quando as opções de um select forem repopuladas.

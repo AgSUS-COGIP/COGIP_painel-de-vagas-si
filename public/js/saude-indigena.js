@@ -289,8 +289,26 @@ function preencherSelects() {
   combos.siFiltroTipoDeslig?.setOptions(comTotal([...contagemDeslig.keys()], contagemDeslig));
 }
 
+// Garante que um par (início, fim) de datas ISO esteja em ordem: se o usuário
+// inverteu os campos (início > fim), troca os valores — caso contrário o filtro
+// retornaria zero linhas sem explicação. A correção também é refletida nos inputs.
+function normalizarRangeDatas(idIni, idFim) {
+  const elIni = $(idIni);
+  const elFim = $(idFim);
+  const ini = elIni?.value || "";
+  const fim = elFim?.value || "";
+  if (ini && fim && ini > fim) {
+    if (elIni) elIni.value = fim;
+    if (elFim) elFim.value = ini;
+    return { ini: fim, fim: ini };
+  }
+  return { ini, fim };
+}
+
 function lerFiltros() {
   const cv = id => combos[id] ? combos[id].getValues() : [];
+  const admissao = normalizarRangeDatas("siAdmIni", "siAdmFim");
+  const deslig = normalizarRangeDatas("siDeslIni", "siDeslFim");
   filtros = {
     nome: cv("siFiltroNome"),
     indigena: cv("siFiltroIndigena"),
@@ -303,10 +321,10 @@ function lerFiltros() {
     atuacao: cv("siFiltroAtuacao"),
     tipoAdmissao: cv("siFiltroTipoAdmissao"),
     tipoDeslig: cv("siFiltroTipoDeslig"),
-    admIni: $("siAdmIni")?.value || "",
-    admFim: $("siAdmFim")?.value || "",
-    deslIni: $("siDeslIni")?.value || "",
-    deslFim: $("siDeslFim")?.value || ""
+    admIni: admissao.ini,
+    admFim: admissao.fim,
+    deslIni: deslig.ini,
+    deslFim: deslig.fim
   };
 }
 

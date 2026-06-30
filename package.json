@@ -10,9 +10,6 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^7.2.0",
-    "@fortawesome/free-solid-svg-icons": "^7.2.0",
-    "@fortawesome/vue-fontawesome": "^3.2.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -20,7 +17,6 @@
     "google-auth-library": "^10.7.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
-    "mysql2": "^3.15.1",
-    "ogl": "^1.0.11"
+    "mysql2": "^3.15.1"
   }
 }

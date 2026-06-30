@@ -822,15 +822,3 @@ export function linhaVagasZerada(row) {
     row.contratadosTemporario
   ].every(valor => Number(valor || 0) === 0);
 }
-
-export function montarComposicaoOciosas(row) {
-  return `
-        <div class="composicaoOciosas">
-          <div><strong>Vagas ociosas:</strong> ${formatNumber(row.quantitativoPlano)}</div>
-          <div><strong>Substituições:</strong> ${formatNumber(row.contratadosSubstituicao)}</div>
-          <div><strong>Temporárias:</strong> ${formatNumber(row.contratadosTemporario)}</div>
-          <div><strong>Afastados:</strong> ${formatNumber(row.afastados)}</div>
-          <div><strong>Saldo atual:</strong> ${formatNumber(row.ociosas)}</div>
-        </div>
-      `;
-}

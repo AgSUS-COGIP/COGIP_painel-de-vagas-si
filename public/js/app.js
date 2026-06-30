@@ -502,45 +502,6 @@ export function carregarRemanejamentoCadastroEmSegundoPlano(forcar) {
   });
 }
 
-export function onDataLoaded(payload) {
-  payload = payload || {};
-  state.allRows = payload.rows || [];
-  state.vagasBaseRows = state.allRows;
-  pageLoadState.vagas = state.allRows.length > 0;
-
-  document.getElementById("updatedAt").innerText = payload.atualizadoEm || "-";
-
-  const filtros = payload.filtros || { dseis: [], cargos: [] };
-
-  criarMultiSelect(
-    "fDsei",
-    (filtros.dseis || []).map(v => ({ value: v, label: v })),
-    "Todos os DSEIs/CASAIs"
-  );
-
-  criarMultiSelect(
-    "fCargo",
-    (filtros.cargos || []).map(v => ({ value: v, label: v })),
-    "Todos os cargos"
-  );
-
-  criarMultiSelect(
-    "fTipoAlerta",
-    [
-      { value: "AFASTAMENTO_SEM_SUBSTITUTO", label: "Afastamento sem substituto" },
-      { value: "SUBSTITUICAO_SEGURANDO_VAGA", label: "Substituição sem afastado" },
-      { value: "TEMPORARIO_ATIVO", label: "Temporário ativo" },
-      { value: "VAGA_EXCEDENTE", label: "Vaga excedente" },
-      { value: "RT_EXCEDENTE", label: "RT excedente" }
-    ],
-    "Todos os alertas"
-  );
-
-  document.getElementById("loading").style.display = "none";
-  aplicarFiltros();
-  iniciarCarregamentoPaginasEmSegundoPlano();
-}
-
 export function onError(error) {
   document.getElementById("loading").style.display = "none";
 
@@ -564,11 +525,6 @@ export function renderTudo() {
   if (state.activeView === "alertas" || pageLoadState.alertas) {
     renderAlertasDaPagina();
   }
-}
-
-export function renderTabelasDetalhadas() {
-  renderVagasDaPagina();
-  renderAlertasDaPagina();
 }
 
 document.addEventListener("DOMContentLoaded", () => { init().catch(onError); });

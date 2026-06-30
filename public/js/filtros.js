@@ -413,37 +413,6 @@ export function matchMulti(value, selectedValues) {
   return selectedValues.includes(String(value || ""));
 }
 
-export function filtrarTipoContratacao(row, tipos) {
-  if (!tipos || !tipos.length) return true;
-
-  return tipos.some(tipo => {
-    if (tipo === "NORMAL") return Number(row.contratadosNormal || 0) > 0;
-    if (tipo === "SUBSTITUICAO") return Number(row.contratadosSubstituicao || 0) > 0;
-    if (tipo === "TEMPORARIO") return Number(row.contratadosTemporario || 0) > 0;
-    return true;
-  });
-}
-
-export function filtrarTipoAlerta(row, alertas) {
-  if (!alertas || !alertas.length) return true;
-
-  const afastamentoSemSubstituto = Number(row.qtdAfastamentoSemSubstituto || 0);
-  const temporarioAtivo = Number(row.qtdTemporarioAtivo || 0);
-
-  return alertas.some(alerta => {
-    if (alerta === "AFASTAMENTO_SEM_SUBSTITUTO") {
-      return afastamentoSemSubstituto > 0;
-    }
-    if (alerta === "TEMPORARIO_ATIVO") {
-      return temporarioAtivo > 0;
-    }
-    if (alerta === "SEM_ALERTA") {
-      return afastamentoSemSubstituto === 0 && temporarioAtivo === 0;
-    }
-    return true;
-  });
-}
-
 export function filtrarGraficoAtivo(row) {
   if (!state.activeChartFilter) return true;
 

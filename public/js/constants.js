@@ -10,21 +10,6 @@ export const COLORS = {
   muted: "#d9ecf7"
 };
 
-export const STATIC_FILTERS = {
-  fTipo: [
-    { value: "NORMAL", label: "Normal" },
-    { value: "SUBSTITUICAO", label: "Substituição" },
-    { value: "TEMPORARIO", label: "Temporário" }
-  ],
-  fAlerta: [
-    { value: "AFASTAMENTO_SEM_SUBSTITUTO", label: "Afastamento sem substituto" },
-    { value: "TEMPORARIO_ATIVO", label: "Temporário ativo" },
-    { value: "VAGA_EXCEDENTE", label: "Vaga excedente" },
-    { value: "RT_EXCEDENTE", label: "RT excedente" },
-    { value: "SEM_ALERTA", label: "Sem alerta" }
-  ]
-};
-
 export const REMANEJAMENTO_EMPTY_OPTION = { value: "", label: "Selecione" };
 
 // Níveis de permissão POR MÓDULO (não há mais nível global). São apenas dicas de

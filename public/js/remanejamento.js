@@ -1,9 +1,8 @@
 import { idSeguroAlerta } from "./alertas.js";
 import { nivelModulo } from "./permissoes.js";
 import { apiGet } from "./api.js";
-import { garantirCarregamentoPagina, recarregarTodosOsDados } from "./app.js";
+import { recarregarTodosOsDados } from "./app.js";
 import { NIVEL, REMANEJAMENTO_EMPTY_OPTION } from "./constants.js";
-import { atualizarModoRolagem } from "./filtros.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
@@ -221,31 +220,6 @@ export function preencherSelectRemanejamento(id, items, labelFn) {
   // Torna o dropdown pesquisável (idempotente) e re-sincroniza o texto exibido.
   tornarSelectPesquisavel(select, { placeholder: "Pesquise o DSEI/CASAI…" });
   sincronizarSelectPesquisavel(select);
-}
-
-export function abrirFormularioRemanejamento() {
-  exibirViewRemanejamento("remanejamento");
-  inicializarFormularioRemanejamento();
-  atualizarResumoRemanejamento();
-}
-
-export function voltarListaRemanejamento() {
-  exibirViewRemanejamento("remanejamento");
-}
-
-export function exibirViewRemanejamento(view) {
-  state.activeView = view;
-
-  document.querySelectorAll(".viewPanel").forEach(panel => panel.classList.remove("active"));
-  const panel = document.getElementById("view-remanejamento");
-  if (panel) panel.classList.add("active");
-
-  document.querySelectorAll(".navItem").forEach(item => {
-    item.classList.toggle("active", item.dataset.view === "remanejamento");
-  });
-
-  atualizarModoRolagem("remanejamento");
-  garantirCarregamentoPagina("remanejamento");
 }
 
 export function renderRemanejamentoLista() {
@@ -592,10 +566,6 @@ export function atualizarVagasOrigemPorDsei() {
   atualizarResumoRemanejamento();
 }
 
-export function atualizarVagasDestinoPorDsei() {
-  atualizarVagasOrigemPorDsei();
-}
-
 export function atualizarResumoRemanejamento() {
   const dseiSelect = document.getElementById("remanejamentoDsei");
   const dseiLabel = dseiSelect?.options?.[dseiSelect.selectedIndex]?.text || "DSEI não selecionado";
@@ -704,10 +674,6 @@ export async function liberarBloqueioPSSRemanejamento() {
   state.remanejamentoPssLiberadoDsei = normalizarTextoPainel(bloqueio.dsei);
   renderLinhasRemanejamento("reduzido");
   atualizarResumoRemanejamento();
-}
-
-export function obterRemanejamentoCadastroSelecionado() {
-  return null;
 }
 
 export function atualizarIndicadoresRemanejamento() {

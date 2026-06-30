@@ -52,7 +52,6 @@ export function nivelModulo(modulo) {
 }
 
 export function podeVerModulo(modulo) { return nivelModulo(modulo) >= NIVEL.APROVADO; }
-export function podeEditarModulo(modulo) { return nivelModulo(modulo) >= NIVEL.ADMIN; }
 
 // Acesso à aba de administração de perfis (regra mandatória = matriz). É definido
 // exclusivamente pelo nível do usuário no módulo "solicitacoes". Super admin = 3.

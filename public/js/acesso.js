@@ -445,55 +445,6 @@ async function enviarSolicitacao(ev) {
 // ----------------------------------------------------------------------------
 // Tela do administrador: gestão de solicitações
 // ----------------------------------------------------------------------------
-function cardSolicitacao(s, comAcoes) {
-  const id = escapeHtml(String(s.ID_SOLICITACAO));
-  const linhas = [
-    ["Nome", s.NOME], ["E-mail", s.EMAIL], ["Cargo/Função", s.CARGO],
-    ["Coordenação", s.COORDENACAO], ["DSEI", s.DSEI], ["CASAI", s.CASAI]
-  ].filter(([, v]) => v)
-    .map(([k, v]) => `<div><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`)
-    .join("");
-
-  const statusClasse = s.STATUS === "APROVADO" ? "tagAprovado" : (s.STATUS === "RECUSADO" ? "tagRecusado" : "tagPendente");
-  const decisao = s.STATUS !== "PENDENTE"
-    ? `<div class="solDecisao">Decidido por ${escapeHtml(s.DECIDIDO_POR || "—")} em ${escapeHtml(fmtData(s.DECIDIDO_EM))}${s.OBSERVACAO_DECISAO ? ` · <em>${escapeHtml(s.OBSERVACAO_DECISAO)}</em>` : ""}</div>`
-    : "";
-
-  const email = escapeHtml(String(s.EMAIL || ""));
-
-  // Aprovar/recusar/excluir exigem permissão de administração de perfis (Editor+
-  // no módulo "solicitacoes"); um super admin rebaixado a Leitor só visualiza.
-  const podeAgir = podeEditarPerfis();
-
-  const acoes = (comAcoes && podeAgir)
-    ? `<div class="solAcoes">
-         <button type="button" class="solBtn solAprovar" data-acesso-aprovar="${id}">Aprovar</button>
-         <button type="button" class="solBtn solRecusar" data-acesso-recusar="${id}">Recusar</button>
-       </div>`
-    : "";
-
-  const botaoExcluir = podeAgir
-    ? `<button type="button" class="solExcluirBtn" title="Excluir usuário e suas solicitações" data-acesso-excluir="${email}"><i class="fa-solid fa-trash"></i></button>`
-    : "";
-
-  // O privilégio (nível) deixou de ser editado aqui: a administração de acesso é
-  // feita pela matriz de Perfis de Acesso (regra mandatória, super admin).
-
-  return `
-    <div class="solCard">
-      <div class="solHead">
-        <span class="solTag ${statusClasse}">${escapeHtml(s.STATUS)}</span>
-        <span class="solHeadDir">
-          <span class="solData">${escapeHtml(fmtData(s.CRIADO_EM))}</span>
-          ${botaoExcluir}
-        </span>
-      </div>
-      <div class="solGrid">${linhas}</div>
-      <div class="solJustificativa"><span>Justificativa</span><p>${escapeHtml(s.JUSTIFICATIVA || "—")}</p></div>
-      ${decisao}
-      ${acoes}
-    </div>`;
-}
 
 export async function carregarSolicitacoesAdmin(silencioso) {
   const boxPend = el("solicitacoesPendentes");
