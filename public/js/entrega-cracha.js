@@ -13,6 +13,7 @@ import { nivelModulo } from "./permissoes.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
 import { apiGet, apiPost, apiDelete } from "./api.js";
 import { state } from "./state.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const PAGE_SIZE_OPCOES = [10, 25, 50, 100];
 let pageSize = 10; // registros por página (ajustável pelo usuário)
@@ -70,6 +71,7 @@ let erroCarregamento = "";
 let filtros = { dsei: "", status: "", escritorio: "", dataIni: "", dataFim: "", nome: "", cargo: "" };
 let paginaAtual = 1;
 let detalheId = null;
+let gradeEc = null;             // grade Tabulator da tabela principal (só colunas)
 const selecionados = new Set(); // matrículas marcadas para ação em lote
 
 const $ = id => document.getElementById(id);
@@ -210,6 +212,48 @@ function celulaData(valor) {
   return valor ? escapeHtml(valor) : "—";
 }
 
+// Colunas da tabela principal (Tabulator, só colunas). Os botões de ação e os
+// checkboxes seguem com data-* e são tratados pela delegação existente em `raiz`
+// (sobrevivem à re-renderização do Tabulator). As permissões são reavaliadas a
+// cada render dentro dos formatters (podeEditar()).
+const EC_COLS = [
+  // Seleção: checkbox por linha + "selecionar página" no cabeçalho (data-ec-selall).
+  { title: "", field: "_sel", headerSort: false, hozAlign: "center", width: 46, resizable: false, cssClass: "ecColSelect",
+    titleFormatter: () => `<input type="checkbox" id="ecSelecionarPagina" class="ecCheck" data-ec-selall aria-label="Selecionar página">`,
+    formatter: c => {
+      if (!podeEditar()) return "";
+      const s = c.getRow().getData();
+      return `<input type="checkbox" class="ecCheck" data-ec-sel="${escapeAttr(s.id)}"${selecionados.has(s.id) ? " checked" : ""} aria-label="Selecionar ${escapeAttr(s.nome || s.matricula)}">`;
+    } },
+  { title: "Ações", field: "_acoes", headerSort: false, hozAlign: "center", width: 110, cssClass: "ecAcoesCol",
+    formatter: c => {
+      const s = c.getRow().getData();
+      const reverter = s.podeReverter
+        ? `<button class="ecIconBtn ecIconBtnDanger" data-ec-reverter="${escapeAttr(s.id)}" title="Desfazer a última alteração"><i class="fa-solid fa-rotate-left"></i></button>`
+        : "";
+      const acoesEdicao = podeEditar()
+        ? `<button class="ecIconBtn" data-ec-editar="${escapeAttr(s.id)}" title="Editar datas/indicadores"><i class="fa-solid fa-pen"></i></button>${reverter}`
+        : "";
+      return `<button class="ecIconBtn" data-ec-ver="${escapeAttr(s.id)}" title="Ver detalhes"><i class="fa-regular fa-eye"></i></button>${acoesEdicao}`;
+    } },
+  { title: "Matrícula", field: "matricula", minWidth: 110, formatter: c => celulaData(c.getValue()) },
+  { title: "DSEI", field: "dsei", minWidth: 120, formatter: c => escapeHtml(c.getValue() || "—") },
+  { title: "Nome", field: "nome", minWidth: 180, formatter: c => escapeHtml(c.getValue() || "—") },
+  { title: "Cargo", field: "cargo", minWidth: 150, formatter: c => escapeHtml(c.getValue() || "—") },
+  { title: "Possui Foto", field: "possuiFoto", hozAlign: "center", minWidth: 90,
+    formatter: c => c.getValue() ? '<span class="ecFotoSim">Sim</span>' : '<span class="ecFotoNao">Não</span>' },
+  { title: "Status", field: "status", minWidth: 150, formatter: c => {
+      const s = c.getRow().getData();
+      const selos = `${s.importado ? '<span class="ecSelo is-importado" title="Importado (fora da base do ETL)">Importado</span>' : ""}${s.segundaVia ? '<span class="ecSelo is-2via" title="Solicitação de 2ª via">2ª via</span>' : ""}${s.devolvido ? '<span class="ecSelo is-devolvido" title="Crachá devolvido">Devolvido</span>' : ""}`;
+      return `${badgeStatus(s.status)}${selos}`;
+    } },
+  { title: "Data da Solicitação", field: "dataSolicitacao", minWidth: 130, formatter: c => celulaData(c.getValue()) },
+  { title: "Data de Envio à Gráfica", field: "dataEnvio", minWidth: 140, formatter: c => celulaData(c.getValue()) },
+  { title: "Data de Confecção", field: "dataConfeccao", minWidth: 130, formatter: c => celulaData(c.getValue()) },
+  { title: "Receb. Escritório", field: "dataRecebEscritorio", minWidth: 120, formatter: c => celulaData(c.getValue()) },
+  { title: "Receb. Trabalhador", field: "dataRecebTrabalhador", minWidth: 120, formatter: c => celulaData(c.getValue()) }
+];
+
 function render() {
   // Reavalia a permissão a cada render: no init o usuário ainda não está
   // logado (nível 0); após o login/carregamento isto reflete o nível real.
@@ -223,47 +267,27 @@ function render() {
   if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
   const inicio = (paginaAtual - 1) * pageSize;
   const pagina = lista.slice(inicio, inicio + pageSize);
-  const editar = podeEditar();
 
-  const body = $("ecTabelaBody");
-  if (body) {
-    if (carregando && !carregado) {
-      body.innerHTML = `<tr><td colspan="13" class="ecVazio">Carregando dados de crachás...</td></tr>`;
-    } else if (erroCarregamento) {
-      body.innerHTML = `<tr><td colspan="13" class="ecVazio">${escapeHtml(erroCarregamento)}</td></tr>`;
-    } else {
-      body.innerHTML = pagina.map(s => {
-        const reverter = s.podeReverter
-          ? `<button class="ecIconBtn ecIconBtnDanger" data-ec-reverter="${escapeHtml(s.id)}" title="Desfazer a última alteração"><i class="fa-solid fa-rotate-left"></i></button>`
-          : "";
-        const acoesEdicao = editar
-          ? `<button class="ecIconBtn" data-ec-editar="${escapeHtml(s.id)}" title="Editar datas/indicadores"><i class="fa-solid fa-pen"></i></button>${reverter}`
-          : "";
-        const marcado = selecionados.has(s.id) ? " checked" : "";
-        const selos = `${s.importado ? '<span class="ecSelo is-importado" title="Importado (fora da base do ETL)">Importado</span>' : ""}${s.segundaVia ? '<span class="ecSelo is-2via" title="Solicitação de 2ª via">2ª via</span>' : ""}${s.devolvido ? '<span class="ecSelo is-devolvido" title="Crachá devolvido">Devolvido</span>' : ""}`;
-        return `
-        <tr${s.id === detalheId ? ' class="ecLinhaAtiva"' : ""}>
-          <td class="ecColSelect ecTd-center"><input type="checkbox" class="ecCheck" data-ec-sel="${escapeHtml(s.id)}"${marcado} aria-label="Selecionar ${escapeHtml(s.nome || s.matricula)}"></td>
-          <td class="ecTd-center ecAcoesCol">
-            <button class="ecIconBtn" data-ec-ver="${escapeHtml(s.id)}" title="Ver detalhes"><i class="fa-regular fa-eye"></i></button>
-            ${acoesEdicao}
-          </td>
-          <td>${celulaData(s.matricula)}</td>
-          <td>${escapeHtml(s.dsei || "—")}</td>
-          <td>${escapeHtml(s.nome || "—")}</td>
-          <td>${escapeHtml(s.cargo || "—")}</td>
-          <td class="ecTd-center">${s.possuiFoto ? '<span class="ecFotoSim">Sim</span>' : '<span class="ecFotoNao">Não</span>'}</td>
-          <td>${badgeStatus(s.status)}${selos}</td>
-          <td>${celulaData(s.dataSolicitacao)}</td>
-          <td>${celulaData(s.dataEnvio)}</td>
-          <td>${celulaData(s.dataConfeccao)}</td>
-          <td>${celulaData(s.dataRecebEscritorio)}</td>
-          <td>${celulaData(s.dataRecebTrabalhador)}</td>
-        </tr>`;
-      }).join("") ||
-        `<tr><td colspan="13" class="ecVazio">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
-    }
+  // Estado vazio contextual: carregando / erro / sem registros. Durante carga ou
+  // erro a lista vem vazia, então a página fica vazia e o placeholder é exibido.
+  const placeholder = (carregando && !carregado)
+    ? "Carregando dados de crachás..."
+    : erroCarregamento
+      ? escapeHtml(erroCarregamento)
+      : "Nenhum registro encontrado para os filtros selecionados.";
+
+  if (!gradeEc) {
+    gradeEc = criarTabelaArrastavel({
+      elemento: "ecTabelaBody",
+      colunas: EC_COLS,
+      persistID: "ecCrachasV1",
+      indexField: "id",
+      movableRows: false,
+      idSelecionado: () => detalheId,
+      vazio: "Nenhum registro encontrado para os filtros selecionados."
+    });
   }
+  gradeEc?.render(pagina, placeholder);
 
   sincronizarSelecaoUI(pagina);
 
@@ -1386,6 +1410,13 @@ async function carregarDados(forcar = false) {
   }
 }
 
+// A grade Tabulator não monta com a aba oculta (largura 0). Ao navegar para a
+// aba, re-renderiza (monta na 1ª vez) e recalcula o layout.
+export function renderEntregaCrachaAoMostrar() {
+  render();
+  gradeEc?.redraw();
+}
+
 // ---------- Inicialização ----------
 let entregaCrachaConfigurada = false;
 
@@ -1482,8 +1513,9 @@ function ecBindDetalhe() {
 }
 
 // Seleção em lote (aplicar status a vários crachás de uma vez).
+// (O "selecionar página" agora vive no cabeçalho do Tabulator e é tratado por
+// delegação em ecBindDelegacao — não há binding direto aqui.)
 function ecBindLote() {
-  $("ecSelecionarPagina")?.addEventListener("change", e => alternarSelecaoPagina(e.target.checked));
   $("ecLoteAplicar")?.addEventListener("click", aplicarStatusLote);
   $("ecLoteLimpar")?.addEventListener("click", limparSelecao);
   $("ecLoteLimparCampos")?.addEventListener("click", resetarPainelLote);
@@ -1504,8 +1536,11 @@ function ecBindModal() {
 
 // Delegação de eventos para elementos gerados dinamicamente (linhas da tabela).
 function ecBindDelegacao(raiz) {
-  // Seleção por linha (checkboxes gerados dinamicamente).
+  // Seleção por linha e "selecionar página" (checkbox do cabeçalho do Tabulator):
+  // ambos gerados dinamicamente, tratados por delegação em `raiz`.
   raiz.addEventListener("change", event => {
+    const selAll = event.target.closest("[data-ec-selall]");
+    if (selAll) { alternarSelecaoPagina(selAll.checked); return; }
     const sel = event.target.closest("[data-ec-sel]");
     if (sel) alternarSelecao(sel.dataset.ecSel, sel.checked);
   });

@@ -9,6 +9,7 @@ import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { NIVEL } from "./constants.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 // Módulos (abas) na ordem da matriz. As chaves casam com o data-view do menu.
 // Espelha lib/permissoes.js (o backend é a fonte de verdade ao salvar/validar).
@@ -149,7 +150,9 @@ function niveisDisponiveis(modulo) {
   return MODULOS_SOMENTE_LEITURA.has(modulo) ? NIVEIS.filter(n => n.valor <= NIVEL.APROVADO) : NIVEIS;
 }
 
-function celulaSelect(usuario, modulo) {
+// HTML do <select> de permissão de uma célula (sem <td>: vai num formatter do
+// Tabulator). Mantém os data-* (perm-email/perm-modulo) para a delegação existente.
+function selectPermHtml(usuario, modulo) {
   const email = escapeHtml(usuario.email || "");
   const niveis = niveisDisponiveis(modulo);
   const maxNivel = niveis[niveis.length - 1].valor;
@@ -168,51 +171,44 @@ function celulaSelect(usuario, modulo) {
     `<option value="${n.valor}"${n.valor === atual ? " selected" : ""}>${n.rotulo}</option>`
   ).join("");
   // data-ss-skip mantém o <select> nativo (não vira combo pesquisável).
-  return `<td class="permCell">
-    <select class="permSel ${classeNivel(atual)}${personalizado ? " permCustom" : ""}"
+  return `<select class="permSel ${classeNivel(atual)}${personalizado ? " permCustom" : ""}"
             data-perm-email="${email}" data-perm-modulo="${escapeHtml(modulo)}"
-            data-ss-skip${desabilita} title="${escapeHtml(titulo)}">
-      ${opcoes}
-    </select>
-  </td>`;
+            data-ss-skip${desabilita} title="${escapeHtml(titulo)}">${opcoes}</select>`;
 }
 
-function linhaUsuario(usuario) {
-  const login = escapeHtml(usuario.login || usuario.email || "—");
-  const nome = escapeHtml(usuario.nome || "—");
-  const email = escapeHtml(usuario.email || "");
-  const temOverride = usuario.permissoes && Object.keys(usuario.permissoes).length > 0;
-  const acaoLimpar = (podeEditarPerfis() && usuario.email)
-    ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Restaurar tudo para o nível global"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
-    : "";
-  // Coluna "Ações" só existe para quem pode editar (Editor+); o leitor não a vê.
-  const acoesTd = podeEditarPerfis() ? `<td class="permAcoes">${acaoLimpar}</td>` : "";
-  const celulas = MODULOS_PERMISSAO.map(m => celulaSelect(usuario, m.chave)).join("");
-  return `<tr class="permRow">
-    <td class="permUser">
-      <span class="permLogin">${login}</span>
-      <span class="permNome">${nome}</span>
-    </td>
-    ${celulas}
-    ${acoesTd}
-  </tr>`;
-}
+// Grade Tabulator (modo SÓ-ESTILO: sem arrastar colunas/linhas). 1ª coluna
+// (Usuário) fixa e azul; cabeçalhos de módulo com ícone branco; selects inline
+// preservam os data-* para a delegação de salvar/restaurar continuar valendo.
+let gradePerfis = null;
 
-// Total de colunas da matriz (usuário + módulos + Ações quando editável).
-function colspanMatriz() {
-  return MODULOS_PERMISSAO.length + 1 + (podeEditarPerfis() ? 1 : 0);
-}
-
-function cabecalhoModulos() {
-  const cols = MODULOS_PERMISSAO.map(m =>
-    `<th class="permModuloTh"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i><span>${escapeHtml(m.rotulo)}</span></th>`
-  ).join("");
-  const acoesTh = podeEditarPerfis() ? `<th class="permAcoesTh">Ações</th>` : "";
-  return `<tr>
-    <th class="permUserTh">Usuário</th>
-    ${cols}
-    ${acoesTh}
-  </tr>`;
+function colsPerfis() {
+  const cols = [
+    {
+      title: "Usuário", field: "login", frozen: true, width: 220, cssClass: "permUserCol",
+      formatter: c => {
+        const u = c.getData();
+        return `<span class="permLogin">${escapeHtml(u.login || u.email || "—")}</span>` +
+               `<span class="permNome">${escapeHtml(u.nome || "—")}</span>`;
+      },
+    },
+    ...MODULOS_PERMISSAO.map(m => ({
+      title: m.rotulo, field: m.chave, width: 132, hozAlign: "center", headerHozAlign: "center",
+      titleFormatter: () => `<span class="permHeadIcon"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i></span><span class="permHeadTxt">${escapeHtml(m.rotulo)}</span>`,
+      formatter: c => selectPermHtml(c.getData(), m.chave),
+    })),
+  ];
+  if (podeEditarPerfis()) cols.push({
+    title: "Ações", field: "_acoes", width: 84, hozAlign: "center", headerHozAlign: "center",
+    formatter: c => {
+      const u = c.getData();
+      const email = escapeHtml(u.email || "");
+      const temOverride = u.permissoes && Object.keys(u.permissoes).length > 0;
+      return u.email
+        ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Restaurar tudo para o nível global"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
+        : "";
+    },
+  });
+  return cols;
 }
 
 function usuariosFiltrados() {
@@ -226,29 +222,30 @@ function usuariosFiltrados() {
 }
 
 function renderMatriz() {
-  const corpo = el("perfisMatrizBody");
-  const cabeca = el("perfisMatrizHead");
-  if (!corpo || !cabeca) return;
-  cabeca.innerHTML = cabecalhoModulos();
+  if (!el("perfisMatrizTab")) return;
   const lista = usuariosFiltrados();
-  corpo.innerHTML = lista.length
-    ? lista.map(linhaUsuario).join("")
-    : `<tr><td class="permVazio" colspan="${colspanMatriz()}">Nenhum usuário encontrado.</td></tr>`;
+  if (!gradePerfis) gradePerfis = criarTabelaArrastavel({
+    elemento: "perfisMatrizTab", colunas: colsPerfis(),
+    persistID: "perfisMatriz", indexField: "email",
+    movableColumns: false, movableRows: false, // só o estilo do Tabulator
+    layout: "fitData",                          // colunas no tamanho do conteúdo (rola na horizontal; 1ª fixa)
+    altura: "560px", vazio: "Nenhum usuário encontrado.",
+  });
+  gradePerfis?.render(lista);
   const rodape = el("perfisRodape");
   if (rodape) rodape.textContent = `Mostrando ${lista.length} de ${perfisCache.length} usuários`;
 }
 
 export async function carregarPerfisAcesso(silencioso) {
-  const corpo = el("perfisMatrizBody");
-  if (!corpo) return;
-  if (!silencioso) {
-    corpo.innerHTML = `<tr><td class="permVazio" colspan="${colspanMatriz()}">Carregando…</td></tr>`;
-  }
+  if (!el("perfisMatrizTab")) return;
   let dados;
   try {
     dados = await apiGet("/api/acesso/perfis");
   } catch (e) {
-    if (!silencioso) corpo.innerHTML = `<tr><td class="permVazio" colspan="${colspanMatriz()}">Não foi possível carregar os perfis.</td></tr>`;
+    if (!silencioso) {
+      const rodape = el("perfisRodape");
+      if (rodape) rodape.textContent = "Não foi possível carregar os perfis.";
+    }
     return;
   }
   perfisCache = dados.usuarios || [];
@@ -279,7 +276,7 @@ async function onChangePerfis(ev) {
     sel.className = `permSel ${classeNivel(nivel)} permCustom`;
     sel.title = "Permissão personalizada";
     // Reabilita o botão "restaurar" da linha.
-    const btn = sel.closest("tr")?.querySelector("[data-perm-limpar]");
+    const btn = sel.closest(".tabulator-row")?.querySelector("[data-perm-limpar]");
     if (btn) btn.disabled = false;
   } catch (e) {
     if (anterior !== undefined) sel.value = anterior; // reverte em caso de erro

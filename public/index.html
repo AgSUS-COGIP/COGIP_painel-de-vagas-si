@@ -9,6 +9,7 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="./vendor/tabulator/tabulator.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -582,84 +583,17 @@
 
             <!-- 6) Tabelas (dentro do mesmo cartão) -->
             <div id="blocoTabelaVagas" class="vagasTabelaBloco">
-              <div class="fullTableWrap">
-                <table class="fullTable">
-                  <caption class="sr-only">Vagas por DSEI/CASAI e cargo</caption>
-                  <colgroup id="vagasColGroup">
-                    <col style="width: 17%;">
-                    <col style="width: 22%;">
-                    <col style="width: 9%;">
-                    <col style="width: 11%;">
-                    <col style="width: 8%;">
-                    <col style="width: 9%;">
-                    <col style="width: 8%;">
-                    <col style="width: 8%;">
-                    <col style="width: 8%;">
-                  </colgroup>
-                  <thead>
-                    <tr id="vagasHeaderRow">
-                      <th>DSEI/CASAI</th>
-                      <th>Cargo</th>
-                      <th>Vagas previstas</th>
-                      <th>Total de Trabalhadores</th>
-                      <th>Afastados</th>
-                      <th class="colOciosasHead">Vagas Ociosas (Déficit Operacional)</th>
-                      <th>Substituições</th>
-                      <th>Temporários</th>
-                      <th>% preenchimento</th>
-                    </tr>
-                  </thead>
-                  <tbody id="vagasBody"></tbody>
-                </table>
-              </div>
+              <div id="vagasBody"></div>
               <div id="vagasPagination" class="tablePagination"></div>
             </div>
 
             <div id="blocoTabelaOciosas" class="vagasTabelaBloco distribuicaoSection" hidden>
-              <div class="fullTableWrap distribuicaoWrap">
-                <table class="fullTable distribuicaoTable">
-                  <caption class="sr-only">Distribuição das vagas ociosas</caption>
-                  <colgroup id="distribuicaoColGroup">
-                    <col style="width: 40%;">
-                    <col style="width: 20%;">
-                    <col style="width: 20%;">
-                    <col style="width: 20%;">
-                  </colgroup>
-                  <thead>
-                    <tr id="distribuicaoHeaderRow">
-                      <th>DSEI/CASAI</th>
-                      <th>Normais/Temporárias</th>
-                      <th>Afastamento sem substituição</th>
-                      <th>Vagas Ociosas</th>
-                    </tr>
-                  </thead>
-                  <tbody id="distribuicaoOciosasBody"></tbody>
-                </table>
-              </div>
+              <div id="distribuicaoOciosasBody"></div>
               <div id="distribuicaoPagination" class="tablePagination"></div>
             </div>
 
             <div id="blocoTabelaProcesso" class="vagasTabelaBloco distribuicaoSection" hidden>
-              <div class="fullTableWrap distribuicaoWrap">
-                <table class="fullTable distribuicaoTable">
-                  <caption class="sr-only">Vagas para processo seletivo</caption>
-                  <colgroup id="processoSeletivoColGroup">
-                    <col style="width: 40%;">
-                    <col style="width: 20%;">
-                    <col style="width: 20%;">
-                    <col style="width: 20%;">
-                  </colgroup>
-                  <thead>
-                    <tr id="processoSeletivoHeaderRow">
-                      <th>DSEI/CASAI</th>
-                      <th>Vagas ociosas</th>
-                      <th>Temporárias</th>
-                      <th>Total Processo Seletivo</th>
-                    </tr>
-                  </thead>
-                  <tbody id="processoSeletivoBody"></tbody>
-                </table>
-              </div>
+              <div id="processoSeletivoBody"></div>
               <div id="processoSeletivoPagination" class="tablePagination"></div>
             </div>
           </div>
@@ -724,28 +658,7 @@
               </div>
             </div>
 
-            <div class="fullTableWrap">
-              <table class="fullTable alertasTable">
-                <caption class="sr-only">Alertas da Saúde Indígena</caption>
-                <colgroup>
-                  <col style="width: 16%;">
-                  <col style="width: 24%;">
-                  <col style="width: 16%;">
-                  <col style="width: 20%;">
-                  <col style="width: 24%;">
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>DSEI/CASAI</th>
-                    <th>Cargo</th>
-                    <th>Tipo de Alerta</th>
-                    <th>Detalhe</th>
-                    <th>Observação</th>
-                  </tr>
-                </thead>
-                <tbody id="alertasBody"></tbody>
-              </table>
-            </div>
+            <div id="alertasTab"></div>
             <div id="alertasPagination" class="tablePagination"></div>
           </div>
         </section>
@@ -1052,30 +965,7 @@
                   </button>
                 </div>
               </div>
-              <div class="siTableWrap">
-                <table class="siTable">
-                  <caption class="sr-only">Trabalhadores da Saúde Indígena</caption>
-                  <thead id="siTabelaHead">
-                    <tr>
-                      <th data-col="registro">Registro <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="nome">Nome <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="dataNascimento">Data de Nascimento <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="sexo">Sexo <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="dataAdmissao">Admissão <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="tipoAdmissao">Tipo Admissão <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="substituicao">Substituição / Data Fim <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="cargo">Cargo <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="situacao">Situação <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="tipoDesligamento">Tipo de Desligamento <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="dataAfast">Data Afastamento / Desligamento <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="situacaoDataFim">Término Afastamento <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="localTrabalho">Local de Trabalho <i class="siSortIcon fa-solid fa-sort"></i></th>
-                      <th data-col="centroCusto">Centro de Custo <i class="siSortIcon fa-solid fa-sort"></i></th>
-                    </tr>
-                  </thead>
-                  <tbody id="siTabelaBody"></tbody>
-                </table>
-              </div>
+              <div id="siTabelaBody"></div>
               <div class="siTableFooter">
                 <span class="siTableRegistros" id="siTabelaRegistros">—</span>
               </div>
@@ -1193,12 +1083,7 @@
                   <div class="gfAlertCard is-orange"><i class="fa-solid fa-triangle-exclamation"></i><div><div class="gfAlertCardTitle">Menos de 90 dias</div><div class="gfAlertCardSub"><strong id="gfAlA90">0</strong> trabalhadores</div></div></div>
                   <div class="gfAlertCard is-yellow"><i class="fa-solid fa-bell"></i><div><div class="gfAlertCardTitle">Menos de 180 dias</div><div class="gfAlertCardSub"><strong id="gfAlA180">0</strong> trabalhadores</div></div></div>
                 </div>
-                <div class="gfTableWrap gfTableScroll">
-                  <table class="gfTable">
-                    <thead><tr><th>Matrícula</th><th>DSEI/CASAI</th><th>Trabalhador</th><th>Cargo</th><th>Admissão</th><th>Prazo-limite de gozo</th><th class="gfTd-center">Dias restantes</th></tr></thead>
-                    <tbody id="gfAlertasBody"></tbody>
-                  </table>
-                </div>
+                <div id="gfAlertasTab"></div>
               </section>
 
               <section class="gfCard">
@@ -1207,12 +1092,7 @@
                   <span class="gfCardCount" id="gfConsCount">—</span>
                   <button type="button" class="gfBtnExportar" id="gfBtnExportar"><i class="fa-solid fa-file-excel"></i> Exportar</button>
                 </div>
-                <div class="gfTableWrap gfTableScroll">
-                  <table class="gfTable">
-                    <thead><tr><th>Matrícula</th><th>DSEI/CASAI</th><th>Trabalhador</th><th>Cargo</th><th>Admissão</th><th>Status</th><th>Período de Férias</th></tr></thead>
-                    <tbody id="gfConsBody"></tbody>
-                  </table>
-                </div>
+                <div id="gfConsTab"></div>
                 <div class="gfTableFooter"><span class="gfTableRegistros" id="gfConsRegistros">—</span></div>
               </section>
             </div>
@@ -1282,20 +1162,10 @@
                 </div>
 
                 <div class="gfSectionLabel">Profissionais incluídos no pedido</div>
-                <div class="gfTableWrap">
-                  <table class="gfTable">
-                    <thead><tr><th>Nome</th><th>Cargo</th><th>Matrícula</th><th>Período aquisitivo</th><th>Prazo-limite de gozo</th><th class="gfTd-center">Ação</th></tr></thead>
-                    <tbody id="gfProfBody"></tbody>
-                  </table>
-                </div>
+                <div id="gfProfTab"></div>
 
                 <div class="gfSectionLabel">Detalhamento da solicitação</div>
-                <div class="gfTableWrap">
-                  <table class="gfTable">
-                    <thead><tr><th>Nome</th><th>Cargo</th><th>Período aquisitivo</th><th>Período 1</th><th>Período 2</th><th>Período 3</th><th class="gfTd-center">Abono</th><th class="gfTd-center">Dias (abono)</th><th>Situação</th></tr></thead>
-                    <tbody id="gfDetBody"></tbody>
-                  </table>
-                </div>
+                <div id="gfDetTab"></div>
               </section>
 
               <section class="gfCard">
@@ -1320,26 +1190,12 @@
                   <h3 class="gfCardTitle"><span class="gfNum">3</span> Acompanhamento das Solicitações</h3>
                   <span class="gfCardHint">Solicitações encaminhadas e seu status. É possível cancelar enquanto estão "Em análise".</span>
                 </div>
-                <div class="gfTableWrap">
-                  <table class="gfTable">
-                    <thead><tr><th>Trabalhador</th><th>Cargo</th><th>Períodos</th><th>Status</th><th>Observação</th><th class="gfTd-center">Ação</th></tr></thead>
-                    <tbody id="gfAcompBody"></tbody>
-                  </table>
-                </div>
+                <div id="gfAcompTab"></div>
               </section>
 
               <section class="gfCard">
                 <div class="gfCardHead"><h3 class="gfCardTitle"><span class="gfNum">4</span> Histórico dos Lotes de Férias</h3><span class="gfCardHint">Demonstração — será integrado ao fluxo real futuramente.</span></div>
-                <div class="gfTableWrap">
-                  <table class="gfTable">
-                    <thead><tr><th>Data</th><th>DSEI/CASAI</th><th>Lote</th><th class="gfTd-center">Qtd. prof.</th><th>Responsável</th><th>Status</th></tr></thead>
-                    <tbody>
-                      <tr><td>20/05/2024</td><td>DSEI Yanomami</td><td>LT-2024-005</td><td class="gfTd-center">18</td><td>João da Silva</td><td><span class="gfBadge is-programado">Em análise</span></td></tr>
-                      <tr><td>15/05/2024</td><td>DSEI Alto Rio Negro</td><td>LT-2024-004</td><td class="gfTd-center">22</td><td>Maria Oliveira</td><td><span class="gfBadge is-gozo">Aprovado</span></td></tr>
-                      <tr><td>10/05/2024</td><td>DSEI Leste de Roraima</td><td>LT-2024-003</td><td class="gfTd-center">15</td><td>Carlos Mendes</td><td><span class="gfBadge is-gozo">Aprovado</span></td></tr>
-                    </tbody>
-                  </table>
-                </div>
+                <div id="gfHistLotesTab"></div>
               </section>
             </div>
 
@@ -1355,12 +1211,7 @@
                   <div><strong>Acesso restrito à COAPE.</strong><br>Somente usuários da COAPE podem analisar e aprovar solicitações de férias.</div>
                 </div>
                 <div id="gfCoapeConteudo">
-                  <div class="gfTableWrap">
-                    <table class="gfTable">
-                      <thead><tr><th>Trabalhador</th><th>Cargo</th><th>Períodos</th><th>Status</th><th class="gfTd-center">Ações</th></tr></thead>
-                      <tbody id="gfCoapeBody"></tbody>
-                    </table>
-                  </div>
+                  <div id="gfCoapeTab"></div>
                 </div>
               </section>
             </div>
@@ -1558,29 +1409,7 @@
             </div>
 
             <!-- Tabela principal -->
-            <div class="ecTableWrap">
-              <table class="ecTable">
-                <caption class="sr-only">Solicitações de entrega de crachá</caption>
-                <thead>
-                  <tr>
-                    <th class="ecColSelect ecTd-center"><input type="checkbox" id="ecSelecionarPagina" aria-label="Selecionar página"></th>
-                    <th class="ecTd-center">Ações</th>
-                    <th>Matrícula</th>
-                    <th>DSEI</th>
-                    <th>Nome</th>
-                    <th>Cargo</th>
-                    <th class="ecTd-center">Possui Foto</th>
-                    <th>Status</th>
-                    <th>Data da Solicitação</th>
-                    <th>Data de Envio à Gráfica</th>
-                    <th>Data de Confecção</th>
-                    <th>Receb. Escritório</th>
-                    <th>Receb. Trabalhador</th>
-                  </tr>
-                </thead>
-                <tbody id="ecTabelaBody"></tbody>
-              </table>
-            </div>
+            <div id="ecTabelaBody"></div>
             <div class="ecTableFooter">
               <div class="ecRodapeEsq">
                 <span class="ecRegistros" id="ecRegistros">Mostrando 0 registros</span>
@@ -2138,28 +1967,26 @@
                 filtros</button>
             </div>
 
-            <div class="gfTableWrap">
-              <table class="gfTable">
-                <thead>
-                  <tr>
-                    <th class="gfTd-center">Dias Pendentes</th>
-                    <th>Nº Processo SEI</th>
-                    <th>DSEI</th>
-                    <th>Trabalhador</th>
-                    <th>Cargo</th>
-                    <th>Polo Base / CASAI</th>
-                    <th>Data da Ocorrência</th>
-                    <th>Pedido</th>
-                    <th>Status da Demanda</th>
-                    <th>Atendimento</th>
-                    <th>Decisão</th>
-                    <th>Data de Aplicação da Sanção</th>
-                    <th>Data do Pedido</th>
-                    <th class="gfTd-center">Responsável</th>
-                  </tr>
-                </thead>
-                <tbody id="gdTableBody"></tbody>
-              </table>
+            <!-- Grade Tabulator: colunas e linhas arrastáveis (ordem salva por
+                 usuário no navegador). Montada por gestao-disciplinar.js. -->
+            <div class="gdTabelaWrap">
+              <div id="gdTabela" class="gdTabela"></div>
+              <!-- Dica de onboarding (mostrada uma vez): explica o arrastar de
+                   colunas/linhas. Exibida/escondida por gestao-disciplinar.js. -->
+              <div class="gdCoach" id="gdCoach" hidden>
+                <div class="gdCoachBubble gdCoachBubble--cols" data-coach="colunas">
+                  <span>Agora é possível reordenar as colunas e o tamanho de acordo com a sua vontade.</span>
+                  <button type="button" class="gfBtn gdCoachBtn" data-coach-fechar="colunas">
+                    <i class="fa-solid fa-check"></i> Entendi
+                  </button>
+                </div>
+                <div class="gdCoachBubble gdCoachBubble--rows" data-coach="linhas">
+                  <span>Também é possível reordenar as linhas para compará-las lado a lado.</span>
+                  <button type="button" class="gfBtn gdCoachBtn" data-coach-fechar="linhas">
+                    <i class="fa-solid fa-check"></i> Entendi
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="gdTableInfo" id="gdTableInfo"></div>
           </section>
@@ -2251,23 +2078,7 @@
           </div>
 
           <section class="psPanel">
-            <div class="psTableWrap">
-              <table class="psTable">
-                <caption class="sr-only">Processos seletivos</caption>
-                <thead>
-                  <tr>
-                    <th>Unidade</th>
-                    <th class="psTd-center">UF</th>
-                    <th class="psTd-center">Edital</th>
-                    <th class="psTd-center">Data de Início</th>
-                    <th class="psTd-center">Data de Encerramento</th>
-                    <th>Status</th>
-                    <th>Responsável</th>
-                  </tr>
-                </thead>
-                <tbody id="psTabelaBody"></tbody>
-              </table>
-            </div>
+            <div id="psTabelaBody"></div>
             <div class="psTableFoot">
               <span id="psContador">Nenhum edital cadastrado.</span>
               <div class="psPaginacao" id="psPaginacao"></div>
@@ -2723,42 +2534,10 @@
                     data-input="render-rem-lista">
                 </div>
               </div>
-              <div class="fullTableWrap remHistoryWrap">
-                <table class="fullTable remHistoryTable">
-                  <caption class="sr-only">Histórico de remanejamentos</caption>
-                  <colgroup>
-                    <col style="width: 9%;">
-                    <col style="width: 8%;">
-                    <col style="width: 7%;">
-                    <col style="width: 16%;">
-                    <col style="width: 9%;">
-                    <col style="width: 16%;">
-                    <col style="width: 9%;">
-                    <col style="width: 9%;">
-                    <col style="width: 10%;">
-                    <col style="width: 7%;">
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>DSEI</th>
-                      <th>Competência</th>
-                      <th>Vaga Reduzida</th>
-                      <th>Valor Reduzido</th>
-                      <th>Vaga Acrescentada</th>
-                      <th>Valor Acrescentado</th>
-                      <th>Impacto Mensal</th>
-                      <th>Responsável</th>
-                      <th>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody id="remanejamentoBody">
-                    <tr>
-                      <td class="remanejamentoEmpty" colspan="10">Carregando dados de remanejamento...</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <div id="remanejamentoBody">Carregando dados de remanejamento...</div>
+              <!-- Detalhe do remanejamento: abre abaixo da tabela ao clicar em "Ver detalhes"
+                   (antes era um <tr> inserido na tabela, incompatível com o DOM virtual). -->
+              <div id="remDetalhePanel" class="remDetalhePanel" hidden></div>
             </section>
           </div>
         </section>
@@ -2780,22 +2559,7 @@
                 <p class="solHistSub">Solicitações aguardando aprovação.</p>
               </div>
             </div>
-            <div class="solHistTableWrap">
-              <table class="solHistTable">
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Nome</th>
-                    <th>E-mail</th>
-                    <th>Cargo / Unidade</th>
-                    <th>Justificativa</th>
-                    <th>Data e hora</th>
-                    <th id="solPendAcoesTh" class="solHistAcoesTh" style="display:none">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="solicitacoesPendentes"></tbody>
-              </table>
-            </div>
+            <div id="solPendTab"></div>
             <div class="solHistFooter">
               <div id="solPendPaginacao" class="solHistPaginacao"></div>
               <span id="solPendContagem" class="solHistContagem"></span>
@@ -2809,22 +2573,7 @@
                 <p class="solHistSub">Registro das últimas solicitações de acesso.</p>
               </div>
             </div>
-            <div class="solHistTableWrap">
-              <table class="solHistTable">
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Nome</th>
-                    <th>E-mail</th>
-                    <th>Justificativa</th>
-                    <th>Realizado por</th>
-                    <th>Data e hora</th>
-                    <th id="solHistAcoesTh" class="solHistAcoesTh" style="display:none">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="solicitacoesHistorico"></tbody>
-              </table>
-            </div>
+            <div id="solHistTab"></div>
             <div class="solHistFooter">
               <div id="solHistPaginacao" class="solHistPaginacao"></div>
               <span id="solHistContagem" class="solHistContagem"></span>
@@ -2850,12 +2599,7 @@
               <span class="permLegItem"><span class="permLegDot permNivel3"></span>Administrador</span>
             </div>
 
-            <div class="perfisMatrizWrap">
-              <table class="perfisMatriz">
-                <thead id="perfisMatrizHead"></thead>
-                <tbody id="perfisMatrizBody"></tbody>
-              </table>
-            </div>
+            <div id="perfisMatrizTab"></div>
             <div id="perfisRodape" class="perfisRodape"></div>
           </section>
         </section>

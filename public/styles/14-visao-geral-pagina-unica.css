@@ -333,6 +333,11 @@
   padding: 18px 20px;
   margin: 0 0 14px;
   display: grid;
+  /* Coluna única presa à largura disponível: sem minmax(0,1fr), o item da tabela
+     (grid item com min-width:auto) esticaria a coluna — e o cartão — para fora da
+     tela, cortando o cabeçalho (Exportar) e a paginação. Assim a tabela rola
+     internamente em vez de empurrar o cartão. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -353,6 +358,8 @@
 /* Tabela integrada ao cartão: sem sombra/borda externa duplicada. */
 .vagasInfoCard .vagasTabelaBloco {
   margin: 0;
+  /* Item do grid: min-width:0 impede que a grade larga estique a coluna/cartão. */
+  min-width: 0;
 }
 
 #view-vagas .vagasInfoCard .fullTableWrap {

@@ -8,6 +8,7 @@ import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { preencherSelect } from "./ui-utils.js";
 import { carregarPerfisAcesso, podeEditarPerfis, abrirPermissoesPendente } from "./permissoes.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 function el(id) { return document.getElementById(id); }
 function val(id) { const e = el(id); return e ? e.value : ""; }
@@ -429,25 +430,21 @@ function cardSolicitacao(s, comAcoes) {
 }
 
 export async function carregarSolicitacoesAdmin(silencioso) {
-  const boxPend = el("solicitacoesPendentes");
-  const boxHist = el("solicitacoesHistorico");
-  if (!boxPend || !boxHist) return;
-
-  // No polling (silencioso) não mostramos "Carregando…" para não piscar a tela.
-  if (!silencioso) {
-    boxPend.innerHTML = '<tr><td class="solHistVazio" colspan="7">Carregando…</td></tr>';
-    boxHist.innerHTML = "";
-  }
+  // Containers das grades Tabulator (antes eram <tbody> paginados).
+  if (!el("solPendTab") || !el("solHistTab")) return;
 
   let dados;
   try {
     dados = await apiGet("/api/acesso/solicitacoes");
   } catch (e) {
-    if (!silencioso) boxPend.innerHTML = '<div class="solVazio">Não foi possível carregar as solicitações.</div>';
+    if (!silencioso) {
+      const cont = el("solPendContagem");
+      if (cont) cont.textContent = "Não foi possível carregar as solicitações.";
+    }
     return;
   }
 
-  // Pendentes e Histórico agora são tabelas paginadas (mesmo modelo).
+  // Pendentes e Histórico: grades Tabulator (colunas arrastáveis).
   pendentesCache = dados.pendentes || [];
   renderPendentes();
   historicoCache = dados.historico || [];
@@ -484,30 +481,57 @@ function linhaPendente(s) {
   </tr>`;
 }
 
+// Grade arrastável dos Pendentes. Poll/ações re-renderizam, então só COLUNAS são
+// arrastáveis (linhas resetariam). A coluna "Ações" só entra para quem administra.
+// Botões mantêm os data-* originais → a delegação (onClickAdmin) segue válida.
+let gradePendentes = null;
+
+function colsPendentes() {
+  const cols = [
+    { title: "Status", field: "STATUS", formatter: c => badgeHistorico(c.getValue()) },
+    { title: "Nome", field: "NOME", formatter: c => escapeHtml(c.getValue() || "—") },
+    { title: "E-mail", field: "EMAIL", formatter: c => escapeHtml(c.getValue() || "—") },
+    {
+      title: "Cargo / Unidade", field: "CARGO",
+      formatter: c => {
+        const s = c.getData();
+        const u = s.DSEI || s.CASAI || s.COORDENACAO || "";
+        return `<span>${escapeHtml(s.CARGO || "—")}</span>${u ? `<span class="solHistRealizadoData">${escapeHtml(u)}</span>` : ""}`;
+      }
+    },
+    { title: "Justificativa", field: "JUSTIFICATIVA", formatter: c => escapeHtml(c.getValue() || "—") },
+    { title: "Data e hora", field: "CRIADO_EM", formatter: c => escapeHtml(fmtDataHora(c.getValue())) },
+  ];
+  if (podeEditarPerfis()) cols.push({
+    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center", minWidth: 240,
+    formatter: c => {
+      const s = c.getData();
+      const id = escapeHtml(String(s.ID_SOLICITACAO));
+      const email = escapeHtml(s.EMAIL || "");
+      return `<div class="solPendAcoesBtns">
+         <button type="button" class="solBtnMini solBtnPerm" data-perm-pendente="${email}" title="Definir permissões por módulo antes de aprovar"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Permissões</button>
+         <button type="button" class="solBtnMini solBtnAprovar" data-acesso-aprovar="${id}"><i class="fa-solid fa-check" aria-hidden="true"></i> Aprovar</button>
+         <button type="button" class="solBtnMini solBtnRecusar" data-acesso-recusar="${id}"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Recusar</button>
+         <button type="button" class="solExcluirBtn" data-acesso-excluir="${email}" title="Excluir usuário e suas solicitações"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+       </div>`;
+    }
+  });
+  return cols;
+}
+
 function renderPendentes() {
-  const corpo = el("solicitacoesPendentes");
-  if (!corpo) return;
-  const comAcoes = podeEditarPerfis();
-  const thAcoes = el("solPendAcoesTh");
-  if (thAcoes) thAcoes.style.display = comAcoes ? "" : "none";
-  const colspan = comAcoes ? 7 : 6;
+  if (!el("solPendTab")) return;
   const total = pendentesCache.length;
   const cont = el("solPendContagem");
+  if (cont) cont.textContent = total ? `${total} ${total > 1 ? "registros" : "registro"}` : "";
   const pag = el("solPendPaginacao");
-  if (!total) {
-    corpo.innerHTML = `<tr><td class="solHistVazio" colspan="${colspan}">Nenhuma solicitação pendente.</td></tr>`;
-    if (cont) cont.textContent = "";
-    if (pag) pag.innerHTML = "";
-    return;
-  }
-  const totalPaginas = Math.max(1, Math.ceil(total / PEND_POR_PAGINA));
-  if (pendentesPagina > totalPaginas) pendentesPagina = totalPaginas;
-  if (pendentesPagina < 1) pendentesPagina = 1;
-  const inicio = (pendentesPagina - 1) * PEND_POR_PAGINA;
-  const pagina = pendentesCache.slice(inicio, inicio + PEND_POR_PAGINA);
-  corpo.innerHTML = pagina.map(linhaPendente).join("");
-  if (cont) cont.textContent = `${inicio + 1}–${Math.min(inicio + PEND_POR_PAGINA, total)} de ${total} registros`;
-  if (pag) pag.innerHTML = montarPaginacaoHtml(pendentesPagina, totalPaginas, "pend-pagina");
+  if (pag) pag.innerHTML = "";
+  if (!gradePendentes) gradePendentes = criarTabelaArrastavel({
+    elemento: "solPendTab", colunas: colsPendentes(), persistID: "solPend",
+    indexField: "ID_SOLICITACAO", movableRows: false, altura: "420px",
+    vazio: "Nenhuma solicitação pendente.",
+  });
+  gradePendentes?.render(pendentesCache);
 }
 
 // ----------------------------------------------------------------------------
@@ -578,30 +602,49 @@ function renderHistPaginacao(totalPaginas) {
   if (pag) pag.innerHTML = montarPaginacaoHtml(historicoPagina, totalPaginas, "hist-pagina");
 }
 
+// Grade arrastável do Histórico (só colunas — ver nota dos Pendentes).
+let gradeHistorico = null;
+
+function colsHistorico() {
+  const cols = [
+    { title: "Status", field: "STATUS", formatter: c => badgeHistorico(c.getValue()) },
+    { title: "Nome", field: "NOME", formatter: c => escapeHtml(c.getValue() || "—") },
+    { title: "E-mail", field: "EMAIL", formatter: c => escapeHtml(c.getValue() || "—") },
+    { title: "Justificativa", field: "_just", formatter: c => { const s = c.getData(); return escapeHtml(s.OBSERVACAO_DECISAO || s.JUSTIFICATIVA || "—"); } },
+    {
+      title: "Realizado por", field: "DECIDIDO_POR",
+      formatter: c => {
+        const s = c.getData();
+        const r = s.DECIDIDO_EM ? fmtData(s.DECIDIDO_EM) : "";
+        const hora = r ? `<span class="solHistRealizadoData">${escapeHtml(r.slice(11))}</span>` : "";
+        return `<span>${escapeHtml(s.DECIDIDO_POR || "—")}</span>${hora}`;
+      }
+    },
+    { title: "Data e hora", field: "CRIADO_EM", formatter: c => escapeHtml(fmtDataHora(c.getValue())) },
+  ];
+  if (podeEditarPerfis()) cols.push({
+    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center",
+    formatter: c => {
+      const email = escapeHtml(c.getData().EMAIL || "");
+      return `<button type="button" class="solExcluirBtn" title="Excluir usuário e suas solicitações" data-acesso-excluir="${email}"><i class="fa-solid fa-trash"></i></button>`;
+    }
+  });
+  return cols;
+}
+
 function renderHistorico() {
-  const corpo = el("solicitacoesHistorico");
-  if (!corpo) return;
-  // Coluna "Ações" (excluir) só aparece para quem administra a aba.
-  const comAcoes = podeEditarPerfis();
-  const thAcoes = el("solHistAcoesTh");
-  if (thAcoes) thAcoes.style.display = comAcoes ? "" : "none";
-  const colspan = comAcoes ? 7 : 6;
+  if (!el("solHistTab")) return;
   const total = historicoCache.length;
   const cont = el("solHistContagem");
-  if (!total) {
-    corpo.innerHTML = `<tr><td class="solHistVazio" colspan="${colspan}">Sem histórico de decisões.</td></tr>`;
-    if (cont) cont.textContent = "";
-    renderHistPaginacao(1);
-    return;
-  }
-  const totalPaginas = Math.max(1, Math.ceil(total / HIST_POR_PAGINA));
-  if (historicoPagina > totalPaginas) historicoPagina = totalPaginas;
-  if (historicoPagina < 1) historicoPagina = 1;
-  const inicio = (historicoPagina - 1) * HIST_POR_PAGINA;
-  const pagina = historicoCache.slice(inicio, inicio + HIST_POR_PAGINA);
-  corpo.innerHTML = pagina.map(linhaHistorico).join("");
-  if (cont) cont.textContent = `${inicio + 1}–${Math.min(inicio + HIST_POR_PAGINA, total)} de ${total} registros`;
-  renderHistPaginacao(totalPaginas);
+  if (cont) cont.textContent = total ? `${total} ${total > 1 ? "registros" : "registro"}` : "";
+  const pag = el("solHistPaginacao");
+  if (pag) pag.innerHTML = "";
+  if (!gradeHistorico) gradeHistorico = criarTabelaArrastavel({
+    elemento: "solHistTab", colunas: colsHistorico(), persistID: "solHist",
+    indexField: "ID_SOLICITACAO", movableRows: false, altura: "420px",
+    vazio: "Sem histórico de decisões.",
+  });
+  gradeHistorico?.render(historicoCache);
 }
 
 async function decidir(acao, id, observacao) {
@@ -757,7 +800,11 @@ export function configurarAcesso() {
   const navItem = document.querySelector('.navItem[data-view="solicitacoes"]');
   if (navItem && !navItem.dataset.boundAcesso) {
     navItem.dataset.boundAcesso = "1";
-    navItem.addEventListener("click", () => { carregarSolicitacoesAdmin(); carregarPerfisAcesso(); });
+    navItem.addEventListener("click", () => {
+      carregarSolicitacoesAdmin(); carregarPerfisAcesso();
+      // Recalcula o layout das grades caso tenham sido montadas com a aba oculta.
+      gradePendentes?.redraw(); gradeHistorico?.redraw();
+    });
   }
 
   iniciarPollSolicitacoes();

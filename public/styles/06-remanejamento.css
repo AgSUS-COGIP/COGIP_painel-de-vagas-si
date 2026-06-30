@@ -622,36 +622,63 @@
       white-space: nowrap;
     }
 
+    /* Botões de ação: fundo branco + ícone/borda na cor da ação; no hover
+       preenchem com a cor e o ícone fica branco (padrão do "Excluir" da Gestão
+       Disciplinar). Base = "Ver detalhes" (azul); variantes mudam só a cor. */
     .remAcaoBtn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       vertical-align: middle;
-      border: 1px solid rgba(0, 83, 166, .18);
-      background: rgba(255, 255, 255, .9);
+      background: #fff;
+      color: #0056a7;                       /* azul: Ver detalhes (base) */
+      border: 1px solid rgba(0, 86, 167, .4);
       border-radius: 9px;
       padding: 5px 9px;
       cursor: pointer;
       font-size: 14px;
       line-height: 1;
+      box-shadow: 0 8px 16px rgba(0, 86, 167, .12);
+      transition: .16s ease;
     }
+
+    .remAcaoBtn i { color: inherit; }       /* ícone acompanha a cor do botão */
 
     .remAcaoBtn + .remAcaoBtn {
       margin-left: 8px;
     }
 
     .remAcaoBtn:hover {
-      filter: brightness(1.05);
-      border-color: rgba(0, 125, 224, .5);
+      background: #0070d9;
+      border-color: #0070d9;
+      color: #fff;
+      box-shadow: 0 16px 26px rgba(0, 112, 217, .26);
     }
 
-    .remAcaoExcluir {
-      border-color: rgba(185, 28, 28, .35);
-    }
-
+    /* Alterar: âmbar */
     .remAcaoEditar {
-      border-color: rgba(202, 138, 4, .4);
-      color: #a16207;
+      color: #b45309;
+      border-color: rgba(180, 83, 9, .4);
+      box-shadow: 0 8px 16px rgba(180, 83, 9, .12);
+    }
+
+    .remAcaoEditar:hover {
+      background: #d97706;
+      border-color: #d97706;
+      box-shadow: 0 16px 26px rgba(217, 119, 6, .26);
+    }
+
+    /* Excluir: vermelho (mesmo padrão da Gestão Disciplinar) */
+    .remAcaoExcluir {
+      color: #d11a2a;
+      border-color: rgba(209, 26, 42, .4);
+      box-shadow: 0 8px 16px rgba(209, 26, 42, .12);
+    }
+
+    .remAcaoExcluir:hover {
+      background: #d11a2a;
+      border-color: #d11a2a;
+      box-shadow: 0 16px 26px rgba(209, 26, 42, .28);
     }
 
     /* Modo de edição: borda amarela + fundo amarelo claro translúcido. */
@@ -691,6 +718,18 @@
       background: rgba(232, 247, 255, .5);
       padding: 14px 16px;
     }
+
+    /* Painel de detalhe abaixo da tabela (substitui o antigo <tr> expandido, que
+       não cabe no DOM virtual do Tabulator). Abre ao clicar em "Ver detalhes". */
+    .remDetalhePanel {
+      margin-top: 12px;
+      background: rgba(232, 247, 255, .5);
+      padding: 14px 16px;
+      border: 1px solid rgba(0, 83, 166, .16);
+      border-radius: 14px;
+    }
+
+    .remDetalhePanel[hidden] { display: none; }
 
     .remDetalheBox {
       display: grid;

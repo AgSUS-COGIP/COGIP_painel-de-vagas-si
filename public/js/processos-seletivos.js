@@ -16,6 +16,7 @@ import { preencherSelect, criarToast } from "./ui-utils.js";
 import { abrirModal } from "./modal.js";
 import { nivelModulo } from "./permissoes.js";
 import { PROCESSOS_SELETIVOS_DADOS } from "./processos-seletivos-dados.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 // Adicionar/editar edital e inserir anexo exigem Editor (>= 2) no módulo;
 // o Leitor só visualiza (tabela + detalhes).
@@ -55,6 +56,7 @@ let processos = (PROCESSOS_SELETIVOS_DADOS || []).map(p => ({
 // ---------- Estado da aba ----------
 let paginaAtual = 1;
 let processoExpandido = null; // id do edital com detalhamento aberto
+let gradePs = null;           // grade Tabulator da tabela principal (só colunas)
 
 // Dados de vagas/cronograma extraídos de anexos PDF enviados pelo usuário,
 // por id de edital: { cargos: [...], cronograma: [...] }. Apenas em memória
@@ -122,6 +124,25 @@ function isoParaBr(iso) {
 
 const numFmt = n => Number(n || 0).toLocaleString("pt-BR");
 
+// ---------- Colunas da tabela principal (Tabulator, só colunas) ----------
+// O clique na linha abre/recolhe o detalhe (aoClicarLinha → alternarDetalhe);
+// a linha aberta fica destacada via idSelecionado (classe tab-selected). O
+// chevron acompanha o estado lendo processoExpandido no formatter.
+const PS_COLS = [
+  { title: "Unidade", field: "unidade", cssClass: "psCelNome", minWidth: 200,
+    formatter: c => escapeHtml(c.getValue() || "—") },
+  { title: "UF", field: "uf", hozAlign: "center", formatter: c => escapeHtml(c.getValue() || "—") },
+  { title: "Edital", field: "edital", hozAlign: "center", formatter: c => escapeHtml(c.getValue() || "—") },
+  { title: "Data de Início", field: "dataInicio", hozAlign: "center", formatter: c => isoParaBr(c.getValue()) },
+  { title: "Data de Encerramento", field: "dataEncerramento", hozAlign: "center", formatter: c => isoParaBr(c.getValue()) },
+  { title: "Status", field: "status", formatter: c => badgeStatus(c.getValue()) },
+  { title: "Responsável", field: "responsavel", minWidth: 160, formatter: c => {
+      const aberto = processoExpandido === c.getRow().getData().id;
+      return `<div class="psRespCel"><span>${escapeHtml(c.getValue() || "—")}</span>` +
+        `<i class="fa-solid fa-chevron-down psRowChevron ${aberto ? "is-aberto" : ""}" aria-hidden="true"></i></div>`;
+    } }
+];
+
 // ---------- Filtro + busca ----------
 function processosFiltrados() {
   const unidade = $("psFiltroUnidade")?.value || "";
@@ -169,30 +190,22 @@ function renderTabela() {
   const inicio = (paginaAtual - 1) * POR_PAGINA;
   const pagina = lista.slice(inicio, inicio + POR_PAGINA);
 
-  if (!pagina.length) {
-    body.innerHTML = `<tr><td colspan="7" class="psEmpty">Nenhum edital encontrado para os filtros selecionados.</td></tr>`;
-  } else {
-    body.innerHTML = pagina.map(p => {
-      const aberto = processoExpandido === p.id;
-      return `
-        <tr class="psRow ${aberto ? "is-expandido" : ""}" data-ps-detalhe="${escapeAttr(p.id)}"
-          role="button" tabindex="0" aria-expanded="${aberto ? "true" : "false"}"
-          title="${aberto ? "Recolher detalhes do edital" : "Ver detalhes do edital"}">
-          <td class="psCelNome">${escapeHtml(p.unidade)}</td>
-          <td class="psTd-center">${escapeHtml(p.uf || "—")}</td>
-          <td class="psTd-center">${escapeHtml(p.edital || "—")}</td>
-          <td class="psTd-center">${isoParaBr(p.dataInicio)}</td>
-          <td class="psTd-center">${isoParaBr(p.dataEncerramento)}</td>
-          <td>${badgeStatus(p.status)}</td>
-          <td>
-            <div class="psRespCel">
-              <span>${escapeHtml(p.responsavel || "—")}</span>
-              <i class="fa-solid fa-chevron-down psRowChevron ${aberto ? "is-aberto" : ""}" aria-hidden="true"></i>
-            </div>
-          </td>
-        </tr>`;
-    }).join("");
+  // Monta a grade Tabulator uma vez; depois só realimenta com a página atual.
+  // Mantemos a paginação/contador existentes (a grade recebe só as linhas da
+  // página). O clique na linha abre o detalhe; a linha aberta fica destacada.
+  if (!gradePs) {
+    gradePs = criarTabelaArrastavel({
+      elemento: "psTabelaBody",
+      colunas: PS_COLS,
+      persistID: "psEditaisV2",
+      indexField: "id",
+      movableRows: false,
+      aoClicarLinha: row => alternarDetalhe(row.id),
+      idSelecionado: () => processoExpandido,
+      vazio: "Nenhum edital encontrado para os filtros selecionados."
+    });
   }
+  gradePs?.render(pagina);
 
   const contador = $("psContador");
   if (contador) {
@@ -279,29 +292,6 @@ function renderQuadroVagas(proc) {
       </div>`;
   }
 
-  const colunas = COLUNAS_VAGAS.filter(c => cargos.some(cargo => !celulaVazia(cargo[c.campo])));
-  const ehNumerica = campo => campo !== "lotacao";
-  const selNorm = normChave(vagaSelecionada);
-
-  const cabecalho = `<th>Cargo</th>` +
-    colunas.map(c => `<th${ehNumerica(c.campo) ? ' class="psTd-center"' : ""}>${escapeHtml(c.rotulo)}</th>`).join("") +
-    `<th class="psTd-center">Fila</th>`;
-
-  const linhas = cargos.map(cargo => {
-    const sel = !!selNorm && normChave(cargo.cargo) === selNorm;
-    const celulas = colunas.map(c => {
-      const valor = celulaVazia(cargo[c.campo]) ? "—" : cargo[c.campo];
-      return `<td class="${ehNumerica(c.campo) ? "psTd-center" : ""}">${escapeHtml(valor)}</td>`;
-    }).join("");
-    return `<tr class="psRow ${sel ? "is-expandido" : ""}" data-ps-vaga="${escapeAttr(cargo.cargo)}"
-        role="button" tabindex="0" aria-expanded="${sel ? "true" : "false"}"
-        title="${sel ? "Recolher aprovados desta vaga" : "Ver aprovados desta vaga"}">
-        <td class="psCelNome">${escapeHtml(cargo.cargo)} <i class="fa-solid fa-chevron-down psRowChevron ${sel ? "is-aberto" : ""}" aria-hidden="true"></i></td>
-        ${celulas}
-        <td class="psTd-center">${filaDoCargo(proc.id, cargo.cargo)}</td>
-      </tr>`;
-  }).join("");
-
   const extra = anexosExtraidos.get(proc?.id);
   const viaAnexo = extra && extra.cargos && extra.cargos.length
     ? ` · <span class="psBlocoFonte"><i class="fa-solid fa-file-arrow-up"></i> via anexo enviado</span>`
@@ -313,14 +303,43 @@ function renderQuadroVagas(proc) {
         <h4 class="psBlocoTitulo">Vagas Previstas</h4>
         <span class="psBlocoMeta">${cargos.length} cargo(s) no edital${viaAnexo} · selecione uma vaga para gerenciar os aprovados</span>
       </div>
-      <div class="psTableWrap">
-        <table class="psTable psTableSub">
-          <thead><tr>${cabecalho}</tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
-      </div>
+      <div id="psVagasTab"></div>
       ${renderPainelAprovados(proc)}
     </div>`;
+}
+
+// Grade "Vagas Previstas" (Tabulator só-estilo). Colunas dinâmicas: só as de
+// COLUNAS_VAGAS com algum valor no edital. Clique na linha seleciona a vaga
+// (abre o painel de aprovados); a vaga selecionada fica destacada. Última
+// coluna "Fila" = nº de aprovados da vaga (sem field, lê a linha no formatter).
+function montarQuadroVagas(proc) {
+  const cargos = cargosDoEdital(proc);
+  if (!cargos.length || !$("psVagasTab")) return;
+  const colunas = COLUNAS_VAGAS.filter(c => cargos.some(cargo => !celulaVazia(cargo[c.campo])));
+  const ehNumerica = campo => campo !== "lotacao";
+  const cols = [
+    { title: "Cargo", field: "cargo", cssClass: "psCelNome", minWidth: 200, formatter: c => {
+        const aberto = !!vagaSelecionada && normChave(c.getValue()) === normChave(vagaSelecionada);
+        return `${escapeHtml(c.getValue())} <i class="fa-solid fa-chevron-down psRowChevron ${aberto ? "is-aberto" : ""}" aria-hidden="true"></i>`;
+      } },
+    ...colunas.map(col => ({
+      title: col.rotulo, field: col.campo, hozAlign: ehNumerica(col.campo) ? "center" : "left",
+      formatter: c => escapeHtml(celulaVazia(c.getValue()) ? "—" : c.getValue())
+    })),
+    { title: "Fila", hozAlign: "center", minWidth: 70,
+      formatter: c => String(filaDoCargo(proc.id, c.getRow().getData().cargo)) }
+  ];
+  criarTabelaArrastavel({
+    elemento: "psVagasTab",
+    colunas: cols,
+    persistID: "psVagas",
+    indexField: "cargo",
+    movableColumns: false,
+    movableRows: false,
+    aoClicarLinha: row => selecionarVaga(row.cargo),
+    idSelecionado: () => vagaSelecionada,
+    dados: cargos
+  });
 }
 
 // ---------- Cronograma do edital (atividades e datas) ----------
@@ -341,32 +360,44 @@ function ehEtapaAtual(proc, atividade) {
 }
 
 // Tabela completa do cronograma (mostrada quando o widget "Etapa atual" expande).
+// Vira um Tabulator SÓ-ESTILO (sem mover linhas/colunas): aqui só emitimos o
+// container; a grade é montada por montarCronograma() depois do innerHTML do
+// detalhe (precisa estar visível para o Tabulator medir as colunas).
 function cronogramaTabelaHtml(proc) {
   const etapas = cronogramaDoEdital(proc);
   if (!etapas.length) {
     return `<p class="psObservacoes"><span class="psSemObs">Cronograma não disponível para este edital.</span></p>`;
   }
-  const linhas = etapas.map(e => {
-    const atual = ehEtapaAtual(proc, e.atividade);
-    return `<tr class="${atual ? "is-etapa-atual" : ""}">
-        <td class="psTd-center">${escapeHtml(String(e.ordem))}</td>
-        <td class="psCelNome">${escapeHtml(e.atividade || "—")}${atual ? ` <span class="psBadge is-breve">Etapa atual</span>` : ""}</td>
-        <td>${escapeHtml(e.data || "—")}</td>
-      </tr>`;
-  }).join("");
-  return `
-    <div class="psTableWrap">
-      <table class="psTable psTableSub">
-        <thead>
-          <tr>
-            <th class="psTd-center">#</th>
-            <th>Atividade</th>
-            <th>Data</th>
-          </tr>
-        </thead>
-        <tbody>${linhas}</tbody>
-      </table>
-    </div>`;
+  return `<div id="psCronogramaTab"></div>`;
+}
+
+// Instancia a grade do cronograma (só-estilo) no container já presente no DOM.
+// A "etapa atual" é sinalizada por um selo na própria célula de Atividade.
+function montarCronograma(proc) {
+  const etapas = cronogramaDoEdital(proc);
+  if (!etapas.length || !$("psCronogramaTab")) return;
+  criarTabelaArrastavel({
+    elemento: "psCronogramaTab",
+    colunas: [
+      { title: "#", field: "ordem", hozAlign: "center", width: 64,
+        formatter: c => escapeHtml(String(c.getValue() ?? "")) },
+      { title: "Atividade", field: "atividade", cssClass: "psCelNome", minWidth: 220,
+        formatter: c => {
+          const e = c.getRow().getData();
+          const atual = ehEtapaAtual(proc, e.atividade);
+          return `${escapeHtml(e.atividade || "—")}${atual ? ` <span class="psBadge is-breve">Etapa atual</span>` : ""}`;
+        } },
+      { title: "Data", field: "data", minWidth: 120, formatter: c => escapeHtml(c.getValue() || "—") }
+    ],
+    persistID: "psCronograma",
+    indexField: "ordem",
+    movableColumns: false,
+    movableRows: false,
+    aoFormatarLinha: row => {
+      if (ehEtapaAtual(proc, row.getData().atividade)) row.getElement().classList.add("is-etapa-atual");
+    },
+    dados: etapas
+  });
 }
 
 // Rótulo da etapa atual: casa pela atividade atual no cronograma; senão proc.etapa.
@@ -467,6 +498,11 @@ function renderDetalhe() {
     ${renderQuadroVagas(proc)}`;
 
   painel.hidden = false;
+  // Subtabelas só-estilo (Tabulator): os containers já estão no innerHTML; monta
+  // agora que o painel está visível (o Tabulator precisa de largura para medir).
+  montarQuadroVagas(proc);
+  montarAprovados(proc);
+  montarCronograma(proc);
 }
 
 // ---------- Render geral ----------
@@ -475,6 +511,13 @@ function renderTudo() {
   preencherFiltros();
   renderTabela();
   renderDetalhe();
+}
+
+// A grade Tabulator não monta com a aba oculta (largura 0). Ao navegar para a
+// aba, re-renderiza (monta na 1ª vez) e recalcula o layout.
+export function renderProcessosSeletivosAoMostrar() {
+  renderTabela();
+  gradePs?.redraw();
 }
 
 // ---------- Ações ----------
@@ -817,47 +860,11 @@ function renderPainelAprovados(proc) {
        </div>`
     : "";
 
-  let corpo;
-  if (!classificados.length) {
-    corpo = `<p class="psObservacoes"><span class="psSemObs">Nenhum aprovado registrado para esta vaga.</span></p>`;
-  } else {
-    const colPos = !!config.mostrarPosicoes;
-    const cabecalho =
-      (colPos ? `<th class="psTd-center">#</th>` : "") +
-      `<th>Nome</th><th class="psTd-center">Nota</th><th>Tipo</th><th>Status</th><th>Documento</th>` +
-      (podeEditar ? `<th class="psTd-center">Ações</th>` : "");
-    const linhas = classificados.map(({ candidato: c, posicao, reservado }) => {
-      const desistiu = c.status === "Desistiu";
-      const doc = (desistiu && c.docDesistencia)
-        ? `<a class="psDocLink" href="${escapeAttr(safeUrl(c.docDesistencia.url))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file-arrow-down"></i> ${escapeHtml(c.docDesistencia.nome || "documento")}</a>`
-        : "—";
-      const posCel = colPos
-        ? `<td class="psTd-center">${posicao}${reservado ? ` <span class="psBadge is-aguardando">cota</span>` : ""}</td>`
-        : "";
-      const acoesCel = podeEditar
-        ? `<td class="psTd-center psAprovadoAcoes">
-             <button type="button" class="psIconBtn" data-ps-aprovado-editar="${escapeAttr(c.id)}" title="Editar aprovado"><i class="fa-solid fa-pen-to-square"></i></button>
-             <button type="button" class="psIconBtn" data-ps-aprovado-excluir="${escapeAttr(c.id)}" title="Excluir aprovado"><i class="fa-solid fa-trash"></i></button>
-           </td>`
-        : "";
-      return `<tr class="${desistiu ? "is-desistiu" : ""}">
-          ${posCel}
-          <td class="psCelNome">${escapeHtml(c.nome)}</td>
-          <td class="psTd-center">${fmtNota(c.nota)}</td>
-          <td>${badgeTipo(c.tipo)}</td>
-          <td>${badgeCandStatus(c.status)}</td>
-          <td>${doc}</td>
-          ${acoesCel}
-        </tr>`;
-    }).join("");
-    corpo = `
-      <div class="psTableWrap">
-        <table class="psTable psTableSub">
-          <thead><tr>${cabecalho}</tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
-      </div>`;
-  }
+  // Sem aprovados: mensagem; senão, container da grade Tabulator só-estilo
+  // (montada por montarAprovados após o innerHTML do detalhe).
+  const corpo = classificados.length
+    ? `<div id="psAprovadosTab"></div>`
+    : `<p class="psObservacoes"><span class="psSemObs">Nenhum aprovado registrado para esta vaga.</span></p>`;
 
   const regra = config.intervaloCota > 0
     ? ` · regra: 1 PcD/PPIQ a cada ${config.intervaloCota} normais`
@@ -872,6 +879,63 @@ function renderPainelAprovados(proc) {
       ${acoes}
       ${corpo}
     </div>`;
+}
+
+// Grade "Aprovados para [vaga]" (Tabulator só-estilo). Colunas condicionais:
+// "#" (posição) só se config.mostrarPosicoes; "Ações" só para Editor. A posição
+// e o selo "cota" saem da classificação; o aprovado que desistiu fica esmaecido
+// (classe is-desistiu via aoFormatarLinha).
+function montarAprovados(proc) {
+  if (!$("psAprovadosTab") || !proc || !vagaSelecionada) return;
+  const podeEditar = podeEditarProcessos();
+  const config = getConfig(proc.id);
+  const lista = aprovadosDoCargo(proc.id, vagaSelecionada);
+  const classificados = classificar(lista, config);
+  if (!classificados.length) return;
+  const colPos = !!config.mostrarPosicoes;
+
+  // Achata {candidato, posicao, reservado} em linhas (preserva campos do candidato).
+  const dados = classificados.map(({ candidato, posicao, reservado }) =>
+    ({ ...candidato, _posicao: posicao, _reservado: reservado }));
+
+  const cols = [];
+  if (colPos) {
+    cols.push({ title: "#", hozAlign: "center", width: 72, formatter: c => {
+      const d = c.getRow().getData();
+      return `${d._posicao}${d._reservado ? ` <span class="psBadge is-aguardando">cota</span>` : ""}`;
+    } });
+  }
+  cols.push({ title: "Nome", field: "nome", cssClass: "psCelNome", minWidth: 180, formatter: c => escapeHtml(c.getValue()) });
+  cols.push({ title: "Nota", field: "nota", hozAlign: "center", formatter: c => fmtNota(c.getValue()) });
+  cols.push({ title: "Tipo", field: "tipo", formatter: c => badgeTipo(c.getValue()) });
+  cols.push({ title: "Status", field: "status", formatter: c => badgeCandStatus(c.getValue()) });
+  cols.push({ title: "Documento", field: "docDesistencia", minWidth: 140, formatter: c => {
+    const d = c.getRow().getData();
+    return (d.status === "Desistiu" && d.docDesistencia)
+      ? `<a class="psDocLink" href="${escapeAttr(safeUrl(d.docDesistencia.url))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file-arrow-down"></i> ${escapeHtml(d.docDesistencia.nome || "documento")}</a>`
+      : "—";
+  } });
+  if (podeEditar) {
+    cols.push({ title: "Ações", hozAlign: "center", minWidth: 90, formatter: c => {
+      const id = c.getRow().getData().id;
+      return `<span class="psAprovadoAcoes">` +
+        `<button type="button" class="psIconBtn" data-ps-aprovado-editar="${escapeAttr(id)}" title="Editar aprovado"><i class="fa-solid fa-pen-to-square"></i></button>` +
+        `<button type="button" class="psIconBtn" data-ps-aprovado-excluir="${escapeAttr(id)}" title="Excluir aprovado"><i class="fa-solid fa-trash"></i></button></span>`;
+    } });
+  }
+
+  criarTabelaArrastavel({
+    elemento: "psAprovadosTab",
+    colunas: cols,
+    persistID: "psAprovados",
+    indexField: "id",
+    movableColumns: false,
+    movableRows: false,
+    aoFormatarLinha: row => {
+      if (row.getData().status === "Desistiu") row.getElement().classList.add("is-desistiu");
+    },
+    dados
+  });
 }
 
 // Seleciona/deseleciona a vaga e re-renderiza o detalhamento.

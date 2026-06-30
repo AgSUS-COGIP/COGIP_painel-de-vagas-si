@@ -10,6 +10,7 @@
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, escapeHtml, escapeAttr, valorCsv, baixarArquivoCsv, debounce } from "./utils.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const $ = id => document.getElementById(id);
 
@@ -56,7 +57,7 @@ let configurado = false;
 const chartsSI = {};
 const combos = {};          // id -> instância de combobox pesquisável
 const exportGraficos = {};  // canvasId -> { colLabel, nome, pares } para exportar cada gráfico
-let ordenacao = { col: null, dir: 1 }; // ordenação da tabela
+let gradeSI = null;         // grade Tabulator da tabela geral (só colunas + sort nativo)
 
 // Granularidade dos gráficos de movimentação (admissões/desligamentos): ano | mes | dia.
 let granAdmissao = "ano";
@@ -213,6 +214,9 @@ function decodificar(payload) {
     o.ativo = o.vinculo === "Ativo";
     o.indigena = (o.raca || "").toUpperCase() === "INDIGENA";
     o.substituicao = (o.tipoAdmissao === "SUBSTITUIÇÃO") ? (o.statusSubstituicao || "") : "";
+    // Campo derivado p/ a coluna "Data Afastamento / Desligamento": ISO (ordena
+    // cronologicamente no Tabulator) e formatado por fData() só na exibição.
+    o._dataAfast = o.dataDesligamento || o.situacaoDataInicio || "";
     return o;
   });
 
@@ -557,99 +561,48 @@ function fData(iso) {
 }
 function cel(v) { return v ? escapeHtml(v) : "—"; }
 
-// Ordenação por coluna (clique no cabeçalho).
-function valorColuna(r, col) {
-  if (col === "tipoDesligamento") return r.tipoDesligamento === "—" ? "" : r.tipoDesligamento;
-  if (col === "dataAfast") return r.dataDesligamento || r.situacaoDataInicio || "";
-  return r[col] !== undefined && r[col] !== null ? r[col] : "";
-}
-
-function ordenarLista(rows) {
-  const { col, dir } = ordenacao;
-  return rows.slice().sort((a, b) => {
-    let va = valorColuna(a, col), vb = valorColuna(b, col);
-    if (col === "registro") return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
-    va = va || ""; vb = vb || "";
-    if (!va && vb) return 1;            // vazios sempre por último
-    if (va && !vb) return -1;
-    return String(va).localeCompare(String(vb), "pt-BR", { numeric: true }) * dir;
-  });
-}
-
-function atualizarSetas() {
-  const head = $("siTabelaHead");
-  if (!head) return;
-  head.querySelectorAll("th[data-col]").forEach(th => {
-    const icon = th.querySelector(".siSortIcon");
-    const ativo = th.dataset.col === ordenacao.col;
-    th.classList.toggle("is-ordenado", ativo);
-    if (icon) icon.className = "siSortIcon fa-solid " + (ativo ? (ordenacao.dir === 1 ? "fa-sort-up" : "fa-sort-down") : "fa-sort");
-  });
-}
-
-// HTML de uma linha da tabela.
-function linhaTabelaHtml(r) {
-  const dataAfastDeslig = r.dataDesligamento || r.situacaoDataInicio || "";
-  return `
-      <tr>
-        <td>${cel(r.registro)}</td>
-        <td class="siTdNome">${cel(r.nome)}</td>
-        <td>${cel(fData(r.dataNascimento))}</td>
-        <td>${cel(r.sexo)}</td>
-        <td>${cel(fData(r.dataAdmissao))}</td>
-        <td>${cel(r.tipoAdmissao)}</td>
-        <td>${cel(r.substituicao)}</td>
-        <td class="siTdCargo">${cel(r.cargo)}</td>
-        <td>${badgeSituacao(r)}</td>
-        <td>${cel(r.tipoDesligamento === "—" ? "" : r.tipoDesligamento)}</td>
-        <td>${cel(fData(dataAfastDeslig))}</td>
-        <td>${cel(fData(r.situacaoDataFim))}</td>
-        <td class="siTdLocal">${cel(r.localTrabalho)}</td>
-        <td class="siTdLocal">${cel(r.centroCusto)}</td>
-      </tr>`;
-}
-
-// Paginação por rolagem infinita: a base tem ~20k linhas e renderizar tudo de
-// uma vez (≈280k células) trava a aba. Mostramos 100 por vez e carregamos mais
-// 100 conforme o usuário rola até o fim.
-const TABELA_PAGINA = 100;
-let tabelaLista = [];        // lista completa (filtrada + ordenada)
-let tabelaRenderizadas = 0;  // quantas linhas já estão no DOM
+// ---------- Tabela geral (Tabulator: só colunas + ordenação nativa) ----------
+// As linhas NÃO se movem, então habilitamos a ordenação por cabeçalho
+// (headerSort) para preservar o recurso antigo de clicar e ordenar. Altura fixa:
+// o DOM virtual do Tabulator dá conta das ~20k linhas sem o antigo carregamento
+// por rolagem (aposentado). Datas são guardadas em ISO (ordenam cronologicamente)
+// e só formatadas por fData() na exibição.
+const SI_COLS = [
+  { title: "Registro", field: "registro", sorter: "number", minWidth: 90, formatter: c => cel(c.getValue()) },
+  { title: "Nome", field: "nome", cssClass: "siTdNome", minWidth: 180, formatter: c => cel(c.getValue()) },
+  { title: "Data de Nascimento", field: "dataNascimento", minWidth: 130, formatter: c => cel(fData(c.getValue())) },
+  { title: "Sexo", field: "sexo", minWidth: 80, formatter: c => cel(c.getValue()) },
+  { title: "Admissão", field: "dataAdmissao", minWidth: 110, formatter: c => cel(fData(c.getValue())) },
+  { title: "Tipo Admissão", field: "tipoAdmissao", minWidth: 120, formatter: c => cel(c.getValue()) },
+  { title: "Substituição / Data Fim", field: "substituicao", minWidth: 150, formatter: c => cel(c.getValue()) },
+  { title: "Cargo", field: "cargo", cssClass: "siTdCargo", minWidth: 160, formatter: c => cel(c.getValue()) },
+  { title: "Situação", field: "situacao", minWidth: 120, formatter: c => badgeSituacao(c.getRow().getData()) },
+  { title: "Tipo de Desligamento", field: "tipoDesligamento", minWidth: 150, formatter: c => cel(c.getValue() === "—" ? "" : c.getValue()) },
+  { title: "Data Afastamento / Desligamento", field: "_dataAfast", minWidth: 170, formatter: c => cel(fData(c.getValue())) },
+  { title: "Término Afastamento", field: "situacaoDataFim", minWidth: 140, formatter: c => cel(fData(c.getValue())) },
+  { title: "Local de Trabalho", field: "localTrabalho", cssClass: "siTdLocal", minWidth: 150, formatter: c => cel(c.getValue()) },
+  { title: "Centro de Custo", field: "centroCusto", cssClass: "siTdLocal", minWidth: 150, formatter: c => cel(c.getValue()) }
+];
 
 function renderTabela(rows) {
-  const lista = ordenacao.col ? ordenarLista(rows) : rows;
-  tabelaLista = lista;
-  tabelaRenderizadas = 0;
-  setText("siTabelaCount", `${formatNumber(lista.length)} trabalhadores`);
-  atualizarSetas();
+  const total = formatNumber(rows.length);
+  setText("siTabelaCount", `${total} trabalhadores`);
+  setText("siTabelaRegistros", rows.length ? `${total} trabalhadores` : "Nenhum registro");
 
-  const body = $("siTabelaBody");
-  if (!body) return;
-  // Volta ao topo ao trocar filtro/ordenação (senão a rolagem dispararia mais lotes).
-  const wrap = body.closest(".siTableWrap");
-  if (wrap) wrap.scrollTop = 0;
-
-  if (!lista.length) {
-    body.innerHTML = `<tr><td colspan="14" class="siVazio">Nenhum trabalhador encontrado para os filtros selecionados.</td></tr>`;
-    setText("siTabelaRegistros", "Nenhum registro");
-    return;
+  if (!gradeSI) {
+    gradeSI = criarTabelaArrastavel({
+      elemento: "siTabelaBody",
+      colunas: SI_COLS,
+      persistID: "siTrabalhadores",
+      indexField: "registro",
+      movableRows: false,
+      headerSort: true,
+      alturaFixa: true,
+      altura: "70vh",
+      vazio: "Nenhum trabalhador encontrado para os filtros selecionados."
+    });
   }
-  body.innerHTML = "";
-  renderProximoLoteTabela();
-}
-
-// Acrescenta o próximo lote de linhas (append, sem reconstruir as anteriores).
-function renderProximoLoteTabela() {
-  const body = $("siTabelaBody");
-  if (!body || tabelaRenderizadas >= tabelaLista.length) return;
-  const fim = Math.min(tabelaRenderizadas + TABELA_PAGINA, tabelaLista.length);
-  body.insertAdjacentHTML("beforeend",
-    tabelaLista.slice(tabelaRenderizadas, fim).map(linhaTabelaHtml).join(""));
-  tabelaRenderizadas = fim;
-  const total = tabelaLista.length;
-  setText("siTabelaRegistros", tabelaRenderizadas < total
-    ? `Mostrando ${formatNumber(tabelaRenderizadas)} de ${formatNumber(total)} trabalhadores · role para carregar mais`
-    : `${formatNumber(total)} trabalhadores`);
+  gradeSI?.render(rows);
 }
 
 // ---------- Exportação Excel (CSV com BOM; abre direto no Excel) ----------
@@ -869,7 +822,12 @@ export function configurarSaudeIndigena() {
 
   // Carregamento sob demanda ao abrir a aba.
   const navItem = document.querySelector('.navItem[data-view="painelSaudeIndigena"]');
-  if (navItem) navItem.addEventListener("click", () => { if (!carregado && !carregando) carregar(); });
+  if (navItem) navItem.addEventListener("click", () => {
+    if (!carregado && !carregando) carregar();
+    // Já carregado: a grade pode ter sido medida com a aba oculta; recalcula o
+    // layout/virtualização agora que voltou a ficar visível.
+    else if (carregado) setTimeout(() => gradeSI?.redraw(true), 60);
+  });
   if (state.activeView === "painelSaudeIndigena") carregar();
 
   // Períodos por data (reagem na digitação): debounced (~250ms) para não
@@ -901,25 +859,9 @@ export function configurarSaudeIndigena() {
     });
   });
 
-  // Rolagem infinita: ao chegar perto do fim, carrega mais 100 linhas.
-  const tabelaWrap = raiz.querySelector(".siTableWrap");
-  if (tabelaWrap) {
-    tabelaWrap.addEventListener("scroll", () => {
-      if (tabelaWrap.scrollTop + tabelaWrap.clientHeight >= tabelaWrap.scrollHeight - 320) {
-        renderProximoLoteTabela();
-      }
-    });
-  }
-
-  // Ordenação da tabela (clique no cabeçalho alterna asc/desc).
-  $("siTabelaHead")?.addEventListener("click", e => {
-    const th = e.target.closest("th[data-col]");
-    if (!th) return;
-    const col = th.dataset.col;
-    if (ordenacao.col === col) ordenacao.dir = -ordenacao.dir;
-    else { ordenacao.col = col; ordenacao.dir = 1; }
-    renderTabela(aplicarFiltros());
-  });
+  // Ordenação e virtualização agora são nativas do Tabulator (headerSort +
+  // DOM virtual): a rolagem infinita e o handler de clique no cabeçalho antigos
+  // foram aposentados.
 
   window.addEventListener("resize", () => {
     Object.values(chartsSI).forEach(c => { if (c) c.resize(); });
