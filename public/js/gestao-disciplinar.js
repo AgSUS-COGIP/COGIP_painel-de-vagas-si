@@ -226,15 +226,9 @@ function preencherFiltros() {
   preencherSelect("gdFiltroStatus", unicos("status"), "Todos os Status");
 }
 
-// Popula a lista de autocompletar de DSEIs do formulário (a de trabalhadores é
-// preenchida dinamicamente pela busca no backend — ver buscarTrabalhadores).
-function preencherDatalists() {
-  const dseis = $("gdListaDseis");
-  if (dseis) {
-    const lista = [...new Set(REGISTROS.map(r => r.dsei).filter(v => v && v !== "—"))];
-    dseis.innerHTML = lista.map(v => `<option value="${escapeHtml(v)}">`).join("");
-  }
-}
+// (Autocomplete de DSEI/CASAI removido do formulário a pedido — o campo agora é
+// texto livre, sem datalist. Função mantida vazia para não quebrar as chamadas.)
+function preencherDatalists() {}
 
 // ---------- Delegação de responsável (somente administradores) ----------
 // Lista de administradores ativos aptos a editar/assumir processos. É buscada
@@ -1610,14 +1604,9 @@ export function configurarGestaoDisciplinar() {
     // O clique na linha da tabela é tratado pelo `rowClick` do Tabulator (criarTabela).
   });
 
-  // Campos de data: abre o seletor ao clicar em qualquer parte do campo (não só
-  // no ícone). showPicker() exige gesto do usuário — o clique satisfaz.
-  raiz.addEventListener("click", event => {
-    const data = event.target.closest('input[type="date"]');
-    if (data && typeof data.showPicker === "function") {
-      try { data.showPicker(); } catch (e) { /* já aberto/não suportado */ }
-    }
-  });
+  // (Removido o handler que abria o date picker ao clicar em qualquer parte do
+  // campo: ele disparava o seletor de forma indesejada. Agora o calendário abre
+  // só pelo ícone nativo, e clicar/digitar no campo não força mais a abertura.)
 
   // Edição em linha do detalhamento: ao escolher um novo valor no Status/Sanção,
   // abre a confirmação antes de aplicar (campos só editáveis com permissão).

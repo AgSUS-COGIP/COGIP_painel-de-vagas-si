@@ -228,7 +228,15 @@ export function criarTabelaArrastavel(opts) {
       aplicarDados(linhas);
     },
     marcarSelecionada,
-    redraw() { if (tabela) tabela.redraw(true); },
+    // Só redesenha se a tabela JÁ foi construída (tableBuilt disparou). Chamar
+    // redraw antes disso gera "Table Not Initialized" e erro de offsetWidth (o
+    // elemento interno ainda é null). No 1º "mostrar", a grade acabou de ser
+    // montada com dados — não precisa de redraw; o guard pronta evita o erro.
+    redraw() {
+      if (tabela && pronta) {
+        try { tabela.redraw(true); } catch { /* aba oculta/recém-montada */ }
+      }
+    },
     // Destroi a grade (mantém o wrapper/coach). Usado quando o conjunto de
     // colunas muda de forma estrutural e a grade precisa ser recriada (ex.: as
     // tabelas de Vagas ao alternar entre os modos detalhado × agregado).
