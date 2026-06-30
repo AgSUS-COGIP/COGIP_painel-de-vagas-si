@@ -14,8 +14,7 @@ const {
   _salvarSolicitacaoAcessoComConn: solicitarAcesso,
   _aprovarSolicitacaoComConn: aprovarAcesso,
   _recusarSolicitacaoComConn: recusarAcesso,
-  _excluirUsuarioComConn: excluirUsuario,
-  _definirNivelUsuarioComConn: definirNivel
+  _excluirUsuarioComConn: excluirUsuario
 } = srv;
 
 function fakeConn({ custos = [], ociosas = [], insertId = 1 } = {}) {
@@ -283,19 +282,23 @@ test("aprovar acesso: marca APROVADO e libera usuário existente", async () => {
   // 1ª execução: UPDATE da solicitação para APROVADO
   assert.match(conn.calls.execute[0].sql, /STATUS` = 'APROVADO'/);
   assert.deepEqual(conn.calls.execute[0].params, ["admin@x.org", null, 9]);
-  // 2ª execução: ativa o usuário (UPDATE ATIVO=1 + nível padrão 1)
+  // 2ª execução: apenas ativa o usuário (UPDATE ATIVO=1). Sem nível global: o
+  // acesso a cada aba é concedido depois na matriz de Perfis.
   assert.match(conn.calls.execute[1].sql, /UPDATE/);
   assert.match(conn.calls.execute[1].sql, /`ATIVO` = 1/);
-  assert.deepEqual(conn.calls.execute[1].params, [1, "a@x.org"]);
+  assert.doesNotMatch(conn.calls.execute[1].sql, /NIVEL_AUTORIZACAO/);
+  assert.deepEqual(conn.calls.execute[1].params, ["a@x.org"]);
   assert.deepEqual(conn.calls.tx, ["begin", "commit"]);
 });
 
-test("aprovar acesso: cria usuário quando não existe", async () => {
+test("aprovar acesso: cria usuário quando não existe (sem nível global)", async () => {
   const conn = acessoConn({ solicitacao: { EMAIL: "novo@x.org", NOME: "Novo", STATUS: "PENDENTE" }, usuarioExiste: false });
-  await aprovarAcesso(conn, 3, "admin@x.org", { nivel: 2 });
-  const insUser = conn.calls.execute.find(c => /INSERT INTO[\s\S]*`ATIVO`/.test(c.sql) || /VALUES \(\?, '', \?, \?, \?, 1\)/.test(c.sql));
+  await aprovarAcesso(conn, 3, "admin@x.org", {});
+  const insUser = conn.calls.execute.find(c => /INSERT INTO[\s\S]*`ATIVO`/.test(c.sql));
   assert.ok(insUser, "deve inserir o usuário");
-  assert.deepEqual(insUser.params, ["novo", "Novo", "novo@x.org", 2]);
+  // Nasce com NIVEL_AUTORIZACAO=0 (obsoleto) e ATIVO=1; sem acesso a nenhuma aba.
+  assert.match(insUser.sql, /VALUES \(\?, '', \?, \?, 0, 1\)/);
+  assert.deepEqual(insUser.params, ["novo", "Novo", "novo@x.org"]);
 });
 
 test("aprovar acesso: solicitação já decidida é rejeitada", async () => {
@@ -322,38 +325,24 @@ test("recusar acesso: marca RECUSADO e revoga o acesso (ATIVO=0)", async () => {
   assert.deepEqual(conn.calls.tx, ["begin", "commit"]);
 });
 
-test("excluir usuário: remove das DUAS tabelas em transação (e-mail normalizado)", async () => {
+test("excluir usuário: remove das TRÊS tabelas em transação (e-mail normalizado)", async () => {
   const conn = acessoConn();
   await excluirUsuario(conn, "Alguem@X.org");
-  assert.equal(conn.calls.execute.length, 2, "dois DELETE (solicitações + usuários)");
+  assert.equal(conn.calls.execute.length, 3, "três DELETE (solicitações + usuários + permissões por módulo)");
   assert.match(conn.calls.execute[0].sql, /DELETE FROM/);
   assert.match(conn.calls.execute[1].sql, /DELETE FROM/);
+  // 3º DELETE: limpa as permissões por módulo (evita órfãs que reaparecem).
+  assert.match(conn.calls.execute[2].sql, /DELETE FROM/);
+  assert.match(conn.calls.execute[2].sql, /PERMISSOES_MODULOS/);
   assert.deepEqual(conn.calls.execute[0].params, ["alguem@x.org"]);
   assert.deepEqual(conn.calls.execute[1].params, ["alguem@x.org"]);
+  assert.deepEqual(conn.calls.execute[2].params, ["alguem@x.org"]);
   assert.deepEqual(conn.calls.tx, ["begin", "commit"]);
-  // Reaproveita o AUTO_INCREMENT (próximo id = MAX+1) nas duas tabelas.
+  // Reaproveita o AUTO_INCREMENT (próximo id = MAX+1) nas tabelas com id próprio.
   const alters = conn.calls.query.filter(c => /ALTER TABLE[\s\S]*AUTO_INCREMENT/.test(c.sql));
-  assert.equal(alters.length, 2, "deve resetar o AUTO_INCREMENT das duas tabelas");
+  assert.equal(alters.length, 2, "deve resetar o AUTO_INCREMENT das duas tabelas com id");
 });
 
 test("excluir usuário: e-mail vazio é rejeitado", async () => {
   await assert.rejects(() => excluirUsuario(acessoConn(), "   "), /e-mail/i);
-});
-
-test("definir nível: atualiza o privilégio do usuário (e-mail normalizado)", async () => {
-  const conn = acessoConn();
-  const r = await definirNivel(conn, "Alguem@X.org", 2);
-  assert.equal(r.nivel, 2);
-  assert.equal(r.email, "alguem@x.org");
-  assert.match(conn.calls.execute[0].sql, /UPDATE/);
-  assert.match(conn.calls.execute[0].sql, /NIVEL_AUTORIZACAO/);
-  assert.deepEqual(conn.calls.execute[0].params, [2, "alguem@x.org"]);
-});
-
-test("definir nível: nível inválido é rejeitado", async () => {
-  await assert.rejects(() => definirNivel(acessoConn(), "a@x.org", 9), /n[íi]vel inv/i);
-});
-
-test("definir nível: e-mail vazio é rejeitado", async () => {
-  await assert.rejects(() => definirNivel(acessoConn(), "", 1), /e-mail/i);
 });

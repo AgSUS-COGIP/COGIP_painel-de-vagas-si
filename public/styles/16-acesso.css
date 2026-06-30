@@ -577,7 +577,9 @@
 .acessoModalOverlay {
   position: fixed;
   inset: 0;
-  z-index: 9000;
+  /* Acima de outros overlays (ex.: modal de permissões da pré-aprovação, 9600),
+     para que confirmações apareçam por cima; ainda abaixo do loading (9999). */
+  z-index: 9700;
   display: flex; /* alternado p/ none via JS */
   align-items: center;
   justify-content: center;

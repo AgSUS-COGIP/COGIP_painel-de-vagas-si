@@ -43,14 +43,35 @@
 
           <div class="loginHeading">
             <div class="loginTitle">Seja bem-vindo(a) à AgSUS</div>
-            <div class="loginSubtitle">Acesse o sistema com sua conta institucional.</div>
+            <div id="loginSubtitle" class="loginSubtitle">Acesse com seu usuário e senha ou com sua conta institucional.</div>
           </div>
 
-          <!-- Login com Google (aparece quando GOOGLE_CLIENT_ID está configurado) -->
+          <!-- Login por usuário e senha -->
+          <form id="loginSenhaForm" class="loginCredForm" autocomplete="on">
+            <label class="loginField">
+              <span>Usuário</span>
+              <input id="loginUsuario" type="text" name="username" autocomplete="username" placeholder="Seu E-mail" required>
+            </label>
+            <label class="loginField">
+              <span>Senha</span>
+              <input id="loginSenha" type="password" name="password" autocomplete="current-password" placeholder="Sua senha" required>
+            </label>
+            <button id="loginBtn" type="submit" class="loginSubmitBtn">Entrar</button>
+          </form>
+
+          <div id="loginErro" class="loginErro"></div>
+
+          <!-- Usuário novo: vai direto à tela de solicitação de acesso (informa os
+               dados e define a senha; o cadastro fica pendente de aprovação). -->
+          <div class="loginAlternar">
+            <span>Não tem conta? <a href="#" id="loginCriarConta">Criar conta</a></span>
+          </div>
+
+          <!-- Login com Google: última opção (aparece quando GOOGLE_CLIENT_ID está configurado) -->
           <div id="loginGoogleWrap" class="loginGoogleWrap" style="display:none;">
+            <div class="loginDivisor"><span>ou</span></div>
             <div id="googleBtn"></div>
           </div>
-          <div id="loginErro" class="loginErro"></div>
 
           <div class="loginSecure"><i class="fa-solid fa-lock" aria-hidden="true"></i> Acesso seguro e institucional
           </div>
@@ -120,8 +141,15 @@
         </div>
 
         <div class="acField" data-acfield="email">
-          <label class="loginLabel" for="acEmail">E-mail institucional</label>
+          <label class="loginLabel" for="acEmail">E-mail</label>
           <input id="acEmail" class="loginInput" type="email" readonly>
+        </div>
+
+        <!-- Senha: só aparece no cadastro de usuário novo (controlado por JS). -->
+        <div class="acField" data-acfield="senha" hidden>
+          <label class="loginLabel" for="acSenha">Senha de acesso</label>
+          <input id="acSenha" class="loginInput" type="password" autocomplete="new-password"
+            placeholder="Crie uma senha (mínimo de 6 caracteres)">
         </div>
 
         <div class="acField" data-acfield="cargo">

@@ -120,6 +120,12 @@
   grid-template-columns: minmax(0, 1.55fr) minmax(360px, .75fr);
 }
 
+/* Leitor não vê o bloco "5. Documentação"; a grade vira coluna única para o
+   bloco "4. Impacto" preencher toda a largura disponível. */
+.remBottomGrid.remBottomGridSemDoc {
+  grid-template-columns: 1fr;
+}
+
 .remTableFinanceira {
   min-width: 0;
   width: 100%;

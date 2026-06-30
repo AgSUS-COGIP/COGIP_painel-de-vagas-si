@@ -16,10 +16,10 @@ const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVaga
 const { getCrachaData, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, normalizarChaveDash, formatarDataBancoDash, extrairCompetenciaDash, nomeMesDash, obterUltimaAtualizacaoDash, somaServidor, mesesAteFimDoAno, formatDateInTimeZone, aguardar } = require("./lib/utils");
 const { getMysqlPool, getMysqlConnection, fecharJdbc, obterOuCarregarJsonCache, limparCacheDashboard, executarConsultaComConn } = require("./lib/db");
-const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, definirNivelUsuarioComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
+const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
-const { autenticarUsuario, autenticarUsuarioGoogle, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirNivelMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
+const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, exigirAprovadoMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { getFeriasData } = require("./lib/ferias");
 const app = express();
@@ -518,6 +518,19 @@ app.post("/api/login/google", loginLimiter, express.json(), asyncHandler(async (
   }
 }));
 
+// Auto-cadastro por usuário/senha: cria a conta como pendente (ATIVO=0) e já
+// abre a sessão limitada, levando o usuário à tela de solicitação de acesso.
+app.post("/api/registrar", loginLimiter, express.json(), asyncHandler(async (req, res) => {
+  try {
+    const resultado = await registrarUsuarioLocal(req.body || {});
+    definirCookieSessao(req, res, resultado.token);
+    await anexarPermissoesUsuario(resultado.usuario);
+    res.status(201).json({ usuario: resultado.usuario, aprovado: resultado.aprovado });
+  } catch (err) {
+    res.status(400).json({ error: err && err.message ? err.message : "Falha ao criar a conta." });
+  }
+}));
+
 app.post("/api/logout", (req, res) => {
   // Autenticação é stateless (JWT). Encerra a sessão limpando o cookie.
   limparCookieSessao(req, res);
@@ -533,7 +546,7 @@ app.get("/api/sessao", apiLimiter, autenticarMiddleware, asyncHandler(async (req
       res.status(401).json({ error: "Sessão encerrada. Faça login novamente." });
       return;
     }
-    // Overrides de permissão por módulo (o front aplica o fallback p/ o nível global).
+    // Permissões por módulo (sem mais nível global: módulo sem linha = sem acesso).
     usuario.permissoes = usuario.aprovado ? await obterMapaPermissoesComConn(conn, usuario.email) : {};
     res.json({ usuario });
   } finally {
@@ -542,15 +555,11 @@ app.get("/api/sessao", apiLimiter, autenticarMiddleware, asyncHandler(async (req
 }));
 
 // Gate da aba de administração de perfis (regra mandatória = matriz). O acesso é
-// definido pelo nível do ator no módulo "solicitacoes": override na matriz ou,
-// na ausência, o padrão — super admin global tem acesso pleno; os demais, nenhum.
+// definido exclusivamente pelo nível do ator no módulo "solicitacoes" (sem mais
+// fallback para um nível global). Super admin = nível 3 nesse módulo.
 //   minNivel 1 = ver a aba (somente leitura)   2 = administrar (aprovar/editar)
-function nivelAdminEfetivo(mapa, nivelGlobal) {
-  const v = mapa ? mapa.solicitacoes : undefined;
-  if (v === undefined || v === null) {
-    return Number(nivelGlobal) >= DASH_CONFIG.NIVEL_SUPERADMIN ? DASH_CONFIG.NIVEL_SUPERADMIN : 0;
-  }
-  return Number(v);
+function nivelAdminEfetivo(mapa) {
+  return Number((mapa && mapa.solicitacoes) || 0);
 }
 
 function exigirAdminPerfisMiddleware(minNivel) {
@@ -559,8 +568,8 @@ function exigirAdminPerfisMiddleware(minNivel) {
       .then(async (conn) => {
         try {
           const mapa = await obterMapaPermissoesComConn(conn, req.usuario.email);
-          const global = Number((req.usuario && req.usuario.nivelAutorizacao) || 0);
-          if (nivelAdminEfetivo(mapa, global) < minNivel) {
+          req.permissoesMapa = mapa;
+          if (nivelAdminEfetivo(mapa) < minNivel) {
             res.status(403).json({ error: "Você não tem permissão para administrar os perfis de acesso." });
             return;
           }
@@ -574,9 +583,8 @@ function exigirAdminPerfisMiddleware(minNivel) {
 }
 
 // Gate de uma aba comum pela matriz de perfis (regra mandatória): exige o nível
-// efetivo do ator no módulo informado — override da matriz ou, na ausência, o
-// nível global. Substitui as checagens por nível global nas rotas de mutação,
-// para que rebaixar alguém na matriz realmente bloqueie a edição no servidor.
+// do ator no módulo informado. Sem linha gravada para (usuário, módulo) = 0 (Sem
+// acesso). Anexa o mapa completo em req.permissoesMapa para os handlers reusarem.
 //   minNivel 1 = leitor · 2 = editor · 3 = administrador do módulo
 function exigirPermissaoModuloMiddleware(modulo, minNivel) {
   return function (req, res, next) {
@@ -584,9 +592,8 @@ function exigirPermissaoModuloMiddleware(modulo, minNivel) {
       .then(async (conn) => {
         try {
           const mapa = await obterMapaPermissoesComConn(conn, req.usuario.email);
-          const global = Number((req.usuario && req.usuario.nivelAutorizacao) || 0);
-          const v = mapa[modulo];
-          const efetivo = (v === undefined || v === null) ? global : Number(v);
+          req.permissoesMapa = mapa;
+          const efetivo = Number(mapa[modulo] || 0);
           if (efetivo < minNivel) {
             res.status(403).json({ error: "Você não tem permissão de edição neste módulo." });
             return;
@@ -622,7 +629,10 @@ app.post("/api/acesso/solicitar", apiLimiter, autenticarMiddleware, express.json
   }
 }));
 
-app.get("/api/acesso/listas", apiLimiter, autenticarMiddleware, asyncHandler(async (req, res) => {
+// Listas de referência (DSEI/CASAI/coordenações/cargos) para os dropdowns do
+// formulário de solicitação. Auth opcional: o usuário novo (ainda sem conta)
+// precisa preencher o cadastro antes de existir, então não exige sessão.
+app.get("/api/acesso/listas", apiLimiter, autenticarOpcionalMiddleware, asyncHandler(async (req, res) => {
   res.json(await obterListasAcesso());
 }));
 
@@ -641,6 +651,7 @@ app.get("/api/acesso/minha-solicitacao", apiLimiter, autenticarMiddleware, async
 app.get("/api/acesso/solicitacoes", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(1), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    res.setHeader("Cache-Control", "no-store"); // dados de acesso: sempre frescos
     const dados = await listarSolicitacoesComConn(conn);
     // Anexa os overrides de permissão por módulo de cada pendente, para o admin
     // poder pré-definir o acesso (por e-mail) antes mesmo de aprovar a solicitação.
@@ -694,19 +705,8 @@ app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, 
   }
 }));
 
-// Super admin: define o privilégio (nível) de um usuário.
-app.post("/api/acesso/usuario/nivel", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
-  const conn = await getMysqlConnection();
-  try {
-    const body = req.body || {};
-    const resultado = await definirNivelUsuarioComConn(conn, body.email, body.nivel);
-    res.json({ ok: true, ...resultado });
-  } catch (err) {
-    res.status(400).json({ error: err && err.message ? err.message : "Falha ao alterar o privilégio." });
-  } finally {
-    await fecharJdbc(conn);
-  }
-}));
+// (Removido) /api/acesso/usuario/nivel — o "nível global" do usuário deixou de
+// existir. Todo acesso é definido por módulo na matriz (/api/acesso/perfis/permissao).
 
 // Enriquece o objeto de usuário (devolvido no login) com os overrides de
 // permissão por módulo. Best-effort: uma falha aqui não impede o login.
@@ -728,6 +728,7 @@ async function anexarPermissoesUsuario(usuario) {
 app.get("/api/acesso/perfis", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(1), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
+    res.setHeader("Cache-Control", "no-store"); // dados de permissão: sempre frescos
     const usuarios = await listarPerfisAcessoComConn(conn);
     res.json({ modulos: MODULOS_PERMISSAO, usuarios });
   } finally {
@@ -758,7 +759,7 @@ app.post("/api/acesso/perfis/permissao", apiLimiter, autenticarFrescoMiddleware,
   }
 }));
 
-// Super admin: remove todos os overrides de um usuário (volta ao nível global).
+// Super admin: remove todas as permissões de um usuário (fica sem acesso a tudo).
 app.post("/api/acesso/perfis/limpar", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), express.json(), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
@@ -780,8 +781,11 @@ function loginDoToken(req) {
   return base.includes("@") ? base.split("@")[0] : base;
 }
 
+// Super admin = nível 3 no módulo de administração ("solicitacoes"). Lê o mapa de
+// permissões anexado em req.permissoesMapa pelo exigirPermissaoModuloMiddleware
+// (todas as rotas que chamam isto passam antes por aquele middleware).
 function ehSuperAdmin(req) {
-  return Number((req.usuario && req.usuario.nivelAutorizacao) || 0) >= DASH_CONFIG.NIVEL_SUPERADMIN;
+  return Number((req.permissoesMapa || {}).solicitacoes || 0) >= DASH_CONFIG.NIVEL_SUPERADMIN;
 }
 
 // Edição/anexos de um pedido são exclusivos do responsável atual (super admin
@@ -828,8 +832,9 @@ app.post("/api/disciplinar", apiLimiter, autenticarFrescoMiddleware, exigirPermi
   const conn = await getMysqlConnection();
   try {
     const body = { ...(req.body || {}) };
-    // Delegação de responsável na criação é exclusiva de administradores.
-    const ehAdmin = Number((req.usuario && req.usuario.nivelAutorizacao) || 0) >= DASH_CONFIG.NIVEL_ADMIN;
+    // Delegação de responsável na criação é exclusiva de administradores do
+    // módulo (gestaoDisciplinar >= 2). req.permissoesMapa vem do middleware acima.
+    const ehAdmin = Number((req.permissoesMapa || {}).gestaoDisciplinar || 0) >= DASH_CONFIG.NIVEL_ADMIN;
     if (!ehAdmin) body.responsavel = "";
     const oficio = (req.files && req.files.oficio && req.files.oficio[0]) || null;
     const anexos = (req.files && req.files.anexos) || [];
@@ -1020,7 +1025,8 @@ app.post(
   })
 );
 
-app.post("/api/cache/clear", apiLimiter, autenticarFrescoMiddleware, exigirNivelMiddleware(DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+// Ação de sistema (não pertence a um módulo): exige administrador de perfis.
+app.post("/api/cache/clear", apiLimiter, autenticarFrescoMiddleware, exigirAdminPerfisMiddleware(2), asyncHandler(async (req, res) => {
   limparCacheDashboard();
   res.json({ ok: true });
 }));
@@ -1201,6 +1207,5 @@ Object.assign(module.exports, {
   _salvarSolicitacaoAcessoComConn: salvarSolicitacaoAcessoComConn,
   _aprovarSolicitacaoComConn: aprovarSolicitacaoComConn,
   _recusarSolicitacaoComConn: recusarSolicitacaoComConn,
-  _excluirUsuarioComConn: excluirUsuarioComConn,
-  _definirNivelUsuarioComConn: definirNivelUsuarioComConn
+  _excluirUsuarioComConn: excluirUsuarioComConn
 });

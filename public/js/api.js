@@ -27,7 +27,10 @@ export function authHeaders(extra) {
 
 export async function apiGet(path) {
   const response = await fetch(path, {
-    headers: authHeaders()
+    headers: authHeaders(),
+    // Sempre busca do servidor: sem isso o navegador pode devolver uma resposta
+    // cacheada (ex.: matriz de permissões recém-alterada aparecendo desatualizada).
+    cache: "no-store"
   });
 
   if (!response.ok) {
@@ -68,7 +71,8 @@ export async function apiPost(path, body) {
 export async function apiDelete(path) {
   const response = await fetch(path, {
     method: "DELETE",
-    headers: authHeaders()
+    headers: authHeaders(),
+    cache: "no-store"
   });
 
   if (!response.ok) {

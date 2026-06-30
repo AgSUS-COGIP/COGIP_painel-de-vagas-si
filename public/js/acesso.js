@@ -8,6 +8,11 @@ import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { preencherSelect } from "./ui-utils.js";
 import { carregarPerfisAcesso, podeEditarPerfis, abrirPermissoesPendente } from "./permissoes.js";
+import { iniciarPainelAutenticado } from "./auth.js";
+
+// Cadastro de usuário novo (sem conta): a tela de solicitação também coleta a
+// senha e cria a conta (pendente) antes de registrar a solicitação.
+let modoNovoCadastro = false;
 
 function el(id) { return document.getElementById(id); }
 function val(id) { const e = el(id); return e ? e.value : ""; }
@@ -131,6 +136,7 @@ function aplicarTipoAcesso(tipo) {
   document.querySelectorAll(".acField").forEach(div => {
     const campo = div.dataset.acfield;
     if (campo === "cargoOutro") return; // controlado por atualizarCargoOutro()
+    if (campo === "senha") return;      // controlado por aplicarCamposCadastroNovo()
     div.hidden = !visiveis.includes(campo);
   });
   popularCargos(tipo);  // cargos dependem da aba (distrital = lista fixa)
@@ -229,7 +235,8 @@ function iniciarPollAcesso() {
   pollAcessoTimer = setInterval(() => { carregarMinhaSolicitacao(false); }, 12000);
 }
 
-export async function mostrarAcessoPendente() {
+export async function mostrarAcessoPendente(novo) {
+  modoNovoCadastro = !!novo;
   if (el("loading")) el("loading").style.display = "none";
   if (el("loginScreen")) el("loginScreen").style.display = "none";
   const app = document.querySelector(".app");
@@ -239,8 +246,39 @@ export async function mostrarAcessoPendente() {
   if (tela) tela.style.display = "grid";
 
   await carregarListasAcesso();        // popula os dropdowns antes de preencher os valores
+
+  if (modoNovoCadastro) {
+    // Usuário ainda não existe: não há solicitação para buscar (exigiria sessão).
+    // Mostra o formulário vazio com o campo de senha e o e-mail editável.
+    ultimoStatusAcesso = null;
+    preencherForm(null);
+    aplicarCamposCadastroNovo(true);
+    mostrarEstadoFormulario();
+    const banner = el("acessoStatusBanner");
+    if (banner) {
+      banner.className = "acessoStatusBanner statusNovo";
+      banner.innerHTML = "Crie sua conta e solicite acesso. Um administrador irá validar seu cadastro.";
+    }
+    const submitBtn = el("acSubmitBtn");
+    if (submitBtn) submitBtn.innerText = "Criar conta e solicitar acesso";
+    const erro = el("acErro");
+    if (erro) erro.innerText = "";
+    return;
+  }
+
+  aplicarCamposCadastroNovo(false);
   await carregarMinhaSolicitacao(true);
   iniciarPollAcesso();
+}
+
+// Mostra/oculta os campos exclusivos do cadastro de usuário novo: a senha e a
+// edição do e-mail (que para contas já existentes vem travado da própria conta).
+function aplicarCamposCadastroNovo(novo) {
+  const senhaField = document.querySelector('.acField[data-acfield="senha"]');
+  if (senhaField) senhaField.hidden = !novo;
+  const emailInput = el("acEmail");
+  if (emailInput) emailInput.readOnly = !novo;
+  if (novo) setVal("acSenha", "");
 }
 
 function preencherForm(atual) {
@@ -361,15 +399,44 @@ async function enviarSolicitacao(ev) {
     return;
   }
 
+  // Cadastro de usuário novo: e-mail e senha são obrigatórios (viram a conta).
+  const eraNovo = modoNovoCadastro;
+  const email = val("acEmail").trim();
+  const senha = val("acSenha");
+  if (eraNovo) {
+    if (!email) { if (erro) erro.innerText = "Informe seu e-mail."; return; }
+    if (!senha || senha.length < 6) { if (erro) erro.innerText = "Crie uma senha com pelo menos 6 caracteres."; return; }
+  }
+
   if (btn) btn.disabled = true;
+  let registrou = false;
   try {
+    if (eraNovo) {
+      // Cria a conta pendente (ATIVO=0) e abre a sessão; usa o e-mail como login.
+      const reg = await apiPost("/api/registrar", { login: email, senha, nome: body.nome, email });
+      state.painelLoginUsuario = reg.usuario || null;
+      modoNovoCadastro = false;
+      registrou = true;
+      aplicarCamposCadastroNovo(false); // conta criada: trava e-mail e oculta a senha
+    }
+
     const resp = await apiPost("/api/acesso/solicitar", body);
     // Se o acesso já tinha sido aprovado nesse meio-tempo, entra direto no painel.
     if (resp && resp.jaAprovado) { window.location.reload(); return; }
-    // Após enviar, vai para a tela de "solicitação pendente".
-    await carregarMinhaSolicitacao(true);
+
+    if (eraNovo) {
+      // Já autenticado e pendente: inicia o heartbeat e roteia para a tela
+      // pendente (que recarrega a solicitação recém-criada).
+      iniciarPainelAutenticado();
+    } else {
+      // Após enviar, vai para a tela de "solicitação pendente".
+      await carregarMinhaSolicitacao(true);
+    }
   } catch (e) {
     if (erro) erro.innerText = (e && e.message) ? e.message : "Falha ao enviar a solicitação.";
+    // Conta ainda não criada -> permite tentar o cadastro de novo. Se já criou
+    // (falhou só a solicitação), o retry envia apenas a solicitação (já logado).
+    if (eraNovo && !registrou) modoNovoCadastro = true;
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -631,6 +698,9 @@ async function onClickAdmin(ev) {
   if (permPend) {
     const alvo = String(permPend.dataset.permPendente || "");
     const p = pendentesCache.find(x => String(x.EMAIL || "").toLowerCase() === alvo.toLowerCase());
+    // Passa a MESMA referência de p.permissoes para o modal mantê-la em sincronia
+    // (assim a mensagem de aprovação reflete o que foi definido aqui).
+    if (p && !p.permissoes) p.permissoes = {};
     abrirPermissoesPendente(alvo, p ? p.NOME : "", (p && p.permissoes) || {});
     return;
   }
@@ -657,9 +727,17 @@ async function onClickAdmin(ev) {
 
   if (aprovar) {
     const id = aprovar.dataset.acessoAprovar;
+    const p = pendentesCache.find(x => String(x.ID_SOLICITACAO) === String(id));
+    const nome = (p && (p.NOME || p.EMAIL)) || "este usuário";
+    // Conta as abas já liberadas (nível >= 1) na pré-aprovação para a mensagem
+    // refletir o que foi definido, em vez de afirmar sempre "sem acesso".
+    const liberadas = Object.values((p && p.permissoes) || {}).filter(n => Number(n) >= 1).length;
+    const msg = liberadas > 0
+      ? `Liberar o acesso de ${nome} ao painel? Ele entrará com as permissões já definidas na pré-aprovação (${liberadas} aba${liberadas > 1 ? "s" : ""} liberada${liberadas > 1 ? "s" : ""}). Você pode ajustar a qualquer momento na matriz de Perfis de Acesso.`
+      : `Liberar o acesso de ${nome} ao painel? Nenhuma aba foi liberada na pré-aprovação — ele entrará SEM acesso até você definir os níveis (botão Permissões aqui, ou depois na matriz de Perfis de Acesso).`;
     const r = await abrirModal({
       titulo: "Aprovar acesso",
-      msg: "Tem certeza que deseja liberar o acesso deste usuário ao painel?",
+      msg,
       confirmarTexto: "Aprovar"
     });
     if (!r.ok) return;

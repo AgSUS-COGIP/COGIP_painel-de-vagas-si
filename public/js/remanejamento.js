@@ -287,10 +287,14 @@ export function renderRemanejamentoLista() {
     return;
   }
 
-  const nivelUsuario = state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
+  // Usa o nível EFETIVO no módulo Remanejamento (override por perfil de acesso
+  // ou, na ausência, o nível global) — não o nível global puro. Assim um perfil
+  // marcado como "Administrador" (3) no módulo enxerga as ações corretamente.
+  const nivelUsuario = nivelUsuarioRemanejamento();
+  // Excluir: Editor (2) ou Administrador (3) do módulo.
   const podeExcluir = nivelUsuario >= NIVEL.ADMIN;
-  // Alterar remanejamento: somente nível super administrador.
-  const podeEditar = nivelUsuario === NIVEL.SUPERADMIN;
+  // Alterar remanejamento: somente Administrador (3) do módulo.
+  const podeEditar = nivelUsuario >= NIVEL.SUPERADMIN;
 
   tbody.innerHTML = rows.map(row => {
     const impacto = Number(row.impactoMensal || 0);

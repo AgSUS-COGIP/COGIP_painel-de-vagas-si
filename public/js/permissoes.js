@@ -2,13 +2,14 @@
 //
 // Cada usuário aprovado tem um nível por módulo/aba:
 //   0 = Sem acesso   1 = Leitor   2 = Editor   3 = Administrador
-// Quando não há override gravado para um módulo, vale o nível global do usuário
-// (state.painelLoginUsuario.nivelAutorizacao). O backend reaplica a regra a cada
-// requisição; aqui é só UI e ocultação/bloqueio de abas.
+// Não há mais nível global: sem linha gravada para um módulo, o nível é 0 (Sem
+// acesso). O backend reaplica a regra a cada requisição; aqui é só UI e
+// ocultação/bloqueio de abas. Super admin = nível 3 no módulo "solicitacoes".
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { NIVEL } from "./constants.js";
+import { abrirModal } from "./modal.js";
 
 // Módulos (abas) na ordem da matriz. As chaves casam com o data-view do menu.
 // Espelha lib/permissoes.js (o backend é a fonte de verdade ao salvar/validar).
@@ -43,31 +44,22 @@ function el(id) { return document.getElementById(id); }
 // Enforcement — permissão efetiva do usuário logado
 // ----------------------------------------------------------------------------
 
-// Nível efetivo do usuário logado em um módulo: override explícito ou, na
-// ausência, o nível global. Usado para esconder/bloquear abas e travar edição.
+// Nível do usuário logado em um módulo. Sem mais nível global: ausência de
+// override = 0 (Sem acesso). Usado para esconder/bloquear abas e travar edição.
 export function nivelModulo(modulo) {
   const u = state.painelLoginUsuario || {};
-  const global = Number(u.nivelAutorizacao || 0);
-  const overrides = u.permissoes || {};
-  const v = overrides[modulo];
-  return (v === undefined || v === null) ? global : Number(v);
+  return Number((u.permissoes || {})[modulo] || 0);
 }
 
 export function podeVerModulo(modulo) { return nivelModulo(modulo) >= NIVEL.APROVADO; }
 export function podeEditarModulo(modulo) { return nivelModulo(modulo) >= NIVEL.ADMIN; }
 
 // Acesso à aba de administração de perfis (regra mandatória = matriz). É definido
-// pelo nível do módulo "solicitacoes": override na matriz ou, na ausência, o
-// padrão — super admin global tem acesso pleno; os demais, nenhum. Assim um super
-// admin pode CONCEDER a aba a outro usuário ou REBAIXAR outro super admin.
+// exclusivamente pelo nível do usuário no módulo "solicitacoes". Super admin = 3.
 //   ver = nível >= 1 (somente leitura)   administrar = nível >= 2
 function nivelAdminLogado() {
   const u = state.painelLoginUsuario || {};
-  const ov = (u.permissoes || {})[MODULO_ADMIN];
-  if (ov === undefined || ov === null) {
-    return Number(u.nivelAutorizacao || 0) >= NIVEL.SUPERADMIN ? NIVEL.SUPERADMIN : 0;
-  }
-  return Number(ov);
+  return Number((u.permissoes || {})[MODULO_ADMIN] || 0);
 }
 export function podeVerPerfis() { return nivelAdminLogado() >= NIVEL.APROVADO; }
 export function podeEditarPerfis() { return nivelAdminLogado() >= NIVEL.ADMIN; }
@@ -86,8 +78,8 @@ export function aplicarPermissoesModulos() {
   let atualEscondida = false;
 
   MODULOS_PERMISSAO.forEach(m => {
-    // A aba de administração é especial: sua visibilidade combina super admin
-    // global + módulo, e é resolvida em aplicarPermissoesUsuario() (auth.js).
+    // A aba de administração é especial: sua visibilidade (módulo "solicitacoes")
+    // é resolvida em aplicarPermissoesUsuario() (auth.js).
     if (m.chave === MODULO_ADMIN) return;
     const item = document.querySelector(`.navItem[data-view="${m.chave}"]`);
     if (!item) return;
@@ -123,16 +115,11 @@ function mesmoUsuarioLogado(email) {
   return !!meu && meu === String(email || "").trim().toLowerCase();
 }
 
-// Nível efetivo de um usuário da lista em um módulo (override ou padrão).
-// Módulos comuns herdam o nível global; o módulo de administração tem padrão
-// próprio: super admin global = acesso pleno, demais = sem acesso.
+// Nível de um usuário da lista em um módulo. Sem mais nível global: ausência de
+// override = 0 (Sem acesso).
 function nivelEfetivo(usuario, modulo) {
   const v = usuario.permissoes ? usuario.permissoes[modulo] : undefined;
-  if (v !== undefined && v !== null) return Number(v);
-  if (modulo === MODULO_ADMIN) {
-    return Number(usuario.nivel || 0) >= NIVEL.SUPERADMIN ? NIVEL.SUPERADMIN : 0;
-  }
-  return Number(usuario.nivel || 0);
+  return (v !== undefined && v !== null) ? Number(v) : 0;
 }
 
 function classeNivel(valor) {
@@ -163,7 +150,7 @@ function celulaSelect(usuario, modulo) {
   const desabilita = (!podeEditarPerfis() || !usuario.email || ehProprioAdmin) ? " disabled" : "";
   const titulo = ehProprioAdmin
     ? "Você não pode alterar o seu próprio acesso a esta aba"
-    : (personalizado ? "Permissão personalizada" : "Herdado do nível global");
+    : (personalizado ? "Permissão definida" : "Sem acesso (defina o nível)");
   const opcoes = niveis.map(n =>
     `<option value="${n.valor}"${n.valor === atual ? " selected" : ""}>${n.rotulo}</option>`
   ).join("");
@@ -183,7 +170,7 @@ function linhaUsuario(usuario) {
   const email = escapeHtml(usuario.email || "");
   const temOverride = usuario.permissoes && Object.keys(usuario.permissoes).length > 0;
   const acaoLimpar = (podeEditarPerfis() && usuario.email)
-    ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Restaurar tudo para o nível global"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
+    ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Remover todas as permissões (deixa sem acesso a todas as abas)"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
     : "";
   // Coluna "Ações" só existe para quem pode editar (Editor+); o leitor não a vê.
   const acoesTd = podeEditarPerfis() ? `<td class="permAcoes">${acaoLimpar}</td>` : "";
@@ -277,8 +264,8 @@ async function onChangePerfis(ev) {
     aplicarMudancaLocal(email, modulo, nivel);
     // Recolore o select e marca como personalizado.
     sel.className = `permSel ${classeNivel(nivel)} permCustom`;
-    sel.title = "Permissão personalizada";
-    // Reabilita o botão "restaurar" da linha.
+    sel.title = "Permissão definida";
+    // Reabilita o botão "limpar" da linha.
     const btn = sel.closest("tr")?.querySelector("[data-perm-limpar]");
     if (btn) btn.disabled = false;
   } catch (e) {
@@ -294,7 +281,7 @@ async function onClickPerfis(ev) {
   const limpar = ev.target.closest("[data-perm-limpar]");
   if (!limpar) return;
   const email = limpar.dataset.permLimpar;
-  if (!confirm(`Restaurar todas as permissões de "${email}" para o nível global do usuário?`)) return;
+  if (!confirm(`Remover TODAS as permissões de "${email}"? O usuário ficará sem acesso a nenhuma aba até você definir novos níveis na matriz.`)) return;
   limpar.disabled = true;
   try {
     await apiPost("/api/acesso/perfis/limpar", { email });
@@ -347,8 +334,9 @@ export function abrirPermissoesPendente(email, nome, permissoesAtuais) {
     const niveis = niveisDisponiveis(m.chave);
     const max = niveis[niveis.length - 1].valor;
     const ov = overrides[m.chave];
-    // Padrão = Leitor (o que vale após a aprovação quando não há override).
-    const atual = Math.min(ov === undefined || ov === null ? NIVEL.APROVADO : Number(ov), max);
+    // Padrão = Sem acesso (0): o admin concede explicitamente cada aba. Sem mais
+    // nível global, módulo não definido = sem acesso após a aprovação.
+    const atual = Math.min(ov === undefined || ov === null ? 0 : Number(ov), max);
     const opcoes = niveis.map(n => `<option value="${n.valor}"${n.valor === atual ? " selected" : ""}>${n.rotulo}</option>`).join("");
     return `<div class="permPendItem">
       <span class="permPendLabel"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i> ${escapeHtml(m.rotulo)}</span>
@@ -364,36 +352,74 @@ export function abrirPermissoesPendente(email, nome, permissoesAtuais) {
       <div class="permPendHead">
         <div>
           <h3>Permissões de acesso</h3>
-          <p>Defina o acesso de <b>${escapeHtml(nome || e)}</b> por módulo. As permissões valem assim que a solicitação for aprovada.</p>
+          <p>Defina o acesso de <b>${escapeHtml(nome || e)}</b> por módulo. O padrão é "Sem acesso" — libere as abas desejadas. Ao clicar em <b>Concluir</b>, TODOS os níveis mostrados são gravados; valem assim que a solicitação for aprovada.</p>
         </div>
         <button type="button" class="permPendClose" data-perm-pend-fechar aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <div class="permPendGrid">${itens}</div>
       <div class="permPendFoot">
         <span class="permPendStatus" id="permPendStatus"></span>
-        <button type="button" class="permPendOk" data-perm-pend-fechar>Concluir</button>
+        <button type="button" class="permPendOk" data-perm-pend-concluir>Concluir</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
 
   const status = overlay.querySelector("#permPendStatus");
-  overlay.addEventListener("click", ev => {
-    if (ev.target === overlay || ev.target.closest("[data-perm-pend-fechar]")) fecharPermissoesPendente();
+  // Há alterações ainda não gravadas? Salvar é SÓ no Concluir.
+  let sujo = false;
+
+  // Grava TODOS os módulos no nível atualmente mostrado, em SEQUÊNCIA (um POST por
+  // vez). É o único ponto de salvamento — determinístico, sem corridas.
+  async function gravarTodos() {
+    const sels = Array.from(overlay.querySelectorAll("[data-perm-pend-modulo]"));
+    if (status) { status.textContent = "Salvando..."; status.className = "permPendStatus"; }
+    for (const sel of sels) {
+      const modulo = sel.dataset.permPendModulo;
+      const nivel = Number(sel.value);
+      await apiPost("/api/acesso/perfis/permissao", { email: e, modulo, nivel });
+      overrides[modulo] = nivel; // mantém o cache do pendente em sincronia
+    }
+    sujo = false;
+    if (status) { status.textContent = "Permissões salvas."; status.className = "permPendStatus is-ok"; }
+  }
+
+  async function fecharComGuarda() {
+    if (sujo) {
+      const r = await abrirModal({
+        titulo: "Alterações não salvas",
+        msg: "Há alterações de permissão que ainda não foram gravadas. Deseja descartá-las?",
+        confirmarTexto: "Descartar",
+        perigo: true
+      });
+      if (!r || !r.ok) return;
+    }
+    fecharPermissoesPendente();
+  }
+
+  overlay.addEventListener("click", async ev => {
+    if (ev.target.closest("[data-perm-pend-concluir]")) {
+      const btn = ev.target.closest("[data-perm-pend-concluir]");
+      btn.disabled = true;
+      try {
+        await gravarTodos();
+        fecharPermissoesPendente();
+      } catch (err) {
+        btn.disabled = false;
+        if (status) { status.textContent = (err && err.message) ? err.message : "Falha ao salvar as permissões."; status.className = "permPendStatus is-erro"; }
+      }
+      return;
+    }
+    if (ev.target === overlay || ev.target.closest("[data-perm-pend-fechar]")) await fecharComGuarda();
   });
-  overlay.addEventListener("change", async ev => {
+
+  // Mexer num dropdown NÃO salva sozinho — só atualiza o visual e marca como
+  // pendente. A gravação é toda no Concluir (sequencial), o que evita corridas
+  // de várias requisições simultâneas quando se edita rápido.
+  overlay.addEventListener("change", ev => {
     const sel = ev.target.closest("[data-perm-pend-modulo]");
     if (!sel) return;
-    const modulo = sel.dataset.permPendModulo;
-    const nivel = Number(sel.value);
-    sel.disabled = true;
-    try {
-      await apiPost("/api/acesso/perfis/permissao", { email: e, modulo, nivel });
-      sel.className = `permSel ${classeNivel(nivel)}`;
-      if (status) { status.textContent = "Permissões salvas."; status.className = "permPendStatus is-ok"; }
-    } catch (err) {
-      if (status) { status.textContent = (err && err.message) ? err.message : "Falha ao salvar a permissão."; status.className = "permPendStatus is-erro"; }
-    } finally {
-      sel.disabled = false;
-    }
+    sel.className = `permSel ${classeNivel(Number(sel.value))}`;
+    sujo = true;
+    if (status) { status.textContent = "Alterações não salvas — clique em Concluir para gravar."; status.className = "permPendStatus"; }
   });
 }

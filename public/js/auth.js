@@ -6,8 +6,20 @@ import { atualizarPermissaoGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { aplicarPermissoesModulos, nivelModulo, podeVerPerfis, temAlgumModuloVisivel } from "./permissoes.js";
 
 export function configurarLogin() {
-  // O acesso ao painel é exclusivamente por conta institucional (Google).
-  // O botão é renderizado pelo Google Identity Services em configurarLoginGoogle().
+  // Login por usuário/senha (o botão do Google é renderizado à parte em
+  // configurarLoginGoogle(), quando GOOGLE_CLIENT_ID está configurado).
+  const formLogin = document.getElementById("loginSenhaForm");
+  if (formLogin && !formLogin.dataset.bound) {
+    formLogin.dataset.bound = "1";
+    formLogin.addEventListener("submit", realizarLoginPainel);
+  }
+  // "Criar conta": usuário sem cadastro vai direto para a tela de solicitação de
+  // acesso, onde informa seus dados e define a senha (cadastro fica pendente).
+  const criar = document.getElementById("loginCriarConta");
+  if (criar && !criar.dataset.bound) {
+    criar.dataset.bound = "1";
+    criar.addEventListener("click", (ev) => { ev.preventDefault(); mostrarAcessoPendente(true); });
+  }
 }
 
 export async function verificarSessaoInicial() {
@@ -84,7 +96,8 @@ async function onGoogleCredential(resposta) {
   }
 }
 
-export async function realizarLoginPainel() {
+export async function realizarLoginPainel(ev) {
+  if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
   const usuario = document.getElementById("loginUsuario")?.value || "";
   const senha = document.getElementById("loginSenha")?.value || "";
   const btn = document.getElementById("loginBtn");
@@ -157,15 +170,13 @@ function definirVisibilidadeNav(elemento, visivel) {
 }
 
 export function aplicarPermissoesUsuario() {
-  const nivel = state.painelLoginUsuario ? Number(state.painelLoginUsuario.nivelAutorizacao || 0) : 0;
-
   // Esconde as abas marcadas como "Sem acesso" na matriz de perfis e, se a aba
   // ativa ficou inacessível, redireciona para a primeira aba visível.
   aplicarPermissoesModulos();
 
-  // Aba de Solicitações / Perfis de Acesso: super admin global E com o módulo
-  // "solicitacoes" liberado (a própria matriz pode rebaixar/ocultar de um super
-  // admin). É a regra mandatória de acesso à administração de permissões.
+  // Aba de Solicitações / Perfis de Acesso: definida pelo nível do módulo
+  // "solicitacoes" (a própria matriz pode rebaixar/ocultar de um super admin).
+  // É a regra mandatória de acesso à administração de permissões.
   definirVisibilidadeNav(document.querySelector('.navItem[data-view="solicitacoes"]'), podeVerPerfis());
 
   // Edição de remanejamento exige permissão de Editor (nível >= 2) NO MÓDULO.
@@ -176,7 +187,13 @@ export function aplicarPermissoesUsuario() {
   // observação, anexo e botão Salvar) fica oculto para ele. O backend também
   // bloqueia o POST /api/remanejamento/salvar por permissão de módulo.
   const docBox = document.getElementById("remDocBox");
-  if (docBox) docBox.style.display = podeSalvarRemanejamento ? "" : "none";
+  if (docBox) {
+    docBox.style.display = podeSalvarRemanejamento ? "" : "none";
+    // Sem o bloco 5, a grade de baixo passa a ser de coluna única para que o
+    // bloco 4 ("4. Impacto") ocupe toda a largura, sem deixar o vão vazio.
+    const remBottomGrid = docBox.parentElement;
+    if (remBottomGrid) remBottomGrid.classList.toggle("remBottomGridSemDoc", !podeSalvarRemanejamento);
+  }
 
   const btnSalvar = document.getElementById("remSaveBtn");
   if (btnSalvar) {
@@ -242,10 +259,9 @@ async function verificarMudancaSessao() {
 
   const anterior = state.painelLoginUsuario || {};
   const mudouAprovacao = !!usuario.aprovado !== !!anterior.aprovado;
-  const mudouNivel = Number(usuario.nivelAutorizacao || 0) !== Number(anterior.nivelAutorizacao || 0);
   const mudouPermissoes = JSON.stringify(usuario.permissoes || {}) !== JSON.stringify(anterior.permissoes || {});
-  if (mudouAprovacao || mudouNivel || mudouPermissoes) {
-    // Status ou privilégio mudou (ex.: aprovado enquanto esperava, virou/deixou de ser admin).
+  if (mudouAprovacao || mudouPermissoes) {
+    // Status ou permissões mudaram (ex.: aprovado enquanto esperava, ganhou/perdeu acesso a abas).
     state.painelLoginUsuario = usuario;
     window.location.reload();
   }

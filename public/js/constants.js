@@ -27,9 +27,9 @@ export const STATIC_FILTERS = {
 
 export const REMANEJAMENTO_EMPTY_OPTION = { value: "", label: "Selecione" };
 
-// Níveis de autorização do usuário (espelha o cadastro em Solicitações de Acesso).
-// São apenas dicas de UI no front; o backend reaplica a regra a cada requisição.
-//   1 = usuário comum (aprovado)   2 = administrador   3 = super administrador
+// Níveis de permissão POR MÓDULO (não há mais nível global). São apenas dicas de
+// UI no front; o backend reaplica a regra por módulo a cada requisição.
+//   1 = Leitor   2 = Editor   3 = Administrador (no módulo "solicitacoes" = super admin)
 export const NIVEL = {
   APROVADO: 1,
   ADMIN: 2,
