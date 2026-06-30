@@ -106,7 +106,7 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline' https://accounts.google.com https://cdnjs.cloudflare.com",
   "img-src 'self' data: https:",
   "font-src 'self' data: https://cdnjs.cloudflare.com",
-  "connect-src 'self' https://accounts.google.com",
+  "connect-src 'self' https://accounts.google.com https://cdn.jsdelivr.net",
   `frame-src ${FRAME_SRC.join(" ")}`,
   "object-src 'none'",
   "base-uri 'self'",
