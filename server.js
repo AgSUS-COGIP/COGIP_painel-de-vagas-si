@@ -18,6 +18,7 @@ const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { getFeriasData } = require("./lib/ferias");
+const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
 const app = express();
 app.disable("x-powered-by"); // não revela o framework/versão
 
@@ -242,6 +243,26 @@ app.post("/api/alertas/observacao", apiLimiter, express.json(), autenticarFresco
     res.json({ ok: true, ...resultado });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar a observação." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Feedback do assistente virtual (robô flutuante). Disponível para qualquer
+// usuário autenticado (mesmo ainda sem acesso aprovado a abas): o assistente
+// aparece em todas as telas e, de início, apenas recebe feedback. O autor é
+// sempre derivado do token — nunca do corpo da requisição.
+app.post("/api/feedback", apiLimiter, express.json(), autenticarMiddleware, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const usuario = {
+      email: req.usuario.email || req.usuario.login || "",
+      nome: req.usuario.nome || ""
+    };
+    const resultado = await salvarFeedbackComConn(conn, req.body || {}, usuario);
+    res.json(resultado);
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao registrar o feedback." });
   } finally {
     await fecharJdbc(conn);
   }
@@ -1242,6 +1263,10 @@ if (require.main === module) {
 
   garantirTabelaSolicitacoesAcesso().catch(err => {
     console.error("Não foi possível garantir a tabela de solicitações de acesso:", err && err.message ? err.message : err);
+  });
+
+  garantirTabelaFeedbackAssistente().catch(err => {
+    console.error("Não foi possível garantir a tabela de feedback do assistente:", err && err.message ? err.message : err);
   });
 
   garantirTabelaPermissoesModulos().catch(err => {
