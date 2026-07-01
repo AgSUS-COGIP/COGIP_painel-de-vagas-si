@@ -120,6 +120,12 @@
   grid-template-columns: minmax(0, 1.55fr) minmax(360px, .75fr);
 }
 
+/* Leitor não vê o bloco "5. Documentação"; a grade vira coluna única para o
+   bloco "4. Impacto" preencher toda a largura disponível. */
+.remBottomGrid.remBottomGridSemDoc {
+  grid-template-columns: 1fr;
+}
+
 .remTableFinanceira {
   min-width: 0;
   width: 100%;
@@ -180,8 +186,8 @@
   font-weight: 800;
 }
 
-.remGreen { color: #047857; }
-.remRed { color: #b91c1c; }
+.remGreen { color: var(--status-ok); }
+.remRed { color: var(--status-erro); }
 
 /* Em telas intermediárias, a "5. Documentação" (bloco 5) desce para baixo do
    "4. Impacto" (bloco 4), que passa a ocupar a largura toda — assim a tabela
@@ -389,7 +395,7 @@
 .loginErro {
   min-height: 16px;
   text-align: center;
-  color: #c0392b;
+  color: var(--status-perigo);
   font-size: 11px;
   font-weight: 900;
 }

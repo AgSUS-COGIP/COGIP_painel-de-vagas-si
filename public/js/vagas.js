@@ -4,14 +4,177 @@ import { calcularOciosas, calcularPreenchimento } from "./kpis.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, formatNumber, formatPercent, normalizarNomeCargo, setText, soma } from "./utils.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 let configTabelaVagasInicializada = false;
 
+// =========================================================
+// Grades Tabulator das tabelas de Vagas (só colunas)
+// =========================================================
+// As 3 tabelas mantêm o pipeline existente (filtro → modo → busca → ordenação →
+// paginação → TOTAL); só a RENDERIZAÇÃO virou Tabulator com colunas arrastáveis.
+// Como o CONJUNTO de colunas muda conforme o modo (detalhado × agregado), a grade
+// é recriada ao trocar de modo — assim a persistência de largura/ordem é por modo.
+// Ordenação e paginação seguem EXTERNAS (clique no cabeçalho → ordenarTabelaVagas;
+// botões → mudarPaginaVagas): só damos à grade a página atual + a linha TOTAL.
+const gradesVagas = {}; // id -> { grade, modo }
+
+// Marca a coluna ordenada no cabeçalho. O sortKey de cada coluna vem do mapa
+// field→sortKey guardado por grade (não fica na def do Tabulator, que o rejeitaria).
+// A seta é puramente visual; o sort é externo.
+function marcarOrdenacaoVagas(grade) {
+  const tabela = grade && grade.tabela;
+  if (!tabela) return;
+  const entrada = Object.values(gradesVagas).find(g => g.grade === grade);
+  const sortKeys = (entrada && entrada.sortKeys) || {};
+  const { key, direction } = state.vagasSortState || {};
+  try {
+    tabela.getColumns().forEach(col => {
+      const sortKey = sortKeys[col.getField()];
+      const el = col.getElement();
+      if (!el) return;
+      const ativo = !!sortKey && sortKey === key;
+      el.classList.toggle("vagasOrdAsc", ativo && direction === "asc");
+      el.classList.toggle("vagasOrdDesc", ativo && direction === "desc");
+    });
+  } catch { /* ainda construindo */ }
+}
+
+// Coluna ordenável: clique no cabeçalho ordena (externo). `sortKey` (custom) é a
+// chave usada por ordenarTabelaVagas — pode diferir do field exibido (ex.: a
+// distribuição mostra `normalTemporario` mas ordena por `distNormalTemp`).
+function colVagas(title, field, sortKey, formatter, extra) {
+  return { title, field, sortKey, headerClick: () => ordenarTabelaVagas(sortKey), formatter, ...(extra || {}) };
+}
+
+const fmtNumCel = c => formatNumber(c.getValue());
+const fmtPctCel = c => formatPercent(c.getValue());
+const fmtTextoCel = c => escapeHtml(c.getValue() == null ? "" : String(c.getValue()));
+// Vagas Ociosas pode ser negativa (déficit) → realce vermelho como antes.
+const fmtOciosasCel = c => {
+  const v = Number(c.getValue() || 0);
+  return `<span${v < 0 ? ' class="negativo"' : ""}>${formatNumber(v)}</span>`;
+};
+
+// Linha é "Cadastro Reserva" (CR): previsão >= 1, mas sem vaga p/ processo seletivo.
+function ehCadastroReservaRow(row) {
+  return Number(row.quantitativoPlano || 0) >= 1 &&
+    Number(row.normalTemporario || 0) === 0 &&
+    Number(row.contratadosTemporario || 0) === 0 &&
+    Number(row.processoSeletivo || 0) === 0;
+}
+
+// Título da 1ª coluna no modo agregado.
+const tituloPrimeira = () => (state.vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI");
+
+function colunasVagasMain(view) {
+  const num = (t, f) => colVagas(t, f, f, fmtNumCel, { hozAlign: "center", minWidth: 90 });
+  const cols = [];
+  if (view === "detalhado") {
+    cols.push(colVagas("DSEI/CASAI", "dseiCasai", "dseiCasai", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 140 }));
+    cols.push(colVagas("Cargo", "cargo", "cargo", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 160 }));
+  } else {
+    cols.push(colVagas(tituloPrimeira(), "label", "label", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 180 }));
+  }
+  cols.push(num("Vagas previstas", "quantitativoPlano"));
+  cols.push(num("Total de Trabalhadores", "totalTrabalhadores"));
+  cols.push(num("Afastados", "afastados"));
+  cols.push(colVagas("Vagas Ociosas (Déficit Operacional)", "ociosas", "ociosas", fmtOciosasCel, { hozAlign: "center", minWidth: 120, cssClass: "colOciosas" }));
+  cols.push(num("Trabalhadores Normais", "contratadosNormal"));
+  cols.push(num("Substituições", "contratadosSubstituicao"));
+  cols.push(num("Temporárias", "contratadosTemporario"));
+  cols.push(colVagas("% preenchimento", "preenchimento", "preenchimento", fmtPctCel, { hozAlign: "center", minWidth: 90 }));
+  return cols;
+}
+
+function colunasDistribuicao(view) {
+  const cols = [];
+  if (view === "detalhado") {
+    cols.push(colVagas("DSEI/CASAI", "dseiCasai", "dseiCasai", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 140 }));
+    cols.push(colVagas("Cargo", "cargo", "cargo", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 160 }));
+  } else {
+    cols.push(colVagas(tituloPrimeira(), "label", "label", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 200 }));
+  }
+  cols.push(colVagas("Normais/Temporárias", "normalTemporario", "distNormalTemp", fmtNumCel, { hozAlign: "center", minWidth: 120 }));
+  cols.push(colVagas("Afastamento sem substituição", "substituicaoTabela", "distSubstituicao", fmtNumCel, { hozAlign: "center", minWidth: 140 }));
+  cols.push(colVagas("Vagas Ociosas", "vagasOciosas", "distOciosas", fmtNumCel, { hozAlign: "center", minWidth: 110 }));
+  return cols;
+}
+
+function colunasProcesso(view) {
+  const cols = [];
+  if (view === "detalhado") {
+    cols.push(colVagas("DSEI/CASAI", "dseiCasai", "dseiCasai", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 140 }));
+    cols.push(colVagas("Cargo", "cargo", "cargo", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 160 }));
+  } else {
+    cols.push(colVagas(tituloPrimeira(), "label", "label", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 200 }));
+  }
+  cols.push(colVagas("Vagas ociosas", "normalTemporario", "distNormalTemp", fmtNumCel, { hozAlign: "center", minWidth: 110 }));
+  cols.push(colVagas("Temporárias", "contratadosTemporario", "distTemporario", fmtNumCel, { hozAlign: "center", minWidth: 110 }));
+  cols.push(colVagas("Total Processo Seletivo", "processoSeletivo", "distProcessoSeletivo",
+    c => { const r = c.getRow().getData(); return (!r._total && ehCadastroReservaRow(r)) ? "CR" : formatNumber(c.getValue()); },
+    { hozAlign: "center", minWidth: 120 }));
+  return cols;
+}
+
+// Recria a grade ao trocar de modo; senão reaproveita a existente.
+function obterGradeVagas(id, modo, colunas, persistBase) {
+  // Remove o sortKey (uso interno) das defs antes de entregar ao Tabulator — ele
+  // avisaria "Invalid column definition option: sortKey". O clique no cabeçalho não
+  // depende disso (o headerClick já captura o sortKey por closure); guardamos o mapa
+  // field→sortKey só para o indicador de seta (marcarOrdenacaoVagas).
+  const sortKeys = {};
+  const colsLimpas = colunas.map(({ sortKey, ...resto }) => {
+    if (sortKey != null && resto.field != null) sortKeys[resto.field] = sortKey;
+    return resto;
+  });
+
+  let g = gradesVagas[id];
+  if (g && g.modo !== modo) { g.grade.destruir(); g = null; }
+  if (!g) {
+    const grade = criarTabelaArrastavel({
+      elemento: id,
+      colunas: colsLimpas,
+      persistID: `${persistBase}_${modo}`,
+      indexField: "_key",
+      // Arraste de linhas habilitado (reordenação ad-hoc p/ comparar lado a lado).
+      // SEM ordemKey: a ordem é transitória — some ao filtrar/ordenar/paginar/trocar
+      // modo, pois os dados são recalculados (ordenação é por coluna). Persistir a
+      // ordem brigaria com o sort por cabeçalho, então fica só visual.
+      movableRows: true,
+      // fitColumns: as colunas se ajustam à LARGURA DO CONTAINER (cabem todas na
+      // tela já no 1º acesso) e a tabela nunca estica o card para fora — se o
+      // usuário alargar uma coluna além do que cabe, a rolagem é interna.
+      layout: "fitColumns",
+      vazio: "Sem dados para os filtros selecionados.",
+      aoFormatarLinha: row => { if (row.getData()._total) row.getElement().classList.add("vagasTotalRow"); }
+    });
+    g = gradesVagas[id] = { grade, modo, sortKeys };
+  } else {
+    g.sortKeys = sortKeys; // mesmo modo: mantém o mapa atualizado para as setas
+  }
+  return g.grade;
+}
+
+// Chave única por linha (Tabulator usa como index). TOTAL tem chave fixa.
+function chaveLinhaVagas(row) {
+  if (row._total) return "__total__";
+  if (row.label != null) return `L:${row.label}`;
+  return `D:${row.dseiCasai || ""}||${row.cargo || ""}`;
+}
+const comChave = linhas => linhas.map(r => ({ ...r, _key: chaveLinhaVagas(r) }));
+
+// Mensagem de estado (carregando/erro) nas 3 grades. Só a tabela visível tem
+// largura para montar e exibir o placeholder; as ocultas montam ao serem abertas.
+function placeholderVagas(msg) {
+  const view = state.vagasViewAtual;
+  obterGradeVagas("vagasBody", view, colunasVagasMain(view), "vagasMainV2").render([], msg);
+  obterGradeVagas("distribuicaoOciosasBody", view, colunasDistribuicao(view), "vagasDistV2").render([], msg);
+  obterGradeVagas("processoSeletivoBody", view, colunasProcesso(view), "vagasProcV2").render([], msg);
+}
+
 export function renderVagasDaPagina() {
-  const tbody = document.getElementById("vagasBody");
-  const pagination = document.getElementById("vagasPagination");
-  const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
-  const processoSeletivoBody = document.getElementById("processoSeletivoBody");
+  if (!document.getElementById("vagasBody")) return;
 
   // Aplica título/subtítulo/aviso/export da tabela atual no primeiro render, já que
   // alterarTabelaVagas só roda ao clicar numa sub-aba. Sem isto, o aviso da tabela
@@ -23,9 +186,8 @@ export function renderVagasDaPagina() {
   }
 
   if (!pageLoadState.vagas) {
-    if (tbody) tbody.innerHTML = '<tr><td colspan="10">Carregando dados da aba Vagas...</td></tr>';
-    if (distribuicaoBody) distribuicaoBody.innerHTML = '<tr><td colspan="4">Carregando distribuição de vagas ociosas...</td></tr>';
-    if (processoSeletivoBody) processoSeletivoBody.innerHTML = '<tr><td colspan="4">Carregando vagas para processo seletivo...</td></tr>';
+    placeholderVagas("Carregando dados da aba Vagas...");
+    const pagination = document.getElementById("vagasPagination");
     if (pagination) pagination.innerHTML = "";
     return;
   }
@@ -37,12 +199,8 @@ export function renderVagasDaPagina() {
 }
 
 export function renderVagasErro(error) {
-  const tbody = document.getElementById("vagasBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="10">Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
-  const distribuicaoBody = document.getElementById("distribuicaoOciosasBody");
-  if (distribuicaoBody) distribuicaoBody.innerHTML = `<tr><td colspan="4">Erro ao carregar distribuição: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
-  const processoSeletivoBody = document.getElementById("processoSeletivoBody");
-  if (processoSeletivoBody) processoSeletivoBody.innerHTML = `<tr><td colspan="4">Erro ao carregar processo seletivo: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+  if (!document.getElementById("vagasBody")) return;
+  placeholderVagas(`Erro ao carregar Vagas: ${escapeHtml(error && error.message ? error.message : String(error))}`);
 }
 
 export function montarVagas(data) {
@@ -100,6 +258,16 @@ export function alterarTabelaVagas(tabela) {
   if (exp) exp.innerHTML = cfg.exportHtml;
   const aviso = document.getElementById("vagasAvisoDinamico");
   if (aviso) aviso.innerHTML = cfg.avisoHtml;
+
+  // A grade da tabela recém-exibida pode não ter montado enquanto o bloco estava
+  // oculto (Tabulator precisa de largura). Re-renderiza a tabela ativa agora que
+  // ficou visível. (Na 1ª chamada, em renderVagasDaPagina, os dados ainda não
+  // chegaram e o guard abaixo evita render sem dados.)
+  if (pageLoadState.vagas && state.vagasRows) {
+    if (state.vagasTabelaAtual === "vagas") renderVagasTable(state.vagasRows);
+    else if (state.vagasTabelaAtual === "ociosas") renderDistribuicaoVagasOciosas(state.vagasRows);
+    else if (state.vagasTabelaAtual === "processo") renderProcessoSeletivo(state.vagasRows);
+  }
 }
 
 export function atualizarPesquisaVagas(valor) {
@@ -184,91 +352,26 @@ export function montarVagasAgrupadas(rows, campo, labelCampo) {
     .sort((a, b) => String(a.label || "").localeCompare(String(b.label || "")));
 }
 
+// As colunas agora vivem no Tabulator (colunasVagasMain); aqui só mantemos o
+// realce da aba de visualização ativa (DSEI / Cargo / Detalhado).
 export function atualizarCabecalhoVagas() {
-  const header = document.getElementById("vagasHeaderRow");
-  const colgroup = document.getElementById("vagasColGroup");
-
   document.querySelectorAll(".vagasTab").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.vagasView === state.vagasViewAtual);
   });
-
-  if (!header || !colgroup) return;
-
-  const th = (label, key) => {
-    const ativo = state.vagasSortState.key === key;
-    const classe = ativo ? (state.vagasSortState.direction === "asc" ? "sortAsc" : "sortDesc") : "";
-    const extraClasse = key === "ociosas" ? " colOciosasHead" : "";
-    return `<th class="sortable ${classe}${extraClasse}" data-click="ordenar-vagas" data-key="${escapeAttr(key)}">${label}</th>`;
-  };
-
-  if (state.vagasViewAtual === "detalhado") {
-    colgroup.innerHTML = `
-          <col style="width: 13%;">
-          <col style="width: 18%;">
-          <col style="width: 8%;">
-          <col style="width: 10%;">
-          <col style="width: 7%;">
-          <col style="width: 11%;">
-          <col style="width: 9%;">
-          <col style="width: 8%;">
-          <col style="width: 8%;">
-          <col style="width: 8%;">
-        `;
-
-    header.innerHTML = `
-          ${th("DSEI/CASAI", "dseiCasai")}
-          ${th("Cargo", "cargo")}
-          ${th("Vagas previstas", "quantitativoPlano")}
-          ${th("Total de Trabalhadores", "totalTrabalhadores")}
-          ${th("Afastados", "afastados")}
-          ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
-          ${th("Trabalhadores Normais", "contratadosNormal")}
-          ${th("Substituições", "contratadosSubstituicao")}
-          ${th("Temporárias", "contratadosTemporario")}
-          ${th("% preenchimento", "preenchimento")}
-        `;
-    return;
-  }
-
-  const primeiraColuna = state.vagasViewAtual === "dsei" ? "DSEI/CASAI" : "Cargo";
-
-  colgroup.innerHTML = `
-        <col style="width: 22%;">
-        <col style="width: 10%;">
-        <col style="width: 12%;">
-        <col style="width: 8%;">
-        <col style="width: 13%;">
-        <col style="width: 10%;">
-        <col style="width: 9%;">
-        <col style="width: 9%;">
-        <col style="width: 7%;">
-      `;
-
-  header.innerHTML = `
-        ${th(primeiraColuna, "label")}
-        ${th("Vagas previstas", "quantitativoPlano")}
-        ${th("Total de Trabalhadores", "totalTrabalhadores")}
-        ${th("Afastados", "afastados")}
-        ${th("Vagas Ociosas (Déficit Operacional)", "ociosas")}
-        ${th("Trabalhadores Normais", "contratadosNormal")}
-        ${th("Substituições", "contratadosSubstituicao")}
-        ${th("Temporárias", "contratadosTemporario")}
-        ${th("% preenchimento", "preenchimento")}
-      `;
 }
 
 export function renderVagasTable(rows) {
-  const tbody = document.getElementById("vagasBody");
-  const pagination = document.getElementById("vagasPagination");
-  if (!tbody) return;
-
+  if (!document.getElementById("vagasBody")) return;
   atualizarCabecalhoVagas();
 
+  const pagination = document.getElementById("vagasPagination");
+  const view = state.vagasViewAtual;
+  const grade = obterGradeVagas("vagasBody", view, colunasVagasMain(view), "vagasMainV2");
   const linhas = obterRowsVagasPorVisualizacao(rows);
-  const totalColunas = state.vagasViewAtual === "detalhado" ? 10 : 9;
 
   if (!linhas.length) {
-    tbody.innerHTML = `<tr><td colspan="${totalColunas}">Sem dados para os filtros selecionados.</td></tr>`;
+    grade.render([], "Sem dados para os filtros selecionados.");
+    marcarOrdenacaoVagas(grade);
     if (pagination) pagination.innerHTML = "";
     return;
   }
@@ -276,65 +379,29 @@ export function renderVagasTable(rows) {
   const { linhasPagina, resumoPaginacao } = obterPaginaVagas(linhas);
   const totalRow = calcularTotalVagasTabela(linhasPagina);
 
-  if (state.vagasViewAtual === "detalhado") {
-    tbody.innerHTML = linhasPagina.map(row => `
-          <tr>
-            <td>${escapeHtml(row.dseiCasai)}</td>
-            <td>${escapeHtml(row.cargo)}</td>
-            <td>${formatNumber(row.quantitativoPlano)}</td>
-            <td>${formatNumber(row.totalTrabalhadores)}</td>
-            <td>${formatNumber(row.afastados)}</td>
-            <td class="colOciosas ${Number(row.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(row.ociosas)}</td>
-            <td>${formatNumber(row.contratadosNormal)}</td>
-            <td>${formatNumber(row.contratadosSubstituicao)}</td>
-            <td>${formatNumber(row.contratadosTemporario)}</td>
-            <td>${formatPercent(row.preenchimento)}</td>
-          </tr>
-        `).join("") + `
-          <tr class="totalRow">
-            <td>TOTAL</td>
-            <td>${formatNumber(linhasPagina.length)} registro(s)</td>
-            <td>${formatNumber(totalRow.quantitativoPlano)}</td>
-            <td>${formatNumber(totalRow.totalTrabalhadores)}</td>
-            <td>${formatNumber(totalRow.afastados)}</td>
-            <td class="colOciosas ${Number(totalRow.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(totalRow.ociosas)}</td>
-            <td>${formatNumber(totalRow.contratadosNormal)}</td>
-            <td>${formatNumber(totalRow.contratadosSubstituicao)}</td>
-            <td>${formatNumber(totalRow.contratadosTemporario)}</td>
-            <td>${formatPercent(totalRow.preenchimento)}</td>
-          </tr>
-        `;
+  // Linha TOTAL como dado (flag _total): formatters renderizam; a classe
+  // vagasTotalRow (via aoFormatarLinha) dá o visual da linha de total.
+  const totalLinha = { _total: true };
+  if (view === "detalhado") {
+    totalLinha.dseiCasai = "TOTAL";
+    totalLinha.cargo = `${formatNumber(linhasPagina.length)} registro(s)`;
   } else {
-    tbody.innerHTML = linhasPagina.map(row => `
-          <tr>
-            <td>${escapeHtml(row.label)}</td>
-            <td>${formatNumber(row.quantitativoPlano)}</td>
-            <td>${formatNumber(row.totalTrabalhadores)}</td>
-            <td>${formatNumber(row.afastados)}</td>
-            <td class="colOciosas ${Number(row.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(row.ociosas)}</td>
-            <td>${formatNumber(row.contratadosNormal)}</td>
-            <td>${formatNumber(row.contratadosSubstituicao)}</td>
-            <td>${formatNumber(row.contratadosTemporario)}</td>
-            <td>${formatPercent(row.preenchimento)}</td>
-          </tr>
-        `).join("") + `
-          <tr class="totalRow">
-            <td>TOTAL</td>
-            <td>${formatNumber(totalRow.quantitativoPlano)}</td>
-            <td>${formatNumber(totalRow.totalTrabalhadores)}</td>
-            <td>${formatNumber(totalRow.afastados)}</td>
-            <td class="colOciosas ${Number(totalRow.ociosas || 0) < 0 ? "negativo" : ""}">${formatNumber(totalRow.ociosas)}</td>
-            <td>${formatNumber(totalRow.contratadosNormal)}</td>
-            <td>${formatNumber(totalRow.contratadosSubstituicao)}</td>
-            <td>${formatNumber(totalRow.contratadosTemporario)}</td>
-            <td>${formatPercent(totalRow.preenchimento)}</td>
-          </tr>
-        `;
+    totalLinha.label = "TOTAL";
   }
+  Object.assign(totalLinha, {
+    quantitativoPlano: totalRow.quantitativoPlano,
+    totalTrabalhadores: totalRow.totalTrabalhadores,
+    afastados: totalRow.afastados,
+    ociosas: totalRow.ociosas,
+    contratadosNormal: totalRow.contratadosNormal,
+    contratadosSubstituicao: totalRow.contratadosSubstituicao,
+    contratadosTemporario: totalRow.contratadosTemporario,
+    preenchimento: totalRow.preenchimento
+  });
 
-  if (pagination) {
-    pagination.innerHTML = resumoPaginacao;
-  }
+  grade.render(comChave([...linhasPagina, totalLinha]));
+  marcarOrdenacaoVagas(grade);
+  if (pagination) pagination.innerHTML = resumoPaginacao;
 }
 
 export function calcularTotalVagasTabela(linhas) {
@@ -362,58 +429,15 @@ export function calcularTotalVagasTabela(linhas) {
   return total;
 }
 
-// Cabeçalho ordenável das tabelas de Vagas (reaproveita o mesmo estado/ação
-// "ordenar-vagas" da tabela principal, pois só uma é exibida por vez).
-function thOrdVagas(label, key, extra = "") {
-  const ativo = state.vagasSortState.key === key;
-  const dir = ativo ? (state.vagasSortState.direction === "asc" ? "sortAsc" : "sortDesc") : "";
-  const classes = `sortable ${dir}${extra ? " " + extra : ""}`.replace(/\s+/g, " ").trim();
-  return `<th class="${classes}" data-click="ordenar-vagas" data-key="${escapeAttr(key)}">${label}</th>`;
-}
-
+// Colunas no Tabulator (colunasDistribuicao); aqui só atualizamos a descrição.
 export function atualizarCabecalhoDistribuicaoVagasOciosas() {
-  const header = document.getElementById("distribuicaoHeaderRow");
-  const colgroup = document.getElementById("distribuicaoColGroup");
   const descricao = document.getElementById("distribuicaoDescricao");
-  if (!header || !colgroup) return;
-
-  if (state.vagasViewAtual === "detalhado") {
-    colgroup.innerHTML = `
-          <col style="width: 24%;">
-          <col style="width: 28%;">
-          <col style="width: 16%;">
-          <col style="width: 16%;">
-          <col style="width: 16%;">
-        `;
-    header.innerHTML = `
-          ${thOrdVagas("DSEI/CASAI", "dseiCasai")}
-          ${thOrdVagas("Cargo", "cargo")}
-          ${thOrdVagas("Normais/Temporárias", "distNormalTemp")}
-          ${thOrdVagas("Afastamento sem substituição", "distSubstituicao")}
-          ${thOrdVagas("Vagas Ociosas", "distOciosas")}
-        `;
-    if (descricao) descricao.textContent = "Composição das vagas ociosas por DSEI/CASAI e cargo nos filtros selecionados.";
-    return;
-  }
-
-  const primeiraColuna = state.vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
-  colgroup.innerHTML = `
-        <col style="width: 40%;">
-        <col style="width: 20%;">
-        <col style="width: 20%;">
-        <col style="width: 20%;">
-      `;
-  header.innerHTML = `
-        ${thOrdVagas(primeiraColuna, "label")}
-        ${thOrdVagas("Normais/Temporárias", "distNormalTemp")}
-        ${thOrdVagas("Afastamento sem substituição", "distSubstituicao")}
-        ${thOrdVagas("Vagas Ociosas", "distOciosas")}
-      `;
-  if (descricao) {
-    descricao.textContent = state.vagasViewAtual === "cargo"
+  if (!descricao) return;
+  descricao.textContent = state.vagasViewAtual === "detalhado"
+    ? "Composição das vagas ociosas por DSEI/CASAI e cargo nos filtros selecionados."
+    : state.vagasViewAtual === "cargo"
       ? "Composição das vagas ociosas por cargo nos filtros selecionados."
       : "Composição das vagas ociosas por DSEI/CASAI nos filtros selecionados.";
-  }
 }
 
 export function filtrarCargosProcessoSeletivo(rows) {
@@ -532,23 +556,25 @@ export function montarDistribuicaoVagasOciosas(rows) {
 }
 
 export function renderDistribuicaoVagasOciosas(rows) {
-  const tbody = document.getElementById("distribuicaoOciosasBody");
-  if (!tbody) return;
+  if (!document.getElementById("distribuicaoOciosasBody")) return;
 
   // Unifica os cargos (ART) com o cargo base antes de agrupar/paginar.
   rows = unificarCargosArt(rows);
 
   atualizarCabecalhoDistribuicaoVagasOciosas();
   renderPaginacaoTabela("distribuicaoPagination", rows);
+
+  const view = state.vagasViewAtual;
+  const grade = obterGradeVagas("distribuicaoOciosasBody", view, colunasDistribuicao(view), "vagasDistV2");
   const linhas = montarDistribuicaoVagasOciosas(rows).filter(item => {
     return Number(item.vagasOciosas || 0) !== 0 ||
       Number(item.substituicaoTabela || 0) !== 0 ||
       Number(item.normalTemporario || 0) !== 0;
   });
 
-  const totalColunas = state.vagasViewAtual === "detalhado" ? 5 : 4;
   if (!linhas.length) {
-    tbody.innerHTML = `<tr><td colspan="${totalColunas}" class="remanejamentoEmpty">Sem dados para os filtros selecionados.</td></tr>`;
+    grade.render([], "Sem dados para os filtros selecionados.");
+    marcarOrdenacaoVagas(grade);
     return;
   }
 
@@ -559,101 +585,40 @@ export function renderDistribuicaoVagasOciosas(rows) {
     return acc;
   }, { vagasOciosas: 0, substituicaoTabela: 0, normalTemporario: 0 });
 
-  if (state.vagasViewAtual === "detalhado") {
-    tbody.innerHTML = linhas.map(row => `
-          <tr>
-            <td>${escapeHtml(row.dseiCasai)}</td>
-            <td>${escapeHtml(row.cargo)}</td>
-            <td>${formatNumber(row.normalTemporario)}</td>
-            <td>${formatNumber(row.substituicaoTabela)}</td>
-            <td>${formatNumber(row.vagasOciosas)}</td>
-          </tr>
-        `).join("") + `
-          <tr class="totalRow">
-            <td colspan="2">TOTAL</td>
-            <td>${formatNumber(total.normalTemporario)}</td>
-            <td>${formatNumber(total.substituicaoTabela)}</td>
-            <td>${formatNumber(total.vagasOciosas)}</td>
-          </tr>
-        `;
-    return;
-  }
+  const totalLinha = { _total: true, ...total };
+  if (view === "detalhado") { totalLinha.dseiCasai = "TOTAL"; totalLinha.cargo = ""; }
+  else totalLinha.label = "TOTAL";
 
-  tbody.innerHTML = linhas.map(row => `
-        <tr>
-          <td>${escapeHtml(row.label)}</td>
-          <td>${formatNumber(row.normalTemporario)}</td>
-          <td>${formatNumber(row.substituicaoTabela)}</td>
-          <td>${formatNumber(row.vagasOciosas)}</td>
-        </tr>
-      `).join("") + `
-        <tr class="totalRow">
-          <td>TOTAL</td>
-          <td>${formatNumber(total.normalTemporario)}</td>
-          <td>${formatNumber(total.substituicaoTabela)}</td>
-          <td>${formatNumber(total.vagasOciosas)}</td>
-        </tr>
-      `;
+  grade.render(comChave([...linhas, totalLinha]));
+  marcarOrdenacaoVagas(grade);
 }
 
+// Colunas no Tabulator (colunasProcesso); aqui só atualizamos a descrição.
 export function atualizarCabecalhoProcessoSeletivo() {
-  const header = document.getElementById("processoSeletivoHeaderRow");
-  const colgroup = document.getElementById("processoSeletivoColGroup");
   const descricao = document.getElementById("processoSeletivoDescricao");
-  if (!header || !colgroup) return;
-
-  if (state.vagasViewAtual === "detalhado") {
-    colgroup.innerHTML = `
-          <col style="width: 24%;">
-          <col style="width: 28%;">
-          <col style="width: 16%;">
-          <col style="width: 16%;">
-          <col style="width: 16%;">
-        `;
-    header.innerHTML = `
-          ${thOrdVagas("DSEI/CASAI", "dseiCasai")}
-          ${thOrdVagas("Cargo", "cargo")}
-          ${thOrdVagas("Normais", "distNormalTemp")}
-          ${thOrdVagas("Temporárias", "distTemporario")}
-          ${thOrdVagas("Total Processo Seletivo", "distProcessoSeletivo")}
-        `;
-    if (descricao) descricao.textContent = "Vagas para processo seletivo por DSEI/CASAI e cargo nos filtros selecionados.";
-    return;
-  }
-
-  const primeiraColuna = state.vagasViewAtual === "cargo" ? "Cargo" : "DSEI/CASAI";
-  colgroup.innerHTML = `
-        <col style="width: 40%;">
-        <col style="width: 20%;">
-        <col style="width: 20%;">
-        <col style="width: 20%;">
-      `;
-  header.innerHTML = `
-        ${thOrdVagas(primeiraColuna, "label")}
-        ${thOrdVagas("Normais", "distNormalTemp")}
-        ${thOrdVagas("Temporárias", "distTemporario")}
-        ${thOrdVagas("Total Processo Seletivo", "distProcessoSeletivo")}
-      `;
-  if (descricao) {
-    descricao.textContent = state.vagasViewAtual === "cargo"
-      ? "Normais somadas às temporárias (total para processo seletivo) por cargo."
-      : "Normais somadas às temporárias (total para processo seletivo) por DSEI/CASAI.";
-  }
+  if (!descricao) return;
+  descricao.textContent = state.vagasViewAtual === "detalhado"
+    ? "Vagas para processo seletivo por DSEI/CASAI e cargo nos filtros selecionados."
+    : state.vagasViewAtual === "cargo"
+      ? "Vagas ociosas somadas às temporárias (total para processo seletivo) por cargo."
+      : "Vagas ociosas somadas às temporárias (total para processo seletivo) por DSEI/CASAI.";
 }
 
 export function renderProcessoSeletivo(rows) {
-  const tbody = document.getElementById("processoSeletivoBody");
-  if (!tbody) return;
+  if (!document.getElementById("processoSeletivoBody")) return;
 
   // Unifica os cargos (ART) com o cargo base antes de agrupar/paginar.
   rows = unificarCargosArt(rows);
 
   atualizarCabecalhoProcessoSeletivo();
   renderPaginacaoTabela("processoSeletivoPagination", rows);
+
+  const view = state.vagasViewAtual;
+  const grade = obterGradeVagas("processoSeletivoBody", view, colunasProcesso(view), "vagasProcV2");
   // Mantém as linhas com movimento de processo seletivo E, também, as que têm
   // previsão de pelo menos 1 vaga no DSEI mas sem vaga ociosa (cargo totalmente
   // preenchido). Estas últimas entram com 0 nas colunas e "CR" (Cadastro Reserva)
-  // na coluna "Total Processo Seletivo".
+  // na coluna "Total Processo Seletivo" (formatter da coluna trata o "CR").
   const linhas = montarDistribuicaoVagasOciosas(filtrarCargosProcessoSeletivo(rows)).filter(item => {
     return Number(item.normalTemporario || 0) !== 0 ||
       Number(item.contratadosTemporario || 0) !== 0 ||
@@ -661,17 +626,9 @@ export function renderProcessoSeletivo(rows) {
       Number(item.quantitativoPlano || 0) >= 1;
   });
 
-  // Uma linha é "Cadastro Reserva" (CR) quando tem previsão (>= 1) mas nenhuma
-  // vaga para processo seletivo (sem ociosas e sem temporárias).
-  const ehCadastroReserva = row => Number(row.quantitativoPlano || 0) >= 1 &&
-    Number(row.normalTemporario || 0) === 0 &&
-    Number(row.contratadosTemporario || 0) === 0 &&
-    Number(row.processoSeletivo || 0) === 0;
-  const celulaTotalProcessoSeletivo = row => ehCadastroReserva(row) ? "CR" : formatNumber(row.processoSeletivo);
-
-  const totalColunas = state.vagasViewAtual === "detalhado" ? 5 : 4;
   if (!linhas.length) {
-    tbody.innerHTML = `<tr><td colspan="${totalColunas}" class="remanejamentoEmpty">Sem dados para os filtros selecionados.</td></tr>`;
+    grade.render([], "Sem dados para os filtros selecionados.");
+    marcarOrdenacaoVagas(grade);
     return;
   }
 
@@ -682,41 +639,12 @@ export function renderProcessoSeletivo(rows) {
     return acc;
   }, { normalTemporario: 0, contratadosTemporario: 0, processoSeletivo: 0 });
 
-  if (state.vagasViewAtual === "detalhado") {
-    tbody.innerHTML = linhas.map(row => `
-          <tr>
-            <td>${escapeHtml(row.dseiCasai)}</td>
-            <td>${escapeHtml(row.cargo)}</td>
-            <td>${formatNumber(row.normalTemporario)}</td>
-            <td>${formatNumber(row.contratadosTemporario)}</td>
-            <td>${celulaTotalProcessoSeletivo(row)}</td>
-          </tr>
-        `).join("") + `
-          <tr class="totalRow">
-            <td colspan="2">TOTAL</td>
-            <td>${formatNumber(total.normalTemporario)}</td>
-            <td>${formatNumber(total.contratadosTemporario)}</td>
-            <td>${formatNumber(total.processoSeletivo)}</td>
-          </tr>
-        `;
-    return;
-  }
+  const totalLinha = { _total: true, ...total };
+  if (view === "detalhado") { totalLinha.dseiCasai = "TOTAL"; totalLinha.cargo = ""; }
+  else totalLinha.label = "TOTAL";
 
-  tbody.innerHTML = linhas.map(row => `
-        <tr>
-          <td>${escapeHtml(row.label)}</td>
-          <td>${formatNumber(row.normalTemporario)}</td>
-          <td>${formatNumber(row.contratadosTemporario)}</td>
-          <td>${celulaTotalProcessoSeletivo(row)}</td>
-        </tr>
-      `).join("") + `
-        <tr class="totalRow">
-          <td>TOTAL</td>
-          <td>${formatNumber(total.normalTemporario)}</td>
-          <td>${formatNumber(total.contratadosTemporario)}</td>
-          <td>${formatNumber(total.processoSeletivo)}</td>
-        </tr>
-      `;
+  grade.render(comChave([...linhas, totalLinha]));
+  marcarOrdenacaoVagas(grade);
 }
 
 export function mudarPaginaVagas(delta) {
@@ -821,16 +749,4 @@ export function linhaVagasZerada(row) {
     row.contratadosSubstituicao,
     row.contratadosTemporario
   ].every(valor => Number(valor || 0) === 0);
-}
-
-export function montarComposicaoOciosas(row) {
-  return `
-        <div class="composicaoOciosas">
-          <div><strong>Vagas normais:</strong> ${formatNumber(row.quantitativoPlano)}</div>
-          <div><strong>Substituições:</strong> ${formatNumber(row.contratadosSubstituicao)}</div>
-          <div><strong>Temporárias:</strong> ${formatNumber(row.contratadosTemporario)}</div>
-          <div><strong>Afastados:</strong> ${formatNumber(row.afastados)}</div>
-          <div><strong>Saldo atual:</strong> ${formatNumber(row.ociosas)}</div>
-        </div>
-      `;
 }

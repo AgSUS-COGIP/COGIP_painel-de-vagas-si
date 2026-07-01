@@ -6,7 +6,7 @@
 // é persistida no banco via API e o registro afetado é recarregado.
 // Obs.: por padrão do painel, as pessoas são sempre "trabalhadores".
 // =========================================================
-import { escapeHtml, escapeAttr, debounce, safeUrl } from "./utils.js";
+import { escapeHtml, escapeAttr, debounce, safeUrl, isoParaDataBr, dataBrParaIso as brParaIso, dataBrParaDate as dataBr } from "./utils.js";
 import { criarToast, preencherSelect } from "./ui-utils.js";
 import { state } from "./state.js";
 import { apiGet, apiPost, authHeaders } from "./api.js";
@@ -226,15 +226,9 @@ function preencherFiltros() {
   preencherSelect("gdFiltroStatus", unicos("status"), "Todos os Status");
 }
 
-// Popula a lista de autocompletar de DSEIs do formulário (a de trabalhadores é
-// preenchida dinamicamente pela busca no backend — ver buscarTrabalhadores).
-function preencherDatalists() {
-  const dseis = $("gdListaDseis");
-  if (dseis) {
-    const lista = [...new Set(REGISTROS.map(r => r.dsei).filter(v => v && v !== "—"))];
-    dseis.innerHTML = lista.map(v => `<option value="${escapeHtml(v)}">`).join("");
-  }
-}
+// (Autocomplete de DSEI/CASAI removido do formulário a pedido — o campo agora é
+// texto livre, sem datalist. Função mantida vazia para não quebrar as chamadas.)
+function preencherDatalists() {}
 
 // ---------- Delegação de responsável (somente administradores) ----------
 // Lista de administradores ativos aptos a editar/assumir processos. É buscada
@@ -279,12 +273,8 @@ function preencherSelectResponsavel() {
   if (atual && ADMINS_DELEGAVEIS.some(a => a.login === atual)) sel.value = atual;
 }
 
-// Converte "dd/mm/aaaa" para Date (para comparar com os inputs de data).
-function dataBr(str) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(str || "").trim());
-  if (!m) return null;
-  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-}
+// dataBr (dd/mm/aaaa -> Date) e brParaIso (dd/mm/aaaa -> aaaa-mm-dd) vêm de
+// utils.js (dataBrParaDate / dataBrParaIso).
 
 // Filtro rápido "processos em que eu sou o responsável".
 let filtroMeusProcessos = false;
@@ -313,37 +303,177 @@ function registrosFiltrados() {
   });
 }
 
-// ---------- Renderização da tabela ----------
+// ---------- Renderização da tabela (Tabulator) ----------
 let pedidoSelecionadoId = null; // id único do pedido selecionado (não o nº de processo, que pode repetir)
 // Edição inline dos dados-base do pedido no próprio detalhamento (botão "Alterar").
 let editandoDados = false;
 
+// Instância única do Tabulator (criada na 1ª renderização, com a aba já visível).
+let tabela = null;
+
+// Persistência da ORDEM DAS LINHAS arrastadas. O Tabulator já persiste sozinho a
+// ordem/largura das COLUNAS (opção `persistence`), mas não a de linhas movidas à
+// mão — por isso guardamos aqui a sequência de ids no localStorage.
+const LS_ORDEM_LINHAS = "gdOrdemLinhas";
+
+function ordemLinhasSalva() {
+  try { return JSON.parse(localStorage.getItem(LS_ORDEM_LINHAS)) || []; }
+  catch { return []; }
+}
+
+function salvarOrdemLinhas(ids) {
+  try { localStorage.setItem(LS_ORDEM_LINHAS, JSON.stringify(ids)); }
+  catch { /* localStorage indisponível: a ordem vale só nesta sessão */ }
+}
+
+// Dicas de onboarding sobre arrastar colunas/linhas. Cada balão é dispensado e
+// lembrado de forma INDEPENDENTE. A chave é GENÉRICA por tipo de dica (não por
+// tabela): assim, quando as mesmas dicas forem para outras grades Tabulator,
+// elas já contarão como vistas e não reaparecerão. Tipos: "colunas" | "linhas".
+const chaveCoach = tipo => `coachReordenar:${tipo}`;
+
+function coachVisto(tipo) {
+  try { return localStorage.getItem(chaveCoach(tipo)) === "1"; }
+  catch { return false; }
+}
+
+// Mostra cada balão ainda não visto; esconde o overlay se todos já foram vistos.
+function mostrarCoachmarks() {
+  const coach = $("gdCoach");
+  if (!coach) return;
+  let algumVisivel = false;
+  coach.querySelectorAll("[data-coach]").forEach(balao => {
+    const visto = coachVisto(balao.dataset.coach);
+    balao.hidden = visto;
+    if (!visto) algumVisivel = true;
+  });
+  coach.hidden = !algumVisivel;
+}
+
+// Dispensa um balão específico (e o lembra); some o overlay quando nenhum sobra.
+function fecharCoach(tipo) {
+  try { localStorage.setItem(chaveCoach(tipo), "1"); } catch { /* só nesta sessão */ }
+  const coach = $("gdCoach");
+  const balao = coach?.querySelector(`[data-coach="${tipo}"]`);
+  if (balao) balao.hidden = true;
+  if (coach && !coach.querySelector("[data-coach]:not([hidden])")) coach.hidden = true;
+}
+
+// Reordena as linhas conforme a preferência salva; ids ainda sem posição (pedidos
+// novos) vão para o fim, mantendo a ordem natural entre si.
+function ordenarPorPreferencia(linhas) {
+  const ordem = ordemLinhasSalva();
+  if (!ordem.length) return linhas;
+  const pos = new Map(ordem.map((id, i) => [id, i]));
+  return linhas
+    .map((r, i) => [r, pos.has(r.id) ? pos.get(r.id) : ordem.length + i])
+    .sort((a, b) => a[1] - b[1])
+    .map(([r]) => r);
+}
+
+// Definição das colunas. As de status/atendimento e a do nº de processo (ícone de
+// aviso) usam formatador HTML — sempre escapando o texto dinâmico. As demais usam
+// o formatador padrão do Tabulator, que insere o valor como texto (já escapado).
+const COLUNAS_GD = [
+  { title: "Dias Pendentes", field: "_dias", hozAlign: "center", headerHozAlign: "center" },
+  {
+    title: "Nº Processo SEI", field: "processo", widthGrow: 2,
+    formatter: cell => {
+      const r = cell.getData();
+      const aviso = r.foraDoPrazo
+        ? `<i class="fa-solid fa-triangle-exclamation gdAvisoPrazo" title="Solicitação pelo DSEI fora do prazo"></i> `
+        : "";
+      return aviso + escapeHtml(r.processo);
+    }
+  },
+  { title: "DSEI", field: "dsei" },
+  { title: "Trabalhador", field: "trabalhador", widthGrow: 2 },
+  { title: "Cargo", field: "cargo" },
+  { title: "Polo Base / CASAI", field: "polo" },
+  { title: "Data da Ocorrência", field: "ocorrencia" },
+  { title: "Pedido", field: "pedido" },
+  { title: "Status da Demanda", field: "status", widthGrow: 3, formatter: cell => badge(cell.getValue(), BADGE_STATUS) },
+  { title: "Atendimento", field: "atendimento", formatter: cell => badge(cell.getValue(), BADGE_ATENDIMENTO) },
+  { title: "Decisão", field: "_decisao" },
+  { title: "Data de Aplicação da Sanção", field: "dataSancao" },
+  { title: "Data do Pedido", field: "dataPedido" },
+  { title: "Responsável", field: "responsavel", hozAlign: "center", headerHozAlign: "center" },
+];
+
+// Array de dados do Tabulator: registros filtrados + ordem preferida do usuário,
+// com os campos calculados (dias pendentes, decisão, responsável "—").
+function dadosTabela() {
+  return ordenarPorPreferencia(registrosFiltrados()).map(r => ({
+    ...r,
+    _dias: diasPendentesLabel(r),
+    _decisao: tipoSancaoDisplay(r),
+    responsavel: r.responsavel || "—",
+  }));
+}
+
+// Marca visualmente (sem re-render completo) a linha do pedido selecionado.
+function marcarLinhaSelecionada() {
+  if (!tabela) return;
+  try {
+    tabela.getRows().forEach(row =>
+      row.getElement().classList.toggle("gd-selected", row.getData().id === pedidoSelecionadoId));
+  } catch { /* tabela ainda não construída */ }
+}
+
+function criarTabela() {
+  const el = $("gdTabela");
+  if (!el || !window.Tabulator) return;
+  // Não montar com a aba oculta: sem largura visível o Tabulator mede as colunas
+  // errado e a persistência gravaria larguras quebradas. Tenta de novo no próximo
+  // render (ao abrir a aba), quando o container já tem largura.
+  if (!el.clientWidth) return;
+  tabela = new window.Tabulator(el, {
+    data: dadosTabela(),
+    index: "id",
+    maxHeight: "480px",         // cresce com o conteúdo e rola ao atingir o limite (vazia = tamanho mínimo)
+    layout: "fitDataStretch",   // larguras próprias; última coluna estica p/ preencher (sem vão) e rola quando passa do container
+    columnDefaults: { minWidth: 90 },
+    headerSort: false,          // sem ordenação por cabeçalho: não conflita com mover linhas
+    movableColumns: true,
+    movableRows: true,
+    persistence: { columns: true }, // ordem/largura/visibilidade das colunas (localStorage)
+    persistenceID: "gdPedidosV2",   // V2: descarta o layout corrompido salvo antes do CSS carregar
+    placeholder: "Nenhum registro para os filtros selecionados.",
+    columns: COLUNAS_GD,
+    rowFormatter: row =>
+      row.getElement().classList.toggle("gd-selected", row.getData().id === pedidoSelecionadoId),
+  });
+
+  // Clique na linha abre o detalhamento (arrastar para mover NÃO dispara clique).
+  tabela.on("rowClick", (e, row) => {
+    const id = row.getData().id;
+    if (id !== pedidoSelecionadoId) editandoDados = false;
+    renderDetalhe(id);
+  });
+
+  // Ao mover uma linha, grava a nova ordem (ids) para lembrar entre sessões.
+  tabela.on("rowMoved", () => {
+    salvarOrdemLinhas(tabela.getRows().map(row => row.getData().id));
+  });
+
+  // Quebra de texto: o texto quebra via CSS (white-space:normal); a ALTURA da
+  // linha é recalculada só ao SOLTAR o redimensionamento da coluna (columnResized
+  // dispara no mouseup), evitando o custo contínuo do variableHeight.
+  tabela.on("columnResized", () => { try { tabela.redraw(true); } catch { /* construindo */ } });
+
+  // Com a grade já montada (cabeçalho posicionado), exibe a dica de uso 1x.
+  tabela.on("tableBuilt", mostrarCoachmarks);
+}
+
 function renderTabela() {
-  const body = $("gdTableBody");
   const info = $("gdTableInfo");
-  if (!body) return;
   const linhas = registrosFiltrados();
-
-  body.innerHTML = linhas.map(r => `
-    <tr class="gdRow${r.id === pedidoSelecionadoId ? " is-selected" : ""}" data-gd-id="${r.id}">
-      <td class="gfTd-center">${diasPendentesLabel(r)}</td>
-      <td>${r.foraDoPrazo ? `<i class="fa-solid fa-triangle-exclamation gdAvisoPrazo" title="Solicitação pelo DSEI fora do prazo"></i> ` : ""}${escapeHtml(r.processo)}</td>
-      <td>${escapeHtml(r.dsei)}</td>
-      <td>${escapeHtml(r.trabalhador)}</td>
-      <td>${escapeHtml(r.cargo)}</td>
-      <td>${escapeHtml(r.polo)}</td>
-      <td>${escapeHtml(r.ocorrencia)}</td>
-      <td>${escapeHtml(r.pedido)}</td>
-      <td>${badge(r.status, BADGE_STATUS)}</td>
-      <td>${badge(r.atendimento, BADGE_ATENDIMENTO)}</td>
-      <td>${escapeHtml(tipoSancaoDisplay(r))}</td>
-      <td>${escapeHtml(r.dataSancao)}</td>
-      <td>${escapeHtml(r.dataPedido)}</td>
-      <td>${escapeHtml(r.responsavel || "—")}</td>
-    </tr>`).join("") ||
-    `<tr><td colspan="14" class="gfTd-center">Nenhum registro para os filtros selecionados.</td></tr>`;
-
   if (info) info.textContent = `Mostrando ${linhas.length} de ${REGISTROS.length} pedidos`;
+
+  if (!tabela) { criarTabela(); return; }
+  Promise.resolve(tabela.replaceData(dadosTabela()))
+    .then(marcarLinhaSelecionada)
+    .catch(() => { /* tabela em construção: o build inicial já traz os dados */ });
 }
 
 // ---------- Detalhamento do registro selecionado ----------
@@ -351,11 +481,6 @@ function kv(rotulo, valor) {
   return `<div class="gdKv"><span>${escapeHtml(rotulo)}</span><strong>${escapeHtml(valor || "—")}</strong></div>`;
 }
 
-// "dd/mm/aaaa" -> "aaaa-mm-dd" (para preencher <input type="date">). Vazio se não casar.
-function brParaIso(valor) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(valor || "").trim());
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
-}
 
 // <select> de edição em linha; garante que o valor atual esteja entre as opções.
 function gdSelect(campo, valor, opcoes) {
@@ -431,6 +556,21 @@ function renderDetalhe(id) {
   const podeEditar = podeEditarGestaoDisciplinar(r);
   const sancaoLiberada = podeEditar && pedidoConcluido(r);
 
+  // Cada seção do detalhamento escreve no seu próprio nó e foi extraída para uma
+  // função dedicada — renderDetalhe orquestra, sem ser uma função-monólito.
+  renderDetalheTitulo(r, podeEditar);
+  renderDetalheDados(r, podeEditar);
+  renderDetalheStatus(r, podeEditar);
+  renderDetalheSancao(r, sancaoLiberada);
+  renderDetalheAnexos(r);
+
+  // Reflete a seleção na tabela.
+  document.querySelectorAll(".gdRow").forEach(tr => {
+    tr.classList.toggle("is-selected", Number(tr.dataset.gdId) === r.id);
+  });
+}
+
+function renderDetalheTitulo(r, podeEditar) {
   const titulo = $("gdDetTitulo");
   if (titulo) {
     const meuLogin = loginResponsavel();
@@ -460,12 +600,14 @@ function renderDetalhe(id) {
       <span class="gdDetTituloTxt">${escapeHtml(r.processo)} — ${escapeHtml(r.trabalhador)} ${badge(r.statusAtual, BADGE_STATUS)}</span>
       <span class="gdDetTituloAcoes">
         ${respLabel}
-        ${botaoAlterar}
         ${botaoAssumir}
+        ${botaoAlterar}
         ${botaoExcluir}
       </span>`;
   }
+}
 
+function renderDetalheDados(r, podeEditar) {
   const dados = $("gdDetDados");
   if (dados) {
     const avisoPrazo = r.foraDoPrazo
@@ -513,7 +655,9 @@ function renderDetalhe(id) {
         `<div class="gdResumo"><span>Resumo do processo</span><p>${escapeHtml(r.resumo)}</p></div>`;
     }
   }
+}
 
+function renderDetalheStatus(r, podeEditar) {
   const statusBox = $("gdDetStatus");
   if (statusBox) {
     const idxFase = STATUS_FASES.indexOf(r.statusAtual);
@@ -565,7 +709,9 @@ function renderDetalhe(id) {
       kv("Data do pedido", r.dataPedido) +
       campoEditavel("Observações", "observacoesStatus", r.observacoesStatus, podeEditar);
   }
+}
 
+function renderDetalheSancao(r, sancaoLiberada) {
   const sancao = $("gdDetSancao");
   if (sancao) {
     const comprovanteChip = r.comprovante
@@ -595,7 +741,9 @@ function renderDetalhe(id) {
       comprovanteUpload +
       campoEditavel("Descrição da sanção aplicada", "observacoesSancao", r.observacoesSancao, sancaoLiberada);
   }
+}
 
+function renderDetalheAnexos(r) {
   const anexos = $("gdDetAnexos");
   if (anexos) {
     const podeGerenciar = podeGerenciarAnexos(r);
@@ -625,20 +773,25 @@ function renderDetalhe(id) {
     anexos.innerHTML = (lista || `<div class="gdKv"><span>Anexos</span><strong>—</strong></div>`) + addCtrl;
   }
 
-  // Reflete a seleção na tabela.
-  document.querySelectorAll(".gdRow").forEach(tr => {
-    tr.classList.toggle("is-selected", Number(tr.dataset.gdId) === r.id);
-  });
+  // Reflete a seleção na tabela (Tabulator).
+  marcarLinhaSelecionada();
 }
 
 // ---------- Carga e sincronização com o backend ----------
+// Guarda contra cargas concorrentes (ex.: cliques repetidos na aba).
+let carregandoPedidos = false;
+
 async function carregarPedidos() {
+  if (carregandoPedidos) return;
+  carregandoPedidos = true;
   try {
     const dados = await apiGet("/api/disciplinar");
     REGISTROS = Array.isArray(dados.pedidos) ? dados.pedidos : [];
   } catch (e) {
     REGISTROS = [];
     gdToast(e && e.message ? e.message : "Não foi possível carregar os pedidos disciplinares.", "erro");
+  } finally {
+    carregandoPedidos = false;
   }
   if (!REGISTROS.some(r => r.id === pedidoSelecionadoId)) {
     pedidoSelecionadoId = REGISTROS[0] ? REGISTROS[0].id : null;
@@ -1208,11 +1361,8 @@ function setupComboTrabalhador() {
   atualizarTrabTrigger();
 }
 
-// Converte "aaaa-mm-dd" (input date) para "dd/mm/aaaa".
-function dataParaBr(valor) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(valor || "").trim());
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
-}
+// "aaaa-mm-dd" (input date) -> "dd/mm/aaaa"; "—" quando vazio/inválido (placeholder de tabela).
+const dataParaBr = (valor) => isoParaDataBr(valor, "—");
 
 // ---------- Anexos do novo pedido (preparados no formulário) ----------
 // Como o pedido ainda não existe, os arquivos ficam "em espera" e são enviados
@@ -1370,7 +1520,20 @@ export function configurarGestaoDisciplinar() {
   gestaoDisciplinarConfigurada = true;
 
   aplicarVisibilidadeCardsDisciplinar();
-  carregarPedidos();
+
+  // Carregamento sob demanda: busca os pedidos ao ABRIR a aba (recarregando a
+  // cada abertura, para refletir mudanças feitas por outro admin/ETL). NÃO pode
+  // ser eager no init(): configurarGestaoDisciplinar() roda ANTES de
+  // verificarSessaoInicial(), então no 1º login a sessão ainda não existe e o
+  // GET /api/disciplinar volta vazio (antes exigia recarregar a página). Mesmo
+  // padrão da Entrega de Crachá.
+  const navItem = document.querySelector('.navItem[data-view="gestaoDisciplinar"]');
+  if (navItem) navItem.addEventListener("click", () => {
+    if (!carregandoPedidos) carregarPedidos();
+    // Recalcula o layout caso a tabela tenha sido construída com a aba oculta.
+    if (tabela) tabela.redraw(true);
+  });
+  if (state.activeView === "gestaoDisciplinar") carregarPedidos();
 
   // Filtros reagem na hora.
   ["gdFiltroDsei", "gdFiltroStatus"].forEach(id => $(id)?.addEventListener("change", renderTabela));
@@ -1379,6 +1542,12 @@ export function configurarGestaoDisciplinar() {
 
   $("gdBtnLimpar")?.addEventListener("click", limparFiltros);
   $("gdBtnNovo")?.addEventListener("click", abrirFormulario);
+
+  // Dispensa cada dica pelo botão "Entendi" do próprio balão (individual).
+  $("gdCoach")?.addEventListener("click", event => {
+    const btn = event.target.closest("[data-coach-fechar]");
+    if (btn) fecharCoach(btn.dataset.coachFechar);
+  });
 
   // Recolher/expandir a barra de filtros.
   $("gdBtnToggleFiltros")?.addEventListener("click", () => {
@@ -1443,24 +1612,12 @@ export function configurarGestaoDisciplinar() {
 
     const anexoExcluir = event.target.closest("[data-gd-anexo-excluir]");
     if (anexoExcluir) { excluirAnexo(anexoExcluir.dataset.gdAnexoExcluir); return; }
-
-    const linha = event.target.closest(".gdRow");
-    if (linha && linha.dataset.gdId) {
-      const id = Number(linha.dataset.gdId);
-      // Trocar de pedido sai do modo de edição inline para não editar o errado.
-      if (id !== pedidoSelecionadoId) editandoDados = false;
-      renderDetalhe(id);
-    }
+    // O clique na linha da tabela é tratado pelo `rowClick` do Tabulator (criarTabela).
   });
 
-  // Campos de data: abre o seletor ao clicar em qualquer parte do campo (não só
-  // no ícone). showPicker() exige gesto do usuário — o clique satisfaz.
-  raiz.addEventListener("click", event => {
-    const data = event.target.closest('input[type="date"]');
-    if (data && typeof data.showPicker === "function") {
-      try { data.showPicker(); } catch (e) { /* já aberto/não suportado */ }
-    }
-  });
+  // (Removido o handler que abria o date picker ao clicar em qualquer parte do
+  // campo: ele disparava o seletor de forma indesejada. Agora o calendário abre
+  // só pelo ícone nativo, e clicar/digitar no campo não força mais a abertura.)
 
   // Edição em linha do detalhamento: ao escolher um novo valor no Status/Sanção,
   // abre a confirmação antes de aplicar (campos só editáveis com permissão).

@@ -25,7 +25,7 @@ Há **mais de 20 módulos ES** nesta pasta (`public/js/`). O HTML carrega apenas
 
 | Arquivo | Responsabilidade |
 |---|---|
-| **app.js** | Entry. `init()`, carregamento inicial e em segundo plano, auto-refresh, orquestração geral (`renderTudo`, `onDataLoaded`). Liga tudo e registra o `DOMContentLoaded`. |
+| **app.js** | Entry. `init()`, carregamento inicial e em segundo plano, auto-refresh, orquestração geral (`renderTudo`, `onResumoDataLoaded`). Liga tudo e registra o `DOMContentLoaded`. |
 | **state.js** | Objeto `state` com **todo o estado mutável compartilhado** (dados carregados, filtros, página atual, sessão). Centralizado para poder ser reatribuído entre módulos. |
 | **runtime.js** | Coleções mutáveis vivas: instâncias de gráficos (`charts`), configs de filtros (`filterConfigs`), flags de carregamento e caches. |
 | **constants.js** | Valores fixos: paleta `COLORS`, filtros estáticos, config das tabelas de vagas, cargos fora do processo seletivo. |

@@ -1,33 +1,6 @@
-import { COLORS } from "./constants.js";
 import { alternarFiltroGrafico } from "./filtros.js";
 import { charts } from "./runtime.js";
-import { escapeAttr, escapeHtml, formatNumber, formatPercent, limitarLabelGrafico, quebrarLabelGrafico, setText } from "./utils.js";
-
-export function renderRankingBars(containerId, items, color, filterType) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const lista = (items || []).filter(item => Number(item.value || 0) > 0);
-  const max = Math.max(...lista.map(item => Number(item.value || 0)), 1);
-
-  if (!lista.length) {
-    container.innerHTML = '<div class="emptyState">Sem dados para os filtros selecionados.</div>';
-    return;
-  }
-
-  container.innerHTML = lista.map(item => {
-    const valor = Number(item.value || 0);
-    const largura = Math.max(4, (valor / max) * 100);
-    const label = escapeHtml(item.label || '');
-    return `
-          <button type="button" class="rankingRow" title="${label}" data-click="filtro-grafico" data-filter-type="${escapeAttr(filterType || '')}" data-filter-value="${escapeAttr(item.label || '')}">
-            <span class="rankingLabel">${label}</span>
-            <span class="rankingTrack"><span class="rankingFill" style="width:${largura}%; background:${color};"></span></span>
-            <strong class="rankingValue">${formatNumber(valor)}</strong>
-          </button>
-        `;
-  }).join('');
-}
+import { escapeAttr, escapeHtml, formatNumber, formatPercent, quebrarLabelGrafico, setText } from "./utils.js";
 
 export function renderProgressBarResumo(cfg) {
   const fill = document.getElementById("barraPreenchidas");
@@ -94,34 +67,6 @@ export function renderCardsOciosas(containerId, items, filterType) {
   }).join("");
 }
 
-export function renderFunnel(containerId, cfg) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const items = (cfg.items || [])
-    .filter(item => Number(item.value || 0) > 0)
-    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
-
-  if (!items.length) {
-    container.innerHTML = '<div class="emptyState">Sem dados para os filtros selecionados.</div>';
-    return;
-  }
-
-  container.innerHTML = items.map((item, index) => {
-    const width = Math.max(50, 100 - (index * 11));
-    const opacity = Math.max(.54, 1 - (index * .09));
-    const safeLabel = escapeHtml(item.label || "");
-
-    return `
-          <button type="button" class="funnelStep" title="${safeLabel}" data-click="filtro-grafico" data-filter-type="${escapeAttr(cfg.filterType || "")}" data-filter-value="${escapeAttr(item.label || "")}">
-            <span class="funnelStepShape" style="width:${width}%; background:${item.color || COLORS.blue}; opacity:${opacity};"></span>
-            <span class="funnelStepLabel">${safeLabel}</span>
-            <strong class="funnelStepValue">${formatNumber(item.value)}</strong>
-          </button>
-        `;
-  }).join("");
-}
-
 export function renderTreemap(containerId, cfg) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -150,13 +95,40 @@ export function renderTreemap(containerId, cfg) {
   }).join("");
 }
 
+// onClick de filtro compartilhado: lê filterType/filterValues do cfg passado.
+// Extraído para poder ser reatribuído ao atualizar o gráfico (sem recriá-lo),
+// garantindo que o clique filtre pelos valores atuais, não pelos do render anterior.
+function montarOnClickGrafico(cfg) {
+  return function (event, elements) {
+    if (!elements || !elements.length) return;
+    const index = elements[0].index;
+    if (cfg.filterType && cfg.filterValues) {
+      alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
+    }
+  };
+}
+
 export function renderDoughnut(canvasId, cfg) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  if (charts[canvasId]) {
-    charts[canvasId].destroy();
+  // Atualiza no lugar quando já existe um doughnut neste canvas: evita destruir/
+  // recriar a cada filtro (menos GC e sem reanimação). O texto central é lido
+  // dinamicamente pelo plugin (chart.$center*), então basta atualizá-lo aqui.
+  const existente = charts[canvasId];
+  if (existente && existente.config.type === "doughnut") {
+    existente.data.labels = cfg.labels;
+    existente.data.datasets[0].data = cfg.values;
+    existente.data.datasets[0].backgroundColor = cfg.colors;
+    existente.$center = cfg.center;
+    existente.$centerSub = cfg.centerSub;
+    existente.$centerFontSize = cfg.centerFontSize;
+    existente.$centerSubFontSize = cfg.centerSubFontSize;
+    existente.options.onClick = montarOnClickGrafico(cfg);
+    existente.update();
+    return;
   }
+  if (existente) existente.destroy();
 
   charts[canvasId] = new Chart(canvas, {
     type: "doughnut",
@@ -175,13 +147,7 @@ export function renderDoughnut(canvasId, cfg) {
       maintainAspectRatio: false,
       cutout: cfg.cutout || "60%",
       radius: cfg.radius || undefined,
-      onClick: function (event, elements) {
-        if (!elements || !elements.length) return;
-        const index = elements[0].index;
-        if (cfg.filterType && cfg.filterValues) {
-          alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
-        }
-      },
+      onClick: montarOnClickGrafico(cfg),
       layout: { padding: cfg.layoutPadding !== undefined ? cfg.layoutPadding : 8 },
       plugins: {
         legend: { display: false },
@@ -232,14 +198,24 @@ export function renderBar(canvasId, cfg) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  if (charts[canvasId]) {
-    charts[canvasId].destroy();
-  }
-
   const labelsOriginais = cfg.labels || [];
   const labelsGrafico = cfg.wrapLabels
     ? labelsOriginais.map(label => quebrarLabelGrafico(label, cfg.maxCharsPerLine || 18, cfg.maxLines || 2))
     : labelsOriginais;
+
+  // Atualiza no lugar quando já existe uma barra neste canvas (evita destruir/
+  // recriar a cada filtro). O tooltip lê os rótulos originais de chart.$labelsOriginais.
+  const existente = charts[canvasId];
+  if (existente && existente.config.type === "bar") {
+    existente.data.labels = labelsGrafico;
+    existente.data.datasets[0].data = cfg.values;
+    existente.data.datasets[0].backgroundColor = cfg.color;
+    existente.$labelsOriginais = labelsOriginais;
+    existente.options.onClick = montarOnClickGrafico(cfg);
+    existente.update();
+    return;
+  }
+  if (existente) existente.destroy();
 
   charts[canvasId] = new Chart(canvas, {
     type: "bar",
@@ -257,13 +233,7 @@ export function renderBar(canvasId, cfg) {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      onClick: function (event, elements) {
-        if (!elements || !elements.length) return;
-        const index = elements[0].index;
-        if (cfg.filterType && cfg.filterValues) {
-          alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
-        }
-      },
+      onClick: montarOnClickGrafico(cfg),
       layout: {
         padding: { right: cfg.rightPadding ?? 44, left: cfg.leftPadding ?? 0, top: cfg.topPadding ?? 4, bottom: cfg.bottomPadding ?? 2 }
       },
@@ -281,7 +251,9 @@ export function renderBar(canvasId, cfg) {
           callbacks: {
             title: function (items) {
               if (!items || !items.length) return "";
-              return labelsOriginais[items[0].dataIndex] || "";
+              // Prioriza os rótulos atualizados no update; fallback no 1º render.
+              const orig = items[0].chart.$labelsOriginais || labelsOriginais;
+              return orig[items[0].dataIndex] || "";
             },
             label: ctx => formatNumber(ctx.raw)
           }
@@ -317,92 +289,19 @@ export function renderBar(canvasId, cfg) {
   });
 }
 
-export function renderColumn(canvasId, cfg) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-
-  if (charts[canvasId]) {
-    charts[canvasId].destroy();
-  }
-
-  const labelsOriginais = cfg.labels || [];
-  const labelsCurtos = labelsOriginais.map(label => limitarLabelGrafico(label, cfg.maxLabelLength || 14));
-
-  charts[canvasId] = new Chart(canvas, {
-    type: "bar",
-    data: {
-      labels: labelsCurtos,
-      datasets: [{
-        data: cfg.values,
-        backgroundColor: cfg.color,
-        borderRadius: 8,
-        barPercentage: .62,
-        categoryPercentage: .74
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      onClick: function (event, elements) {
-        if (!elements || !elements.length) return;
-        const index = elements[0].index;
-        if (cfg.filterType && cfg.filterValues) {
-          alternarFiltroGrafico(cfg.filterType, cfg.filterValues[index]);
-        }
-      },
-      layout: {
-        padding: { top: 20, right: 10, bottom: 8, left: 8 }
-      },
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          anchor: "end",
-          align: "top",
-          offset: 2,
-          color: "#07346b",
-          font: { size: 11, weight: "900" },
-          formatter: value => formatNumber(value),
-          clip: false
-        },
-        tooltip: {
-          callbacks: {
-            title: function (items) {
-              if (!items || !items.length) return "";
-              return labelsOriginais[items[0].dataIndex] || "";
-            },
-            label: ctx => formatNumber(ctx.raw)
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: "rgba(0, 83, 166, .12)" },
-          ticks: {
-            color: "rgba(7, 52, 107, .72)",
-            font: { size: 10, weight: "800" }
-          }
-        },
-        x: {
-          grid: { display: false },
-          ticks: {
-            color: "#07346b",
-            font: { size: 9.5, weight: "900" },
-            maxRotation: 0,
-            minRotation: 0
-          }
-        }
-      }
-    }
-  });
-}
-
 export function centerTextPlugin(text, subtext, fontSize, subFontSize) {
   return {
     id: "centerText" + Math.random().toString(36).slice(2),
     beforeDraw(chart) {
       const area = chart.chartArea;
       if (!area) return;
+
+      // Valores dinâmicos (definidos no update sem recriar o gráfico) têm
+      // prioridade; os capturados na criação servem de fallback no 1º render.
+      const textoCentral = chart.$center !== undefined ? chart.$center : text;
+      const subtextoCentral = chart.$centerSub !== undefined ? chart.$centerSub : subtext;
+      const tamFonte = chart.$centerFontSize !== undefined ? chart.$centerFontSize : fontSize;
+      const tamSubFonte = chart.$centerSubFontSize !== undefined ? chart.$centerSubFontSize : subFontSize;
 
       const ctx = chart.ctx;
       const centerX = (area.left + area.right) / 2;
@@ -411,14 +310,14 @@ export function centerTextPlugin(text, subtext, fontSize, subFontSize) {
       const firstArc = meta && meta.data && meta.data[0];
       const innerRadius = firstArc && firstArc.innerRadius ? firstArc.innerRadius : Math.min(area.width, area.height) * .26;
       const maxTextWidth = Math.max(42, innerRadius * 1.54);
-      const mainText = text || "0";
-      const subText = subtext || "";
+      const mainText = textoCentral || "0";
+      const subText = subtextoCentral || "";
 
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      let mainFontSize = fontSize || 25;
+      let mainFontSize = tamFonte || 25;
       ctx.font = `900 ${mainFontSize}px Arial`;
       while (ctx.measureText(mainText).width > maxTextWidth && mainFontSize > 14) {
         mainFontSize -= 1;
@@ -429,7 +328,7 @@ export function centerTextPlugin(text, subtext, fontSize, subFontSize) {
       ctx.fillText(mainText, centerX, subText ? centerY - 6 : centerY);
 
       if (subText) {
-        let secondaryFontSize = subFontSize || 9;
+        let secondaryFontSize = tamSubFonte || 9;
         ctx.font = `900 ${secondaryFontSize}px Arial`;
         while (ctx.measureText(subText).width > maxTextWidth && secondaryFontSize > 7) {
           secondaryFontSize -= 1;

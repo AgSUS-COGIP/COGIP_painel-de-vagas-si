@@ -1,0 +1,344 @@
+/*
+  GRADE ARRASTÁVEL (Tabulator) — skin + coachmarks COMPARTILHADOS
+  ================================================================
+  Estilo reutilizável das grades montadas por `js/tabela-arrastavel.js`
+  (colunas/linhas arrastáveis). Generaliza o que foi validado na Gestão
+  Disciplinar para qualquer view: o wrapper recebe `.tabArrWrap` e o Tabulator
+  é estilizado por `.tabArrWrap .tabulator …`.
+
+  O tema base do Tabulator carrega na camada `tabulator-base` (a primeira do
+  @layer em styles.css); como esta camada vem depois, o skin vence sem
+  !important. Tokens (01-base): --azul-card, --azul-primario, --azul-escuro.
+*/
+
+.tabArrWrap {
+  position: relative;
+  /* min-width:0 impede que a tabela larga estique o container (grid/flex item tem
+     min-width:auto por padrão e cresceria até o conteúdo, empurrando cabeçalho/
+     botões para fora). Com 0, a grade fica contida e ROLA INTERNAMENTE. */
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ---------- Skin da grade ---------- */
+.tabArrWrap .tabulator {
+  background: transparent;
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 12px;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.tabArrWrap .tabulator .tabulator-header {
+  background: linear-gradient(135deg, #00457f, var(--azul-card));
+  border-bottom: none;
+  color: #fff;
+}
+
+.tabArrWrap .tabulator .tabulator-header .tabulator-col {
+  background: transparent;
+  border-right: 1px solid rgba(255, 255, 255, .2);
+  cursor: grab;
+}
+
+.tabArrWrap .tabulator .tabulator-header .tabulator-col:last-child {
+  border-right: none;
+}
+
+/* Título centralizado no meio do cabeçalho (horizontal e vertical). */
+.tabArrWrap .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.tabArrWrap .tabulator .tabulator-col-title {
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  white-space: normal;
+  text-align: center;
+  width: 100%;
+}
+
+.tabArrWrap .tabulator .tabulator-row {
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 86, 167, .12);
+  cursor: pointer;
+}
+
+.tabArrWrap .tabulator .tabulator-row.tabulator-row-even {
+  background: rgba(232, 247, 255, .55);
+}
+
+.tabArrWrap .tabulator .tabulator-row:hover {
+  background: rgba(0, 112, 217, .08);
+}
+
+.tabArrWrap .tabulator .tabulator-cell {
+  border-right: none;
+  color: #143a63;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 9px 12px;
+  /* Quebra o texto ao encolher a coluna (vence o `white-space: nowrap` +
+     reticências do tema base do Tabulator). A ALTURA da linha é reajustada pelo
+     helper só ao soltar o redimensionamento (evento columnResized), não a cada
+     mousemove — bem mais performático que o variableHeight contínuo. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+/* Linha selecionada (quando a tabela usa idSelecionado). */
+.tabArrWrap .tabulator .tabulator-row.tab-selected,
+.tabArrWrap .tabulator .tabulator-row.tab-selected:hover {
+  background: rgba(0, 112, 217, .16);
+  box-shadow: inset 0 3px 0 var(--azul-primario), inset 0 -3px 0 var(--azul-primario);
+}
+
+/* Cursor de "arrastando" ao mover coluna/linha. */
+.tabArrWrap .tabulator .tabulator-col.tabulator-moving,
+.tabArrWrap .tabulator .tabulator-row.tabulator-moving {
+  cursor: grabbing;
+}
+
+.tabArrWrap .tabulator .tabulator-placeholder,
+.tabArrWrap .tabulator .tabulator-placeholder-contents {
+  color: #4a6a93;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+/* Modo só-estilo (nada arrastável, ex.: cronograma do edital): visual do
+   Tabulator, mas sem os cursores que sugerem arraste. */
+.tabArrWrap--estatico .tabulator .tabulator-header .tabulator-col,
+.tabArrWrap--estatico .tabulator .tabulator-row {
+  cursor: default;
+}
+
+/* Cabeçalhos com ícone (matriz de Perfis): ícone branco em LINHA PRÓPRIA, acima
+   do texto. O ícone vai num <span> de bloco (permHeadIcon) porque o FontAwesome
+   força `display:inline-block` no <i> via folha SEM camada (venceria uma regra em
+   camada) — o wrapper de bloco resolve sem !important. */
+.tabArrWrap .tabulator .tabulator-col-title .permHeadIcon {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.tabArrWrap .tabulator .tabulator-col-title .permHeadIcon i {
+  color: #fff;
+  font-size: 13px;
+}
+
+.tabArrWrap .tabulator .tabulator-col-title .permHeadTxt {
+  display: block;
+}
+
+/* ---------- Matriz de Perfis de Acesso ---------- */
+/* 1ª coluna (Usuário) fixa e azul, com login/nome em branco. cssClass
+   "permUserCol" é aplicada às células dessa coluna pelo Tabulator. */
+.tabArrWrap .tabulator .tabulator-cell.permUserCol {
+  background: linear-gradient(135deg, #00457f, var(--azul-card));
+  color: #fff;
+}
+
+/* Coluna FIXA cobre o que rola por baixo: o skin deixa os cabeçalhos
+   transparentes, então o cabeçalho fixo precisa de fundo OPACO + z-index acima
+   das colunas que rolam — senão o conteúdo delas vaza sobre a coluna fixa. */
+.tabArrWrap .tabulator .tabulator-header .tabulator-col.tabulator-frozen {
+  background: linear-gradient(135deg, #00457f, var(--azul-card));
+  z-index: 12;
+}
+
+.tabArrWrap .tabulator .tabulator-row .tabulator-cell.tabulator-frozen {
+  z-index: 11;
+}
+
+.tabArrWrap .tabulator .tabulator-cell.permUserCol .permLogin {
+  display: block;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tabArrWrap .tabulator .tabulator-cell.permUserCol .permNome {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, .82);
+}
+
+/* ---------- Estados de linha por contexto (Processos Seletivos) ---------- */
+/* Reproduzem, nas grades Tabulator só-estilo, os realces que existiam nas
+   tabelas .psTableSub: a etapa atual do cronograma e o aprovado que desistiu. */
+.tabArrWrap .tabulator .tabulator-row.is-etapa-atual {
+  background: rgba(255, 153, 0, .14);
+}
+
+.tabArrWrap .tabulator .tabulator-row.is-etapa-atual .tabulator-cell.psCelNome {
+  font-weight: 800;
+  color: #8a5200;
+}
+
+.tabArrWrap .tabulator .tabulator-row.is-desistiu .tabulator-cell {
+  opacity: .55;
+  text-decoration: line-through;
+}
+
+/* ---------- Tabelas de Vagas (linha TOTAL, coluna Ociosas, ordenação) ---------- */
+/* Conteúdo das células centralizado (alinha com os títulos, que são centralizados).
+   !important para vencer o text-align inline que o Tabulator aplica via hozAlign. */
+#view-vagas .tabArrWrap .tabulator .tabulator-cell {
+  text-align: center !important;
+}
+
+/* Exceção: DSEI/CASAI e Cargo (colunas de texto) à esquerda. Maior especificidade
+   (classe extra) vence a regra de centralizar acima — ambas !important. */
+#view-vagas .tabArrWrap .tabulator .tabulator-cell.vagasTextoCol {
+  text-align: left !important;
+}
+/* Linha TOTAL (classe via aoFormatarLinha): MESMO visual do cabeçalho — um único
+   gradiente CONTÍNUO na linha inteira (não repartido por célula), com linhas
+   brancas finas separando as colunas. Por isso o gradiente vai na LINHA e as
+   células ficam transparentes (deixam o gradiente da linha aparecer). */
+.tabArrWrap .tabulator .tabulator-row.vagasTotalRow,
+.tabArrWrap .tabulator .tabulator-row.vagasTotalRow:hover {
+  background: linear-gradient(135deg, #00457f, var(--azul-card));
+}
+
+.tabArrWrap .tabulator .tabulator-row.vagasTotalRow .tabulator-cell {
+  background: transparent;
+  color: #fff;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  border-right: 1px solid rgba(255, 255, 255, .2);
+}
+
+.tabArrWrap .tabulator .tabulator-row.vagasTotalRow .tabulator-cell:last-child {
+  border-right: none;
+}
+
+/* Vagas Ociosas na linha TOTAL: bloco escuro da coluna (como no cabeçalho). Cor
+   opaca → cobre o gradiente da linha só nesta célula. */
+.tabArrWrap .tabulator .tabulator-row.vagasTotalRow .tabulator-cell.colOciosas {
+  background: linear-gradient(135deg, #0053a7, #003a74);
+}
+
+/* Coluna "Vagas Ociosas (Déficit Operacional)" em destaque (cabeçalho + células). */
+.tabArrWrap .tabulator .tabulator-col.colOciosas,
+.tabArrWrap .tabulator .tabulator-cell.colOciosas {
+  background: linear-gradient(135deg, #0053a7, #003a74);
+  color: #fff;
+  font-weight: 900;
+}
+
+.tabArrWrap .tabulator .tabulator-cell.colOciosas .negativo {
+  color: #ffd1d1; /* déficit (valor negativo): leve tom avermelhado sobre o azul */
+}
+
+/* ---------- Coachmarks (dicas de arrastar) ---------- */
+.tabCoach {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  border-radius: 12px;
+  background: rgba(7, 52, 107, .34);
+  animation: tabCoachFade .25s ease;
+}
+
+.tabCoach[hidden] {
+  display: none;
+}
+
+@keyframes tabCoachFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tabCoachBubble {
+  position: absolute;
+  max-width: 290px;
+  background: #fff;
+  color: #07346b;
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1.35;
+  padding: 12px 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 83, 166, .25);
+  box-shadow: 0 16px 32px rgba(0, 43, 93, .35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tabCoachBubble[hidden] {
+  display: none;
+}
+
+.tabCoachBubble::after {
+  content: "";
+  position: absolute;
+  border: 10px solid transparent;
+}
+
+/* Balão das COLUNAS: topo-centro, seta apontando para cima (cabeçalho). */
+.tabCoachBubble--cols {
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.tabCoachBubble--cols::after {
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 0;
+  border-bottom-color: #fff;
+}
+
+.tabCoachBubble--cols .tabCoachBtn {
+  align-self: center;
+}
+
+/* Balão das LINHAS: à esquerda, mais abaixo, seta apontando para baixo (linhas). */
+.tabCoachBubble--rows {
+  top: 188px;
+  left: 26px;
+}
+
+.tabCoachBubble--rows::after {
+  bottom: -10px;
+  left: 40px;
+  border-bottom: 0;
+  border-top-color: #fff;
+}
+
+/* Botão "Entendi" — autossuficiente (não depende de .gfBtn, que é por-view). */
+.tabCoachBtn {
+  align-self: flex-end;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #007de0, #0055a7);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 11px;
+  padding: 7px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 8px 16px rgba(0, 43, 93, .18);
+  transition: .16s ease;
+}
+
+.tabCoachBtn:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 12px 20px rgba(0, 43, 93, .26);
+}

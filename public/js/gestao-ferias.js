@@ -9,13 +9,25 @@
 import { apiGet } from "./api.js";
 import { nivelModulo } from "./permissoes.js";
 import { state } from "./state.js";
-import { escapeHtml, formatNumber, baixarArquivoCsv } from "./utils.js";
+import { escapeHtml, escapeAttr, formatNumber, baixarArquivoCsv, valorCsv, isoParaDataBr as fData } from "./utils.js";
 import { criarToast } from "./ui-utils.js";
+import { abrirModal, abrirAviso } from "./modal.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const $ = id => document.getElementById(id);
 
 // CLT: período concessivo encerra 24 meses após a admissão (1º ciclo).
 const MESES_LIMITE_GOZO = 24;
+
+// Regras de fracionamento de férias (CLT Art. 134 §1º). Centralizadas para que a
+// validação não dependa de números soltos espalhados pela função.
+const CLT_FERIAS = {
+  TOTAL_DIAS: 30,          // total de dias de férias devidos
+  ABONO_DIAS: 10,          // dias vendidos no abono pecuniário (1/3)
+  MAX_PERIODOS: 3,         // máximo de frações permitidas
+  MIN_DIAS_PERIODO_PRINCIPAL: 14, // um dos períodos não pode ser inferior a 14 dias
+  MIN_DIAS_DEMAIS: 5       // os demais períodos não podem ser inferiores a 5 dias
+};
 
 // COAPE: por enquanto, a análise/aprovação é liberada para nível administrativo
 // (>= 2). O papel "COAPE" próprio deve ser definido depois no controle de acesso.
@@ -53,6 +65,10 @@ function trocarTab(tab) {
   abaAtiva = tab;
   document.querySelectorAll("#gfTabs .gfTab").forEach(b => b.classList.toggle("is-active", b.dataset.gfTab === tab));
   document.querySelectorAll("#gfBody .gfPane").forEach(p => { p.hidden = p.dataset.gfPane !== tab; });
+  // Sub-aba recém-exibida: suas grades estavam ocultas (largura 0) e não montaram —
+  // (re)constrói/recalcula agora que o painel está visível.
+  if (tab === "solicitacao") { renderPedido(); renderHistLotes(); gfGradeProf?.redraw(); gfGradeDet?.redraw(); gfGradeHistLotes?.redraw(); }
+  else if (tab === "coape") { renderCoape(); gfGradeCoape?.redraw(); }
 }
 // Mostra a aba da COAPE só para a COAPE e a aba de Solicitação só para Editor+;
 // o Leitor fica apenas com a Visão Geral. Reavalia a cada render.
@@ -87,11 +103,18 @@ function criarCombo(id, rotuloTodos, onChange, opts) {
   const maxRender = (opts && opts.maxRender) || 200;
   const ph = (opts && opts.searchPlaceholder) || "Buscar…";
   root.innerHTML = `
-    <button type="button" class="gfComboBtn"><span class="gfComboValor"></span><i class="fa-solid fa-chevron-down"></i></button>
+    <button type="button" class="gfComboBtn" aria-haspopup="listbox" aria-expanded="false"><span class="gfComboValor" id="${id}-valor"></span><i class="fa-solid fa-chevron-down"></i></button>
     <div class="gfComboPop" hidden>
-      <div class="gfComboSearch"><i class="fa-solid fa-magnifying-glass"></i><input type="text" class="gfComboInput" placeholder="${ph}" autocomplete="off"><button type="button" class="gfComboClear" hidden>Limpar</button></div>
-      <ul class="gfComboList"></ul>
+      <div class="gfComboSearch"><i class="fa-solid fa-magnifying-glass"></i><input type="text" class="gfComboInput" placeholder="${escapeAttr(ph)}" autocomplete="off" aria-label="${escapeAttr(ph)}"><button type="button" class="gfComboClear" hidden>Limpar</button></div>
+      <ul class="gfComboList" role="listbox" aria-multiselectable="true"></ul>
     </div>`;
+  // Nome acessível: associa o rótulo do campo (span irmão) ao botão e à lista.
+  const campoLabel = root.parentElement?.querySelector(".gfFieldLabel");
+  if (campoLabel) {
+    if (!campoLabel.id) campoLabel.id = `${id}-label`;
+    root.querySelector(".gfComboBtn")?.setAttribute("aria-labelledby", `${campoLabel.id} ${id}-valor`);
+    root.querySelector(".gfComboList")?.setAttribute("aria-label", campoLabel.textContent.trim());
+  }
   const btn = root.querySelector(".gfComboBtn");
   const valorEl = root.querySelector(".gfComboValor");
   const pop = root.querySelector(".gfComboPop");
@@ -114,13 +137,13 @@ function criarCombo(id, rotuloTodos, onChange, opts) {
     const q = (f || "").trim().toLowerCase();
     const vis = opcoes.filter(o => !q || o.label.toLowerCase().includes(q));
     const mostra = vis.slice(0, maxRender);
-    let html = mostra.map(o => `<li class="gfComboOpt${sel.has(o.value) ? " is-sel" : ""}" data-v="${escapeHtml(o.value)}" title="${escapeHtml(o.label)}"><span class="gfComboCheck"><i class="fa-solid fa-check"></i></span><span class="gfComboOptLabel">${escapeHtml(o.label)}</span></li>`).join("");
+    let html = mostra.map(o => `<li class="gfComboOpt${sel.has(o.value) ? " is-sel" : ""}" data-v="${escapeHtml(o.value)}" title="${escapeHtml(o.label)}" role="option" aria-selected="${sel.has(o.value)}"><span class="gfComboCheck"><i class="fa-solid fa-check"></i></span><span class="gfComboOptLabel">${escapeHtml(o.label)}</span></li>`).join("");
     if (!vis.length) html = `<li class="gfComboVazio">Nenhuma opção</li>`;
     else if (vis.length > maxRender) html += `<li class="gfComboMais">+${vis.length - maxRender} — digite para refinar…</li>`;
     list.innerHTML = html;
   }
-  function abrir() { fecharTodosCombos(root); pop.hidden = false; root.classList.add("aberto"); input.value = ""; renderLista(""); setTimeout(() => input.focus(), 10); }
-  function fechar() { pop.hidden = true; root.classList.remove("aberto"); }
+  function abrir() { fecharTodosCombos(root); pop.hidden = false; root.classList.add("aberto"); btn.setAttribute("aria-expanded", "true"); input.value = ""; renderLista(""); setTimeout(() => input.focus(), 10); }
+  function fechar() { pop.hidden = true; root.classList.remove("aberto"); btn.setAttribute("aria-expanded", "false"); }
   function toggle(v) { if (sel.has(v)) sel.delete(v); else sel.add(v); atualizarBotao(); renderLista(input.value); if (onChange) onChange(); }
 
   btn.addEventListener("click", e => { e.stopPropagation(); pop.hidden ? abrir() : fechar(); });
@@ -147,11 +170,7 @@ function criarCombo(id, rotuloTodos, onChange, opts) {
 }
 
 // ---------- Datas / CLT ----------
-function fData(iso) {
-  if (!iso) return "";
-  const [a, m, d] = String(iso).slice(0, 10).split("-");
-  return (a && m && d) ? `${d}/${m}/${a}` : "";
-}
+// fData (ISO -> dd/mm/aaaa) vem de utils.js (isoParaDataBr).
 function somarMeses(iso, meses) {
   const [a, m, d] = String(iso).slice(0, 10).split("-").map(Number);
   if (!a) return "";
@@ -281,22 +300,35 @@ function corDias(d) {
   if (d < 90) return "is-orange";
   return "is-yellow";
 }
+// Grade arrastável dos Alertas de Dobra (colunas/linhas reordenáveis, persistidas).
+let gfGradeAlertas = null;
+const GF_COLS_ALERTAS = [
+  { title: "Matrícula", field: "matricula" },
+  { title: "DSEI/CASAI", field: "centro" },
+  { title: "Trabalhador", field: "nome" },
+  { title: "Cargo", field: "cargo" },
+  { title: "Admissão", field: "admissao", formatter: c => fData(c.getValue()) },
+  { title: "Prazo-limite de gozo", field: "limiteGozo", formatter: c => fData(c.getValue()) },
+  {
+    title: "Dias restantes", field: "dias", hozAlign: "center", headerHozAlign: "center",
+    formatter: c => {
+      const d = Number(c.getValue());
+      return `<span class="gfDays ${corDias(d)}">${d < 0 ? "Em dobra" : escapeHtml(String(c.getValue()))}</span>`;
+    }
+  },
+];
+
 function renderAlertas(rows) {
-  const body = $("gfAlertasBody");
-  if (!body) return;
+  if (!$("gfAlertasTab")) return;
   const lista = (rows || dados.rows)
     .filter(r => r.alerta && r.alerta !== "—" && r.dias !== "")
     .sort((a, b) => Number(a.dias) - Number(b.dias));
-  body.innerHTML = lista.map(r => `
-    <tr>
-      <td>${escapeHtml(String(r.matricula))}</td>
-      <td>${escapeHtml(r.centro)}</td>
-      <td class="gfTdNome">${escapeHtml(r.nome)}</td>
-      <td>${escapeHtml(r.cargo)}</td>
-      <td>${fData(r.admissao)}</td>
-      <td>${fData(r.limiteGozo)}</td>
-      <td class="gfTd-center"><span class="gfDays ${corDias(Number(r.dias))}">${Number(r.dias) < 0 ? "Em dobra" : r.dias}</span></td>
-    </tr>`).join("") || `<tr><td colspan="7" class="gfVazio">Nenhum trabalhador em alerta de dobra para os filtros selecionados. 🎉</td></tr>`;
+  if (!gfGradeAlertas) gfGradeAlertas = criarTabelaArrastavel({
+    elemento: "gfAlertasTab", colunas: GF_COLS_ALERTAS,
+    persistID: "gfAlertas", ordemKey: "gfAlertas:ordem", indexField: "matricula",
+    altura: "420px", vazio: "Nenhum trabalhador em alerta de dobra para os filtros selecionados. 🎉",
+  });
+  gfGradeAlertas?.render(lista);
 }
 
 // ---------- Consulta geral ----------
@@ -351,59 +383,38 @@ function limparFiltros() {
 }
 
 // HTML de uma linha da Consulta Geral.
-function linhaConsultaHtml(r) {
-  const periodo = (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "—";
-  return `
-    <tr>
-      <td>${escapeHtml(String(r.matricula))}</td>
-      <td>${escapeHtml(r.centro)}</td>
-      <td class="gfTdNome">${escapeHtml(r.nome)}</td>
-      <td>${escapeHtml(r.cargo)}</td>
-      <td>${fData(r.admissao)}</td>
-      <td>${badgeStatus(r.status)}</td>
-      <td>${periodo}</td>
-    </tr>`;
-}
-
-// Paginação por rolagem infinita: renderizar a base inteira de uma vez trava a
-// aba. Mostramos 100 por vez e carregamos mais 100 ao rolar até o fim.
-const CONS_PAGINA = 100;
-let consLista = [];        // lista completa (já filtrada)
-let consRenderizadas = 0;  // quantas linhas já estão no DOM
+// Grade arrastável da Consulta Geral. O Tabulator virtualiza a renderização
+// (DOM virtual), então alimentamos a lista filtrada inteira de uma vez — não é
+// mais preciso paginar por rolagem manual. Sem persistência de ordem de linhas
+// (lista grande/dinâmica); colunas continuam reordenáveis/persistidas.
+let gfGradeConsulta = null;
+const GF_COLS_CONSULTA = [
+  { title: "Matrícula", field: "matricula" },
+  { title: "DSEI/CASAI", field: "centro" },
+  { title: "Trabalhador", field: "nome" },
+  { title: "Cargo", field: "cargo" },
+  { title: "Admissão", field: "admissao", formatter: c => fData(c.getValue()) },
+  { title: "Status", field: "status", formatter: c => badgeStatus(c.getValue()) },
+  {
+    title: "Período de Férias", field: "periodoIni",
+    formatter: c => {
+      const r = c.getData();
+      return (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "—";
+    }
+  },
+];
 
 function renderConsulta(rows) {
-  const body = $("gfConsBody");
-  if (!body) return;
+  if (!$("gfConsTab")) return;
   const lista = rows || dados.rows;
-  consLista = lista;
-  consRenderizadas = 0;
   setText("gfConsCount", `${formatNumber(lista.length)} trabalhadores`);
-
-  // Volta ao topo ao trocar filtro (senão a rolagem dispararia mais lotes).
-  const wrap = body.closest(".gfTableScroll");
-  if (wrap) wrap.scrollTop = 0;
-
-  if (!lista.length) {
-    body.innerHTML = `<tr><td colspan="7" class="gfVazio">Nenhum trabalhador para os filtros selecionados.</td></tr>`;
-    setText("gfConsRegistros", "Nenhum registro");
-    return;
-  }
-  body.innerHTML = "";
-  renderProximoLoteConsulta();
-}
-
-// Acrescenta o próximo lote de linhas (append, sem reconstruir as anteriores).
-function renderProximoLoteConsulta() {
-  const body = $("gfConsBody");
-  if (!body || consRenderizadas >= consLista.length) return;
-  const fim = Math.min(consRenderizadas + CONS_PAGINA, consLista.length);
-  body.insertAdjacentHTML("beforeend",
-    consLista.slice(consRenderizadas, fim).map(linhaConsultaHtml).join(""));
-  consRenderizadas = fim;
-  const total = consLista.length;
-  setText("gfConsRegistros", consRenderizadas < total
-    ? `Mostrando ${formatNumber(consRenderizadas)} de ${formatNumber(total)} trabalhadores · role para carregar mais`
-    : `${formatNumber(total)} trabalhadores`);
+  setText("gfConsRegistros", lista.length ? `${formatNumber(lista.length)} trabalhadores` : "Nenhum registro");
+  if (!gfGradeConsulta) gfGradeConsulta = criarTabelaArrastavel({
+    elemento: "gfConsTab", colunas: GF_COLS_CONSULTA,
+    persistID: "gfConsulta", indexField: "matricula", alturaFixa: true,
+    vazio: "Nenhum trabalhador para os filtros selecionados.",
+  });
+  gfGradeConsulta?.render(lista);
 }
 
 // ---------- Fluxo: escritório registra ----------
@@ -440,19 +451,25 @@ function validarPeriodos(periodos, abono) {
   const msgs = [];
   let ok = true;
   const totalGozo = periodos.reduce((s, p) => s + p.dias, 0);
-  const diasAbono = abono ? 10 : 0;
-  const totalDevido = 30 - diasAbono;
+  const diasAbono = abono ? CLT_FERIAS.ABONO_DIAS : 0;
+  const totalDevido = CLT_FERIAS.TOTAL_DIAS - diasAbono;
 
   if (!periodos.length) return { ok: false, msgs: ["Informe ao menos o Período 1."] };
-  if (periodos.length > 3) { ok = false; msgs.push("Máximo de 3 períodos (CLT Art. 134 §1º)."); }
+  if (periodos.length > CLT_FERIAS.MAX_PERIODOS) { ok = false; msgs.push(`Máximo de ${CLT_FERIAS.MAX_PERIODOS} períodos (CLT Art. 134 §1º).`); }
   if (periodos.some(p => p.dias <= 0)) { ok = false; msgs.push("Há período com data fim anterior ao início."); }
   if (periodos.length > 1) {
-    if (!periodos.some(p => p.dias >= 14)) { ok = false; msgs.push("Um dos períodos deve ter no mínimo 14 dias."); }
-    if (periodos.some(p => p.dias < 5)) { ok = false; msgs.push("Os demais períodos devem ter no mínimo 5 dias."); }
+    if (!periodos.some(p => p.dias >= CLT_FERIAS.MIN_DIAS_PERIODO_PRINCIPAL)) { ok = false; msgs.push(`Um dos períodos deve ter no mínimo ${CLT_FERIAS.MIN_DIAS_PERIODO_PRINCIPAL} dias.`); }
+    if (periodos.some(p => p.dias < CLT_FERIAS.MIN_DIAS_DEMAIS)) { ok = false; msgs.push(`Os demais períodos devem ter no mínimo ${CLT_FERIAS.MIN_DIAS_DEMAIS} dias.`); }
+    // Dois períodos de férias não podem se sobrepor no calendário (o trabalhador
+    // não pode gozar duas frações ao mesmo tempo). Intervalos [iniA,fimA] e
+    // [iniB,fimB] se sobrepõem quando iniA <= fimB && iniB <= fimA (datas ISO).
+    const temSobreposicao = periodos.some((a, i) =>
+      periodos.some((b, j) => j > i && a.ini <= b.fim && b.ini <= a.fim));
+    if (temSobreposicao) { ok = false; msgs.push("Há períodos com datas sobrepostas."); }
   }
   if (totalGozo !== totalDevido) {
     ok = false;
-    msgs.push(`A soma dos dias (${totalGozo}) deve ser ${totalDevido}${abono ? " (30 − 10 de abono)" : ""}.`);
+    msgs.push(`A soma dos dias (${totalGozo}) deve ser ${totalDevido}${abono ? ` (${CLT_FERIAS.TOTAL_DIAS} − ${CLT_FERIAS.ABONO_DIAS} de abono)` : ""}.`);
   }
   if (ok) msgs.push("Conforme as regras da CLT. ✓");
   return { ok, msgs };
@@ -479,11 +496,11 @@ function atualizarValidacao() {
 }
 
 function adicionarSolicitacao() {
-  if (!trabSelecionado) { alert("Busque e selecione um trabalhador primeiro."); return; }
+  if (!trabSelecionado) { abrirAviso({ titulo: "Atenção", msg: "Busque e selecione um trabalhador primeiro.", perigo: true }); return; }
   const periodos = lerPeriodosForm();
   const abono = !!$("gfAbono")?.checked;
   const val = validarPeriodos(periodos, abono);
-  if (!periodos.length) { alert("Informe ao menos o Período 1."); return; }
+  if (!periodos.length) { abrirAviso({ titulo: "Atenção", msg: "Informe ao menos o Período 1.", perigo: true }); return; }
   lote.push({
     matricula: trabSelecionado.matricula,
     nome: trabSelecionado.nome,
@@ -515,34 +532,61 @@ function periodoSlot(periodos, i) {
   return periodos && periodos[i] ? `${fData(periodos[i].ini)}–${fData(periodos[i].fim)} (${periodos[i].dias}d)` : "—";
 }
 
+// Grades arrastáveis do fluxo de solicitação (DEMO, em memória). São listas que
+// re-renderizam a cada ação (incluir/remover/aprovar), então NÃO habilitamos
+// arrastar LINHAS (a ordem seria redefinida a cada ação, parecendo travada); só
+// COLUNAS são reordenáveis/persistidas. As ações usam o índice do array (`_idx`),
+// injetado em cada linha, o que mantém a delegação existente válida.
+let gfGradeProf = null;
+let gfGradeDet = null;
+let gfGradeAcomp = null;
+let gfGradeCoape = null;
+
+const GF_COLS_PROF = [
+  { title: "Nome", field: "nome" },
+  { title: "Cargo", field: "cargo" },
+  { title: "Matrícula", field: "matricula" },
+  { title: "Período aquisitivo", field: "_periodoAq", formatter: c => periodoAquisitivo(c.getData().admissao) },
+  { title: "Prazo-limite de gozo", field: "_prazo", formatter: c => fData(somarMeses(c.getData().admissao, MESES_LIMITE_GOZO)) },
+  {
+    title: "Ação", field: "_acao", hozAlign: "center", headerHozAlign: "center",
+    formatter: c => `<button class="gfIconBtn is-danger" data-gf-rem-lote="${c.getData()._idx}" title="Remover"><i class="fa-solid fa-trash"></i></button>`,
+  },
+];
+
+const GF_COLS_DET = [
+  { title: "Nome", field: "nome" },
+  { title: "Cargo", field: "cargo" },
+  { title: "Período aquisitivo", field: "_periodoAq", formatter: c => periodoAquisitivo(c.getData().admissao) },
+  { title: "Período 1", field: "_p1", formatter: c => periodoSlot(c.getData().periodos, 0) },
+  { title: "Período 2", field: "_p2", formatter: c => periodoSlot(c.getData().periodos, 1) },
+  { title: "Período 3", field: "_p3", formatter: c => periodoSlot(c.getData().periodos, 2) },
+  { title: "Abono", field: "abono", hozAlign: "center", headerHozAlign: "center", formatter: c => (c.getValue() ? "Sim" : "Não") },
+  { title: "Dias (abono)", field: "diasAbono", hozAlign: "center", headerHozAlign: "center", formatter: c => String(c.getValue() || 0) },
+  {
+    title: "Situação", field: "_clt",
+    formatter: c => { const r = c.getData(); return `<span class="gfBadge ${r.clt.ok ? "is-gozo" : "is-orange"}">${r.clt.ok ? "Conforme CLT" : "Verificar CLT"}</span>`; },
+  },
+];
+
 // Registro do pedido = Profissionais incluídos + Detalhamento + Resumo do lote.
 function renderPedido() {
-  const prof = $("gfProfBody");
-  if (prof) {
-    prof.innerHTML = lote.map((s, i) => `
-      <tr>
-        <td class="gfTdNome">${escapeHtml(s.nome)}</td>
-        <td>${escapeHtml(s.cargo)}</td>
-        <td>${escapeHtml(String(s.matricula))}</td>
-        <td>${periodoAquisitivo(s.admissao)}</td>
-        <td>${fData(somarMeses(s.admissao, MESES_LIMITE_GOZO))}</td>
-        <td class="gfTd-center"><button class="gfIconBtn is-danger" data-gf-rem-lote="${i}" title="Remover"><i class="fa-solid fa-trash"></i></button></td>
-      </tr>`).join("") || `<tr><td colspan="6" class="gfVazio">Nenhum profissional incluído. Busque um trabalhador e adicione.</td></tr>`;
+  if ($("gfProfTab")) {
+    const linhas = lote.map((s, i) => ({ ...s, _idx: i }));
+    if (!gfGradeProf) gfGradeProf = criarTabelaArrastavel({
+      elemento: "gfProfTab", colunas: GF_COLS_PROF, persistID: "gfProf",
+      indexField: "_idx", movableRows: false, altura: "300px",
+      vazio: "Nenhum profissional incluído. Busque um trabalhador e adicione.",
+    });
+    gfGradeProf?.render(linhas);
   }
-  const det = $("gfDetBody");
-  if (det) {
-    det.innerHTML = lote.map(s => `
-      <tr>
-        <td class="gfTdNome">${escapeHtml(s.nome)}</td>
-        <td>${escapeHtml(s.cargo)}</td>
-        <td>${periodoAquisitivo(s.admissao)}</td>
-        <td>${periodoSlot(s.periodos, 0)}</td>
-        <td>${periodoSlot(s.periodos, 1)}</td>
-        <td>${periodoSlot(s.periodos, 2)}</td>
-        <td class="gfTd-center">${s.abono ? "Sim" : "Não"}</td>
-        <td class="gfTd-center">${s.diasAbono || 0}</td>
-        <td><span class="gfBadge ${s.clt.ok ? "is-gozo" : "is-orange"}">${s.clt.ok ? "Conforme CLT" : "Verificar CLT"}</span></td>
-      </tr>`).join("") || `<tr><td colspan="9" class="gfVazio">Sem solicitações.</td></tr>`;
+  if ($("gfDetTab")) {
+    const linhas = lote.map((s, i) => ({ ...s, _idx: i }));
+    if (!gfGradeDet) gfGradeDet = criarTabelaArrastavel({
+      elemento: "gfDetTab", colunas: GF_COLS_DET, persistID: "gfDet",
+      indexField: "_idx", movableRows: false, altura: "300px", vazio: "Sem solicitações.",
+    });
+    gfGradeDet?.render(linhas);
   }
   renderResumo();
 }
@@ -556,6 +600,35 @@ function renderResumo() {
   setText("gfResAprovacao", coape.filter(s => s.status === "Em análise").length);
   setText("gfResAprovadas", coape.filter(s => s.status === "Aprovado").length);
   setText("gfResRejeitadas", coape.filter(s => s.status === "Reprovado").length);
+}
+
+// Histórico dos Lotes de Férias (DEMO — dados de exemplo, antes fixos no HTML).
+// Lista estática de leitura: não re-renderiza, então pode ter colunas E linhas
+// arrastáveis (a ordem não "salta"). Quando integrar ao fluxo real, basta trocar
+// GF_LOTES_HIST pela fonte de dados.
+const GF_LOTES_HIST = [
+  { data: "20/05/2024", dsei: "DSEI Yanomami", lote: "LT-2024-005", qtd: 18, responsavel: "João da Silva", status: "Em análise" },
+  { data: "15/05/2024", dsei: "DSEI Alto Rio Negro", lote: "LT-2024-004", qtd: 22, responsavel: "Maria Oliveira", status: "Aprovado" },
+  { data: "10/05/2024", dsei: "DSEI Leste de Roraima", lote: "LT-2024-003", qtd: 15, responsavel: "Carlos Mendes", status: "Aprovado" },
+];
+const GF_COLS_HISTLOTE = [
+  { title: "Data", field: "data" },
+  { title: "DSEI/CASAI", field: "dsei" },
+  { title: "Lote", field: "lote" },
+  { title: "Qtd. prof.", field: "qtd", hozAlign: "center", headerHozAlign: "center" },
+  { title: "Responsável", field: "responsavel" },
+  { title: "Status", field: "status", formatter: c => `<span class="gfBadge ${BADGE_FLUXO[c.getValue()] || "is-sem"}">${escapeHtml(c.getValue())}</span>` },
+];
+let gfGradeHistLotes = null;
+
+function renderHistLotes() {
+  if (!$("gfHistLotesTab")) return;
+  if (!gfGradeHistLotes) gfGradeHistLotes = criarTabelaArrastavel({
+    elemento: "gfHistLotesTab", colunas: GF_COLS_HISTLOTE,
+    persistID: "gfHistLotes", ordemKey: "gfHistLotes:ordem", indexField: "lote",
+    altura: "260px", vazio: "Nenhum lote no histórico.",
+  });
+  gfGradeHistLotes?.render(GF_LOTES_HIST);
 }
 
 function salvarLote() {
@@ -578,6 +651,41 @@ const BADGE_FLUXO = {
   "Em elaboração": "is-sem", "Em análise": "is-programado",
   "Aprovado": "is-gozo", "Reprovado": "is-red", "Ajuste solicitado": "is-orange", "Cancelado": "is-sem"
 };
+const GF_COLS_COAPE = [
+  { title: "Trabalhador", field: "nome" },
+  { title: "Cargo", field: "cargo" },
+  { title: "Períodos", field: "_periodos", formatter: c => escapeHtml(periodosTexto(c.getData().periodos)) },
+  { title: "Status", field: "status", formatter: c => `<span class="gfBadge ${BADGE_FLUXO[c.getValue()] || "is-sem"}">${escapeHtml(c.getValue())}</span>` },
+  {
+    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center",
+    formatter: c => {
+      const r = c.getData();
+      return r.status === "Em análise"
+        ? `<button class="gfIconBtn is-ok" data-gf-coape="aprovar" data-i="${r._idx}" title="Aprovar"><i class="fa-solid fa-check"></i></button>
+           <button class="gfIconBtn is-warn" data-gf-coape="ajustar" data-i="${r._idx}" title="Solicitar ajuste"><i class="fa-solid fa-rotate-left"></i></button>
+           <button class="gfIconBtn is-danger" data-gf-coape="reprovar" data-i="${r._idx}" title="Reprovar"><i class="fa-solid fa-xmark"></i></button>`
+        : `<span class="gfMotivo">${r.motivo ? escapeHtml(r.motivo) : "—"}</span>`;
+    },
+  },
+];
+
+const GF_COLS_ACOMP = [
+  { title: "Trabalhador", field: "nome" },
+  { title: "Cargo", field: "cargo" },
+  { title: "Períodos", field: "_periodos", formatter: c => escapeHtml(periodosTexto(c.getData().periodos)) },
+  { title: "Status", field: "status", formatter: c => `<span class="gfBadge ${BADGE_FLUXO[c.getValue()] || "is-sem"}">${escapeHtml(c.getValue())}</span>` },
+  { title: "Observação", field: "motivo", formatter: c => { const m = c.getValue(); return m ? escapeHtml(m) : "—"; } },
+  {
+    title: "Ação", field: "_acaoCan", hozAlign: "center", headerHozAlign: "center",
+    formatter: c => {
+      const r = c.getData();
+      return r.status === "Em análise"
+        ? `<button class="gfIconBtn is-danger" data-gf-cancelar="${r._idx}" title="Cancelar solicitação"><i class="fa-solid fa-ban"></i></button>`
+        : "—";
+    },
+  },
+];
+
 function renderCoape() {
   // Acesso restrito à COAPE: bloqueia o conteúdo para quem não é COAPE.
   const coapeOk = ehCoape();
@@ -586,65 +694,50 @@ function renderCoape() {
   if (bloq) bloq.hidden = coapeOk;
   if (cont) cont.style.display = coapeOk ? "" : "none";
 
-  const body = $("gfCoapeBody");
-  if (!body) return;
-  body.innerHTML = coape.map((s, i) => {
-    const acoes = s.status === "Em análise"
-      ? `<button class="gfIconBtn is-ok" data-gf-coape="aprovar" data-i="${i}" title="Aprovar"><i class="fa-solid fa-check"></i></button>
-         <button class="gfIconBtn is-warn" data-gf-coape="ajustar" data-i="${i}" title="Solicitar ajuste"><i class="fa-solid fa-rotate-left"></i></button>
-         <button class="gfIconBtn is-danger" data-gf-coape="reprovar" data-i="${i}" title="Reprovar"><i class="fa-solid fa-xmark"></i></button>`
-      : `<span class="gfMotivo">${s.motivo ? escapeHtml(s.motivo) : "—"}</span>`;
-    return `
-    <tr>
-      <td class="gfTdNome">${escapeHtml(s.nome)}</td>
-      <td>${escapeHtml(s.cargo)}</td>
-      <td>${escapeHtml(periodosTexto(s.periodos))}</td>
-      <td><span class="gfBadge ${BADGE_FLUXO[s.status] || "is-sem"}">${escapeHtml(s.status)}</span></td>
-      <td class="gfTd-center gfAcoesCol">${acoes}</td>
-    </tr>`;
-  }).join("") || `<tr><td colspan="5" class="gfVazio">Nenhuma solicitação encaminhada à COAPE.</td></tr>`;
+  if ($("gfCoapeTab")) {
+    const linhas = coape.map((s, i) => ({ ...s, _idx: i }));
+    if (!gfGradeCoape) gfGradeCoape = criarTabelaArrastavel({
+      elemento: "gfCoapeTab", colunas: GF_COLS_COAPE, persistID: "gfCoape",
+      indexField: "_idx", movableRows: false, altura: "360px",
+      vazio: "Nenhuma solicitação encaminhada à COAPE.",
+    });
+    gfGradeCoape?.render(linhas);
+  }
 
   // Acompanhamento (lado do escritório): leitura + cancelar enquanto "Em análise".
-  const acomp = $("gfAcompBody");
-  if (acomp) {
-    acomp.innerHTML = coape.map((s, i) => {
-      const cancelar = s.status === "Em análise"
-        ? `<button class="gfIconBtn is-danger" data-gf-cancelar="${i}" title="Cancelar solicitação"><i class="fa-solid fa-ban"></i></button>`
-        : "—";
-      return `
-      <tr>
-        <td class="gfTdNome">${escapeHtml(s.nome)}</td>
-        <td>${escapeHtml(s.cargo)}</td>
-        <td>${escapeHtml(periodosTexto(s.periodos))}</td>
-        <td><span class="gfBadge ${BADGE_FLUXO[s.status] || "is-sem"}">${escapeHtml(s.status)}</span></td>
-        <td class="gfMotivo">${s.motivo ? escapeHtml(s.motivo) : "—"}</td>
-        <td class="gfTd-center">${cancelar}</td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="6" class="gfVazio">Nenhuma solicitação encaminhada ainda.</td></tr>`;
+  if ($("gfAcompTab")) {
+    const linhas = coape.map((s, i) => ({ ...s, _idx: i }));
+    if (!gfGradeAcomp) gfGradeAcomp = criarTabelaArrastavel({
+      elemento: "gfAcompTab", colunas: GF_COLS_ACOMP, persistID: "gfAcomp",
+      indexField: "_idx", movableRows: false, altura: "300px",
+      vazio: "Nenhuma solicitação encaminhada ainda.",
+    });
+    gfGradeAcomp?.render(linhas);
   }
 }
 
-function acaoCoape(tipo, i) {
+async function acaoCoape(tipo, i) {
   const s = coape[i];
   if (!s) return;
   if (tipo === "aprovar") s.status = "Aprovado";
   else if (tipo === "reprovar") {
-    const m = window.prompt("Motivo da reprovação:", "");
-    if (m === null) return;
-    s.status = "Reprovado"; s.motivo = m || "Sem motivo informado";
+    const r = await abrirModal({ titulo: "Reprovar solicitação", msg: "Informe o motivo da reprovação:", comInput: true, inputLabel: "Motivo", confirmarTexto: "Reprovar", perigo: true });
+    if (!r.ok) return;
+    s.status = "Reprovado"; s.motivo = r.valor;
   } else if (tipo === "ajustar") {
-    const m = window.prompt("O que deve ser ajustado?", "");
-    if (m === null) return;
-    s.status = "Ajuste solicitado"; s.motivo = m || "Ajuste solicitado";
+    const r = await abrirModal({ titulo: "Solicitar ajuste", msg: "O que deve ser ajustado?", comInput: true, inputLabel: "Ajuste necessário", confirmarTexto: "Solicitar ajuste" });
+    if (!r.ok) return;
+    s.status = "Ajuste solicitado"; s.motivo = r.valor;
   }
   renderCoape();
   renderResumo();
 }
 
-function cancelarSolicitacao(i) {
+async function cancelarSolicitacao(i) {
   const s = coape[i];
   if (!s || s.status !== "Em análise") return;
-  if (!window.confirm(`Cancelar a solicitação de férias de "${s.nome}"?`)) return;
+  const r = await abrirModal({ titulo: "Cancelar solicitação", msg: `Cancelar a solicitação de férias de "${s.nome}"?`, confirmarTexto: "Sim, cancelar", perigo: true });
+  if (!r.ok) return;
   s.status = "Cancelado"; s.motivo = "Cancelado pelo escritório";
   renderCoape();
   renderResumo();
@@ -653,7 +746,7 @@ function cancelarSolicitacao(i) {
 
 // ---------- Exportação CSV ----------
 function baixarCsv(linhas, nome) {
-  const csv = String.fromCharCode(0xFEFF) + linhas.map(l => l.map(v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const csv = String.fromCharCode(0xFEFF) + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
   baixarArquivoCsv(csv, nome);
 }
 function exportarConsulta() {
@@ -704,15 +797,8 @@ export function configurarGestaoFerias() {
   $("gfBtnExportar")?.addEventListener("click", exportarConsulta);
   $("gfBtnExportAlertas")?.addEventListener("click", exportarAlertas);
 
-  // Rolagem infinita da Consulta Geral: ao chegar perto do fim, carrega mais 100.
-  const consWrap = $("gfConsBody")?.closest(".gfTableScroll");
-  if (consWrap) {
-    consWrap.addEventListener("scroll", () => {
-      if (consWrap.scrollTop + consWrap.clientHeight >= consWrap.scrollHeight - 320) {
-        renderProximoLoteConsulta();
-      }
-    });
-  }
+  // Consulta Geral migrada para a grade Tabulator (DOM virtual): a rolagem
+  // infinita manual deixou de ser necessária — o Tabulator virtualiza as linhas.
 
   // Sub-abas (Visão Geral | Solicitação | Aprovação COAPE).
   $("gfTabs")?.addEventListener("click", e => {

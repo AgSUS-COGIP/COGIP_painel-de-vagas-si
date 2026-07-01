@@ -308,7 +308,7 @@
 .gfComboBtn i { color: var(--gf-azul); font-size: 11px; flex: 0 0 auto; transition: transform .15s; }
 .gfCombo.aberto .gfComboBtn i { transform: rotate(180deg); }
 .gfComboPop {
-  position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; min-width: 100%; width: max-content; max-width: 380px;
+  position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; min-width: 100%; width: max-content; max-width: min(92vw, 560px);
   background: #fff; border: 1px solid rgba(0, 83, 166, .25); border-radius: 12px; box-shadow: 0 16px 30px rgba(0, 50, 113, .22); overflow: hidden;
 }
 .gfComboSearch { display: flex; align-items: center; gap: 7px; padding: 8px 10px; border-bottom: 1px solid rgba(0, 83, 166, .14); }

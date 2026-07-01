@@ -12,6 +12,27 @@
       border: 0;
     }
 
+    /* Link "pular para o conteúdo": oculto até receber foco por teclado, quando
+       aparece no topo. Permite saltar a navegação lateral repetida. */
+    .skipLink {
+      position: absolute;
+      left: 8px;
+      top: -48px;
+      z-index: 1000;
+      padding: 10px 16px;
+      background: var(--azul-profundo);
+      color: #fff;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: top .15s ease;
+    }
+
+    .skipLink:focus {
+      top: 8px;
+      outline: 3px solid var(--ciano);
+      outline-offset: 2px;
+    }
+
     :root {
       --azul-profundo: #00305f;
       --azul-menu: #004b93;
@@ -21,6 +42,12 @@
       --ciano: #00b5d8;
       --texto: #0b2445;
       --muted: #5c7190;
+      /* Tokens semânticos de status e link (tokenização incremental — antes eram
+         literais repetidos em vários módulos). Trocar a cor agora é num lugar só. */
+      --status-ok: #047857;
+      --status-erro: #b91c1c;
+      --status-perigo: #c0392b;
+      --texto-link: #0b4488;
       --sombra: 0 14px 28px rgba(0, 43, 93, .18);
       --sombra-suave: 0 10px 22px rgba(0, 43, 93, .14);
       --radius: 18px;
@@ -354,8 +381,12 @@
       position: absolute;
       top: calc(100% + 6px);
       left: 0;
-      right: 0;
+      right: auto;
+      /* Largura acompanha a maior opção (no mínimo a do gatilho), limitada à
+         viewport/560px. Opções longas continuam quebrando linha (sem barra). */
       min-width: 100%;
+      width: max-content;
+      max-width: min(92vw, 560px);
       max-height: 290px;
       overflow: auto;
       border-radius: 16px;

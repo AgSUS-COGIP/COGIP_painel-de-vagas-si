@@ -6,14 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "gerar:ps": "node scripts/gerar-processos-seletivos.js",
-    "check": "node --check server.js && node -e \"const cp=require('child_process'),fs=require('fs');['lib','public/js'].forEach(d=>fs.readdirSync(d).filter(f=>f.endsWith('.js')).forEach(f=>cp.execSync('node --check '+d+'/'+f)))\"",
+    "check": "node --check server.js && node -e \"const cp=require('child_process'),fs=require('fs');['lib','public/js'].forEach(d=>fs.readdirSync(d).filter(f=>f.endsWith('.js')).forEach(f=>cp.execSync('node --check '+d+'/'+f)))\" && node scripts/verificar-css.js && node --no-warnings scripts/verificar-modulos.js",
     "test": "node --test"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^7.2.0",
-    "@fortawesome/free-solid-svg-icons": "^7.2.0",
-    "@fortawesome/vue-fontawesome": "^3.2.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -21,7 +17,6 @@
     "google-auth-library": "^10.7.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
-    "mysql2": "^3.15.1",
-    "ogl": "^1.0.11"
+    "mysql2": "^3.15.1"
   }
 }

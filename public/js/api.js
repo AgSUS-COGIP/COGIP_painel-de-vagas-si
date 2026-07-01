@@ -27,7 +27,10 @@ export function authHeaders(extra) {
 
 export async function apiGet(path) {
   const response = await fetch(path, {
-    headers: authHeaders()
+    headers: authHeaders(),
+    // Sempre busca do servidor: sem isso o navegador pode devolver uma resposta
+    // cacheada (ex.: matriz de permissões recém-alterada aparecendo desatualizada).
+    cache: "no-store"
   });
 
   if (!response.ok) {
@@ -49,6 +52,27 @@ export async function apiPost(path, body) {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body || {})
+  });
+
+  if (!response.ok) {
+    let message = `Erro ${response.status}`;
+
+    try {
+      const payload = await response.json();
+      if (payload && payload.error) message = payload.error;
+    } catch (err) { }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
+export async function apiDelete(path) {
+  const response = await fetch(path, {
+    method: "DELETE",
+    headers: authHeaders(),
+    cache: "no-store"
   });
 
   if (!response.ok) {

@@ -48,13 +48,22 @@ Esse é o padrão para "regra que precisa ganhar de todas": uma camada-topo dedi
 | **12-notebook.css** | Ajustes específicos para telas de notebook (evitar empurrar a página). |
 | **13-remanejamento-compacto.css** | Layout compacto do remanejamento **e os estilos de login** (`loginScreen`/`loginCard`) e do bloco usuário/sair da sidebar. Mexa no login aqui. |
 | **14-visao-geral-pagina-unica.css** | Visão Geral em página única (sem rolagem): distribui os gráficos no espaço vertical. |
-| **17-gestao-ferias.css** | Aba **Gestão de Férias** (`gf*`): cartões, tabelas, badges, KPIs, toast da maquete. |
-| **18-entrega-cracha.css** | Aba **Entrega de Crachá** (`ec*`): KPIs, barra de filtros, tabela paginada, badges de status, painel de detalhe, modal de cadastro e toast. |
 | **15-painel-fixo-visao-geral.css** | Painel fixo/TV da Visão Geral (escala da base 1918x927). |
 | **16-acesso.css** | Página de Solicitações de Acesso e modal central reutilizável. |
-| **17-gestao-ferias.css** | Aba de Gestão de Férias (painéis, tabelas, badges, toast). |
-| **18-processos-seletivos.css** | Aba de Processos Seletivos (KPIs, tabela, badges de status, paginação, painel de detalhamento e modal de cadastro). |
+| **17-gestao-ferias.css** | Aba **Gestão de Férias** (`gf*`): cartões, tabelas, badges, KPIs, toast da maquete. |
+| **18-entrega-cracha.css** | Aba **Entrega de Crachá** (`ec*`): KPIs, barra de filtros, tabela paginada, badges de status, painel de detalhe, modal de cadastro e toast. |
+| **19-gestao-disciplinar.css** | Aba **Gestão Disciplinar** (`gd*`): reaproveita os componentes da Gestão de Férias (`gfPanel`, `gfTable`, `gfBtn`, `gfBadge`, `gfKpi`) e acrescenta o específico (grade de detalhe, stepper). |
+| **20-processos-seletivos.css** | Aba **Processos Seletivos** (`ps*`): KPIs, tabela, badges de status, paginação, painel de detalhamento e modal de cadastro. |
+| **21-login.css** | **Tela de login** (layout dividido acesso + imagem; acesso por conta Google). Escopo restrito a `#loginScreen` para não afetar `.acessoPendenteScreen`, que reusa `.loginCard`. **Mexa no login aqui** (vence a base de login do 13). |
+| **22-ordenacao-tabelas.css** | Ordenação por clique no cabeçalho (genérica, todas as tabelas): indicadores visuais de coluna clicável e direção. |
+| **23-filtros-padrao.css** | **Padrão visual único de filtros/dropdowns** (`.multiSelect`): gatilho branco arredondado + popup. Aplica o mesmo formato a todos os dropdowns. |
+| **24-date-picker.css** | Date picker customizado dos filtros de data: gatilho branco + calendário em popup (portal no `<body>`). |
+| **25-file-input.css** | Input de arquivo padronizado: botão "Selecionar arquivos" + área de estado (chips, overflow "+N", desabilitado). |
 | **26-tabelas-padrao.css** | **Pele comum de TODAS as tabelas-grade** (estilo da aba Vagas): cabeçalho gradiente, listras azul-claras, hover azul e scrollbar azul. Camada-topo (`tabelas-padrao`) declarada **depois** dos módulos — vence a cascata sem `!important`. Mexa aqui para mudar o visual compartilhado das tabelas. Preserva recursos próprios (coluna destacada, linha de total, badges, linhas de estado) via `:not()`. |
+| **27-perfis-acesso.css** | Administração de **Perfis de Acesso** (matriz de permissões): tema claro alinhado ao painel de Solicitações (`.solCard`). |
+
+> A ordem/camadas acima espelham exatamente o `styles.css` (01→27). Se adicionar um
+> arquivo, atualize **as três coisas**: o `@layer` (lista de nomes), o `@import` e esta tabela.
 
 ## Onde mexer — referência rápida
 
@@ -62,7 +71,7 @@ Esse é o padrão para "regra que precisa ganhar de todas": uma camada-topo dedi
 |---|---|---|
 | Cores / tema | `01-base.css` (`:root`) | — |
 | Menu lateral | `08-menu-lateral.css` | `09`, `10`, `11`, `12` |
-| Tela de login | `13-remanejamento-compacto.css` | — |
+| Tela de login | `21-login.css` | `13` tem a base; `21` (camada posterior) vence |
 | Estilo comum das tabelas (todas) | `26-tabelas-padrao.css` | vence todos os módulos |
 | Tabelas (Vagas/Alertas) | `03-layout-claro.css` | `01`, `06`, `07`, `11`, `26` |
 | KPIs / cards | `01-base.css` / `03` | `07`, `10`, `11`, `14` |
@@ -89,9 +98,25 @@ um override responsivo intencional, não duplicata.
 | `.panelTipo` | 03, 06, 07, 11, 12 — ~16 | Grid dos painéis da Visão Geral (`grid-template-columns`/`gap` variam por tela). |
 | `.app` | 01, 11 e media queries — ~14 | Grid raiz; `11-responsivo-v3.css` reescreve em camada posterior (sem `!important` — vence pela ordem das camadas). |
 
+## Convenção de nomes de classe
+
+O padrão dominante é **camelCase** para componentes (`panelTipo`, `loginCard`,
+`kpiGrid`, prefixos por módulo `gf*`/`ec*`/`gd*`/`ps*`/`si*`/`rem*`). Use
+**kebab-case** apenas para **estados/modificadores** alternados por JS
+(`sidebar-collapsed`, `is-erro`, `is-sel`). Em código novo, siga essa regra —
+não renomeie classes existentes só por padronização.
+
 ## Tokens de cor (`:root` em `01-base.css`)
 
-Cores institucionais centralizadas: `--azul-profundo`, `--azul-menu`, `--azul-card`,
-`--azul-escuro`, `--azul-primario`, `--ciano`, `--texto`, `--muted`. Os azuis
-dominantes do tema já usam esses tokens (trocar a cor é num lugar só). Demais
-cores ainda estão como literais espalhados — tokenização incremental.
+Cores institucionais centralizadas:
+- **Tema (azuis):** `--azul-profundo`, `--azul-menu`, `--azul-card`, `--azul-escuro`,
+  `--azul-primario`, `--ciano`, `--texto`, `--muted`.
+- **Status e link (semânticos):** `--status-ok` (verde sucesso), `--status-erro`
+  (vermelho), `--status-perigo` (vermelho de exclusão/alerta forte), `--texto-link`
+  (azul de links). Antes eram literais (`#047857`, `#b91c1c`, `#c0392b`, `#0b4488`)
+  repetidos em vários módulos; agora trocar a cor é num lugar só.
+
+Trocar uma cor tokenizada é num único ponto (o `:root`). Demais cores ainda estão
+como literais espalhados — **tokenização incremental**: ao mexer num módulo, troque
+os literais que casarem com um token existente por `var(--token)` (preservando a
+cor) e proponha novos tokens semânticos para famílias muito repetidas.

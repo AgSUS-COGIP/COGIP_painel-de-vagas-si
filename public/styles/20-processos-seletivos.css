@@ -161,7 +161,7 @@
 
 .psBtn.psBtnGhost {
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   border: 1px solid rgba(0, 83, 166, .3);
   box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
 }
@@ -223,7 +223,7 @@
 .psKpiValue.is-muted { color: #6b7d96; }
 .psKpiValue.is-green { color: #0a8a4d; }
 .psKpiValue.is-orange { color: #d98200; }
-.psKpiValue.is-red { color: #c0392b; }
+.psKpiValue.is-red { color: var(--status-perigo); }
 
 /* ---------- Painel / tabela principal ---------- */
 .psPanel {
@@ -314,7 +314,7 @@
 .psRowChevron {
   flex: none;
   font-size: 11px;
-  color: #0b4488;
+  color: var(--texto-link);
   opacity: .5;
   transition: transform .2s ease, opacity .16s ease;
 }
@@ -341,7 +341,7 @@
   height: 30px;
   border: 1px solid rgba(0, 83, 166, .24);
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 12px;
   font-weight: 900;
   font-family: inherit;
@@ -462,7 +462,7 @@
 }
 
 .psTileValue.is-green { color: #0a8a4d; }
-.psTileValue.is-red { color: #c0392b; }
+.psTileValue.is-red { color: var(--status-perigo); }
 .psTileValue.is-blue { color: #0a5bb0; }
 
 .psTileLabel {
@@ -485,7 +485,7 @@
 
 .psBlocoTitulo {
   margin: 0 0 9px 0;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
@@ -560,7 +560,7 @@
 .psChip {
   border: 1px solid rgba(0, 83, 166, .26);
   background: #fff;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 10.5px;
   font-weight: 900;
   font-family: inherit;
@@ -592,6 +592,46 @@
 /* Linha da etapa atual no cronograma do edital. */
 .psTableSub tbody tr.is-etapa-atual td { background: rgba(255, 153, 0, .14); }
 .psTableSub tbody tr.is-etapa-atual .psCelNome { font-weight: 800; color: #8a5200; }
+
+/* Aprovado que desistiu: linha esmaecida e riscada (mantém a posição/registro). */
+.psTableSub tbody tr.is-desistiu td { opacity: .55; text-decoration: line-through; }
+
+/* Widget "Etapa atual" recolhível (o cronograma virou este campo). */
+.psEtapaWidget { margin: 2px 0 10px; }
+.psEtapaHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: rgba(0, 112, 217, .06);
+  border: 1px solid rgba(0, 83, 166, .16);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--azul-escuro);
+}
+.psEtapaHead:hover { background: rgba(0, 112, 217, .12); }
+.psEtapaLabel {
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  color: #4a6a93;
+}
+.psEtapaValor { flex: 1; font-size: 12px; font-weight: 800; color: var(--azul-escuro); }
+.psEtapaCorpo { margin-top: 8px; }
+.psEtapaMeta { margin-bottom: 4px; color: #6b86a8; font-size: 10.5px; font-weight: 800; }
+
+/* Painel "Aprovados para [vaga]" abaixo do quadro de vagas. */
+.psAprovadosPainel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0, 83, 166, .22);
+}
+.psAprovadosPainel .psDetalheAcoes { margin: 6px 0 10px; }
+.psAprovadoAcoes { white-space: nowrap; }
+.psAprovadoAcoes .psIconBtn + .psIconBtn { margin-left: 4px; }
 
 /* Bloco do quadro de vagas ocupa a largura toda (abaixo do grid 2 colunas). */
 .psBlocoFull { margin-top: 4px; }
@@ -638,7 +678,7 @@
 }
 
 .psDot.is-green { background: #0a8a4d; }
-.psDot.is-red { background: #c0392b; }
+.psDot.is-red { background: var(--status-perigo); }
 
 /* ============================================================
    Modal de cadastro de novo processo
@@ -694,7 +734,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 12px;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 12px;
   font-weight: 800;
 }
@@ -802,7 +842,7 @@
 
 .psFormSecaoHead h4 {
   margin: 0;
-  color: #0b4488;
+  color: var(--texto-link);
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
@@ -847,7 +887,7 @@
 .psCheck input { width: 16px; height: 16px; }
 
 .psModalErro {
-  color: #c0392b;
+  color: var(--status-perigo);
   font-size: 12px;
   font-weight: 800;
   margin-top: 10px;

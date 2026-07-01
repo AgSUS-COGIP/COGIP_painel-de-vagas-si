@@ -302,9 +302,12 @@
   z-index: 40;
   top: calc(100% + 4px);
   left: 0;
+  /* Largura acompanha a MAIOR opção (width: max-content), independente da caixa de
+     busca; min-width: 100% garante pelo menos a largura do botão. O teto sobe para
+     caber os rótulos longos (DSEI) sem barra horizontal, limitado à viewport. */
   min-width: 100%;
   width: max-content;
-  max-width: 380px;
+  max-width: min(92vw, 560px);
   background: #fff;
   border: 1px solid rgba(0, 83, 166, .25);
   border-radius: 12px;
@@ -353,6 +356,7 @@
   padding: 4px;
   max-height: 300px;
   overflow-y: auto;
+  overflow-x: hidden;        /* sem barra horizontal: rótulos longos usam reticências */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 83, 166, .4) transparent;
 }
@@ -384,7 +388,10 @@
   transition: background .12s, border-color .12s;
 }
 
-.siComboOptLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* flex + min-width:0: o rótulo contribui com a largura cheia para o max-content
+   (popup cresce até a maior opção), mas ENCOLHE com reticências quando o popup
+   atinge o teto — assim nunca gera barra horizontal. */
+.siComboOptLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .siComboOpt.is-sel .siComboCheck {
   background: linear-gradient(135deg, var(--si-azul), var(--si-azul-esc));

@@ -25,13 +25,6 @@ export function quebrarLabelGrafico(label, maxChars, maxLines) {
   return reduzidas;
 }
 
-export function limitarLabelGrafico(label, limite) {
-  const texto = String(label || "");
-  const max = limite || 14;
-  if (texto.length <= max) return texto;
-  return texto.slice(0, max - 1).trim() + "…";
-}
-
 export function normalizarNomeCargo(cargo) {
   return String(cargo || "")
     .normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
@@ -66,19 +59,6 @@ export function cssEscapeAttr(valor) {
   return String(valor ?? "")
     .replace(/\\/g, "\\\\")
     .replace(/"/g, '\\"');
-}
-
-export function mesesAteFimDoAno() {
-  const mes = new Date().getMonth() + 1; // 1..12
-  return Math.max(1, 13 - mes);
-}
-
-export function aplicarClasseResultado(id, value) {
-  const el = document.getElementById(id);
-  if (!el) return;
-
-  el.classList.toggle("positivo", Number(value || 0) > 0);
-  el.classList.toggle("negativo", Number(value || 0) < 0);
 }
 
 export function formatCurrency(value) {
@@ -156,4 +136,40 @@ export function debounce(fn, delay = 200) {
     clearTimeout(timer);
     timer = setTimeout(() => fn.apply(this, args), delay);
   };
+}
+
+// ---------- Datas (BR <-> ISO) ----------
+// Helpers centralizados de data. Antes cada módulo reimplementava estes (com
+// nomes e fallbacks diferentes); estas versões são superset das anteriores:
+// aceitam dia/mês de 1-2 dígitos (com padding), toleram datas-hora ISO
+// (`slice(0,10)`) e recebem o `fallback` por parâmetro para preservar o
+// comportamento de cada chamador ("" em campos, "—" em tabelas).
+
+// "aaaa-mm-dd" (ou "aaaa-mm-ddThh:mm…") -> "dd/mm/aaaa". `fallback` quando vazio/inválido.
+export function isoParaDataBr(iso, fallback = "") {
+  if (!iso) return fallback;
+  const [a, m, d] = String(iso).slice(0, 10).split("-");
+  return (a && a.length === 4 && m && d) ? `${d}/${m}/${a}` : fallback;
+}
+
+// "dd/mm/aaaa" -> "aaaa-mm-dd" (com zero à esquerda). `fallback` quando não casa.
+export function dataBrParaIso(br, fallback = "") {
+  const m = String(br || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : fallback;
+}
+
+// "dd/mm/aaaa" -> Date (horário local) ou null se o formato não casar.
+export function dataBrParaDate(br) {
+  const m = String(br || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
+}
+
+// dd/mm/aaaa com calendário válido (rejeita 32/13, 30/02, etc.). Vazio = falso.
+export function dataBrValida(br) {
+  const m = String(br || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return false;
+  const d = +m[1], mes = +m[2], a = +m[3];
+  if (mes < 1 || mes > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(a, mes - 1, d);
+  return dt.getFullYear() === a && dt.getMonth() === mes - 1 && dt.getDate() === d;
 }

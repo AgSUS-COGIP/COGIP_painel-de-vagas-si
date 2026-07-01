@@ -9,12 +9,15 @@ require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const { DASH_CONFIG } = require("../lib/config");
 const { getMysqlConnection, fecharJdbc } = require("../lib/db");
+const { garantirTabelaPermissoesModulos, garantirSuperAdminComConn } = require("../lib/permissoes");
 
 async function main() {
   const login = process.env.SEED_ADMIN_LOGIN || "admin";
   const senha = String(process.env.SEED_ADMIN_SENHA || "");
   const nome = process.env.SEED_ADMIN_NOME || "Administrador";
-  const email = process.env.SEED_ADMIN_EMAIL || "";
+  // O acesso é por módulo, indexado por e-mail. Sem SEED_ADMIN_EMAIL, usa um
+  // sintético "<login>@local" (o login local é por LOGIN, não por e-mail).
+  const email = String(process.env.SEED_ADMIN_EMAIL || "").trim().toLowerCase() || `${login}@local`;
 
   if (!senha) {
     console.error("Defina SEED_ADMIN_SENHA no .env antes de rodar este script.");
@@ -24,6 +27,7 @@ async function main() {
   const tab = `\`${DASH_CONFIG.DB_SCHEMA}\`.\`${DASH_CONFIG.USUARIOS_TABLE}\``;
   const hash = await bcrypt.hash(senha, 10);
 
+  await garantirTabelaPermissoesModulos();
   const conn = await getMysqlConnection();
   try {
     const [rows] = await conn.query(
@@ -34,20 +38,22 @@ async function main() {
     if (rows && rows[0]) {
       await conn.execute(
         `UPDATE ${tab}
-            SET \`SENHA_HASH\` = ?, \`ATIVO\` = 1, \`NIVEL_AUTORIZACAO\` = ?
+            SET \`SENHA_HASH\` = ?, \`ATIVO\` = 1, \`EMAIL\` = ?
           WHERE \`LOGIN\` = ?`,
-        [hash, DASH_CONFIG.NIVEL_SUPERADMIN, login]
+        [hash, email, login]
       );
       console.log(`Admin "${login}" já existia: senha redefinida, reativado e promovido a super admin.`);
     } else {
       await conn.execute(
         `INSERT INTO ${tab}
            (\`LOGIN\`, \`SENHA_HASH\`, \`NOME\`, \`EMAIL\`, \`NIVEL_AUTORIZACAO\`, \`ATIVO\`)
-         VALUES (?, ?, ?, ?, ?, 1)`,
-        [login, hash, nome, email || null, DASH_CONFIG.NIVEL_SUPERADMIN]
+         VALUES (?, ?, ?, ?, 0, 1)`,
+        [login, hash, nome, email]
       );
-      console.log(`Admin "${login}" criado como super administrador (nível ${DASH_CONFIG.NIVEL_SUPERADMIN}).`);
+      console.log(`Admin "${login}" criado como super administrador.`);
     }
+    // Super admin no novo modelo = nível 3 em todos os módulos (indexado por e-mail).
+    await garantirSuperAdminComConn(conn, email);
     console.log(`Pronto. Faça login com login="${login}" e a senha de SEED_ADMIN_SENHA.`);
   } finally {
     await fecharJdbc(conn);

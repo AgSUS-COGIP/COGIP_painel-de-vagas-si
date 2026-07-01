@@ -4,6 +4,7 @@ import { filtrarRowsBase, getSelectedValues } from "./filtros.js";
 import { pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, formatNumber, normalizarTextoPainel } from "./utils.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 export function renderAlertasDaPagina() {
   const tbody = document.getElementById("alertasBody");
@@ -25,8 +26,8 @@ export function renderAlertasDaPagina() {
 }
 
 export function renderAlertasErro(error) {
-  const tbody = document.getElementById("alertasBody");
-  if (tbody) tbody.innerHTML = `<tr><td colspan="5">Erro ao carregar Alertas: ${escapeHtml(error && error.message ? error.message : String(error))}</td></tr>`;
+  const pag = document.getElementById("alertasPagination");
+  if (pag) pag.innerHTML = `<span>Erro ao carregar Alertas: ${escapeHtml(error && error.message ? error.message : String(error))}</span>`;
 }
 
 export function montarAlertas(data) {
@@ -113,36 +114,48 @@ export function montarAlertas(data) {
   });
 }
 
+// Grade arrastável dos Alertas (só COLUNAS: a tabela re-renderiza ao editar uma
+// observação/filtrar, o que resetaria a ordem de linhas). A coluna Observação
+// usa variableHeight (cresce ao entrar em edição) e reaproveita o HTML existente.
+let gradeAlertas = null;
+const ALERTAS_COLS = [
+  { title: "DSEI/CASAI", field: "dsei" },
+  { title: "Cargo", field: "cargo" },
+  { title: "Tipo de Alerta", field: "tipo" },
+  { title: "Detalhe", field: "detalhe", widthGrow: 2 },
+  {
+    // minWidth garante espaço p/ o campo + botões: ao alargar outra coluna, a
+    // Observação para de encolher aqui e a rolagem horizontal aparece (em vez de
+    // cortar os botões). Mesmo princípio do minWidth das colunas no Disciplinar.
+    title: "Observação", field: "_obs", widthGrow: 3, minWidth: 300, variableHeight: true, hozAlign: "left",
+    formatter: c => {
+      const row = c.getData();
+      const chave = row.chave;
+      const infoObs = state.observacoesAlertas[chave] || {};
+      const obs = infoObs.observacao || row.observacao || "";
+      return `<div class="alertaObservacaoCell">${renderObservacaoAlertaHtml(chave, obs, infoObs)}</div>`;
+    },
+  },
+];
+
 export function renderAlertasTable(rows) {
-  const tbody = document.getElementById("alertasBody");
+  if (!document.getElementById("alertasTab")) return;
   const pagination = document.getElementById("alertasPagination");
-  if (!tbody) return;
-
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5">Sem alertas para os filtros selecionados.</td></tr>`;
-    if (pagination) pagination.innerHTML = "";
-    return;
-  }
-
-  tbody.innerHTML = rows.map(row => {
-    const chave = row.chave || gerarChaveAlerta(row);
-    const infoObs = state.observacoesAlertas[chave] || {};
-    const obs = infoObs.observacao || row.observacao || "";
-
-    return `
-          <tr>
-            <td>${escapeHtml(row.dsei)}</td>
-            <td>${escapeHtml(row.cargo)}</td>
-            <td>${escapeHtml(row.tipo)}</td>
-            <td>${escapeHtml(row.detalhe)}</td>
-            <td class="alertaObservacaoCell">${renderObservacaoAlertaHtml(chave, obs, infoObs)}</td>
-          </tr>
-        `;
-  }).join("");
-
-  if (pagination) {
-    pagination.innerHTML = `<span>Exibindo ${formatNumber(rows.length)} alerta(s) com rolagem.</span>`;
-  }
+  if (pagination) pagination.innerHTML = rows.length
+    ? `<span>Exibindo ${formatNumber(rows.length)} alerta(s) com rolagem.</span>`
+    : "";
+  // Injeta a chave (índice único da linha) usada pela edição e pela persistência.
+  const dados = rows.map(r => ({ ...r, chave: r.chave || gerarChaveAlerta(r) }));
+  if (!gradeAlertas) gradeAlertas = criarTabelaArrastavel({
+    elemento: "alertasTab", colunas: ALERTAS_COLS, persistID: "alertasV2",
+    indexField: "chave", movableRows: false, altura: "520px",
+    // Layout padrão (fitDataStretch), igual ao Disciplinar: a última coluna
+    // (Observação) estica para a largura DISPONÍVEL (descontando a barra de
+    // rolagem vertical, sem cortar os botões); ao alargar uma coluna além do que
+    // cabe, surge a barra de rolagem horizontal.
+    vazio: "Sem alertas para os filtros selecionados.",
+  });
+  gradeAlertas?.render(dados);
 }
 
 // Editar observações de alertas exige permissão de Editor (nível >= 2) no módulo.
@@ -287,8 +300,4 @@ export function salvarObservacaoAlertaPainel(chave) {
       if (status) status.innerText = "";
       alert(error && error.message ? error.message : String(error));
     });
-}
-
-export function mudarPaginaAlertas(delta) {
-  renderAlertasTable(state.alertasRows);
 }

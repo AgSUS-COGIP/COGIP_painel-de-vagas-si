@@ -1,4 +1,4 @@
-import { renderBar, renderCardsOciosas, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo, renderTreemap } from "./charts.js";
+import { renderBar, renderDoughnut, renderFunnelDsei, renderLegend, renderProgressBarResumo, renderTreemap } from "./charts.js";
 import { COLORS } from "./constants.js";
 import { deveUsarIndicadoresResumoBase } from "./filtros.js";
 import { state } from "./state.js";

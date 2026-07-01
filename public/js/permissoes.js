@@ -2,13 +2,15 @@
 //
 // Cada usuário aprovado tem um nível por módulo/aba:
 //   0 = Sem acesso   1 = Leitor   2 = Editor   3 = Administrador
-// Quando não há override gravado para um módulo, vale o nível global do usuário
-// (state.painelLoginUsuario.nivelAutorizacao). O backend reaplica a regra a cada
-// requisição; aqui é só UI e ocultação/bloqueio de abas.
+// Não há mais nível global: sem linha gravada para um módulo, o nível é 0 (Sem
+// acesso). O backend reaplica a regra a cada requisição; aqui é só UI e
+// ocultação/bloqueio de abas. Super admin = nível 3 no módulo "solicitacoes".
 import { apiGet, apiPost } from "./api.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { NIVEL } from "./constants.js";
+import { abrirModal } from "./modal.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 // Módulos (abas) na ordem da matriz. As chaves casam com o data-view do menu.
 // Espelha lib/permissoes.js (o backend é a fonte de verdade ao salvar/validar).
@@ -43,31 +45,21 @@ function el(id) { return document.getElementById(id); }
 // Enforcement — permissão efetiva do usuário logado
 // ----------------------------------------------------------------------------
 
-// Nível efetivo do usuário logado em um módulo: override explícito ou, na
-// ausência, o nível global. Usado para esconder/bloquear abas e travar edição.
+// Nível do usuário logado em um módulo. Sem mais nível global: ausência de
+// override = 0 (Sem acesso). Usado para esconder/bloquear abas e travar edição.
 export function nivelModulo(modulo) {
   const u = state.painelLoginUsuario || {};
-  const global = Number(u.nivelAutorizacao || 0);
-  const overrides = u.permissoes || {};
-  const v = overrides[modulo];
-  return (v === undefined || v === null) ? global : Number(v);
+  return Number((u.permissoes || {})[modulo] || 0);
 }
 
 export function podeVerModulo(modulo) { return nivelModulo(modulo) >= NIVEL.APROVADO; }
-export function podeEditarModulo(modulo) { return nivelModulo(modulo) >= NIVEL.ADMIN; }
 
 // Acesso à aba de administração de perfis (regra mandatória = matriz). É definido
-// pelo nível do módulo "solicitacoes": override na matriz ou, na ausência, o
-// padrão — super admin global tem acesso pleno; os demais, nenhum. Assim um super
-// admin pode CONCEDER a aba a outro usuário ou REBAIXAR outro super admin.
+// exclusivamente pelo nível do usuário no módulo "solicitacoes". Super admin = 3.
 //   ver = nível >= 1 (somente leitura)   administrar = nível >= 2
 function nivelAdminLogado() {
   const u = state.painelLoginUsuario || {};
-  const ov = (u.permissoes || {})[MODULO_ADMIN];
-  if (ov === undefined || ov === null) {
-    return Number(u.nivelAutorizacao || 0) >= NIVEL.SUPERADMIN ? NIVEL.SUPERADMIN : 0;
-  }
-  return Number(ov);
+  return Number((u.permissoes || {})[MODULO_ADMIN] || 0);
 }
 export function podeVerPerfis() { return nivelAdminLogado() >= NIVEL.APROVADO; }
 export function podeEditarPerfis() { return nivelAdminLogado() >= NIVEL.ADMIN; }
@@ -86,8 +78,8 @@ export function aplicarPermissoesModulos() {
   let atualEscondida = false;
 
   MODULOS_PERMISSAO.forEach(m => {
-    // A aba de administração é especial: sua visibilidade combina super admin
-    // global + módulo, e é resolvida em aplicarPermissoesUsuario() (auth.js).
+    // A aba de administração é especial: sua visibilidade (módulo "solicitacoes")
+    // é resolvida em aplicarPermissoesUsuario() (auth.js).
     if (m.chave === MODULO_ADMIN) return;
     const item = document.querySelector(`.navItem[data-view="${m.chave}"]`);
     if (!item) return;
@@ -117,22 +109,19 @@ export function aplicarPermissoesModulos() {
 // ----------------------------------------------------------------------------
 let perfisCache = [];
 let filtroBusca = "";
+// DSEIs disponíveis para o seletor de escopo (vêm do GET /api/acesso/perfis).
+let dseisDisponiveis = [];
 
 function mesmoUsuarioLogado(email) {
   const meu = String((state.painelLoginUsuario || {}).email || "").trim().toLowerCase();
   return !!meu && meu === String(email || "").trim().toLowerCase();
 }
 
-// Nível efetivo de um usuário da lista em um módulo (override ou padrão).
-// Módulos comuns herdam o nível global; o módulo de administração tem padrão
-// próprio: super admin global = acesso pleno, demais = sem acesso.
+// Nível de um usuário da lista em um módulo. Sem mais nível global: ausência de
+// override = 0 (Sem acesso).
 function nivelEfetivo(usuario, modulo) {
   const v = usuario.permissoes ? usuario.permissoes[modulo] : undefined;
-  if (v !== undefined && v !== null) return Number(v);
-  if (modulo === MODULO_ADMIN) {
-    return Number(usuario.nivel || 0) >= NIVEL.SUPERADMIN ? NIVEL.SUPERADMIN : 0;
-  }
-  return Number(usuario.nivel || 0);
+  return (v !== undefined && v !== null) ? Number(v) : 0;
 }
 
 function classeNivel(valor) {
@@ -149,7 +138,9 @@ function niveisDisponiveis(modulo) {
   return MODULOS_SOMENTE_LEITURA.has(modulo) ? NIVEIS.filter(n => n.valor <= NIVEL.APROVADO) : NIVEIS;
 }
 
-function celulaSelect(usuario, modulo) {
+// HTML do <select> de permissão de uma célula (sem <td>: vai num formatter do
+// Tabulator). Mantém os data-* (perm-email/perm-modulo) para a delegação existente.
+function selectPermHtml(usuario, modulo) {
   const email = escapeHtml(usuario.email || "");
   const niveis = niveisDisponiveis(modulo);
   const maxNivel = niveis[niveis.length - 1].valor;
@@ -163,56 +154,78 @@ function celulaSelect(usuario, modulo) {
   const desabilita = (!podeEditarPerfis() || !usuario.email || ehProprioAdmin) ? " disabled" : "";
   const titulo = ehProprioAdmin
     ? "Você não pode alterar o seu próprio acesso a esta aba"
-    : (personalizado ? "Permissão personalizada" : "Herdado do nível global");
+    : (personalizado ? "Permissão definida" : "Sem acesso (defina o nível)");
   const opcoes = niveis.map(n =>
     `<option value="${n.valor}"${n.valor === atual ? " selected" : ""}>${n.rotulo}</option>`
   ).join("");
   // data-ss-skip mantém o <select> nativo (não vira combo pesquisável).
-  return `<td class="permCell">
-    <select class="permSel ${classeNivel(atual)}${personalizado ? " permCustom" : ""}"
+  return `<select class="permSel ${classeNivel(atual)}${personalizado ? " permCustom" : ""}"
             data-perm-email="${email}" data-perm-modulo="${escapeHtml(modulo)}"
-            data-ss-skip${desabilita} title="${escapeHtml(titulo)}">
-      ${opcoes}
-    </select>
-  </td>`;
+            data-ss-skip${desabilita} title="${escapeHtml(titulo)}">${opcoes}</select>`;
 }
 
-function linhaUsuario(usuario) {
-  const login = escapeHtml(usuario.login || usuario.email || "—");
-  const nome = escapeHtml(usuario.nome || "—");
+// Resumo textual do escopo de DSEI do usuário ("Todos os DSEIs" ou "N DSEI(s)").
+function resumoEscopo(usuario) {
+  const esc = usuario.escopo || { todos: true, dseis: [] };
+  if (esc.todos !== false) return "Todos os DSEIs";
+  const n = (esc.dseis || []).length;
+  return n ? `${n} DSEI(s)` : "Nenhum DSEI";
+}
+
+// Conteúdo da célula "Escopo (DSEI)" (sem <td>: vai num formatter do Tabulator).
+// Editor+ vê o botão que abre o modal (data-perm-escopo → onClickPerfis); o leitor
+// vê só o chip. O escopo é por pessoa (vale para todos os módulos).
+function escopoCelulaHtml(usuario) {
   const email = escapeHtml(usuario.email || "");
-  const temOverride = usuario.permissoes && Object.keys(usuario.permissoes).length > 0;
-  const acaoLimpar = (podeEditarPerfis() && usuario.email)
-    ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Restaurar tudo para o nível global"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
-    : "";
-  // Coluna "Ações" só existe para quem pode editar (Editor+); o leitor não a vê.
-  const acoesTd = podeEditarPerfis() ? `<td class="permAcoes">${acaoLimpar}</td>` : "";
-  const celulas = MODULOS_PERMISSAO.map(m => celulaSelect(usuario, m.chave)).join("");
-  return `<tr class="permRow">
-    <td class="permUser">
-      <span class="permLogin">${login}</span>
-      <span class="permNome">${nome}</span>
-    </td>
-    ${celulas}
-    ${acoesTd}
-  </tr>`;
+  const resumo = escapeHtml(resumoEscopo(usuario));
+  const restrito = usuario.escopo && usuario.escopo.todos === false;
+  const classe = restrito ? "permEscopoRestrito" : "permEscopoTodos";
+  if (!podeEditarPerfis() || !usuario.email) {
+    return `<span class="permEscopoChip ${classe}">${resumo}</span>`;
+  }
+  return `<button type="button" class="permEscopoBtn ${classe}" data-perm-escopo="${email}" title="Definir os DSEIs que este usuário pode acessar"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${resumo}</button>`;
 }
 
-// Total de colunas da matriz (usuário + módulos + Ações quando editável).
-function colspanMatriz() {
-  return MODULOS_PERMISSAO.length + 1 + (podeEditarPerfis() ? 1 : 0);
-}
+// Grade Tabulator (modo SÓ-ESTILO: sem arrastar colunas/linhas). 1ª coluna
+// (Usuário) fixa e azul; cabeçalhos de módulo com ícone branco; selects e botões
+// inline preservam os data-* para a delegação (salvar/restaurar/escopo) valer.
+let gradePerfis = null;
 
-function cabecalhoModulos() {
-  const cols = MODULOS_PERMISSAO.map(m =>
-    `<th class="permModuloTh"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i><span>${escapeHtml(m.rotulo)}</span></th>`
-  ).join("");
-  const acoesTh = podeEditarPerfis() ? `<th class="permAcoesTh">Ações</th>` : "";
-  return `<tr>
-    <th class="permUserTh">Usuário</th>
-    ${cols}
-    ${acoesTh}
-  </tr>`;
+function colsPerfis() {
+  const cols = [
+    {
+      title: "Usuário", field: "login", frozen: true, width: 220, cssClass: "permUserCol",
+      formatter: c => {
+        const u = c.getData();
+        return `<span class="permLogin">${escapeHtml(u.login || u.email || "—")}</span>` +
+               `<span class="permNome">${escapeHtml(u.nome || "—")}</span>`;
+      },
+    },
+    ...MODULOS_PERMISSAO.map(m => ({
+      title: m.rotulo, field: m.chave, width: 132, hozAlign: "center", headerHozAlign: "center",
+      titleFormatter: () => `<span class="permHeadIcon"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i></span><span class="permHeadTxt">${escapeHtml(m.rotulo)}</span>`,
+      formatter: c => selectPermHtml(c.getData(), m.chave),
+    })),
+    // Escopo (DSEI): por pessoa, vale para todos os módulos. O botão (Editor+) abre
+    // o modal via delegação data-perm-escopo (ver onClickPerfis).
+    {
+      title: "Escopo (DSEI)", field: "_escopo", width: 150, hozAlign: "center", headerHozAlign: "center", cssClass: "permEscopoCell",
+      titleFormatter: () => `<span class="permHeadIcon"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></span><span class="permHeadTxt">Escopo (DSEI)</span>`,
+      formatter: c => escopoCelulaHtml(c.getData()),
+    },
+  ];
+  if (podeEditarPerfis()) cols.push({
+    title: "Ações", field: "_acoes", width: 84, hozAlign: "center", headerHozAlign: "center",
+    formatter: c => {
+      const u = c.getData();
+      const email = escapeHtml(u.email || "");
+      const temOverride = u.permissoes && Object.keys(u.permissoes).length > 0;
+      return u.email
+        ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Restaurar tudo para o nível global"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
+        : "";
+    },
+  });
+  return cols;
 }
 
 function usuariosFiltrados() {
@@ -226,32 +239,34 @@ function usuariosFiltrados() {
 }
 
 function renderMatriz() {
-  const corpo = el("perfisMatrizBody");
-  const cabeca = el("perfisMatrizHead");
-  if (!corpo || !cabeca) return;
-  cabeca.innerHTML = cabecalhoModulos();
+  if (!el("perfisMatrizTab")) return;
   const lista = usuariosFiltrados();
-  corpo.innerHTML = lista.length
-    ? lista.map(linhaUsuario).join("")
-    : `<tr><td class="permVazio" colspan="${colspanMatriz()}">Nenhum usuário encontrado.</td></tr>`;
+  if (!gradePerfis) gradePerfis = criarTabelaArrastavel({
+    elemento: "perfisMatrizTab", colunas: colsPerfis(),
+    persistID: "perfisMatriz", indexField: "email",
+    movableColumns: false, movableRows: false, // só o estilo do Tabulator
+    layout: "fitData",                          // colunas no tamanho do conteúdo (rola na horizontal; 1ª fixa)
+    altura: "560px", vazio: "Nenhum usuário encontrado.",
+  });
+  gradePerfis?.render(lista);
   const rodape = el("perfisRodape");
   if (rodape) rodape.textContent = `Mostrando ${lista.length} de ${perfisCache.length} usuários`;
 }
 
 export async function carregarPerfisAcesso(silencioso) {
-  const corpo = el("perfisMatrizBody");
-  if (!corpo) return;
-  if (!silencioso) {
-    corpo.innerHTML = `<tr><td class="permVazio" colspan="${colspanMatriz()}">Carregando…</td></tr>`;
-  }
+  if (!el("perfisMatrizTab")) return;
   let dados;
   try {
     dados = await apiGet("/api/acesso/perfis");
   } catch (e) {
-    if (!silencioso) corpo.innerHTML = `<tr><td class="permVazio" colspan="${colspanMatriz()}">Não foi possível carregar os perfis.</td></tr>`;
+    if (!silencioso) {
+      const rodape = el("perfisRodape");
+      if (rodape) rodape.textContent = "Não foi possível carregar os perfis.";
+    }
     return;
   }
   perfisCache = dados.usuarios || [];
+  dseisDisponiveis = dados.dseisDisponiveis || [];
   renderMatriz();
 }
 
@@ -277,9 +292,9 @@ async function onChangePerfis(ev) {
     aplicarMudancaLocal(email, modulo, nivel);
     // Recolore o select e marca como personalizado.
     sel.className = `permSel ${classeNivel(nivel)} permCustom`;
-    sel.title = "Permissão personalizada";
+    sel.title = "Permissão definida";
     // Reabilita o botão "restaurar" da linha.
-    const btn = sel.closest("tr")?.querySelector("[data-perm-limpar]");
+    const btn = sel.closest(".tabulator-row")?.querySelector("[data-perm-limpar]");
     if (btn) btn.disabled = false;
   } catch (e) {
     if (anterior !== undefined) sel.value = anterior; // reverte em caso de erro
@@ -291,10 +306,12 @@ async function onChangePerfis(ev) {
 }
 
 async function onClickPerfis(ev) {
+  const escopoBtn = ev.target.closest("[data-perm-escopo]");
+  if (escopoBtn) { abrirEscopoDsei(escopoBtn.dataset.permEscopo); return; }
   const limpar = ev.target.closest("[data-perm-limpar]");
   if (!limpar) return;
   const email = limpar.dataset.permLimpar;
-  if (!confirm(`Restaurar todas as permissões de "${email}" para o nível global do usuário?`)) return;
+  if (!confirm(`Remover TODAS as permissões de "${email}"? O usuário ficará sem acesso a nenhuma aba até você definir novos níveis na matriz.`)) return;
   limpar.disabled = true;
   try {
     await apiPost("/api/acesso/perfis/limpar", { email });
@@ -347,8 +364,9 @@ export function abrirPermissoesPendente(email, nome, permissoesAtuais) {
     const niveis = niveisDisponiveis(m.chave);
     const max = niveis[niveis.length - 1].valor;
     const ov = overrides[m.chave];
-    // Padrão = Leitor (o que vale após a aprovação quando não há override).
-    const atual = Math.min(ov === undefined || ov === null ? NIVEL.APROVADO : Number(ov), max);
+    // Padrão = Sem acesso (0): o admin concede explicitamente cada aba. Sem mais
+    // nível global, módulo não definido = sem acesso após a aprovação.
+    const atual = Math.min(ov === undefined || ov === null ? 0 : Number(ov), max);
     const opcoes = niveis.map(n => `<option value="${n.valor}"${n.valor === atual ? " selected" : ""}>${n.rotulo}</option>`).join("");
     return `<div class="permPendItem">
       <span class="permPendLabel"><i class="fa-solid ${escapeHtml(m.icone)}" aria-hidden="true"></i> ${escapeHtml(m.rotulo)}</span>
@@ -364,36 +382,166 @@ export function abrirPermissoesPendente(email, nome, permissoesAtuais) {
       <div class="permPendHead">
         <div>
           <h3>Permissões de acesso</h3>
-          <p>Defina o acesso de <b>${escapeHtml(nome || e)}</b> por módulo. As permissões valem assim que a solicitação for aprovada.</p>
+          <p>Defina o acesso de <b>${escapeHtml(nome || e)}</b> por módulo. O padrão é "Sem acesso" — libere as abas desejadas. Ao clicar em <b>Concluir</b>, TODOS os níveis mostrados são gravados; valem assim que a solicitação for aprovada.</p>
         </div>
         <button type="button" class="permPendClose" data-perm-pend-fechar aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <div class="permPendGrid">${itens}</div>
       <div class="permPendFoot">
         <span class="permPendStatus" id="permPendStatus"></span>
-        <button type="button" class="permPendOk" data-perm-pend-fechar>Concluir</button>
+        <button type="button" class="permPendOk" data-perm-pend-concluir>Concluir</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
 
   const status = overlay.querySelector("#permPendStatus");
-  overlay.addEventListener("click", ev => {
-    if (ev.target === overlay || ev.target.closest("[data-perm-pend-fechar]")) fecharPermissoesPendente();
+  // Há alterações ainda não gravadas? Salvar é SÓ no Concluir.
+  let sujo = false;
+
+  // Grava TODOS os módulos no nível atualmente mostrado, em SEQUÊNCIA (um POST por
+  // vez). É o único ponto de salvamento — determinístico, sem corridas.
+  async function gravarTodos() {
+    const sels = Array.from(overlay.querySelectorAll("[data-perm-pend-modulo]"));
+    if (status) { status.textContent = "Salvando..."; status.className = "permPendStatus"; }
+    for (const sel of sels) {
+      const modulo = sel.dataset.permPendModulo;
+      const nivel = Number(sel.value);
+      await apiPost("/api/acesso/perfis/permissao", { email: e, modulo, nivel });
+      overrides[modulo] = nivel; // mantém o cache do pendente em sincronia
+    }
+    sujo = false;
+    if (status) { status.textContent = "Permissões salvas."; status.className = "permPendStatus is-ok"; }
+  }
+
+  async function fecharComGuarda() {
+    if (sujo) {
+      const r = await abrirModal({
+        titulo: "Alterações não salvas",
+        msg: "Há alterações de permissão que ainda não foram gravadas. Deseja descartá-las?",
+        confirmarTexto: "Descartar",
+        perigo: true
+      });
+      if (!r || !r.ok) return;
+    }
+    fecharPermissoesPendente();
+  }
+
+  overlay.addEventListener("click", async ev => {
+    if (ev.target.closest("[data-perm-pend-concluir]")) {
+      const btn = ev.target.closest("[data-perm-pend-concluir]");
+      btn.disabled = true;
+      try {
+        await gravarTodos();
+        fecharPermissoesPendente();
+      } catch (err) {
+        btn.disabled = false;
+        if (status) { status.textContent = (err && err.message) ? err.message : "Falha ao salvar as permissões."; status.className = "permPendStatus is-erro"; }
+      }
+      return;
+    }
+    if (ev.target === overlay || ev.target.closest("[data-perm-pend-fechar]")) await fecharComGuarda();
   });
-  overlay.addEventListener("change", async ev => {
+
+  // Mexer num dropdown NÃO salva sozinho — só atualiza o visual e marca como
+  // pendente. A gravação é toda no Concluir (sequencial), o que evita corridas
+  // de várias requisições simultâneas quando se edita rápido.
+  overlay.addEventListener("change", ev => {
     const sel = ev.target.closest("[data-perm-pend-modulo]");
     if (!sel) return;
-    const modulo = sel.dataset.permPendModulo;
-    const nivel = Number(sel.value);
-    sel.disabled = true;
+    sel.className = `permSel ${classeNivel(Number(sel.value))}`;
+    sujo = true;
+    if (status) { status.textContent = "Alterações não salvas — clique em Concluir para gravar."; status.className = "permPendStatus"; }
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Editor de ESCOPO de DSEI de um usuário (modal)
+// Define se o usuário vê TODOS os DSEIs (sede) ou fica restrito a um conjunto.
+// ----------------------------------------------------------------------------
+function fecharEscopoDsei() {
+  const ov = document.getElementById("escDseiOverlay");
+  if (ov) ov.remove();
+}
+
+function abrirEscopoDsei(email) {
+  const e = String(email || "").trim();
+  if (!e) return;
+  const usuario = perfisCache.find(x => String(x.email || "").toLowerCase() === e.toLowerCase());
+  if (!usuario) return;
+  fecharEscopoDsei();
+
+  const escAtual = usuario.escopo || { todos: true, dseis: [] };
+  const selecionados = new Set((escAtual.dseis || []).map(Number));
+  const todosInicial = escAtual.todos !== false;
+
+  const opcoesDsei = dseisDisponiveis.length
+    ? dseisDisponiveis.map(d =>
+        `<label class="escDseiItem">
+          <input type="checkbox" class="escDseiCheck" value="${Number(d.id)}"${selecionados.has(Number(d.id)) ? " checked" : ""}>
+          <span>${escapeHtml(d.nome)}</span>
+        </label>`
+      ).join("")
+    : `<p class="escDseiVazio">Nenhum DSEI disponível para seleção.</p>`;
+
+  const overlay = document.createElement("div");
+  overlay.className = "permPendOverlay";
+  overlay.id = "escDseiOverlay";
+  overlay.innerHTML = `
+    <div class="permPendBox" role="dialog" aria-modal="true" aria-label="Acesso por DSEI">
+      <div class="permPendHead">
+        <div>
+          <h3>Acesso por DSEI</h3>
+          <p>Defina quais DSEIs <b>${escapeHtml(usuario.nome || e)}</b> pode acessar. "Todos" libera todas as unidades (sede); "Apenas os selecionados" restringe aos marcados.</p>
+        </div>
+        <button type="button" class="permPendClose" data-esc-fechar aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="escDseiModo">
+        <label><input type="radio" name="escModo" value="todos"${todosInicial ? " checked" : ""}> Todos os DSEIs (sede)</label>
+        <label><input type="radio" name="escModo" value="restrito"${todosInicial ? "" : " checked"}> Apenas os DSEIs selecionados</label>
+      </div>
+      <div class="escDseiLista${todosInicial ? " is-desabilitado" : ""}" id="escDseiLista">${opcoesDsei}</div>
+      <div class="permPendFoot">
+        <span class="permPendStatus" id="escDseiStatus"></span>
+        <button type="button" class="permPendOk" data-esc-concluir>Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const lista = overlay.querySelector("#escDseiLista");
+  const status = overlay.querySelector("#escDseiStatus");
+  const modoEhTodos = () => overlay.querySelector('input[name="escModo"]:checked')?.value === "todos";
+
+  function sincronizarLista() {
+    const todos = modoEhTodos();
+    lista.classList.toggle("is-desabilitado", todos);
+    lista.querySelectorAll(".escDseiCheck").forEach(c => { c.disabled = todos; });
+  }
+  sincronizarLista();
+
+  overlay.addEventListener("change", ev => {
+    if (ev.target && ev.target.name === "escModo") sincronizarLista();
+  });
+
+  overlay.addEventListener("click", async ev => {
+    if (ev.target === overlay || ev.target.closest("[data-esc-fechar]")) { fecharEscopoDsei(); return; }
+    const btn = ev.target.closest("[data-esc-concluir]");
+    if (!btn) return;
+    const todos = modoEhTodos();
+    const dseis = todos ? [] : Array.from(overlay.querySelectorAll(".escDseiCheck:checked")).map(c => Number(c.value));
+    if (!todos && !dseis.length) {
+      if (status) { status.textContent = "Selecione ao menos um DSEI ou escolha \"Todos\"."; status.className = "permPendStatus is-erro"; }
+      return;
+    }
+    btn.disabled = true;
+    if (status) { status.textContent = "Salvando..."; status.className = "permPendStatus"; }
     try {
-      await apiPost("/api/acesso/perfis/permissao", { email: e, modulo, nivel });
-      sel.className = `permSel ${classeNivel(nivel)}`;
-      if (status) { status.textContent = "Permissões salvas."; status.className = "permPendStatus is-ok"; }
+      await apiPost("/api/acesso/perfis/escopo", { email: e, todos, dseis });
+      usuario.escopo = { todos, dseis };
+      renderMatriz();
+      fecharEscopoDsei();
     } catch (err) {
-      if (status) { status.textContent = (err && err.message) ? err.message : "Falha ao salvar a permissão."; status.className = "permPendStatus is-erro"; }
-    } finally {
-      sel.disabled = false;
+      btn.disabled = false;
+      if (status) { status.textContent = (err && err.message) ? err.message : "Falha ao salvar o escopo."; status.className = "permPendStatus is-erro"; }
     }
   });
 }

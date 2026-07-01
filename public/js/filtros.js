@@ -4,6 +4,8 @@ import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
 import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirRemanejamentoPainel, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
+import { renderEntregaCrachaAoMostrar } from "./entrega-cracha.js";
+import { renderProcessosSeletivosAoMostrar } from "./processos-seletivos.js";
 import { charts, filterConfigs, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, normalizarTextoPainel, debounce } from "./utils.js";
@@ -135,8 +137,28 @@ export function configurarNavegacao() {
       document.querySelectorAll(".viewPanel").forEach(panel => panel.classList.remove("active"));
       const panel = document.getElementById(`view-${view}`);
       if (panel) panel.classList.add("active");
+
+      // Acessibilidade: reflete a tela atual no título-raiz (h1) e move o foco
+      // para o conteúdo, para que leitores de tela anunciem a nova view e o
+      // usuário de teclado não precise re-tabular toda a navegação.
+      if (texto) {
+        const titulo = document.getElementById("tituloPagina");
+        if (titulo) titulo.textContent = texto;
+      }
+      const conteudo = document.getElementById("conteudo");
+      if (conteudo) conteudo.focus({ preventScroll: false });
+
       atualizarModoRolagem(view);
       garantirCarregamentoPagina(view);
+
+      // A grade Tabulator de Alertas pode ter sido montada com a aba oculta
+      // (carga em segundo plano). Reconstrói/recalcula agora que está visível.
+      if (view === "alertas") renderAlertasDaPagina();
+      if (view === "processosSeletivos") renderProcessosSeletivosAoMostrar();
+      if (view === "entregaCracha") renderEntregaCrachaAoMostrar();
+      // Vagas: as grades Tabulator não montam com a aba oculta — re-renderiza ao abrir.
+      if (view === "vagas") renderVagasDaPagina();
+      if (view === "remanejamento") renderRemanejamentoLista();
 
       if (view === "painelSaudeIndigena") {
         carregarPainelExternoSobDemanda();
@@ -164,6 +186,7 @@ export function configurarFechamentoDeMenus() {
     document.querySelectorAll(".multiSelect.open").forEach(el => {
       if (!el.contains(event.target)) {
         el.classList.remove("open");
+        el.querySelector(".multiSelectTrigger")?.setAttribute("aria-expanded", "false");
       }
     });
   });
@@ -243,10 +266,10 @@ export function criarMultiSelect(id, options, placeholder) {
 
   container.className = "multiSelect";
   container.innerHTML = `
-        <button type="button" class="multiSelectTrigger">
-          <span class="multiSelectValue"></span>
+        <button type="button" class="multiSelectTrigger" aria-haspopup="listbox" aria-expanded="false">
+          <span class="multiSelectValue" id="${id}-value"></span>
         </button>
-        <div class="multiSelectMenu">
+        <div class="multiSelectMenu" role="group">
           <input type="search" class="multiSelectSearch" placeholder="Pesquisar neste filtro" aria-label="Pesquisar neste filtro">
           <div class="multiSelectActions">
             <button type="button" data-action="all">Selecionar todos</button>
@@ -255,6 +278,18 @@ export function criarMultiSelect(id, options, placeholder) {
           <div class="multiSelectOptions"></div>
         </div>
       `;
+
+  // Nome acessível do widget: associa o <label> do grupo de filtro (irmão do
+  // container, sem `for` pois aponta para um <div>, não um controle) ao trigger
+  // e ao menu, via id estável. Sem isso o leitor de tela anuncia o botão sem rótulo.
+  const grupoLabel = container.parentElement?.querySelector("label");
+  if (grupoLabel) {
+    if (!grupoLabel.id) grupoLabel.id = `${id}-label`;
+    const trigger = container.querySelector(".multiSelectTrigger");
+    if (trigger) trigger.setAttribute("aria-labelledby", `${grupoLabel.id} ${id}-value`);
+    const menu = container.querySelector(".multiSelectMenu");
+    if (menu) menu.setAttribute("aria-label", grupoLabel.textContent.trim());
+  }
 
   const cfg = filterConfigs[id] = {
     id,
@@ -280,9 +315,13 @@ export function criarMultiSelect(id, options, placeholder) {
   container.querySelector(".multiSelectTrigger").addEventListener("click", event => {
     event.stopPropagation();
     document.querySelectorAll(".multiSelect.open").forEach(el => {
-      if (el !== container) el.classList.remove("open");
+      if (el !== container) {
+        el.classList.remove("open");
+        el.querySelector(".multiSelectTrigger")?.setAttribute("aria-expanded", "false");
+      }
     });
-    container.classList.toggle("open");
+    const aberto = container.classList.toggle("open");
+    container.querySelector(".multiSelectTrigger")?.setAttribute("aria-expanded", String(aberto));
   });
 
   container.querySelector('[data-action="all"]').addEventListener("click", event => {
@@ -411,37 +450,6 @@ export function aplicarFiltros() {
 export function matchMulti(value, selectedValues) {
   if (!selectedValues || !selectedValues.length) return true;
   return selectedValues.includes(String(value || ""));
-}
-
-export function filtrarTipoContratacao(row, tipos) {
-  if (!tipos || !tipos.length) return true;
-
-  return tipos.some(tipo => {
-    if (tipo === "NORMAL") return Number(row.contratadosNormal || 0) > 0;
-    if (tipo === "SUBSTITUICAO") return Number(row.contratadosSubstituicao || 0) > 0;
-    if (tipo === "TEMPORARIO") return Number(row.contratadosTemporario || 0) > 0;
-    return true;
-  });
-}
-
-export function filtrarTipoAlerta(row, alertas) {
-  if (!alertas || !alertas.length) return true;
-
-  const afastamentoSemSubstituto = Number(row.qtdAfastamentoSemSubstituto || 0);
-  const temporarioAtivo = Number(row.qtdTemporarioAtivo || 0);
-
-  return alertas.some(alerta => {
-    if (alerta === "AFASTAMENTO_SEM_SUBSTITUTO") {
-      return afastamentoSemSubstituto > 0;
-    }
-    if (alerta === "TEMPORARIO_ATIVO") {
-      return temporarioAtivo > 0;
-    }
-    if (alerta === "SEM_ALERTA") {
-      return afastamentoSemSubstituto === 0 && temporarioAtivo === 0;
-    }
-    return true;
-  });
 }
 
 export function filtrarGraficoAtivo(row) {

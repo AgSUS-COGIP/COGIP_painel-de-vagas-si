@@ -61,10 +61,15 @@ export function tornarSelectPesquisavel(select, opts = {}) {
     const vh = window.innerHeight;
     const vw = window.innerWidth;
 
-    // Largura: acompanha o gatilho, mas nunca estoura a viewport.
-    const larguraMax = vw - margem * 2;
-    const largura = Math.min(Math.round(r.width), larguraMax);
-    menu.style.width = `${largura}px`;
+    // Largura: cresce até a MAIOR opção (CSS width:max-content), com MÍNIMO = gatilho
+    // e MÁXIMO = viewport (ou 560px). Depois mede a largura real para posicionar sem
+    // estourar a tela. (Rótulos longos usam reticências, então não há barra horizontal.)
+    const larguraMax = Math.min(vw - margem * 2, 560);
+    // mínimo = largura do gatilho (cobre o campo); máximo = 560/viewport (depois
+    // disso, reticências). Usa a largura REAL renderizada para posicionar.
+    menu.style.minWidth = `${Math.min(Math.round(r.width), vw - margem * 2)}px`;
+    menu.style.maxWidth = `${larguraMax}px`;
+    const largura = menu.offsetWidth;
 
     // Decide abrir para cima ou para baixo conforme o espaço disponível, para
     // o popup nunca ficar cortado no rodapé (ele é fixed e a página não rola).
@@ -172,8 +177,15 @@ export function tornarSelectPesquisavel(select, opts = {}) {
     }
   }
 
-  trigger.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); menu ? fechar() : abrir(); });
+  // Respeita o estado disabled do <select> nativo (ex.: campos só-leitura como
+  // DSEI no modal de edição): o gatilho não abre nem reage ao teclado.
+  trigger.addEventListener("click", e => {
+    e.preventDefault(); e.stopPropagation();
+    if (select.disabled) return;
+    menu ? fechar() : abrir();
+  });
   trigger.addEventListener("keydown", e => {
+    if (select.disabled) return;
     if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!menu) abrir(); }
   });
 
@@ -211,11 +223,6 @@ export function sincronizarSelectPesquisavel(select) {
 // Selects elegíveis: ignora os já enhados (.ssNativo), os multi-seleção e os
 // marcados com data-ss-skip (caso algum precise continuar nativo).
 const SS_SELETOR = "select:not([data-ss-skip]):not([multiple]):not(.ssNativo)";
-
-// Enha (ou re-sincroniza) TODOS os <select> de um container de uma vez.
-export function tornarSelectsPesquisaveis(raiz, opts = {}) {
-  (raiz || document).querySelectorAll(SS_SELETOR).forEach(sel => tornarSelectPesquisavel(sel, opts));
-}
 
 // Padroniza TODOS os <select> do app como dropdown pesquisável, de uma vez:
 //  1) enha os que já existem; 2) observa o DOM para enhar selects criados depois
