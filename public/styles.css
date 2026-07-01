@@ -46,6 +46,7 @@
   file-input,
   tabelas-padrao,
   tabela-arrastavel,
+  assistente,
   sidebar-state,
   view-visibility;
 
@@ -84,6 +85,7 @@
 @import url("./styles/26-tabelas-padrao.css") layer(tabelas-padrao);
 @import url("./styles/27-perfis-acesso.css") layer(perfis-acesso);
 @import url("./styles/28-tabela-arrastavel.css") layer(tabela-arrastavel);
+@import url("./styles/30-assistente.css") layer(assistente);
 
 /*
   ESTADO RECOLHIDO DO MENU LATERAL -- camada-topo, vence as larguras de `.app`.
