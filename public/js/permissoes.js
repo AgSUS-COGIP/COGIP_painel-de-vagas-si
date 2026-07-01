@@ -25,6 +25,7 @@ export const MODULOS_PERMISSAO = [
   { chave: "gestaoDisciplinar", rotulo: "Gestão Disciplinar", icone: "fa-gavel" },
   { chave: "processosSeletivos", rotulo: "Processos Seletivos", icone: "fa-clipboard-list" },
   { chave: "escalaTrabalho", rotulo: "Escala de Trabalho", icone: "fa-calendar-days" },
+  { chave: "mapaDseis", rotulo: "Mapa dos DSEIs", icone: "fa-map-location-dot" },
   // Aba de administração (Solicitações + esta matriz). Exclusiva de super admin;
   // 0 = não vê a aba · 1 = vê (somente leitura) · 2+ = pode administrar.
   { chave: "solicitacoes", rotulo: "Perfis de Acesso", icone: "fa-user-shield" }
