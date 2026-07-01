@@ -1074,13 +1074,53 @@ app.post("/api/cache/clear", apiLimiter, autenticarFrescoMiddleware, exigirAdmin
 }));
 
 // Extrai o quadro de vagas e o cronograma de um PDF de anexo enviado pelo usuário
-// (aba Processos Seletivos). Reaproveita o extrator Python (scripts/
-// extrair_anexo_local.py), que recebe o PDF por stdin e devolve JSON. O arquivo é
-// processado em memória e NÃO é gravado em lugar nenhum.
+// (aba Processos Seletivos). O arquivo é processado em memória e NÃO é gravado.
+//
+// A extração roda em Python (pdfplumber). Como o runtime Node serverless da
+// Vercel não tem Python, há dois caminhos:
+//   • Vercel  -> chama a Função Python (api/extrair_anexo.py) por HTTP.
+//   • Local   -> executa o CLI scripts/extrair_anexo_local.py via `spawn`.
+// Ambos usam a MESMA lógica (o CLI importa de api/extrair_anexo.py).
 const PYTHON_BIN = process.env.PYTHON_BIN || "python";
 const EXTRATOR_ANEXO = path.join(__dirname, "scripts", "extrair_anexo_local.py");
 
-function extrairAnexoPdf(buffer) {
+// Usa a função HTTP quando: estamos na Vercel, ou uma URL foi configurada.
+function usarExtratorHttp() {
+  return !!(process.env.VERCEL || process.env.EXTRATOR_ANEXO_URL);
+}
+
+// Vercel: POST dos bytes do PDF para a Função Python, no mesmo domínio.
+async function extrairAnexoViaHttp(buffer, req) {
+  const url = process.env.EXTRATOR_ANEXO_URL
+    || `https://${req.headers.host}/api/extrair_anexo`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/pdf",
+        // Segredo opcional: se EXTRATOR_ANEXO_TOKEN existir, a função o exige.
+        ...(process.env.EXTRATOR_ANEXO_TOKEN ? { "x-extrator-token": process.env.EXTRATOR_ANEXO_TOKEN } : {})
+      },
+      body: buffer,
+      signal: controller.signal
+    });
+    const dados = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(dados.erro || dados.error || "Falha ao extrair os dados do PDF.");
+    return dados;
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      throw new Error("Tempo excedido ao ler o PDF (o arquivo pode ser muito grande).");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Local (dev): pipe do PDF pelo stdin do CLI Python e lê o JSON no stdout.
+function extrairAnexoViaPython(buffer) {
   return new Promise((resolve, reject) => {
     const py = spawn(PYTHON_BIN, [EXTRATOR_ANEXO], { windowsHide: true });
     let out = "";
@@ -1117,6 +1157,10 @@ function extrairAnexoPdf(buffer) {
   });
 }
 
+function extrairAnexoPdf(buffer, req) {
+  return usarExtratorHttp() ? extrairAnexoViaHttp(buffer, req) : extrairAnexoViaPython(buffer);
+}
+
 app.post(
   "/api/processos-seletivos/extrair-anexo",
   apiLimiter,
@@ -1134,7 +1178,7 @@ app.post(
       return;
     }
     try {
-      const dados = await extrairAnexoPdf(req.file.buffer);
+      const dados = await extrairAnexoPdf(req.file.buffer, req);
       res.json({ ok: true, ...dados });
     } catch (e) {
       res.status(422).json({ error: e && e.message ? e.message : "Não foi possível ler o PDF." });

@@ -1,0 +1,3 @@
+# Dependência da função Serverless Python da Vercel (api/extrair_anexo.py).
+# pdfplumber (pdfminer.six + Pillow) faz a extração de tabelas do PDF do edital.
+pdfplumber==0.11.4

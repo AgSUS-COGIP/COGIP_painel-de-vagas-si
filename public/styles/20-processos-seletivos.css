@@ -223,6 +223,8 @@
 .psKpiValue.is-muted { color: #6b7d96; }
 .psKpiValue.is-green { color: #0a8a4d; }
 .psKpiValue.is-orange { color: #d98200; }
+.psKpiValue.is-amber { color: #c77700; }   /* encerrando em breve (≤30 dias da vigência) */
+.psKpiValue.is-vencido { color: #9b1c1c; } /* vencido (data fim de vigência já passou) */
 .psKpiValue.is-red { color: var(--status-perigo); }
 
 /* ---------- Painel / tabela principal ---------- */
@@ -371,6 +373,9 @@
 .psBadge.is-breve { background: #fff2d6; color: #8a5a00; }
 .psBadge.is-aguardando { background: #dbeafe; color: #1d4ed8; }
 .psBadge.is-encerrado { background: #ffdcd7; color: #b5281a; }
+.psBadge.is-encerrando { background: #ffe4c2; color: #9a5000; } /* encerrando em breve (≤30 dias da vigência) */
+.psBadge.is-vencido { background: #f6d3d0; color: #9b1c1c; }    /* vencido (data fim de vigência já passou) */
+.psBadge.is-contratado { background: #cdeee0; color: #0a6b52; } /* aprovado contratado (conta em Contratados) */
 
 /* ---------- Painel de detalhamento ---------- */
 .psDetalhe {
@@ -471,6 +476,13 @@
   font-weight: 900;
   text-transform: uppercase;
   margin-top: 6px;
+}
+
+.psTileSub {
+  color: #6b7d96;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 3px;
 }
 
 /* ---------- Blocos de tabelas do detalhe ---------- */
