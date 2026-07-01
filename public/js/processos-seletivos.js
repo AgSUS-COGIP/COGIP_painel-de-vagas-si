@@ -1142,7 +1142,7 @@ function anexarDocDesistencia(candId) {
 }
 
 async function excluirAprovado(candId) {
-  if (!processoExpandido || !vagaSelecionada) return;
+  if (!processoExpandido || !vagaSelecionada || !podeEditarProcessos()) return;
   const lista = aprovadosDoCargo(processoExpandido, vagaSelecionada);
   const cand = lista.find(c => c.id === candId);
   if (!cand) return;
@@ -1161,7 +1161,7 @@ async function excluirAprovado(candId) {
 
 // ---------- Modal de configuração da classificação (por edital) ----------
 function abrirModalConfig(editalId) {
-  if (!editalId) return;
+  if (!editalId || !podeEditarProcessos()) return;
   configEditalId = editalId;
   const modal = $("psModalConfig");
   if (!modal) return;
@@ -1186,7 +1186,7 @@ function fecharModalConfig() {
 
 function salvarConfig(event) {
   event.preventDefault();
-  if (!configEditalId) { fecharModalConfig(); return; }
+  if (!configEditalId || !podeEditarProcessos()) { fecharModalConfig(); return; }
   const intervalo = Math.max(0, Math.floor(Number($("psConfIntervalo")?.value) || 0));
   const d = getDadosEdital(configEditalId);
   d.configClassificacao = {

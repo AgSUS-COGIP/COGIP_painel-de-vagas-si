@@ -476,6 +476,7 @@ export function renderDetalheRemanejamentoHtml(detalhe, rowLista) {
 
 // Carrega um remanejamento existente no formulário para edição e ativa o modo edição.
 export async function editarRemanejamentoPainel(idProcesso) {
+  if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não edita (backend também exige >= 2)
   mostrarCarregando();
   let dados;
   try {
@@ -574,6 +575,7 @@ export function cancelarEdicaoRemanejamento() {
 }
 
 export async function excluirRemanejamentoPainel(idProcesso) {
+  if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não exclui (backend também exige >= 2)
   const confirmacao = await abrirModal({
     titulo: "Excluir remanejamento",
     msg: "Tem certeza que deseja excluir este remanejamento? Esta ação remove o registro nas tabelas de movimentação e processo de remanejamento e não pode ser desfeita.",
@@ -804,6 +806,7 @@ export function alterarMesRemanejamento() {
 }
 
 export function adicionarLinhaRemanejamento(tipo) {
+  if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não edita o formulário
   state.remanejamentoLinhas[tipo] = state.remanejamentoLinhas[tipo] || [];
   state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO }));
   renderLinhasRemanejamento(tipo);
@@ -811,6 +814,7 @@ export function adicionarLinhaRemanejamento(tipo) {
 }
 
 export function removerLinhaRemanejamento(tipo, id) {
+  if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não edita o formulário
   state.remanejamentoLinhas[tipo] = (state.remanejamentoLinhas[tipo] || []).filter(item => item.id !== id);
   if (!state.remanejamentoLinhas[tipo].length) {
     state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO }));
@@ -1042,6 +1046,7 @@ export function limparFormularioRemanejamento() {
 }
 
 export async function salvarRemanejamentoPainel() {
+  if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não salva (backend também exige >= 2)
   const idDseiCasai = document.getElementById("remanejamentoDsei")?.value || "";
   const processoSei = document.getElementById("remanejamentoProcessoSei")?.value || "";
   const observacao = document.getElementById("remObservacao")?.value || "";
