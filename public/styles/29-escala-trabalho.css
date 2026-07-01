@@ -1,0 +1,538 @@
+/* =========================================================
+   Escala de Trabalho
+   Aba de controle das escalas dos profissionais da Saúde
+   Indígena (maquete com dados de exemplo). Mantém o visual do
+   painel: cartões claros, cabeçalhos azul-profundo, badges de
+   escala/situação e rolagem de página.
+========================================================= */
+
+@layer escala-trabalho {
+
+  /* Ícone azul-ciano no menu lateral (identifica a aba). */
+  .nav .navItem[data-view="escalaTrabalho"] .navIcon {
+    background: linear-gradient(135deg, #2ea9c7, #1a72c4);
+    color: #fff;
+  }
+
+  /* A aba tem filtros próprios; esconde a barra de filtros do topo. */
+  .main.view-escala-active .filtersBar {
+    display: none;
+  }
+
+  .main.view-escala-active .top {
+    grid-template-columns: minmax(330px, 1fr);
+  }
+
+  .etView {
+    height: auto;
+    padding-bottom: 28px;
+    color: var(--texto);
+  }
+
+  .main.view-scroll .etView.active {
+    min-height: calc(100vh - 94px);
+    overflow: visible;
+  }
+
+  /* ---------- Cabeçalho + filtros ---------- */
+  .etPageHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: rgba(255, 255, 255, .92);
+    border-radius: 18px;
+    box-shadow: 0 14px 24px rgba(0, 43, 93, .16);
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+
+  .etHeaderTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .etHeaderTitle h2 {
+    margin: 0;
+    color: var(--azul-escuro);
+    font-size: 21px;
+    font-weight: 900;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .etHeaderTitle p {
+    margin: 5px 0 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    max-width: 780px;
+  }
+
+  .etHeaderFiltros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px 14px;
+  }
+
+  .etField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .etFieldLabel {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--azul-escuro);
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+
+  .etSelect {
+    width: 100%;
+    height: 38px;
+    border: 1px solid rgba(0, 61, 122, .22);
+    border-radius: 10px;
+    padding: 0 10px;
+    background: #fff;
+    color: var(--texto);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .etSearchBox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    border: 1px solid rgba(0, 61, 122, .22);
+    border-radius: 10px;
+    padding: 0 10px;
+    background: #fff;
+  }
+
+  .etSearchBox i {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .etSearch {
+    border: 0;
+    outline: 0;
+    width: 100%;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--texto);
+  }
+
+  /* ---------- Botões ---------- */
+  .etBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--azul-primario), var(--azul-menu));
+    color: #fff;
+    box-shadow: 0 8px 16px rgba(0, 61, 122, .22);
+  }
+
+  .etBtn:hover { filter: brightness(1.05); }
+
+  .etBtnVerTodos {
+    background: linear-gradient(135deg, var(--azul-card), var(--azul-menu));
+    white-space: nowrap;
+  }
+
+  /* ---------- Alerta: sem escala ---------- */
+  .etAlerta {
+    background: linear-gradient(180deg, #fff7ec, #fdefda);
+    border: 1px solid #f0c98a;
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 8px 18px rgba(180, 120, 20, .1);
+  }
+
+  .etAlertaHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .etAlertaTitulo {
+    color: #b5710a;
+    font-weight: 900;
+    text-transform: uppercase;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .etAlertaTotal {
+    color: #8a5a12;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .etAlertaSub {
+    margin: 6px 0 12px 0;
+    color: #8a5a12;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  .etAlertaCorpo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .etAlertaChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex: 1 1 auto;
+  }
+
+  .etChip {
+    background: #fff;
+    border: 1px solid #f0d3a3;
+    border-radius: 12px;
+    padding: 8px 14px;
+    box-shadow: 0 4px 10px rgba(180, 120, 20, .08);
+    min-width: 130px;
+  }
+
+  .etChipNome {
+    display: block;
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--azul-escuro);
+  }
+
+  .etChipCargo {
+    display: block;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  /* ---------- Cartões ---------- */
+  .etCard {
+    background: rgba(255, 255, 255, .95);
+    border-radius: 16px;
+    box-shadow: var(--sombra-suave);
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+
+  .etCardHead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .etCardTitle {
+    margin: 0;
+    color: var(--azul-escuro);
+    font-size: 14px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+
+  .etCardComp {
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: none;
+  }
+
+  .etCardCount {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ---------- Grades (Tabulator: colunas/linhas arrastáveis) ---------- */
+  /* As tabelas usam o helper criarTabelaArrastavel (tema Tabulator +
+     tabela-arrastavel). Aqui só o conteúdo das células (badges, dias, ícones)
+     e ajustes pontuais — o layout/rolagem vem do Tabulator. */
+  .etGrid {
+    width: 100%;
+  }
+
+  .etNomeProf {
+    font-weight: 800;
+    color: var(--azul-escuro);
+  }
+
+  /* Subtítulo (dia da semana) no cabeçalho da grade de plantonistas. */
+  .etPlantDow {
+    display: block;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ---------- Badges de escala ---------- */
+  .etEscala {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .etEscala.is-diarista   { background: #d8f3e3; color: #1f7a49; }
+  .etEscala.is-diurno     { background: #d6ebff; color: #0b5cad; }
+  .etEscala.is-noturno    { background: #dfe4f5; color: #26356e; }
+  .etEscala.is-territorio { background: #ece0fb; color: #6b31c4; }
+
+  /* ---------- Badges de situação ---------- */
+  .etSituacao {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .etSituacao.is-ativo   { background: #d8f3e3; color: #1f7a49; }
+  .etSituacao.is-terr    { background: #d8f3e3; color: #1f7a49; }
+  .etSituacao.is-retorno { background: #ffe8cf; color: #b5710a; }
+  .etSituacao.is-inativo { background: #f0d7d7; color: #b23b3b; }
+
+  /* ---------- Período: dias da semana (plantonistas) ---------- */
+  .etDias {
+    display: inline-grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+
+  .etDia {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 26px;
+  }
+
+  .etDiaLabel {
+    font-size: 9.5px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .etDiaBox {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(0, 61, 122, .3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #fff;
+  }
+
+  .etDiaBox.is-on {
+    background: var(--azul-primario);
+    border-color: var(--azul-primario);
+  }
+
+  .etPeriodoTerr {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--texto);
+    white-space: nowrap;
+  }
+
+  .etPeriodoTerr b { color: var(--azul-escuro); }
+
+  .etPeriodoVazio { color: var(--muted); font-weight: 700; }
+
+  /* ---------- Ações ---------- */
+  .etAcao {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    color: var(--azul-primario);
+  }
+
+  .etAcao.is-del { color: #c0392b; }
+  .etAcao:hover { background: rgba(0, 61, 122, .08); }
+
+  /* ---------- Layout duplo ---------- */
+  .etDuplo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 1040px) {
+    .etDuplo { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Detalhamento plantonistas (conteúdo das células) ---------- */
+  .etPlantProfNome {
+    display: block;
+    font-weight: 800;
+    color: var(--azul-escuro);
+    font-size: 12px;
+  }
+
+  .etPlantProfEscala {
+    display: block;
+    font-size: 10.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .etIconDia   { color: #f0a500; }
+  .etIconNoite { color: #3a5bb5; }
+  .etFolga     { color: var(--muted); font-weight: 800; }
+
+  .etPlantLegenda {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(0, 61, 122, .14);
+  }
+
+  .etPlantLeg {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ---------- Resumo (KPIs) ---------- */
+  .etResumoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+  }
+
+  .etResumo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    border-radius: 14px;
+    background: #f4f8fd;
+    border: 1px solid rgba(0, 61, 122, .1);
+  }
+
+  .etResumoLabel {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+
+  .etResumoValue {
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--azul-escuro);
+  }
+
+  .et-r-com  { background: #eafaf1; border-color: #bfe6cf; }
+  .et-r-com  .etResumoValue { color: #1f7a49; }
+  .et-r-sem  { background: #fdeeee; border-color: #f0cccc; }
+  .et-r-sem  .etResumoValue { color: #b23b3b; }
+  .et-r-terr { background: #f3edfc; border-color: #ddccf3; }
+  .et-r-terr .etResumoValue { color: #6b31c4; }
+
+  /* ---------- Legenda de escalas ---------- */
+  .etLegendaGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .etLegItem {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #f4f8fd;
+    border-left: 5px solid var(--azul-primario);
+  }
+
+  .etLegNome {
+    display: block;
+    font-weight: 900;
+    font-size: 13px;
+    color: var(--azul-escuro);
+  }
+
+  .etLegDesc {
+    display: block;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  .et-l-diarista   { border-left-color: #1f7a49; }
+  .et-l-diurno     { border-left-color: #0b5cad; }
+  .et-l-noturno    { border-left-color: #26356e; }
+  .et-l-territorio { border-left-color: #6b31c4; }
+
+  /* ---------- Toast (compartilha o visual das demais abas) ---------- */
+  .etToast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--azul-escuro);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 13px;
+    box-shadow: 0 14px 28px rgba(0, 43, 93, .28);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 9999;
+  }
+
+  .etToast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .etToast.is-erro { background: var(--status-erro); }
+  .etToast.is-ok   { background: var(--status-ok); }
+}

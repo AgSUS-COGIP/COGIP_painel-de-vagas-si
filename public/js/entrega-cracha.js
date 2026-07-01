@@ -144,21 +144,26 @@ const ehDesligado = s => SITUACOES_DESLIGADO.has(normSituacao(s.situacaoDetalhad
 
 // ---------- KPIs (total, ativos e um por status do funil) ----------
 function renderKpis(lista) {
-  const porStatus = st => lista.filter(s => s.status === st).length;
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-  set("ecKpiTrabalhadores", lista.length);
-  // Desligados: pela situação funcional; Ativos: total menos desligados.
-  const desligados = lista.filter(ehDesligado).length;
-  set("ecKpiDesligados", desligados);
-  set("ecKpiAtivos", lista.length - desligados);
-  set("ecKpiFoto", porStatus("Foto Pendente de Envio"));
-  set("ecKpiGrafica", porStatus("Envio à Gráfica Pendente"));
-  set("ecKpiConfeccao", porStatus("Crachás em Confecção"));
-  set("ecKpiConfeccionado", porStatus("Crachá Confeccionado"));
-  set("ecKpiEntregueEsc", porStatus("Entregue ao Escritório"));
-  set("ecKpiEntregueTrab", porStatus("Entregue ao Trabalhador"));
+  const desligados = lista.filter(ehDesligado);
+  const ativos = lista.filter(s => !ehDesligado(s));
+  // Funil e 2ª via consideram SOMENTE ativos (desligados não entram no fluxo).
+  const porStatusAtivos = st => ativos.filter(s => s.status === st).length;
+
+  set("ecKpiTrabalhadores", lista.length);   // total = base inteira
+  set("ecKpiAtivos", ativos.length);
+  set("ecKpiDesligados", desligados.length);
+
+  set("ecKpiFoto", porStatusAtivos("Foto Pendente de Envio"));
+  set("ecKpiGrafica", porStatusAtivos("Envio à Gráfica Pendente"));
+  set("ecKpiConfeccao", porStatusAtivos("Crachás em Confecção"));
+  set("ecKpiConfeccionado", porStatusAtivos("Crachá Confeccionado"));
+  set("ecKpiEntregueEsc", porStatusAtivos("Entregue ao Escritório"));
+  set("ecKpiEntregueTrab", porStatusAtivos("Entregue ao Trabalhador"));
+  set("ecKpiSegundaVia", ativos.filter(s => s.segundaVia).length);
+
+  // Crachá devolvido: conta TODOS (inclui desligados que devolveram o crachá).
   set("ecKpiDevolvido", lista.filter(s => s.devolvido).length);
-  set("ecKpiSegundaVia", lista.filter(s => s.segundaVia).length);
 }
 
 // ---------- Filtros ----------

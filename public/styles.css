@@ -37,6 +37,7 @@
   entrega-cracha,
   gestao-disciplinar,
   processos-seletivos,
+  escala-trabalho,
   login,
   ordenacao-tabelas,
   filtros-padrao,
@@ -74,6 +75,7 @@
 @import url("./styles/18-entrega-cracha.css") layer(entrega-cracha);
 @import url("./styles/19-gestao-disciplinar.css") layer(gestao-disciplinar);
 @import url("./styles/20-processos-seletivos.css") layer(processos-seletivos);
+@import url("./styles/29-escala-trabalho.css") layer(escala-trabalho);
 @import url("./styles/21-login.css") layer(login);
 @import url("./styles/22-ordenacao-tabelas.css") layer(ordenacao-tabelas);
 @import url("./styles/23-filtros-padrao.css") layer(filtros-padrao);

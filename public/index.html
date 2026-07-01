@@ -299,6 +299,10 @@
           <span class="navIcon"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></span>
           <span>Processos Seletivos</span>
         </button>
+        <button type="button" class="navItem" data-view="escalaTrabalho">
+          <span class="navIcon"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
+          <span>Escala de Trabalho</span>
+        </button>
         <button type="button" class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
           <span class="navIcon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
           <span>Solicitações</span>
@@ -2326,6 +2330,106 @@
               </div>
             </div>
           </div>
+        </section>
+
+
+        <section id="view-escalaTrabalho" class="viewPanel etView">
+          <div class="etPageHeader">
+            <div class="etHeaderTop">
+              <div class="etHeaderTitle">
+                <h2><i class="fa-solid fa-calendar-days"></i> Escala de Trabalho</h2>
+                <p>Controle das escalas dos profissionais da Saúde Indígena — diaristas, plantonistas
+                  (diurno/noturno) e escalas de território — por DSEI, polo base e unidade.</p>
+              </div>
+              <button type="button" class="etBtn etBtnNova" data-et-nova hidden>
+                <i class="fa-solid fa-plus"></i> Nova Escala
+              </button>
+            </div>
+            <div class="etHeaderFiltros">
+              <div class="etField"><span class="etFieldLabel">DSEI</span><select class="etSelect" id="etFDsei" aria-label="Filtrar por DSEI"></select></div>
+              <div class="etField"><span class="etFieldLabel">Polo base / CASAI</span><select class="etSelect" id="etFPolo" aria-label="Filtrar por polo base"></select></div>
+              <div class="etField"><span class="etFieldLabel">UBSI (se houver)</span><select class="etSelect" id="etFUbsi" aria-label="Filtrar por UBSI"></select></div>
+              <div class="etField"><span class="etFieldLabel">Cargo</span><select class="etSelect" id="etFCargo" aria-label="Filtrar por cargo"></select></div>
+              <div class="etField"><span class="etFieldLabel">Escala</span><select class="etSelect" id="etFEscala" aria-label="Filtrar por escala"></select></div>
+              <div class="etField"><span class="etFieldLabel">Situação</span><select class="etSelect" id="etFSituacao" aria-label="Filtrar por situação"></select></div>
+              <div class="etField etFieldBusca">
+                <span class="etFieldLabel">Buscar</span>
+                <div class="etSearchBox">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input class="etSearch" id="etBusca" type="search" placeholder="Buscar profissional...">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="etAlerta" id="etAlerta" hidden>
+            <div class="etAlertaHead">
+              <span class="etAlertaTitulo"><i class="fa-solid fa-triangle-exclamation"></i> Alerta: profissionais sem escala registrada</span>
+              <span class="etAlertaTotal">Total: <strong id="etAlertaTotal">0</strong> profissionais</span>
+            </div>
+            <p class="etAlertaSub">Os seguintes profissionais ainda não foram inseridos no controle de escala.</p>
+            <div class="etAlertaCorpo">
+              <div class="etAlertaChips" id="etAlertaChips"></div>
+              <button type="button" class="etBtn etBtnVerTodos" data-et-ver-sem-escala>Ver todos <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <section class="etCard">
+            <div class="etCardHead">
+              <h3 class="etCardTitle">Profissionais e Escalas</h3>
+              <span class="etCardCount" id="etTabelaCount" aria-live="polite">—</span>
+            </div>
+            <div id="etTabelaBody" class="etGrid"></div>
+          </section>
+
+          <div class="etDuplo">
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Detalhamento — Plantonistas <span class="etCardComp" id="etCompPlant">—</span></h3>
+              </div>
+              <div id="etPlantBody" class="etGrid etGridPlant"></div>
+              <div class="etPlantLegenda">
+                <span class="etPlantLeg"><i class="fa-solid fa-sun etIconDia"></i> Plantonista Diurno</span>
+                <span class="etPlantLeg"><i class="fa-solid fa-moon etIconNoite"></i> Plantonista Noturno</span>
+                <span class="etPlantLeg"><span class="etFolga">—</span> Folga</span>
+              </div>
+            </section>
+
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Detalhamento — Escalas de Território</h3>
+              </div>
+              <div id="etTerritorioBody" class="etGrid"></div>
+            </section>
+          </div>
+
+          <div class="etDuplo">
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Resumo da Escala <span class="etCardComp" id="etCompResumo">—</span></h3>
+              </div>
+              <div class="etResumoGrid">
+                <article class="etResumo et-r-total"><span class="etResumoLabel">Total de Profissionais</span><span class="etResumoValue" id="etResTotal">0</span></article>
+                <article class="etResumo et-r-com"><span class="etResumoLabel">Com Escala Definida</span><span class="etResumoValue" id="etResCom">0</span></article>
+                <article class="etResumo et-r-sem"><span class="etResumoLabel">Sem Escala Definida</span><span class="etResumoValue" id="etResSem">0</span></article>
+                <article class="etResumo et-r-terr"><span class="etResumoLabel">Em Território hoje</span><span class="etResumoValue" id="etResTerr">0</span></article>
+              </div>
+            </section>
+
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Legenda de Escalas</h3>
+              </div>
+              <div class="etLegendaGrid">
+                <div class="etLegItem et-l-diarista"><span class="etLegNome">Diarista</span><span class="etLegDesc">Atuação diária</span></div>
+                <div class="etLegItem et-l-diurno"><span class="etLegNome">Plantonista Diurno</span><span class="etLegDesc">Plantão no período diurno</span></div>
+                <div class="etLegItem et-l-noturno"><span class="etLegNome">Plantonista Noturno</span><span class="etLegDesc">Plantão no período noturno</span></div>
+                <div class="etLegItem et-l-territorio"><span class="etLegNome">Território</span><span class="etLegDesc">Escalas de território (1x1, 2x1, 30x20x10, etc.)</span></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="etToast" id="etToast"></div>
         </section>
 
 
