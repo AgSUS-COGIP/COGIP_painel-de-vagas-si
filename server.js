@@ -17,6 +17,11 @@ const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPe
 const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn } = require("./lib/escopo");
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
+const { listarDseisCasaiComConn } = require("./lib/dsei-casai");
+const {
+  listarEditaisComConn, criarEditalComConn, atualizarEditalComConn, excluirEditalComConn,
+  substituirAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
+} = require("./lib/processos-seletivos");
 const { getFeriasData } = require("./lib/ferias");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
 const app = express();
@@ -1181,6 +1186,77 @@ function extrairAnexoViaPython(buffer) {
 function extrairAnexoPdf(buffer, req) {
   return usarExtratorHttp() ? extrairAnexoViaHttp(buffer, req) : extrairAnexoViaPython(buffer);
 }
+
+// Lista de DSEIs/CASAIs (com UF) para o combobox do cadastro de editais.
+// Nível de leitura basta (a lista alimenta o formulário, visível a quem já
+// acessa o módulo). Cacheada na camada lib.
+app.get(
+  "/api/processos-seletivos/dseis",
+  apiLimiter,
+  autenticarFrescoMiddleware,
+  exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ACESSO_APROVADO),
+  asyncHandler(async (req, res) => {
+    const conn = await getMysqlConnection();
+    try {
+      res.json({ dseis: await listarDseisCasaiComConn(conn) });
+    } finally {
+      await fecharJdbc(conn);
+    }
+  })
+);
+
+// ---- Editais: persistência (EDITAL + CRONOGRAMA + VAGA + APROVADO) ----
+const psLeitura = [apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ACESSO_APROVADO)];
+const psEscrita = [apiLimiter, express.json({ limit: "2mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN)];
+
+app.get("/api/processos-seletivos/editais", ...psLeitura, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { res.json({ editais: await listarEditaisComConn(conn) }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+app.post("/api/processos-seletivos/editais", ...psEscrita, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { res.json({ ok: true, id: String(await criarEditalComConn(conn, req.body || {})) }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+app.put("/api/processos-seletivos/editais/:id", ...psEscrita, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { await atualizarEditalComConn(conn, Number(req.params.id), req.body || {}); res.json({ ok: true }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+app.delete("/api/processos-seletivos/editais/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { await excluirEditalComConn(conn, Number(req.params.id)); res.json({ ok: true }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+// (Re)insere o anexo extraído (cronograma + quadro de vagas) de um edital.
+app.post("/api/processos-seletivos/editais/:id/anexo", ...psEscrita, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { await substituirAnexoComConn(conn, Number(req.params.id), req.body || {}); res.json({ ok: true }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+app.post("/api/processos-seletivos/vagas/:vagaId/aprovados", ...psEscrita, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { res.json({ ok: true, id: String(await criarAprovadoComConn(conn, Number(req.params.vagaId), req.body || {})) }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+app.put("/api/processos-seletivos/aprovados/:id", ...psEscrita, asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { await atualizarAprovadoComConn(conn, Number(req.params.id), req.body || {}); res.json({ ok: true }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+app.delete("/api/processos-seletivos/aprovados/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { await excluirAprovadoComConn(conn, Number(req.params.id)); res.json({ ok: true }); }
+  finally { await fecharJdbc(conn); }
+}));
 
 app.post(
   "/api/processos-seletivos/extrair-anexo",

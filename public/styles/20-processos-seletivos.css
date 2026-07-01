@@ -173,6 +173,34 @@
   box-shadow: none;
 }
 
+/* Botão de editar: fantasma azul, enche no hover (padrão da Gestão Disciplinar). */
+.psBtn.psBtnGhost.psBtnEditar {
+  color: #0055a7;
+  border-color: rgba(0, 85, 167, .4);
+  box-shadow: 0 8px 16px rgba(0, 43, 93, .1);
+}
+
+.psBtn.psBtnGhost.psBtnEditar:hover {
+  background: #0055a7;
+  color: #fff;
+  border-color: #0055a7;
+  box-shadow: 0 16px 26px rgba(0, 43, 93, .28);
+}
+
+/* Botão de excluir: fantasma vermelho, enche no hover (padrão da Gestão Disciplinar). */
+.psBtn.psBtnGhost.psBtnExcluir {
+  color: #d11a2a;
+  border-color: rgba(209, 26, 42, .4);
+  box-shadow: 0 8px 16px rgba(209, 26, 42, .12);
+}
+
+.psBtn.psBtnGhost.psBtnExcluir:hover {
+  background: #d11a2a;
+  color: #fff;
+  border-color: #d11a2a;
+  box-shadow: 0 16px 26px rgba(209, 26, 42, .28);
+}
+
 .psIconBtn {
   border: none;
   background: transparent;

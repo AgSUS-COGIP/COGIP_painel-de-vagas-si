@@ -1,0 +1,487 @@
+/* =========================================================
+   Mapa dos DSEIs (MVP) — estilos da aba
+   Contorno dos estados (SVG) + pontos da rede CNES por lat/long.
+   ========================================================= */
+
+.mapaDseisView {
+  padding: 22px 26px 32px;
+  color: var(--azul-escuro, #0b3568);
+}
+
+.mapaHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.mapaTitulo {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -.4px;
+  margin: 0;
+  color: #0b3568;
+}
+
+.mapaSub {
+  margin: 4px 0 0;
+  color: #4a6a93;
+  font-size: 13px;
+  max-width: 640px;
+}
+
+.mapaFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #4a6a93;
+}
+
+.mapaFiltro select {
+  min-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 83, 166, .22);
+  border-radius: 10px;
+  background: #fff;
+  color: #0b3568;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* KPIs (Total + um por tipo presente) */
+.mapaKpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.mapaKpi {
+  background: rgba(255, 255, 255, .72);
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 14px;
+  padding: 14px 16px;
+  text-align: center;
+}
+
+.mapaKpiValor {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.6px;
+  color: #0b3568;
+}
+
+.mapaKpiValor.is-casai { color: #e8833a; }
+.mapaKpiValor.is-ubsi { color: #2f9e6b; }
+
+.mapaKpiLabel {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #4a6a93;
+}
+
+/* Corpo: mapa (esquerda) + painel de detalhe (direita) */
+.mapaCorpo {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.mapaMapaCol {
+  flex: 1 1 58%;
+  min-width: 300px;
+  background: linear-gradient(180deg, #f4f8ff, #eaf1fb);
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.mapaMapaWrap {
+  width: 100%;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative; /* base do tooltip flutuante */
+}
+
+/* Tooltip dos pontos */
+.mapaTooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 20;
+  min-width: 190px;
+  max-width: 270px;
+  background: #0b2444;
+  color: #eaf2ff;
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .3);
+}
+
+.mapaTipNome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 800;
+  font-size: 12.5px;
+}
+
+.mapaTipDot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, .6);
+}
+
+.mapaTipTipo {
+  font-size: 10px;
+  font-weight: 800;
+  color: #a9c4e8;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  margin: 2px 0 6px;
+}
+
+.mapaTipLinha {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 1.5px 0;
+}
+
+.mapaTipLinha span { color: #9db6d8; }
+.mapaTipLinha b { color: #fff; font-weight: 700; text-align: right; word-break: break-word; }
+
+.mapaMapaWrap svg {
+  width: 100%;
+  height: auto;
+  max-height: 72vh;
+  display: block;
+}
+
+.mapaVazio {
+  color: #4a6a93;
+  font-weight: 700;
+  padding: 60px 0;
+}
+
+/* Estados (contorno) */
+.mapaUf {
+  fill: #cfe0f5;
+  stroke: #fff;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  transition: fill .12s ease;
+}
+
+.mapaUf:hover {
+  fill: #bcd4f2;
+}
+
+/* Estado selecionado (com zoom aplicado). */
+.mapaUf.is-sel {
+  fill: #9cc0ee;
+  stroke-width: 1.5;
+}
+
+/* Pontos da rede */
+.mapaPonto {
+  fill-opacity: .82;
+  stroke: #ffffff;
+  stroke-width: .8;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  transition: fill-opacity .1s ease;
+}
+
+.mapaPonto:hover {
+  fill-opacity: 1;
+}
+
+/* Com um DSEI selecionado: destaque nos pontos dele, demais esmaecidos. */
+.mapaPonto.is-hl {
+  fill-opacity: 1;
+  stroke-width: 1.4;
+}
+
+.mapaPonto.is-dim {
+  fill: #9fb2cc !important;
+  fill-opacity: .35;
+}
+
+/* Legenda */
+.mapaLegenda {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.mapaLegItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #35507a;
+}
+
+.mapaDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .06);
+}
+
+.mapaDot.is-casai { background: #e8833a; }
+.mapaDot.is-ubsi { background: #2f9e6b; }
+
+/* ---------- Painel lateral de detalhe ---------- */
+.mapaDetalhe {
+  flex: 1 1 300px;
+  min-width: 280px;
+  max-width: 400px;
+  background: #fff;
+  border: 1px solid rgba(0, 83, 166, .14);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  max-height: 76vh;
+}
+
+.mapaDetalheVazio {
+  margin: auto;
+  text-align: center;
+  color: #6b7d96;
+  padding: 40px 16px;
+}
+
+.mapaDetalheVazio i {
+  font-size: 26px;
+  color: #a9bcd8;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.mapaDetalheVazio p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mapaDetalheHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mapaDetalheRotulo {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #7c8fab;
+  letter-spacing: .04em;
+}
+
+.mapaDetalheTitulo {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: #0b3568;
+  line-height: 1.15;
+}
+
+.mapaDetalheFechar {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 83, 166, .16);
+  background: #f3f7fd;
+  color: #35507a;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.mapaDetalheFechar:hover { background: #e7eefb; }
+
+.mapaDetalheKpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+
+.mapaMiniKpi {
+  background: #f4f8ff;
+  border: 1px solid rgba(0, 83, 166, .1);
+  border-radius: 10px;
+  padding: 8px 4px;
+  text-align: center;
+}
+
+.mapaMiniKpi b {
+  display: block;
+  font-size: 17px;
+  font-weight: 900;
+  color: #0b3568;
+  line-height: 1;
+}
+
+.mapaMiniKpi b.is-casai { color: #e8833a; }
+.mapaMiniKpi b.is-ubsi { color: #2f9e6b; }
+
+.mapaMiniKpi span {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #6b7d96;
+}
+
+.mapaDetalheUfs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7d96;
+  margin-bottom: 12px;
+}
+
+.mapaUfTag {
+  background: #eaf1fb;
+  color: #315c8e;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* Nº de municípios / DSEI destacado */
+.mapaDetalheMun {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #6b7d96;
+  margin-bottom: 10px;
+}
+.mapaDetalheMun b { color: #123a68; }
+
+/* Tags de DSEI (clicáveis: destacam o DSEI no mapa) */
+.mapaTags { margin-bottom: 12px; }
+
+.mapaTagsLabel {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #7c8fab;
+  letter-spacing: .03em;
+  margin-bottom: 6px;
+}
+
+.mapaTagsLista {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-height: 116px;
+  overflow-y: auto;
+}
+
+.mapaTag {
+  background: #eaf1fb;
+  color: #315c8e;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+
+.mapaTag:hover { background: #dbe7f8; }
+
+.mapaTag.is-sel {
+  background: #0b3568;
+  color: #fff;
+  border-color: #0b3568;
+}
+
+.mapaLista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border-top: 1px solid #eef2f8;
+}
+
+.mapaItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 2px;
+  border-bottom: 1px solid #f1f5fa;
+}
+
+.mapaItemDot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 4px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .08);
+}
+
+.mapaItemTxt { min-width: 0; }
+
+.mapaItemNome {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #123a68;
+  line-height: 1.2;
+}
+
+.mapaItemMun {
+  display: block;
+  font-size: 11px;
+  color: #6b7d96;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.mapaListaVazia {
+  color: #6b7d96;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 14px 2px;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .mapaDseisView { padding: 16px; }
+  .mapaKpis { grid-template-columns: 1fr 1fr; }
+  .mapaDetalhe { max-width: none; max-height: none; }
+}
