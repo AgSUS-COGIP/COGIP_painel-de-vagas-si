@@ -7,6 +7,11 @@ import { escapeAttr, escapeHtml, formatNumber, normalizarTextoPainel } from "./u
 import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 export function renderAlertasDaPagina() {
+  // Modo somente-leitura (Leitor, nível < 2): o CSS (.alertas-readonly) esconde os
+  // controles de edição de observação em qualquer profundidade — rede de segurança
+  // de render contra cascata, além da checagem já feita no HTML e nos handlers.
+  const raizAlertas = document.getElementById("view-alertas");
+  if (raizAlertas) raizAlertas.classList.toggle("alertas-readonly", nivelModulo("alertas") < 2);
   const tbody = document.getElementById("alertasBody");
   const pagination = document.getElementById("alertasPagination");
 

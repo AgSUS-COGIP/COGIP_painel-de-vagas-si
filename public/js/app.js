@@ -14,6 +14,7 @@ import { configurarEntregaCracha } from "./entrega-cracha.js";
 import { configurarSaudeIndigena } from "./saude-indigena.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
+import { configurarMapaDseis } from "./mapa-dseis.js";
 import { configurarEscalaTrabalho } from "./escala-trabalho.js";
 import { configurarAssistente } from "./assistente.js";
 import { configurarOrdenacaoTabelas } from "./ordenacao-tabelas.js";
@@ -46,6 +47,7 @@ export async function init() {
   configurarSaudeIndigena();
   configurarGestaoDisciplinar();
   configurarProcessosSeletivos();
+  configurarMapaDseis();
   configurarEscalaTrabalho();
   configurarAssistente();
   configurarOrdenacaoTabelas();

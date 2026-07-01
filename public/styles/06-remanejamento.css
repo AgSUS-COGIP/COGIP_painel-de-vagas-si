@@ -1551,3 +1551,23 @@
 
 
 
+
+/* Modo somente leitura no Remanejamento (Leitor, nível < 2): esconde TODOS os
+   botões de escrita por atributo em qualquer profundidade, complementando o que
+   auth.js já esconde (bloco de documentação/salvar). Rede de segurança contra
+   cascata. Não esconde o select de DSEI nem as tabelas — têm valor de leitura. */
+.rem-readonly [data-click="salvar-rem"],
+.rem-readonly [data-click="adicionar-linha-rem"],
+.rem-readonly [data-click="remover-linha-rem"],
+.rem-readonly [data-click="editar-rem"],
+.rem-readonly [data-click="excluir-rem"],
+.rem-readonly [data-click="liberar-pss-rem"],
+.rem-readonly #remDocBox { display: none !important; }
+
+/* Modo somente leitura em Alertas (Leitor, nível < 2): esconde os controles de
+   edição de observação em qualquer profundidade. */
+.alertas-readonly [data-click="editar-obs"],
+.alertas-readonly [data-click="salvar-obs"],
+.alertas-readonly [data-click="cancelar-obs"],
+.alertas-readonly .alertaObservacaoInput,
+.alertas-readonly .alertaObservacaoActions { display: none !important; }

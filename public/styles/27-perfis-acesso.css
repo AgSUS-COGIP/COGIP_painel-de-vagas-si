@@ -347,3 +347,13 @@
 @media (max-width: 640px) {
   .escDseiLista { grid-template-columns: 1fr; }
 }
+
+/* Modo somente visualização (nível 1 no módulo "solicitacoes"): esconde os botões
+   de ação/escrita em qualquer profundidade. Os <select> da matriz NÃO são
+   escondidos (são a visualização dos níveis) — eles já ficam desabilitados. */
+.perfis-readonly [data-perm-escopo],
+.perfis-readonly [data-perm-limpar],
+.perfis-readonly [data-perm-pendente],
+.perfis-readonly [data-acesso-aprovar],
+.perfis-readonly [data-acesso-recusar],
+.perfis-readonly [data-acesso-excluir] { display: none !important; }

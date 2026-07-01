@@ -364,3 +364,14 @@
   .gfHeroTitle { font-size: 24px; }
   .gfFieldBusca { grid-column: auto; }
 }
+
+/* Modo somente leitura (Leitor): além das sub-abas Solicitação/COAPE já ficarem
+   ocultas, esconde os botões de escrita por id/atributo em qualquer profundidade —
+   rede de segurança de render contra cascata. */
+.gf-readonly #gfBtnAddSolic,
+.gf-readonly #gfBtnSalvar,
+.gf-readonly #gfBtnEncaminhar,
+.gf-readonly #gfBtnBuscarTrab,
+.gf-readonly [data-gf-rem-lote],
+.gf-readonly [data-gf-coape],
+.gf-readonly [data-gf-cancelar] { display: none !important; }

@@ -1489,3 +1489,21 @@
     @media (max-width: 520px) {
       .gdKpiMini6 { grid-template-columns: 1fr; }
     }
+
+/* Modo somente leitura (Leitor, nível < 2): esconde TODO controle de escrita por
+   atributo/id, em qualquer profundidade do detalhe. Rede de segurança de render
+   contra cascata — mesmo que um botão vaze, o Leitor nunca o vê. A ação em si já
+   é bloqueada no render e nos handlers. */
+.gd-readonly #gdBtnNovo,
+.gd-readonly #gdFormPanel,
+.gd-readonly [data-gd-alterar],
+.gd-readonly [data-gd-assumir],
+.gd-readonly [data-gd-excluir],
+.gd-readonly [data-gd-fase],
+.gd-readonly [data-gd-upload],
+.gd-readonly [data-gd-anexo],
+.gd-readonly [data-gd-anexo-excluir],
+.gd-readonly [data-gd-edit-salvar],
+.gd-readonly [data-gd-edit-cancelar],
+.gd-readonly [data-gd-campo],
+.gd-readonly [data-gd-base] { display: none !important; }

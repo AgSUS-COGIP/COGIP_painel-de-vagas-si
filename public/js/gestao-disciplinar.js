@@ -1509,8 +1509,17 @@ let gestaoDisciplinarConfigurada = false;
 // Re-renderiza quando a permissão do usuário muda (ex.: a sessão é carregada
 // DEPOIS do primeiro render). Chamado por aplicarPermissoesUsuario() (auth.js).
 export function atualizarPermissaoGestaoDisciplinar() {
+  aplicarModoLeituraDisciplinar();
   aplicarVisibilidadeCardsDisciplinar();
   if (gestaoDisciplinarConfigurada) renderDetalhe(pedidoSelecionadoId);
+}
+
+// Marca a aba em modo somente-leitura (Leitor, nível < 2). O CSS (.gd-readonly
+// [data-gd-*]) esconde TODO controle de escrita em qualquer profundidade — rede de
+// segurança de render contra cascata (botão que só aparece após outra ação).
+function aplicarModoLeituraDisciplinar() {
+  const raiz = $("view-gestaoDisciplinar");
+  if (raiz) raiz.classList.toggle("gd-readonly", nivelModulo("gestaoDisciplinar") < 2);
 }
 
 export function configurarGestaoDisciplinar() {
@@ -1518,6 +1527,7 @@ export function configurarGestaoDisciplinar() {
   const raiz = $("view-gestaoDisciplinar");
   if (!raiz) return;
   gestaoDisciplinarConfigurada = true;
+  aplicarModoLeituraDisciplinar();
 
   aplicarVisibilidadeCardsDisciplinar();
 

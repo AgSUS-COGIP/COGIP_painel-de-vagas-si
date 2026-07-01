@@ -84,6 +84,12 @@ function atualizarAcessoCoape() {
   if ((!okCoape && abaAtiva === "coape") || (!okSolic && abaAtiva === "solicitacao")) {
     trocarTab("visaoGeral");
   }
+
+  // Modo somente-leitura (Leitor): além de esconder as sub-abas acima, o CSS
+  // (.gf-readonly) esconde os controles de escrita em qualquer profundidade —
+  // rede de segurança de render caso um botão vaze fora do fluxo normal.
+  const raiz = $("view-gestaoFerias");
+  if (raiz) raiz.classList.toggle("gf-readonly", !podeSolicitarFerias());
 }
 
 // Filtros (multi-seleção) — cada um é um array de valores selecionados.
@@ -496,6 +502,7 @@ function atualizarValidacao() {
 }
 
 function adicionarSolicitacao() {
+  if (!podeSolicitarFerias()) return; // defesa em profundidade: leitor não solicita
   if (!trabSelecionado) { abrirAviso({ titulo: "Atenção", msg: "Busque e selecione um trabalhador primeiro.", perigo: true }); return; }
   const periodos = lerPeriodosForm();
   const abono = !!$("gfAbono")?.checked;
@@ -632,12 +639,14 @@ function renderHistLotes() {
 }
 
 function salvarLote() {
+  if (!podeSolicitarFerias()) return; // defesa em profundidade: leitor não salva
   if (!lote.length) { gfToast("Inclua ao menos um trabalhador antes de salvar.", "erro"); return; }
   const dsei = $("gfRegDsei")?.value || "—";
   gfToast(`Lote salvo em memória (${lote.length} prof. · ${dsei}).`);
 }
 
 function encaminharCoape() {
+  if (!podeSolicitarFerias()) return; // defesa em profundidade: leitor não encaminha
   if (!lote.length) { gfToast("Adicione ao menos um trabalhador antes de encaminhar.", "erro"); return; }
   lote.forEach(s => coape.push({ ...s, status: "Em análise", motivo: "" }));
   lote = [];
@@ -717,6 +726,7 @@ function renderCoape() {
 }
 
 async function acaoCoape(tipo, i) {
+  if (!ehCoape()) return; // defesa em profundidade: só a COAPE analisa/aprova
   const s = coape[i];
   if (!s) return;
   if (tipo === "aprovar") s.status = "Aprovado";
@@ -734,6 +744,7 @@ async function acaoCoape(tipo, i) {
 }
 
 async function cancelarSolicitacao(i) {
+  if (!podeSolicitarFerias()) return; // defesa em profundidade: leitor não cancela
   const s = coape[i];
   if (!s || s.status !== "Em análise") return;
   const r = await abrirModal({ titulo: "Cancelar solicitação", msg: `Cancelar a solicitação de férias de "${s.nome}"?`, confirmarTexto: "Sim, cancelar", perigo: true });
@@ -817,7 +828,7 @@ export function configurarGestaoFerias() {
   // Delegação: remover do lote / ações COAPE.
   raiz.addEventListener("click", e => {
     const rem = e.target.closest("[data-gf-rem-lote]");
-    if (rem) { lote.splice(Number(rem.dataset.gfRemLote), 1); renderPedido(); return; }
+    if (rem) { if (!podeSolicitarFerias()) return; lote.splice(Number(rem.dataset.gfRemLote), 1); renderPedido(); return; }
     const co = e.target.closest("[data-gf-coape]");
     if (co) { acaoCoape(co.dataset.gfCoape, Number(co.dataset.i)); return; }
     const can = e.target.closest("[data-gf-cancelar]");

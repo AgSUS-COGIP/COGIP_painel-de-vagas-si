@@ -349,6 +349,10 @@ function renderResumo() {
 // ---------- Render completo ----------
 export function renderEscalaTrabalhoAoMostrar() {
   popularFiltros();
+  // Modo somente-leitura (Leitor): o CSS (.et-readonly [data-et-*]) esconde os
+  // botões de escrita em qualquer profundidade, mesmo que vazem no render.
+  const view = $("view-escalaTrabalho");
+  if (view) view.classList.toggle("et-readonly", !podeEditarEscala());
   const btnNova = document.querySelector("[data-et-nova]");
   if (btnNova) btnNova.hidden = !podeEditarEscala();
   renderAlerta();
@@ -385,6 +389,7 @@ export function configurarEscalaTrabalho() {
   // Ações (maquete): apenas feedback via toast, sem persistência.
   view.addEventListener("click", ev => {
     if (ev.target.closest("[data-et-nova]")) {
+      if (!podeEditarEscala()) return; // defesa em profundidade: leitor não escreve
       etToast("Cadastro de nova escala — demonstração (sem gravação no banco).");
       return;
     }
@@ -394,12 +399,14 @@ export function configurarEscalaTrabalho() {
     }
     const editar = ev.target.closest("[data-et-editar]");
     if (editar) {
+      if (!podeEditarEscala()) return; // defesa em profundidade: leitor não escreve
       const r = ESCALAS_DADOS.find(x => x.id === editar.dataset.etEditar);
       etToast(`Editar escala de ${r ? r.nome : "profissional"} — demonstração.`);
       return;
     }
     const excluir = ev.target.closest("[data-et-excluir]");
     if (excluir) {
+      if (!podeEditarEscala()) return; // defesa em profundidade: leitor não escreve
       const r = ESCALAS_DADOS.find(x => x.id === excluir.dataset.etExcluir);
       etToast(`Excluir escala de ${r ? r.nome : "profissional"} — demonstração.`, "erro");
     }

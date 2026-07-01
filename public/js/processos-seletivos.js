@@ -15,7 +15,6 @@ import { escapeAttr, escapeHtml, debounce, safeUrl, isoParaDataBr } from "./util
 import { preencherSelect, criarToast } from "./ui-utils.js";
 import { abrirModal } from "./modal.js";
 import { nivelModulo } from "./permissoes.js";
-import { PROCESSOS_SELETIVOS_DADOS } from "./processos-seletivos-dados.js";
 import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 // Adicionar/editar edital e inserir anexo exigem Editor (>= 2) no módulo;
@@ -49,20 +48,9 @@ const STATUS_BLOQUEIA_REMANEJAMENTO = ["Andamento"];
 
 const POR_PAGINA = 10;
 
-// Vagas previstas = vagas imediatas + cadastro reserva. Normaliza os três campos
-// (compat.: registros antigos só têm vagasPrevistas → viram todo em "imediatas").
-function normalizarVagas(p) {
-  const imediatas = Math.max(0, Number(p.vagasImediatas ?? p.vagasPrevistas ?? 0) || 0);
-  const reserva = Math.max(0, Number(p.cadastroReserva ?? 0) || 0);
-  return { vagasImediatas: imediatas, cadastroReserva: reserva, vagasPrevistas: imediatas + reserva };
-}
-
-// Carrega os dados reais (status e vagas normalizados uma única vez).
-let processos = (PROCESSOS_SELETIVOS_DADOS || []).map(p => ({
-  ...p,
-  status: normalizarStatus(p.status),
-  ...normalizarVagas(p)
-}));
+// Editais carregados do banco (via /api/processos-seletivos/editais). Populado
+// por carregarDoBanco() no init e recarregado após cada mutação persistida.
+let processos = [];
 
 // ---------- Estado da aba ----------
 let paginaAtual = 1;
@@ -97,6 +85,64 @@ const $ = id => document.getElementById(id);
 // Toast reaproveitando o visual compartilhado (mesma classe das outras abas).
 const psToast = criarToast("psToast", { className: "gfToast" });
 
+// ---------- Camada de dados (banco) ----------
+// Chamada JSON à API do módulo. Lança Error com a mensagem do servidor em falha.
+async function psApi(metodo, path, corpo) {
+  const opts = { method: metodo, credentials: "same-origin", headers: { Accept: "application/json" } };
+  if (corpo !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(corpo); }
+  const resp = await fetch(path, opts);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+  return data;
+}
+
+// Recarrega editais do banco e re-hidrata as estruturas em memória usadas pelo
+// render (processos, anexosExtraidos = {cargos, cronograma}, dadosAprovados).
+async function carregarDoBanco() {
+  const { editais } = await psApi("GET", "/api/processos-seletivos/editais");
+  processos = (editais || []).map(e => ({
+    id: e.id, unidade: e.unidade, uf: e.uf, edital: e.edital,
+    dataInicio: e.dataInicio, dataEncerramento: e.dataEncerramento,
+    status: normalizarStatus(e.status), observacoes: e.observacoes || "",
+    linkEdital: e.linkEdital || "", etapa: e.etapa || "",
+    vagasImediatas: Number(e.vagasImediatas || 0),   // total do quadro (derivado no back)
+    temCadastroReserva: !!e.temCadastroReserva,      // "+ CR"
+    vagasPrevistas: Number(e.vagasPrevistas || 0)    // número escolhido pelo usuário
+  }));
+  anexosExtraidos.clear();
+  dadosAprovados.clear();
+  (editais || []).forEach(e => {
+    const cargos = e.cargos || [], cronograma = e.cronograma || [];
+    if (cargos.length || cronograma.length) anexosExtraidos.set(e.id, { cargos, cronograma });
+    (e.aprovados || []).forEach(a => {
+      aprovadosDoCargo(e.id, a.cargo).push({
+        id: a.id, nome: a.nome, nota: a.nota, tipo: a.tipo, status: a.status, docDesistencia: null
+      });
+    });
+  });
+}
+
+// vagaId (DB) do cargo selecionado — necessário para persistir aprovados.
+function vagaIdDoCargo(editalId, nomeCargo) {
+  const extra = anexosExtraidos.get(editalId);
+  const chave = normChave(nomeCargo);
+  const c = extra && extra.cargos && extra.cargos.find(x => normChave(x.cargo) === chave);
+  return c ? c.vagaId : null;
+}
+
+// Recarrega do banco e re-renderiza tudo. Usado no init, ao abrir a aba e após
+// cada mutação persistida.
+async function recarregar(silencioso) {
+  try {
+    await carregarDoBanco();
+  } catch (e) {
+    console.warn("[processos] falha ao carregar do banco:", e && e.message ? e.message : e);
+    // No init roda para todos (mesmo sem permissão no módulo) — não incomoda com toast.
+    if (!silencioso) psToast("Não foi possível carregar os editais do banco.");
+  }
+  renderTudo();
+}
+
 // ---------- Bloqueio de Remanejamento por PSS em andamento ----------
 // Retorna: [{ dsei, cargos: [string], processos: [string] }]
 // (o CSV não traz cargos, então cargos vem vazio — bloqueia a unidade inteira)
@@ -126,15 +172,28 @@ export function obterBloqueiosRemanejamentoPSS() {
 // É o valor usado no badge (tabela + detalhe), nos KPIs e no filtro de status —
 // assim status e KPIs sempre batem. O campo bruto `status` é preservado (o
 // bloqueio de remanejamento por PSS em andamento continua lendo o status real).
+// Status "base" derivado do cronograma: após a ÚLTIMA data do cronograma o
+// edital fica "Concluído"; antes disso mantém o status cadastrado (Andamento,
+// Aguardando Convocação…). Cancelado nunca é sobreposto.
+function statusBaseEdital(proc) {
+  if (proc.status === "Cancelado") return "Cancelado";
+  const ultima = ultimaDataCronograma(cronogramaDoEdital(proc));
+  if (ultima && hojeZerado() > ultima) return "Concluído";
+  return proc.status || "Andamento";
+}
+
+// Status efetivo (exibido): a vigência sobrepõe tudo — "Vencido" quando a data
+// fim já passou e "Encerrando em Breve" (apenas visual) quando falta ≤30 dias;
+// senão, usa o status base derivado do cronograma.
 function statusEfetivo(proc) {
   if (!proc) return "—";
-  if (proc.status === "Cancelado") return proc.status;
+  if (proc.status === "Cancelado") return "Cancelado";
   const dias = diasAteVigencia(proc.dataEncerramento);
   if (dias !== null) {
     if (dias < 0) return "Vencido";
     if (dias <= 30) return "Encerrando em Breve";
   }
-  return proc.status;
+  return statusBaseEdital(proc);
 }
 
 function badgeStatus(status) {
@@ -191,6 +250,9 @@ function processosFiltrados() {
 //   "Vencido": a data fim já passou.
 // Editais cancelados não entram nessas contagens (não têm vigência ativa).
 const MS_DIA = 86400000;
+
+// Hoje às 00:00 (comparações por dia).
+function hojeZerado() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
 
 // Dias entre hoje e a data fim (vigência); negativo se já passou; null se inválida.
 function diasAteVigencia(iso) {
@@ -309,6 +371,12 @@ function cargosDoEdital(proc) {
   return [];
 }
 
+// Vagas imediatas = total do quadro de vagas (soma das cotas de cada cargo).
+function vagasImediatasEdital(proc) {
+  return cargosDoEdital(proc).reduce((s, c) =>
+    s + (Number(c.ampla) || 0) + (Number(c.pcd) || 0) + (Number(c.pretosPardos) || 0) + (Number(c.indigenas) || 0) + (Number(c.quilombolas) || 0), 0);
+}
+
 // Colunas possíveis do quadro, na ordem de exibição. Só são renderizadas
 // as que tiverem ao menos um valor preenchido no edital (os editais variam:
 // alguns trazem só "Vagas", outros o detalhamento por cota).
@@ -399,6 +467,55 @@ function cronogramaDoEdital(proc) {
   return [];
 }
 
+// Extrai as datas do TEXTO de uma etapa do cronograma. Trata data única
+// ("30/07/2026"), intervalos ("22 a 24/06/2026") e listas ("31/07 e 01/08/2026").
+// Dias sem mês/ano herdam do primeiro token completo do próprio texto.
+// Retorna { inicio, fim } (Date | null); fim = inicio quando há só uma data.
+function parseDatasCronograma(texto) {
+  const tokens = String(texto || "").match(/\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?)?/g);
+  if (!tokens) return { inicio: null, fim: null };
+  let refMes = null, refAno = null; // referência (mês/ano) do token mais completo
+  tokens.forEach(t => {
+    const p = t.split("/");
+    if (p.length >= 2) refMes = Number(p[1]);
+    if (p.length >= 3) refAno = Number(p[2].length === 2 ? "20" + p[2] : p[2]);
+  });
+  const datas = tokens.map(t => {
+    const p = t.split("/");
+    const dia = Number(p[0]);
+    const mes = p.length >= 2 ? Number(p[1]) : refMes;
+    const ano = p.length >= 3 ? Number(p[2].length === 2 ? "20" + p[2] : p[2]) : refAno;
+    if (!dia || !mes || !ano) return null;
+    const d = new Date(ano, mes - 1, dia); d.setHours(0, 0, 0, 0);
+    return isNaN(d) ? null : d;
+  }).filter(Boolean).sort((a, b) => a - b);
+  if (!datas.length) return { inicio: null, fim: null };
+  return { inicio: datas[0], fim: datas[datas.length - 1] };
+}
+
+// Última data (máxima) de todo o cronograma — marca a "conclusão" do processo.
+function ultimaDataCronograma(cronograma) {
+  let ultima = null;
+  (cronograma || []).forEach(e => {
+    const { fim } = parseDatasCronograma(e.data);
+    if (fim && (!ultima || fim > ultima)) ultima = fim;
+  });
+  return ultima;
+}
+
+// Índice da etapa atual: a de maior data de INÍCIO que já começou (início <= hoje).
+// Uma etapa com intervalo vale durante o intervalo; com data única, vale a partir
+// dela até a próxima começar. Retorna -1 se nenhuma começou.
+function indiceEtapaAtual(cronograma) {
+  const hoje = hojeZerado();
+  let idx = -1, melhor = null;
+  (cronograma || []).forEach((e, i) => {
+    const { inicio } = parseDatasCronograma(e.data);
+    if (inicio && inicio <= hoje && (!melhor || inicio > melhor)) { idx = i; melhor = inicio; }
+  });
+  return idx;
+}
+
 // Data de divulgação do resultado final: a ÚLTIMA data do cronograma do edital
 // (última etapa com data preenchida). O cronograma só existe quando um anexo PDF
 // foi extraído nesta sessão — sem anexo, retorna "" e a coluna mostra "—". A data
@@ -410,14 +527,6 @@ function dataDivulgacaoResultado(proc) {
     if (d) return d;
   }
   return "";
-}
-
-// Destaca a etapa atual do processo no cronograma (casa pelo nome da atividade).
-function ehEtapaAtual(proc, atividade) {
-  const etapa = normChave(proc?.etapa);
-  if (!etapa) return false;
-  const alvo = normChave(atividade);
-  return alvo === etapa || alvo.includes(etapa) || etapa.includes(alvo);
 }
 
 // Tabela completa do cronograma (mostrada quando o widget "Etapa atual" expande).
@@ -437,6 +546,8 @@ function cronogramaTabelaHtml(proc) {
 function montarCronograma(proc) {
   const etapas = cronogramaDoEdital(proc);
   if (!etapas.length || !$("psCronogramaTab")) return;
+  const iAtual = indiceEtapaAtual(etapas); // etapa atual pela data (índice na lista)
+  const ehAtual = e => iAtual >= 0 && e.ordem === etapas[iAtual].ordem;
   const grade = criarTabelaArrastavel({
     elemento: "psCronogramaTab",
     // fitColumns: as colunas se ajustam à largura do contêiner e o texto quebra
@@ -452,8 +563,7 @@ function montarCronograma(proc) {
       { title: "Atividade", field: "atividade", cssClass: "psCelNome", minWidth: 200, headerSort: false,
         formatter: c => {
           const e = c.getRow().getData();
-          const atual = ehEtapaAtual(proc, e.atividade);
-          return `${escapeHtml(e.atividade || "—")}${atual ? ` <span class="psBadge is-breve">Etapa atual</span>` : ""}`;
+          return `${escapeHtml(e.atividade || "—")}${ehAtual(e) ? ` <span class="psBadge is-breve">Etapa atual</span>` : ""}`;
         } },
       { title: "Data", field: "data", minWidth: 110, headerSort: false,
         formatter: c => escapeHtml(c.getValue() || "—") }
@@ -463,7 +573,7 @@ function montarCronograma(proc) {
     movableColumns: false,
     movableRows: false,
     aoFormatarLinha: row => {
-      if (ehEtapaAtual(proc, row.getData().atividade)) row.getElement().classList.add("is-etapa-atual");
+      if (ehAtual(row.getData())) row.getElement().classList.add("is-etapa-atual");
     },
     dados: etapas
   });
@@ -476,9 +586,11 @@ function montarCronograma(proc) {
   grade?.tabela?.on("tableBuilt", () => { try { grade.tabela.redraw(true); } catch { /* recriando */ } });
 }
 
-// Rótulo da etapa atual: casa pela atividade atual no cronograma; senão proc.etapa.
+// Rótulo da etapa atual: a etapa vigente pela data do cronograma; senão proc.etapa.
 function etapaAtualLabel(proc) {
-  const atual = cronogramaDoEdital(proc).find(e => ehEtapaAtual(proc, e.atividade));
+  const crono = cronogramaDoEdital(proc);
+  const i = indiceEtapaAtual(crono);
+  const atual = i >= 0 ? crono[i] : null;
   if (atual) return atual.data ? `${atual.atividade} · ${atual.data}` : atual.atividade;
   return proc.etapa || "—";
 }
@@ -537,8 +649,11 @@ function renderDetalhe() {
       </div>
       <div class="psDetalheAcoes">
         ${podeEditarProcessos() ? `
-        <button type="button" class="psBtn psBtnGhost" data-ps-editar="${escapeAttr(proc.id)}">
+        <button type="button" class="psBtn psBtnGhost psBtnEditar" data-ps-editar="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-pen-to-square"></i> Editar
+        </button>
+        <button type="button" class="psBtn psBtnGhost psBtnExcluir" data-ps-excluir="${escapeAttr(proc.id)}">
+          <i class="fa-solid fa-trash"></i> Excluir
         </button>
         <button type="button" class="psBtn psBtnGhost" data-ps-anexo="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-file-arrow-up"></i> Inserir anexo
@@ -550,7 +665,7 @@ function renderDetalhe() {
     </div>
 
     <div class="psResumoTiles">
-      <div class="psTile"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(proc.vagasImediatas)} imediatas + ${numFmt(proc.cadastroReserva)} cadastro reserva</div></div>
+      <div class="psTile"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(vagasImediatasEdital(proc))} imediatas${proc.temCadastroReserva ? " + CR" : ""}</div></div>
       <div class="psTile"><div class="psTileValue is-green">${numFmt(contratadosEdital(proc))}</div><div class="psTileLabel">Contratados</div></div>
       <div class="psTile"><div class="psTileValue is-red">${numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div>
       <div class="psTile"><div class="psTileValue is-blue">${numFmt(totalAprovadosEdital(proc))}</div><div class="psTileLabel">Aprovados</div></div>
@@ -581,8 +696,19 @@ function renderDetalhe() {
   montarCronograma(proc);
 }
 
+// Marca o container em modo somente-leitura quando o usuário não é Editor. O CSS
+// (.ps-readonly [data-ps-*]) esconde TODO botão de escrita em qualquer profundidade
+// — assim, mesmo que um botão vaze (bug de render, DOM manipulado, cascata a partir
+// de um botão de nível superior), ele nunca fica visível para o Leitor. Reavalia a
+// cada render: no init o usuário ainda pode estar sem nível (0).
+function aplicarModoLeituraPs() {
+  const raiz = $("view-processosSeletivos");
+  if (raiz) raiz.classList.toggle("ps-readonly", !podeEditarProcessos());
+}
+
 // ---------- Render geral ----------
 function renderTudo() {
+  aplicarModoLeituraPs();
   renderKpis();
   preencherFiltros();
   renderTabela();
@@ -592,8 +718,10 @@ function renderTudo() {
 // A grade Tabulator não monta com a aba oculta (largura 0). Ao navegar para a
 // aba, re-renderiza (monta na 1ª vez) e recalcula o layout.
 export function renderProcessosSeletivosAoMostrar() {
+  aplicarModoLeituraPs();
   renderTabela();
   gradePs?.redraw();
+  recarregar(); // atualiza do banco ao abrir a aba
 }
 
 // ---------- Ações ----------
@@ -610,6 +738,44 @@ function alternarDetalhe(id) {
   }
 }
 
+// ---------- Combobox de DSEI/CASAI + auto-preenchimento da UF ----------
+// Fonte: endpoint /api/processos-seletivos/dseis (consulta a base consolidada de
+// trabalhadores no banco), que devolve [{ uf, nome }] já limpos. Alimenta o
+// <select> do formulário; ao escolher o DSEI, a UF é preenchida automaticamente.
+let dseisFormCarregado = false;
+const dseiUfMap = new Map(); // nome do DSEI/CASAI -> UF
+
+async function carregarDseisForm() {
+  if (dseisFormCarregado) return;
+  try {
+    const resp = await fetch("/api/processos-seletivos/dseis", { credentials: "same-origin" });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const json = await resp.json();
+    dseiUfMap.clear();
+    (json.dseis || []).forEach(d => {
+      const nome = String(d.nome || "").trim();
+      if (nome) dseiUfMap.set(nome, String(d.uf || "").trim().toUpperCase());
+    });
+    // Não marca como carregado se veio vazio — permite nova tentativa ao reabrir.
+    if (dseiUfMap.size) dseisFormCarregado = true;
+    else console.warn("[processos] lista de DSEIs/CASAIs veio vazia do servidor.");
+    popularSelectDsei();
+  } catch (e) {
+    console.warn("[processos] não foi possível carregar os DSEIs/CASAIs:", e && e.message ? e.message : e);
+  }
+}
+
+// Popula o <select> de DSEI/CASAI. `valorAtual` (edição) é injetado como opção
+// caso não esteja na lista — assim editais com nome legado continuam aparecendo.
+function popularSelectDsei(valorAtual) {
+  const sel = $("psFormUnidade");
+  if (!sel || sel.tagName !== "SELECT") return;
+  const nomes = [...dseiUfMap.keys()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const extra = (valorAtual && !dseiUfMap.has(valorAtual)) ? [valorAtual] : [];
+  sel.innerHTML = `<option value="">Selecione o DSEI/CASAI</option>` +
+    [...extra, ...nomes].map(n => `<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join("");
+}
+
 // ---------- Cadastro de novo edital (modal) ----------
 function atualizarTipoDoc() {
   const tipo = document.querySelector('input[name="psDocTipo"]:checked')?.value || "link";
@@ -620,16 +786,24 @@ function atualizarTipoDoc() {
 }
 
 // Abre o modal em modo "novo" (sem id) ou "edição" (com o id do edital).
-function abrirModalEdital(id) {
+async function abrirModalEdital(id) {
   const modal = $("psModalEdital");
   if (!modal) return;
   $("psFormEdital")?.reset();
-  $("psFormAnexo")?._fi?.render(); // re-sincroniza o componente de arquivo após o reset
+  $("psFormAnexo")?._fi?.render();      // re-sincroniza o componente de arquivo após o reset
+  $("psFormAnexoDados")?._fi?.render(); // idem para o anexo dos dados (cronograma/vagas)
+  const stAnx = $("psFormAnexoDadosStatus");
+  if (stAnx) { stAnx.hidden = true; stAnx.innerHTML = ""; }
   const erro = $("psFormErro");
   if (erro) erro.textContent = "";
 
   editandoId = typeof id === "string" ? id : null;
   const proc = editandoId ? processos.find(p => p.id === editandoId) : null;
+
+  // Combobox de DSEI/CASAI: garante a lista carregada e injeta o valor atual
+  // (edição) como opção antes de selecioná-lo mais abaixo.
+  await carregarDseisForm();
+  popularSelectDsei(proc?.unidade);
 
   // Ajusta título e botão conforme o modo.
   const titulo = $("psModalTitulo");
@@ -651,9 +825,9 @@ function abrirModalEdital(id) {
     set("psFormUnidade", proc.unidade);
     set("psFormUf", proc.uf);
     set("psFormEditalNum", proc.edital);
-    set("psFormVagasImediatas", proc.vagasImediatas || "");
-    set("psFormCadastroReserva", proc.cadastroReserva || "");
     set("psFormVagas", proc.vagasPrevistas || "");
+    const chkCR = $("psFormCadastroReserva");
+    if (chkCR) chkCR.checked = !!proc.temCadastroReserva;
     set("psFormDataInicio", proc.dataInicio);
     set("psFormDataFim", proc.dataEncerramento);
     set("psFormStatus", proc.status);
@@ -685,75 +859,133 @@ function valorNum(id) {
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-// Total de vagas previstas = vagas imediatas + cadastro reserva (campo somente
-// leitura; recalculado enquanto o usuário digita).
-function atualizarTotalVagas() {
-  const total = valorNum("psFormVagasImediatas") + valorNum("psFormCadastroReserva");
-  const el = $("psFormVagas");
-  if (el) el.value = total || "";
-}
-
-function salvarEdital(event) {
+async function salvarEdital(event) {
   event.preventDefault();
   const erro = $("psFormErro");
+  if (erro) erro.textContent = "";
 
   const unidade = ($("psFormUnidade")?.value || "").trim();
   const uf = ($("psFormUf")?.value || "").trim().toUpperCase();
   const edital = ($("psFormEditalNum")?.value || "").trim();
   if (!unidade || !uf || !edital) {
-    if (erro) erro.textContent = "Preencha os campos obrigatórios: Unidade, UF e Edital.";
+    if (erro) erro.textContent = "Preencha os campos obrigatórios: DSEI/CASAI, UF e Edital.";
     return;
   }
 
-  // Documento: link OU anexo em PDF (um ou outro).
+  // "Anexos" do edital: se um PDF foi selecionado, extrai o cronograma + quadro
+  // de vagas ANTES de salvar. Se a extração falhar, mostra o erro e mantém o
+  // modal aberto (o cadastro só conclui com o anexo lido, ou sem anexo nenhum).
+  const arquivoAnexo = $("psFormAnexoDados")?.files?.[0] || null;
+  let dadosAnexo = null;
+  if (arquivoAnexo) {
+    const statusAnx = $("psFormAnexoDadosStatus");
+    const btnSalvar = $("psModalSalvar");
+    if (statusAnx) { statusAnx.hidden = false; statusAnx.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF dos Anexos e extraindo os dados…`; }
+    if (btnSalvar) btnSalvar.disabled = true;
+    try {
+      dadosAnexo = await extrairDadosAnexo(arquivoAnexo);
+    } catch (e) {
+      if (statusAnx) statusAnx.hidden = true;
+      if (erro) erro.textContent = e.message || "Não foi possível ler o PDF dos Anexos.";
+      if (btnSalvar) btnSalvar.disabled = false;
+      return;
+    }
+    if (statusAnx) statusAnx.hidden = true;
+    if (btnSalvar) btnSalvar.disabled = false;
+  }
+
+  // Datas são obrigatórias (colunas DATE NOT NULL no banco).
+  const dataInicio = $("psFormDataInicio")?.value || "";
+  const dataEncerramento = $("psFormDataFim")?.value || "";
+  if (!dataInicio || !dataEncerramento) {
+    if (erro) erro.textContent = "Informe a Data de início e a Data fim (vigência).";
+    return;
+  }
+
+  // Documento: por ora só o LINK é persistido (o PDF do documento é blob, adiado).
+  // Na edição, mantém o link atual se o usuário não informar um novo.
   const tipoDoc = document.querySelector('input[name="psDocTipo"]:checked')?.value || "link";
-  let linkEdital = "";
-  if (tipoDoc === "link") {
-    linkEdital = ($("psFormLink")?.value || "").trim();
-  } else {
-    const arquivo = $("psFormAnexo")?.files?.[0];
-    if (arquivo) linkEdital = URL.createObjectURL(arquivo);
-  }
+  const procAtual = editandoId ? processos.find(p => p.id === editandoId) : null;
+  let linkEdital = procAtual ? (procAtual.linkEdital || "") : "";
+  if (tipoDoc === "link") linkEdital = ($("psFormLink")?.value || "").trim();
 
-  const vagasImediatas = valorNum("psFormVagasImediatas");
-  const cadastroReserva = valorNum("psFormCadastroReserva");
-  const vagasPrevistas = vagasImediatas + cadastroReserva; // total = soma das duas
-
-  // Contratados/Risco/Responsável não são mais editados no formulário: na edição
-  // os valores existentes são preservados (spread abaixo); em editais novos ficam
-  // ausentes (Contratados vem dos aprovados marcados; Vagas Ociosas é calculada
-  // dinamicamente no detalhe).
   const dados = {
-    unidade,
-    uf,
-    edital,
-    vagasImediatas,
-    cadastroReserva,
-    vagasPrevistas,
-    dataInicio: $("psFormDataInicio")?.value || "",
-    dataEncerramento: $("psFormDataFim")?.value || "",
+    unidade, uf, edital,
+    vagasPrevistas: valorNum("psFormVagas"),                       // número escolhido pelo usuário
+    temCadastroReserva: !!$("psFormCadastroReserva")?.checked,     // "+ CR"
+    dataInicio,
+    dataEncerramento,
     status: normalizarStatus($("psFormStatus")?.value || "Andamento"),
-    observacoes: ($("psFormObs")?.value || "").trim()
+    observacoes: ($("psFormObs")?.value || "").trim(),
+    linkEdital
   };
+  if (dadosAnexo) dados.anexo = dadosAnexo; // { cargos, cronograma } extraídos do PDF
 
-  if (editandoId) {
-    // Edição: atualiza o edital existente, preservando id/etapa e mantendo o
-    // documento atual caso nenhum novo link/anexo tenha sido informado.
-    processos = processos.map(p =>
-      p.id === editandoId ? { ...p, ...dados, linkEdital: linkEdital || p.linkEdital } : p
-    );
-  } else {
-    // Novo cadastro.
-    const novo = { id: `novo-${Date.now()}`, etapa: "", ...dados, linkEdital };
-    processos = [novo, ...processos];
-    paginaAtual = 1;
+  const btnSalvar = $("psModalSalvar");
+  if (btnSalvar) btnSalvar.disabled = true;
+  try {
+    if (editandoId) await psApi("PUT", `/api/processos-seletivos/editais/${encodeURIComponent(editandoId)}`, dados);
+    else await psApi("POST", "/api/processos-seletivos/editais", dados);
+  } catch (e) {
+    if (erro) erro.textContent = e.message || "Não foi possível salvar o edital.";
+    if (btnSalvar) btnSalvar.disabled = false;
+    return;
   }
+  if (btnSalvar) btnSalvar.disabled = false;
 
+  if (!editandoId) paginaAtual = 1;
   fecharModalEdital();
-  renderTudo();
+  await recarregar();
+  psToast(dadosAnexo ? "Edital salvo e Anexos extraídos." : "Edital salvo.");
+}
+
+// Exclui um edital (protótipo em memória): confirma e remove da lista, junto do
+// que estiver associado a ele em memória (aprovados/anexo). Mesmo padrão de
+// confirmação do excluirAprovado / da Gestão Disciplinar.
+async function excluirEdital(id) {
+  if (!podeEditarProcessos()) return;
+  const proc = processos.find(p => p.id === id);
+  if (!proc) return;
+  const r = await abrirModal({
+    titulo: "Excluir edital",
+    msg: `Deseja realmente excluir o edital ${proc.edital ? `"${escapeHtml(proc.edital)}" ` : ""}de ${escapeHtml(proc.unidade || "—")}? Esta ação não pode ser desfeita.`,
+    confirmarTexto: "Excluir",
+    perigo: true
+  });
+  if (!r.ok) return;
+  try {
+    await psApi("DELETE", `/api/processos-seletivos/editais/${encodeURIComponent(id)}`);
+  } catch (e) {
+    psToast(e.message || "Não foi possível excluir o edital.");
+    return;
+  }
+  if (processoExpandido === id) { processoExpandido = null; vagaSelecionada = null; }
+  psToast("Edital excluído.");
+  await recarregar();
 }
 
 // ---------- Inserir anexo (extrai vagas + cronograma do PDF) ----------
+// Envia o PDF ao extrator e devolve { cargos, cronograma }. Lança erro (mensagem
+// amigável) se o servidor falhar ou se nada for localizado no PDF. Reutilizada
+// pelo modal "Inserir anexo" e pelo próprio formulário de cadastro/edição.
+async function extrairDadosAnexo(arquivo) {
+  const fd = new FormData();
+  fd.append("anexo", arquivo);
+  const resp = await fetch("/api/processos-seletivos/extrair-anexo", {
+    method: "POST",
+    body: fd,
+    credentials: "same-origin"
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || "Falha ao extrair os dados do PDF.");
+  const cargos = Array.isArray(data.cargos) ? data.cargos : [];
+  const cronograma = Array.isArray(data.cronograma) ? data.cronograma : [];
+  if (!cargos.length && !cronograma.length) {
+    throw new Error("Não foi possível localizar o quadro de vagas nem o cronograma neste PDF.");
+  }
+  return { cargos, cronograma };
+}
+
 function abrirModalAnexo(id) {
   anexoProcessoId = id;
   const modal = $("psModalAnexo");
@@ -790,9 +1022,6 @@ async function enviarAnexo(event) {
     return;
   }
 
-  const fd = new FormData();
-  fd.append("anexo", arquivo);
-
   if (status) {
     status.hidden = false;
     status.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF e extraindo os dados…`;
@@ -800,26 +1029,11 @@ async function enviarAnexo(event) {
   if (botao) botao.disabled = true;
 
   try {
-    const resp = await fetch("/api/processos-seletivos/extrair-anexo", {
-      method: "POST",
-      body: fd,
-      credentials: "same-origin"
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new Error(data.error || "Falha ao extrair os dados do PDF.");
-
-    const cargos = Array.isArray(data.cargos) ? data.cargos : [];
-    const cronograma = Array.isArray(data.cronograma) ? data.cronograma : [];
-    if (!cargos.length && !cronograma.length) {
-      throw new Error("Não foi possível localizar o quadro de vagas nem o cronograma neste PDF.");
-    }
-
-    anexosExtraidos.set(anexoProcessoId, { cargos, cronograma });
+    const { cargos, cronograma } = await extrairDadosAnexo(arquivo);
+    // Persiste o cronograma + quadro de vagas no edital e recarrega do banco.
+    await psApi("POST", `/api/processos-seletivos/editais/${encodeURIComponent(anexoProcessoId)}/anexo`, { cargos, cronograma });
     fecharModalAnexo();
-    // Atualiza o detalhe (quadro de vagas/cronograma) E a tabela principal — a
-    // coluna "Data de Divulgação do Resultado Final" é derivada do cronograma
-    // recém-extraído e só recalcula ao re-renderizar as linhas.
-    renderTabela();
+    await recarregar();
     renderDetalhe();
   } catch (e) {
     if (status) status.hidden = true;
@@ -903,11 +1117,12 @@ function compararBase(a, b) {
   return String(a.nome).localeCompare(String(b.nome), "pt-BR");
 }
 
-const ehCota = c => c.tipo === "PcD" || c.tipo === "PPIQ";
+// Cotista = qualquer tipo diferente de Ampla Concorrência.
+const ehCota = c => !!c.tipo && c.tipo !== "AMPLA_CONCORRENCIA";
 
-// Classifica por nota. Com intervaloCota X > 0, a cada X normais colocados a
-// próxima posição é reservada ao melhor cotista (PcD ou PPIQ) disponível — ele
-// "fura" a ordem por nota ("independente da classificação"). Sem cotista, cai
+// Classifica por nota. Com intervaloCota X > 0, a cada X de ampla concorrência
+// colocados a próxima posição é reservada ao melhor cotista (qualquer tipo de
+// cota) disponível — ele "fura" a ordem por nota. Sem cotista, cai
 // para o próximo por nota sem consumir a reserva. Retorna [{candidato,posicao,reservado}].
 function classificar(candidatos, config) {
   const ordenados = [...candidatos].sort(compararBase);
@@ -937,12 +1152,14 @@ function classificar(candidatos, config) {
 }
 
 // ---------- Badges/formatação dos aprovados ----------
-const BADGE_TIPO = { NORMAL: "is-naoiniciado", PcD: "is-aguardando", PPIQ: "is-breve" };
+// Tipo do aprovado = enum do banco (APROVADO_VAGA_EDITAL.TIPO). Rótulo p/ exibição.
+const TIPO_APROVADO_LABEL = { AMPLA_CONCORRENCIA: "Ampla Concorrência", PCD: "PcD", PRETO_PARDO: "Preto/Pardo", INDIGENA: "Indígena", QUILOMBOLA: "Quilombola" };
+const BADGE_TIPO = { AMPLA_CONCORRENCIA: "is-naoiniciado", PCD: "is-aguardando", PRETO_PARDO: "is-breve", INDIGENA: "is-andamento", QUILOMBOLA: "is-contratado" };
 const BADGE_CAND_STATUS = { Convocado: "is-andamento", Aguardando: "is-aguardando", Contratado: "is-contratado", Desistiu: "is-encerrado" };
-// Valores oferecidos no editor inline de status (rótulo = próprio valor).
+// Valores oferecidos nos editores inline (valor -> rótulo).
 const CAND_STATUS_OPCOES = { Aguardando: "Aguardando", Convocado: "Convocado", Contratado: "Contratado", Desistiu: "Desistiu" };
-const CAND_TIPO_OPCOES = { NORMAL: "Normal", PcD: "PcD", PPIQ: "PPIQ" };
-function badgeTipo(t) { return `<span class="psBadge ${BADGE_TIPO[t] || "is-naoiniciado"}">${escapeHtml(t || "—")}</span>`; }
+const CAND_TIPO_OPCOES = TIPO_APROVADO_LABEL;
+function badgeTipo(t) { return `<span class="psBadge ${BADGE_TIPO[t] || "is-naoiniciado"}">${escapeHtml(TIPO_APROVADO_LABEL[t] || t || "—")}</span>`; }
 function badgeCandStatus(s) { return `<span class="psBadge ${BADGE_CAND_STATUS[s] || "is-naoiniciado"}">${escapeHtml(s || "—")}</span>`; }
 function fmtNota(n) {
   if (!notaValida(n)) return "—";
@@ -975,7 +1192,7 @@ function renderPainelAprovados(proc) {
     : `<p class="psObservacoes"><span class="psSemObs">Nenhum aprovado registrado para esta vaga.</span></p>`;
 
   const regra = config.intervaloCota > 0
-    ? ` · regra: 1 PcD/PPIQ a cada ${config.intervaloCota} normais`
+    ? ` · regra: 1 cotista a cada ${config.intervaloCota} de ampla concorrência`
     : "";
 
   return `
@@ -1083,42 +1300,55 @@ function selecionarVaga(nomeCargo) {
 // ---------- Aprovados: inserção e edição inline (sem modal) ----------
 // "Adicionar aprovado" insere uma linha em branco na tabela e abre a edição do
 // Nome; os demais campos (Nota/Tipo/Status) são editáveis clicando na célula.
-function adicionarAprovadoInline(cargoNome) {
+async function adicionarAprovadoInline(cargoNome) {
   if (!processoExpandido || !cargoNome || !podeEditarProcessos()) return;
-  const lista = aprovadosDoCargo(processoExpandido, cargoNome);
-  const novo = {
-    id: `cand-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    nome: "", nota: null, tipo: "NORMAL", status: "Aguardando", docDesistencia: null
-  };
-  lista.push(novo);
-  vagaSelecionada = cargoNome;   // garante o painel da vaga aberto
-  aprovadoFocoId = novo.id;      // montarAprovados abre a edição do Nome desta linha
+  const vagaId = vagaIdDoCargo(processoExpandido, cargoNome);
+  if (!vagaId) { psToast("Cadastre o quadro de vagas (anexo) antes de adicionar aprovados."); return; }
+  vagaSelecionada = cargoNome; // garante o painel da vaga aberto
+  let novoId;
+  try {
+    const r = await psApi("POST", `/api/processos-seletivos/vagas/${encodeURIComponent(vagaId)}/aprovados`,
+      { nome: "", nota: null, tipo: "AMPLA_CONCORRENCIA", status: "Aguardando" });
+    novoId = r.id;
+  } catch (e) {
+    psToast(e.message || "Não foi possível adicionar o aprovado.");
+    return;
+  }
+  aprovadosDoCargo(processoExpandido, cargoNome).push(
+    { id: novoId, nome: "", nota: null, tipo: "AMPLA_CONCORRENCIA", status: "Aguardando", docDesistencia: null });
+  aprovadoFocoId = novoId; // montarAprovados abre a edição do Nome desta linha
   renderDetalhe();
 }
 
-// Writeback de uma célula editada para o candidato real (na lista da vaga).
+// Persiste a linha inteira do aprovado (PUT). Silencioso; avisa só em falha.
+function persistirAprovado(cand) {
+  psApi("PUT", `/api/processos-seletivos/aprovados/${encodeURIComponent(cand.id)}`,
+    { nome: cand.nome, nota: cand.nota, tipo: cand.tipo, status: cand.status })
+    .catch(e => { console.warn("[processos] falha ao salvar aprovado:", e && e.message ? e.message : e); psToast("Não foi possível salvar a alteração do aprovado."); });
+}
+
+// Writeback de uma célula editada para o candidato real (na lista da vaga) + persiste.
 function editarCampoAprovado(candId, campo, valor) {
   if (!processoExpandido || !vagaSelecionada) return;
   const cand = aprovadosDoCargo(processoExpandido, vagaSelecionada).find(c => c.id === candId);
   if (!cand) return;
   if (campo === "nome") {
     cand.nome = String(valor ?? "").trim();
-    return; // nome não reordena a classificação: só atualiza a célula
-  }
-  if (campo === "nota") {
+  } else if (campo === "nota") {
     const raw = String(valor ?? "").trim();
     const n = raw === "" ? null : Number(raw.replace(",", "."));
     cand.nota = Number.isFinite(n) ? n : null;
   } else if (campo === "tipo") {
-    cand.tipo = valor || "NORMAL";
+    cand.tipo = valor || "AMPLA_CONCORRENCIA";
   } else if (campo === "status") {
     cand.status = valor || "Aguardando";
     if (cand.status !== "Desistiu") cand.docDesistencia = null;
   }
-  // Nota/Tipo/Status mudam a ordem da classificação (e o status também muda a
-  // coluna Documento, o realce da linha e a contagem de Contratados/Vagas
-  // Ociosas): re-renderiza para reordenar a tabela. No próximo tick para não
-  // colidir com a finalização interna da edição do Tabulator (destruiria o DOM).
+  persistirAprovado(cand);
+  if (campo === "nome") return; // nome não reordena a classificação: só atualiza a célula
+  // Nota/Tipo/Status mudam a ordem da classificação (e o status muda a coluna
+  // Documento, o realce da linha e a contagem de Contratados): re-renderiza no
+  // próximo tick para não colidir com a finalização interna da edição do Tabulator.
   setTimeout(renderDetalhe, 0);
 }
 
@@ -1142,7 +1372,7 @@ function anexarDocDesistencia(candId) {
 }
 
 async function excluirAprovado(candId) {
-  if (!processoExpandido || !vagaSelecionada) return;
+  if (!processoExpandido || !vagaSelecionada || !podeEditarProcessos()) return;
   const lista = aprovadosDoCargo(processoExpandido, vagaSelecionada);
   const cand = lista.find(c => c.id === candId);
   if (!cand) return;
@@ -1153,6 +1383,12 @@ async function excluirAprovado(candId) {
     perigo: true
   });
   if (!r.ok) return;
+  try {
+    await psApi("DELETE", `/api/processos-seletivos/aprovados/${encodeURIComponent(candId)}`);
+  } catch (e) {
+    psToast(e.message || "Não foi possível excluir o aprovado.");
+    return;
+  }
   const i = lista.findIndex(c => c.id === candId);
   if (i >= 0) lista.splice(i, 1);
   psToast("Aprovado excluído.");
@@ -1161,7 +1397,7 @@ async function excluirAprovado(candId) {
 
 // ---------- Modal de configuração da classificação (por edital) ----------
 function abrirModalConfig(editalId) {
-  if (!editalId) return;
+  if (!editalId || !podeEditarProcessos()) return;
   configEditalId = editalId;
   const modal = $("psModalConfig");
   if (!modal) return;
@@ -1186,7 +1422,7 @@ function fecharModalConfig() {
 
 function salvarConfig(event) {
   event.preventDefault();
-  if (!configEditalId) { fecharModalConfig(); return; }
+  if (!configEditalId || !podeEditarProcessos()) { fecharModalConfig(); return; }
   const intervalo = Math.max(0, Math.floor(Number($("psConfIntervalo")?.value) || 0));
   const d = getDadosEdital(configEditalId);
   d.configClassificacao = {
@@ -1207,7 +1443,8 @@ export function configurarProcessosSeletivos() {
   if (!raiz) return;
   processosConfigurado = true;
 
-  renderTudo();
+  renderTudo();       // estrutura inicial (vazia) enquanto carrega
+  recarregar(true);   // carrega os editais do banco (silencioso: roda p/ todos no init)
 
   $("psFiltroUnidade")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psFiltroStatus")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
@@ -1223,9 +1460,13 @@ export function configurarProcessosSeletivos() {
   });
   document.querySelectorAll('input[name="psDocTipo"]').forEach(radio =>
     radio.addEventListener("change", atualizarTipoDoc));
-  // Total de vagas previstas = imediatas + cadastro reserva (recalcula ao digitar).
-  $("psFormVagasImediatas")?.addEventListener("input", atualizarTotalVagas);
-  $("psFormCadastroReserva")?.addEventListener("input", atualizarTotalVagas);
+  // Ao escolher o DSEI/CASAI, traz a UF principal automaticamente.
+  $("psFormUnidade")?.addEventListener("change", () => {
+    const uf = dseiUfMap.get($("psFormUnidade").value || "");
+    const el = $("psFormUf");
+    if (uf && el) el.value = uf;
+  });
+  carregarDseisForm(); // aquece o cache da lista de DSEIs (não bloqueia o init)
 
   // Modal de inserção de anexo (extração de vagas/cronograma do PDF).
   $("psModalAnexoFechar")?.addEventListener("click", fecharModalAnexo);
@@ -1249,6 +1490,9 @@ export function configurarProcessosSeletivos() {
   raiz.addEventListener("click", event => {
     const editar = event.target.closest("[data-ps-editar]");
     if (editar) { abrirModalEdital(editar.dataset.psEditar); return; }
+
+    const excluir = event.target.closest("[data-ps-excluir]");
+    if (excluir) { excluirEdital(excluir.dataset.psExcluir); return; }
 
     const anexo = event.target.closest("[data-ps-anexo]");
     if (anexo) { abrirModalAnexo(anexo.dataset.psAnexo); return; }
