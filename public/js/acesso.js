@@ -183,21 +183,36 @@ function inferirTipo(atual) {
   if (temDsei) return "dsei";
   return tipoAcessoAtual || "dsei";
 }
+// O banco grava as datas em UTC (ex.: "2026-06-30T11:34:00Z"); aqui convertemos
+// para o horário de Brasília (UTC−3) na exibição, senão apareceria 3h adiantado.
+const FUSO_PAINEL = "America/Sao_Paulo";
+
+// Quebra a data em { data: "DD/MM/AAAA", hora: "HH:MM" } no fuso de Brasília.
+// Retorna null se o valor não for uma data reconhecível.
+function partesDataBR(v) {
+  if (!v) return null;
+  const dt = new Date(v);
+  if (isNaN(dt.getTime())) return null;
+  const p = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO_PAINEL, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
+  }).formatToParts(dt).reduce((acc, x) => { acc[x.type] = x.value; return acc; }, {});
+  if (!p.year) return null;
+  return { data: `${p.day}/${p.month}/${p.year}`, hora: `${p.hour}:${p.minute}` };
+}
+
 function fmtData(v) {
-  if (!v) return "—";
-  const s = String(v).replace("T", " ").slice(0, 16);
-  return s || "—";
+  const p = partesDataBR(v);
+  if (!p) return v ? (String(v).replace("T", " ").slice(0, 16) || "—") : "—";
+  return `${p.data} ${p.hora}`;
 }
 
 // Coluna "Data e hora" das tabelas: horário primeiro, depois dd/mm/aaaa
-// (ex.: "12:41 26/08/2025").
+// (ex.: "12:41 26/08/2025"), já no horário de Brasília.
 function fmtDataHora(v) {
-  if (!v) return "—";
-  const s = String(v).replace("T", " ").slice(0, 16); // "AAAA-MM-DD HH:MM"
-  const [data, hora] = s.split(" ");
-  const [a, m, d] = (data || "").split("-");
-  if (!hora || !a || !m || !d) return s || "—";
-  return `${hora} ${d}/${m}/${a}`;
+  const p = partesDataBR(v);
+  if (!p) return v ? (String(v).replace("T", " ").slice(0, 16) || "—") : "—";
+  return `${p.hora} ${p.data}`;
 }
 
 // Popula um <select> com as opções vindas do banco, preservando o valor atual.

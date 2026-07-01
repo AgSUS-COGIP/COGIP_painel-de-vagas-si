@@ -1275,6 +1275,38 @@
               </div>
             </div>
             <div class="ecKpi">
+              <span class="ecKpiIcone is-green"><i class="fa-solid fa-user-check"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Trabalhadores Ativos</div>
+                <div class="ecKpiValue" id="ecKpiAtivos">0</div>
+                <div class="ecKpiSub">Total menos desligados</div>
+              </div>
+            </div>
+            <div class="ecKpi">
+              <span class="ecKpiIcone is-red"><i class="fa-solid fa-user-slash"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Desligados</div>
+                <div class="ecKpiValue" id="ecKpiDesligados">0</div>
+                <div class="ecKpiSub">Aviso/desligamento</div>
+              </div>
+            </div>
+            <div class="ecKpi">
+              <span class="ecKpiIcone is-red"><i class="fa-solid fa-rotate-left"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Crachá Devolvido</div>
+                <div class="ecKpiValue" id="ecKpiDevolvido">0</div>
+                <div class="ecKpiSub">Crachás devolvidos</div>
+              </div>
+            </div>
+            <div class="ecKpi">
+              <span class="ecKpiIcone is-yellow"><i class="fa-solid fa-clone"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Solicitação de 2ª Via</div>
+                <div class="ecKpiValue" id="ecKpiSegundaVia">0</div>
+                <div class="ecKpiSub">Pedidos de 2ª via</div>
+              </div>
+            </div>
+            <div class="ecKpi">
               <span class="ecKpiIcone is-red"><i class="fa-solid fa-camera"></i></span>
               <div class="ecKpiInfo">
                 <div class="ecKpiLabel">Foto Pendente de Envio</div>
@@ -1320,22 +1352,6 @@
                 <div class="ecKpiLabel">Entregue ao Trabalhador</div>
                 <div class="ecKpiValue" id="ecKpiEntregueTrab">0</div>
                 <div class="ecKpiSub">Entregues ao trabalhador</div>
-              </div>
-            </div>
-            <div class="ecKpi">
-              <span class="ecKpiIcone is-red"><i class="fa-solid fa-rotate-left"></i></span>
-              <div class="ecKpiInfo">
-                <div class="ecKpiLabel">Crachá Devolvido</div>
-                <div class="ecKpiValue" id="ecKpiDevolvido">0</div>
-                <div class="ecKpiSub">Crachás devolvidos</div>
-              </div>
-            </div>
-            <div class="ecKpi">
-              <span class="ecKpiIcone is-yellow"><i class="fa-solid fa-clone"></i></span>
-              <div class="ecKpiInfo">
-                <div class="ecKpiLabel">Solicitação de 2ª Via</div>
-                <div class="ecKpiValue" id="ecKpiSegundaVia">0</div>
-                <div class="ecKpiSub">Pedidos de 2ª via</div>
               </div>
             </div>
           </section>
@@ -1586,17 +1602,17 @@
                   <input class="ecInput" type="date" id="ecFormDataRecebTrab">
                 </div>
                 <div class="ecField">
-                  <label>Solicitação de 2ª Via</label>
-                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Solicitação de 2ª Via">
-                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="nao" checked> Não</label>
-                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="sim"> Sim</label>
-                  </div>
-                </div>
-                <div class="ecField">
                   <label>Crachá Devolvido</label>
                   <div class="ecRadioGrupo" role="radiogroup" aria-label="Crachá Devolvido">
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="nao" checked> Não</label>
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="sim"> Sim</label>
+                  </div>
+                </div>
+                <div class="ecField">
+                  <label>Solicitação de 2ª Via</label>
+                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Solicitação de 2ª Via">
+                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="nao" checked> Não</label>
+                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="sim"> Sim</label>
                   </div>
                 </div>
                 <div class="ecField" id="ecFormMotivo2viaWrap">

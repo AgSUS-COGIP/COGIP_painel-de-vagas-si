@@ -59,7 +59,7 @@
 }
 
 .ecKpi {
-  flex: 0 1 calc((100% - 56px) / 5); /* 5 por linha (4 espaços de 14px) */
+  flex: 0 1 calc((100% - 70px) / 6); /* 6 por linha (5 espaços de 14px) */
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -608,9 +608,10 @@ select.ecInput {
 }
 
 /* Botões ocupam o espaço livre à direita da última linha de campos, alinhados
-   à base (no mesmo nível dos inputs). Em telas estreitas caem para a linha de baixo. */
+   à base (no mesmo nível dos inputs). span 2 (em vez de 3) cabe nas 2 células que
+   sobram na linha dos campos; em telas estreitas caem para a linha de baixo. */
 .ecLoteAcoes {
-  grid-column: span 3 / -1;
+  grid-column: span 2 / -1;
   align-self: end;
   display: flex;
   flex-wrap: wrap;
