@@ -183,16 +183,31 @@ function inferirTipo(atual) {
   if (temDsei) return "dsei";
   return tipoAcessoAtual || "dsei";
 }
-// O banco grava as datas em UTC (ex.: "2026-06-30T11:34:00Z"); aqui convertemos
-// para o horário de Brasília (UTC−3) na exibição, senão apareceria 3h adiantado.
+// O banco grava as datas em UTC e o mysql2 (dateStrings: true) as devolve como
+// string CRUA "AAAA-MM-DD HH:MM:SS", SEM fuso. Se deixássemos o new Date()
+// interpretar, ele assumiria o fuso local do navegador e não haveria conversão
+// (apareceria 3h adiantado). Por isso marcamos a string como UTC e só então
+// convertemos para o horário de Brasília na exibição.
 const FUSO_PAINEL = "America/Sao_Paulo";
+
+// Converte o valor do banco num instante (Date) tratando string sem fuso como UTC.
+function parseInstante(v) {
+  if (v == null) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  let s = String(v).trim();
+  if (!s) return null;
+  // Já tem fuso explícito (Z ou ±HH:MM)? usa como está. Senão, trata como UTC.
+  const temFuso = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  if (!temFuso) s = s.replace(" ", "T") + "Z";
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? null : dt;
+}
 
 // Quebra a data em { data: "DD/MM/AAAA", hora: "HH:MM" } no fuso de Brasília.
 // Retorna null se o valor não for uma data reconhecível.
 function partesDataBR(v) {
-  if (!v) return null;
-  const dt = new Date(v);
-  if (isNaN(dt.getTime())) return null;
+  const dt = parseInstante(v);
+  if (!dt) return null;
   const p = new Intl.DateTimeFormat("pt-BR", {
     timeZone: FUSO_PAINEL, hour12: false,
     year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
