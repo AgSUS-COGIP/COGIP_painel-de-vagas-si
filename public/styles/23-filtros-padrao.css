@@ -355,3 +355,14 @@
       padding: 0 11px;
     }
     .ecModalForm .ecTextarea { padding: 9px 11px; }
+
+    /* Campos de identidade só-leitura (Nome, Matrícula, Cargo): fundo cinza e
+       cursor bloqueado, sinalizando que não são editáveis. */
+    .ecModalForm .ecInput:disabled {
+      background: #eef1f5;
+      color: #6b7c93;
+      border-color: rgba(0, 83, 166, .14);
+      cursor: not-allowed;
+      -webkit-text-fill-color: #6b7c93; /* mantém a cor legível em alguns navegadores */
+      opacity: 1;
+    }

@@ -43,9 +43,6 @@ const CARGOS_DISTRITAL = [
 
 // Escritórios exibidos na aba "Escritórios Distritais" (lista fixa, não vem do banco).
 const ESCRITORIOS_DISTRITAL = [
-  "ESCRITORIO ATALAIA DO NORTE/AM (VALE DO JAVARI)",
-  "ESCRITORIO BOA VISTA/RR (YANOMAMI)",
-  "ESCRITORIO CAMPO GRANDE/MS (MATO GROSSO DO SUL)",
   "ESCRITORIO CUIABA/MT (CUIABA) - REGIONAL",
   "ESCRITORIO DISTRITAL ALTAMIRA/PA (ALTAMIRA)",
   "ESCRITORIO DISTRITAL ATALAIA DO NORTE/AM (VALE DO JAVARI)",
@@ -81,8 +78,6 @@ const ESCRITORIOS_DISTRITAL = [
   "ESCRITORIO DISTRITAL SAO LUIS/MA (MARANHAO)",
   "ESCRITORIO DISTRITAL TABATINGA/AM (ALTO RIO SOLIMOES)",
   "ESCRITORIO DISTRITAL TEFE/AM (MEDIO RIO SOLIMOES)",
-  "ESCRITORIO PARINTINS/AM (PARINTINS)",
-  "ESCRITORIO RECIFE/PE (PERNAMBUCO)",
   "ESCRITORIO REGIONAL DA BAHIA",
   "ESCRITORIO REGIONAL DE PERNAMBUCO",
   "ESCRITORIO REGIONAL DE RORAIMA",
@@ -91,7 +86,6 @@ const ESCRITORIOS_DISTRITAL = [
   "ESCRITORIO REGIONAL DO CENTRO-OESTE",
   "ESCRITORIO REGIONAL DO PARA",
   "ESCRITORIO REGIONAL DO PARANA",
-  "ESCRITORIO TABATINGA/AM (ALTO RIO SOLIMOES)",
 ];
 
 // Cargos e unidades vindos do banco (usados nas abas DSEI/SESAI e Sede AgSUS).
@@ -183,21 +177,51 @@ function inferirTipo(atual) {
   if (temDsei) return "dsei";
   return tipoAcessoAtual || "dsei";
 }
+// O banco grava as datas em UTC e o mysql2 (dateStrings: true) as devolve como
+// string CRUA "AAAA-MM-DD HH:MM:SS", SEM fuso. Se deixássemos o new Date()
+// interpretar, ele assumiria o fuso local do navegador e não haveria conversão
+// (apareceria 3h adiantado). Por isso marcamos a string como UTC e só então
+// convertemos para o horário de Brasília na exibição.
+const FUSO_PAINEL = "America/Sao_Paulo";
+
+// Converte o valor do banco num instante (Date) tratando string sem fuso como UTC.
+function parseInstante(v) {
+  if (v == null) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  let s = String(v).trim();
+  if (!s) return null;
+  // Já tem fuso explícito (Z ou ±HH:MM)? usa como está. Senão, trata como UTC.
+  const temFuso = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  if (!temFuso) s = s.replace(" ", "T") + "Z";
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+// Quebra a data em { data: "DD/MM/AAAA", hora: "HH:MM" } no fuso de Brasília.
+// Retorna null se o valor não for uma data reconhecível.
+function partesDataBR(v) {
+  const dt = parseInstante(v);
+  if (!dt) return null;
+  const p = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO_PAINEL, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
+  }).formatToParts(dt).reduce((acc, x) => { acc[x.type] = x.value; return acc; }, {});
+  if (!p.year) return null;
+  return { data: `${p.day}/${p.month}/${p.year}`, hora: `${p.hour}:${p.minute}` };
+}
+
 function fmtData(v) {
-  if (!v) return "—";
-  const s = String(v).replace("T", " ").slice(0, 16);
-  return s || "—";
+  const p = partesDataBR(v);
+  if (!p) return v ? (String(v).replace("T", " ").slice(0, 16) || "—") : "—";
+  return `${p.data} ${p.hora}`;
 }
 
 // Coluna "Data e hora" das tabelas: horário primeiro, depois dd/mm/aaaa
-// (ex.: "12:41 26/08/2025").
+// (ex.: "12:41 26/08/2025"), já no horário de Brasília.
 function fmtDataHora(v) {
-  if (!v) return "—";
-  const s = String(v).replace("T", " ").slice(0, 16); // "AAAA-MM-DD HH:MM"
-  const [data, hora] = s.split(" ");
-  const [a, m, d] = (data || "").split("-");
-  if (!hora || !a || !m || !d) return s || "—";
-  return `${hora} ${d}/${m}/${a}`;
+  const p = partesDataBR(v);
+  if (!p) return v ? (String(v).replace("T", " ").slice(0, 16) || "—") : "—";
+  return `${p.hora} ${p.data}`;
 }
 
 // Popula um <select> com as opções vindas do banco, preservando o valor atual.

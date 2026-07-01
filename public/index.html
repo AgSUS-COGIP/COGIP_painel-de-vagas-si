@@ -299,6 +299,10 @@
           <span class="navIcon"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></span>
           <span>Processos Seletivos</span>
         </button>
+        <button type="button" class="navItem" data-view="escalaTrabalho">
+          <span class="navIcon"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
+          <span>Escala de Trabalho</span>
+        </button>
         <button type="button" class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
           <span class="navIcon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
           <span>Solicitações</span>
@@ -1275,6 +1279,38 @@
               </div>
             </div>
             <div class="ecKpi">
+              <span class="ecKpiIcone is-green"><i class="fa-solid fa-user-check"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Trabalhadores Ativos</div>
+                <div class="ecKpiValue" id="ecKpiAtivos">0</div>
+                <div class="ecKpiSub">Total menos desligados</div>
+              </div>
+            </div>
+            <div class="ecKpi">
+              <span class="ecKpiIcone is-red"><i class="fa-solid fa-user-slash"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Desligados</div>
+                <div class="ecKpiValue" id="ecKpiDesligados">0</div>
+                <div class="ecKpiSub">Aviso/desligamento</div>
+              </div>
+            </div>
+            <div class="ecKpi">
+              <span class="ecKpiIcone is-red"><i class="fa-solid fa-rotate-left"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Crachá Devolvido</div>
+                <div class="ecKpiValue" id="ecKpiDevolvido">0</div>
+                <div class="ecKpiSub">Crachás devolvidos</div>
+              </div>
+            </div>
+            <div class="ecKpi">
+              <span class="ecKpiIcone is-yellow"><i class="fa-solid fa-clone"></i></span>
+              <div class="ecKpiInfo">
+                <div class="ecKpiLabel">Solicitação de 2ª Via</div>
+                <div class="ecKpiValue" id="ecKpiSegundaVia">0</div>
+                <div class="ecKpiSub">Pedidos de 2ª via</div>
+              </div>
+            </div>
+            <div class="ecKpi">
               <span class="ecKpiIcone is-red"><i class="fa-solid fa-camera"></i></span>
               <div class="ecKpiInfo">
                 <div class="ecKpiLabel">Foto Pendente de Envio</div>
@@ -1320,22 +1356,6 @@
                 <div class="ecKpiLabel">Entregue ao Trabalhador</div>
                 <div class="ecKpiValue" id="ecKpiEntregueTrab">0</div>
                 <div class="ecKpiSub">Entregues ao trabalhador</div>
-              </div>
-            </div>
-            <div class="ecKpi">
-              <span class="ecKpiIcone is-red"><i class="fa-solid fa-rotate-left"></i></span>
-              <div class="ecKpiInfo">
-                <div class="ecKpiLabel">Crachá Devolvido</div>
-                <div class="ecKpiValue" id="ecKpiDevolvido">0</div>
-                <div class="ecKpiSub">Crachás devolvidos</div>
-              </div>
-            </div>
-            <div class="ecKpi">
-              <span class="ecKpiIcone is-yellow"><i class="fa-solid fa-clone"></i></span>
-              <div class="ecKpiInfo">
-                <div class="ecKpiLabel">Solicitação de 2ª Via</div>
-                <div class="ecKpiValue" id="ecKpiSegundaVia">0</div>
-                <div class="ecKpiSub">Pedidos de 2ª via</div>
               </div>
             </div>
           </section>
@@ -1586,17 +1606,17 @@
                   <input class="ecInput" type="date" id="ecFormDataRecebTrab">
                 </div>
                 <div class="ecField">
-                  <label>Solicitação de 2ª Via</label>
-                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Solicitação de 2ª Via">
-                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="nao" checked> Não</label>
-                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="sim"> Sim</label>
-                  </div>
-                </div>
-                <div class="ecField">
                   <label>Crachá Devolvido</label>
                   <div class="ecRadioGrupo" role="radiogroup" aria-label="Crachá Devolvido">
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="nao" checked> Não</label>
                     <label class="ecRadioOpt"><input type="radio" name="ecFormDevolvido" value="sim"> Sim</label>
+                  </div>
+                </div>
+                <div class="ecField">
+                  <label>Solicitação de 2ª Via</label>
+                  <div class="ecRadioGrupo" role="radiogroup" aria-label="Solicitação de 2ª Via">
+                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="nao" checked> Não</label>
+                    <label class="ecRadioOpt"><input type="radio" name="ecFormSegundaVia" value="sim"> Sim</label>
                   </div>
                 </div>
                 <div class="ecField" id="ecFormMotivo2viaWrap">
@@ -1644,7 +1664,6 @@
               </div>
             </div>
           </div>
-
           <!-- Modal de pré-visualização da importação (seleção das linhas do lote) -->
           <div class="ecModalOverlay" id="ecImportModal" hidden>
             <div class="ecModalBox ecModalBoxWide" role="dialog" aria-modal="true">
@@ -2097,6 +2116,14 @@
               <div class="psKpiValue is-green" id="psKpiConcluido">0</div>
             </div>
             <div class="psKpi">
+              <div class="psKpiLabel">Encerrando em Breve</div>
+              <div class="psKpiValue is-amber" id="psKpiEncerrando">0</div>
+            </div>
+            <div class="psKpi">
+              <div class="psKpiLabel">Vencidos</div>
+              <div class="psKpiValue is-vencido" id="psKpiVencido">0</div>
+            </div>
+            <div class="psKpi">
               <div class="psKpiLabel">Cancelados</div>
               <div class="psKpiValue is-red" id="psKpiCancelado">0</div>
             </div>
@@ -2128,7 +2155,7 @@
               <form class="psModalBody" id="psFormEdital">
                 <div class="psFormGrid">
                   <label class="psField psField2">
-                    <span>Unidade <i class="psReq">*</i></span>
+                    <span>DSEI/CASAI <i class="psReq">*</i></span>
                     <input class="psInput" id="psFormUnidade" type="text" autocomplete="off">
                   </label>
                   <label class="psField">
@@ -2140,28 +2167,24 @@
                     <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
                   </label>
                   <label class="psField">
-                    <span>Total de vagas previstas</span>
-                    <input class="psInput" id="psFormVagas" type="number" min="0">
+                    <span>Vagas imediatas</span>
+                    <input class="psInput" id="psFormVagasImediatas" type="number" min="0">
                   </label>
                   <label class="psField">
-                    <span>Total de contratados</span>
-                    <input class="psInput" id="psFormContratados" type="number" min="0">
+                    <span>Cadastro reserva</span>
+                    <input class="psInput" id="psFormCadastroReserva" type="number" min="0">
                   </label>
                   <label class="psField">
-                    <span>Risco</span>
-                    <input class="psInput" id="psFormRisco" type="text" autocomplete="off">
+                    <span>Total de vagas previstas <small>(soma automática)</small></span>
+                    <input class="psInput" id="psFormVagas" type="number" min="0" readonly>
                   </label>
                   <label class="psField">
                     <span>Data de início</span>
                     <input class="psInput" id="psFormDataInicio" type="date">
                   </label>
                   <label class="psField">
-                    <span>Data de encerramento</span>
+                    <span>Data fim (vigência)</span>
                     <input class="psInput" id="psFormDataFim" type="date">
-                  </label>
-                  <label class="psField">
-                    <span>Responsável</span>
-                    <input class="psInput" id="psFormResponsavel" type="text" autocomplete="off">
                   </label>
                   <label class="psField">
                     <span>Status</span>
@@ -2238,54 +2261,7 @@
             </div>
           </div>
 
-          <!-- Modal: aprovado da vaga (criar/editar) -->
-          <div class="psModalOverlay" id="psModalAprovado" hidden>
-            <div class="psModalCard psModalCardSm" role="dialog" aria-modal="true" aria-labelledby="psModalAprovadoTitulo">
-              <div class="psModalHead">
-                <h3 id="psModalAprovadoTitulo"><i class="fa-solid fa-user-plus"></i> Adicionar aprovado</h3>
-                <button type="button" class="psModalClose" id="psModalAprovadoFechar" aria-label="Fechar">
-                  <i class="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-              <form class="psModalBody" id="psFormAprovado">
-                <div class="psFormGrid">
-                  <label class="psField psField2">
-                    <span>Nome <i class="psReq">*</i></span>
-                    <input class="psInput" id="psAprovadoNome" type="text" autocomplete="off">
-                  </label>
-                  <label class="psField">
-                    <span>Nota</span>
-                    <input class="psInput" id="psAprovadoNota" type="number" min="0" step="0.01">
-                  </label>
-                  <label class="psField">
-                    <span>Tipo</span>
-                    <select class="psSelect" id="psAprovadoTipo">
-                      <option value="NORMAL">Normal</option>
-                      <option value="PcD">PcD</option>
-                      <option value="PPIQ">PPIQ</option>
-                    </select>
-                  </label>
-                  <label class="psField">
-                    <span>Status</span>
-                    <select class="psSelect" id="psAprovadoStatus">
-                      <option value="Convocado">Convocado</option>
-                      <option value="Aguardando" selected>Aguardando</option>
-                      <option value="Desistiu">Desistiu</option>
-                    </select>
-                  </label>
-                  <div class="psField psField3" id="psAprovadoDocWrap" hidden>
-                    <span>Documento de desistência (PDF)</span>
-                    <input class="psInputFile" id="psAprovadoDoc" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
-                  </div>
-                </div>
-                <p class="psModalErro" id="psAprovadoErro"></p>
-              </form>
-              <div class="psModalFoot">
-                <button type="button" class="psBtn psBtnGhost" id="psBtnAprovadoCancelar">Cancelar</button>
-                <button type="submit" form="psFormAprovado" class="psBtn" id="psBtnAprovadoSalvar"><i class="fa-solid fa-check"></i> Salvar</button>
-              </div>
-            </div>
-          </div>
+          <!-- Aprovados: inserção/edição inline na própria tabela (sem modal). -->
 
           <!-- Modal: configuração da classificação (por edital) -->
           <div class="psModalOverlay" id="psModalConfig" hidden>
@@ -2310,6 +2286,106 @@
               </div>
             </div>
           </div>
+        </section>
+
+
+        <section id="view-escalaTrabalho" class="viewPanel etView">
+          <div class="etPageHeader">
+            <div class="etHeaderTop">
+              <div class="etHeaderTitle">
+                <h2><i class="fa-solid fa-calendar-days"></i> Escala de Trabalho</h2>
+                <p>Controle das escalas dos profissionais da Saúde Indígena — diaristas, plantonistas
+                  (diurno/noturno) e escalas de território — por DSEI, polo base e unidade.</p>
+              </div>
+              <button type="button" class="etBtn etBtnNova" data-et-nova hidden>
+                <i class="fa-solid fa-plus"></i> Nova Escala
+              </button>
+            </div>
+            <div class="etHeaderFiltros">
+              <div class="etField"><span class="etFieldLabel">DSEI</span><select class="etSelect" id="etFDsei" aria-label="Filtrar por DSEI"></select></div>
+              <div class="etField"><span class="etFieldLabel">Polo base / CASAI</span><select class="etSelect" id="etFPolo" aria-label="Filtrar por polo base"></select></div>
+              <div class="etField"><span class="etFieldLabel">UBSI (se houver)</span><select class="etSelect" id="etFUbsi" aria-label="Filtrar por UBSI"></select></div>
+              <div class="etField"><span class="etFieldLabel">Cargo</span><select class="etSelect" id="etFCargo" aria-label="Filtrar por cargo"></select></div>
+              <div class="etField"><span class="etFieldLabel">Escala</span><select class="etSelect" id="etFEscala" aria-label="Filtrar por escala"></select></div>
+              <div class="etField"><span class="etFieldLabel">Situação</span><select class="etSelect" id="etFSituacao" aria-label="Filtrar por situação"></select></div>
+              <div class="etField etFieldBusca">
+                <span class="etFieldLabel">Buscar</span>
+                <div class="etSearchBox">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input class="etSearch" id="etBusca" type="search" placeholder="Buscar profissional...">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="etAlerta" id="etAlerta" hidden>
+            <div class="etAlertaHead">
+              <span class="etAlertaTitulo"><i class="fa-solid fa-triangle-exclamation"></i> Alerta: profissionais sem escala registrada</span>
+              <span class="etAlertaTotal">Total: <strong id="etAlertaTotal">0</strong> profissionais</span>
+            </div>
+            <p class="etAlertaSub">Os seguintes profissionais ainda não foram inseridos no controle de escala.</p>
+            <div class="etAlertaCorpo">
+              <div class="etAlertaChips" id="etAlertaChips"></div>
+              <button type="button" class="etBtn etBtnVerTodos" data-et-ver-sem-escala>Ver todos <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <section class="etCard">
+            <div class="etCardHead">
+              <h3 class="etCardTitle">Profissionais e Escalas</h3>
+              <span class="etCardCount" id="etTabelaCount" aria-live="polite">—</span>
+            </div>
+            <div id="etTabelaBody" class="etGrid"></div>
+          </section>
+
+          <div class="etDuplo">
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Detalhamento — Plantonistas <span class="etCardComp" id="etCompPlant">—</span></h3>
+              </div>
+              <div id="etPlantBody" class="etGrid etGridPlant"></div>
+              <div class="etPlantLegenda">
+                <span class="etPlantLeg"><i class="fa-solid fa-sun etIconDia"></i> Plantonista Diurno</span>
+                <span class="etPlantLeg"><i class="fa-solid fa-moon etIconNoite"></i> Plantonista Noturno</span>
+                <span class="etPlantLeg"><span class="etFolga">—</span> Folga</span>
+              </div>
+            </section>
+
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Detalhamento — Escalas de Território</h3>
+              </div>
+              <div id="etTerritorioBody" class="etGrid"></div>
+            </section>
+          </div>
+
+          <div class="etDuplo">
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Resumo da Escala <span class="etCardComp" id="etCompResumo">—</span></h3>
+              </div>
+              <div class="etResumoGrid">
+                <article class="etResumo et-r-total"><span class="etResumoLabel">Total de Profissionais</span><span class="etResumoValue" id="etResTotal">0</span></article>
+                <article class="etResumo et-r-com"><span class="etResumoLabel">Com Escala Definida</span><span class="etResumoValue" id="etResCom">0</span></article>
+                <article class="etResumo et-r-sem"><span class="etResumoLabel">Sem Escala Definida</span><span class="etResumoValue" id="etResSem">0</span></article>
+                <article class="etResumo et-r-terr"><span class="etResumoLabel">Em Território hoje</span><span class="etResumoValue" id="etResTerr">0</span></article>
+              </div>
+            </section>
+
+            <section class="etCard">
+              <div class="etCardHead">
+                <h3 class="etCardTitle">Legenda de Escalas</h3>
+              </div>
+              <div class="etLegendaGrid">
+                <div class="etLegItem et-l-diarista"><span class="etLegNome">Diarista</span><span class="etLegDesc">Atuação diária</span></div>
+                <div class="etLegItem et-l-diurno"><span class="etLegNome">Plantonista Diurno</span><span class="etLegDesc">Plantão no período diurno</span></div>
+                <div class="etLegItem et-l-noturno"><span class="etLegNome">Plantonista Noturno</span><span class="etLegDesc">Plantão no período noturno</span></div>
+                <div class="etLegItem et-l-territorio"><span class="etLegNome">Território</span><span class="etLegDesc">Escalas de território (1x1, 2x1, 30x20x10, etc.)</span></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="etToast" id="etToast"></div>
         </section>
 
 

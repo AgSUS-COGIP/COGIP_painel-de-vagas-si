@@ -30,7 +30,7 @@ export const VAGAS_TABELA_CONFIG = {
     titulo: "Vagas",
     subtitulo: "Detalhamento por DSEI/CASAI e cargo conforme filtros selecionados.",
     exportHtml: '<button type="button" class="exportBtn" data-click="exportar-vagas"><i class="fa-solid fa-download"></i> Exportar base filtrada</button><button type="button" class="exportBtn" data-click="exportar-pdf"><i class="fa-solid fa-file-pdf"></i> Salvar em PDF</button>',
-    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> Os campos <strong>Normais</strong>, <strong>Substituições</strong> e <strong>Temporárias</strong> são apenas para informação e já estão atribuídos ao cálculo de <strong>Total de Trabalhadores</strong>.</div>'
+    avisoHtml: '<div class="processoSeletivoAviso"><i class="fa-solid fa-circle-exclamation"></i> <strong>Importante:</strong> As colunas de <strong>normais</strong>, <strong>substituiçôes</strong> e <strong>temporárias</strong> possuem caráter exclusivamente gerencial, detalhando a modalidade de ocupação das vagas. Essas informações <strong>NÃO</strong> compõem o cálculo das <strong>vagas ociosas</strong>, pois todos esses trabalhadores já estão considerados no quantitativo total de trabalhadores. Seu objetivo é apenas subsidiar a identificação da modalidade de provimento das vagas disponíveis.</div>'
   },
   ociosas: {
     bloco: "blocoTabelaOciosas",

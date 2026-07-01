@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "server.js", "use": "@vercel/node" },
+    { "src": "api/extrair_anexo.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/api/extrair_anexo", "dest": "api/extrair_anexo.py" },
+    { "src": "/(.*)", "dest": "server.js" }
+  ]
+}

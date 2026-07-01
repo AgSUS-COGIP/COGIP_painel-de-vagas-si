@@ -1241,8 +1241,19 @@
 
     .gdKv > strong {
       flex: 1 1 auto;
+      /* min-width:0 permite que a coluna encolha abaixo do conteúdo (senão o
+         chip de nowrap força o flex a crescer e transborda o card). */
+      min-width: 0;
       text-align: right;
       color: var(--azul-escuro);
+    }
+
+    /* O status atual pode ter rótulos longos (ex.: "Aguardando devolutiva do
+       DSEI/Profissional"). Permitir a quebra do texto do chip evita que ele
+       transborde o card em telas estreitas. */
+    .gdKv > strong .gfBadge {
+      white-space: normal;
+      max-width: 100%;
     }
 
     .gdResumo {

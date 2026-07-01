@@ -14,6 +14,7 @@ import { configurarEntregaCracha } from "./entrega-cracha.js";
 import { configurarSaudeIndigena } from "./saude-indigena.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
+import { configurarEscalaTrabalho } from "./escala-trabalho.js";
 import { configurarOrdenacaoTabelas } from "./ordenacao-tabelas.js";
 import { ativarSelectsPesquisaveisGlobal } from "./searchable-select.js";
 import { ativarDatePickersGlobal } from "./date-picker.js";
@@ -44,6 +45,7 @@ export async function init() {
   configurarSaudeIndigena();
   configurarGestaoDisciplinar();
   configurarProcessosSeletivos();
+  configurarEscalaTrabalho();
   configurarOrdenacaoTabelas();
   configurarResponsividadePainel();
   configurarLogin();

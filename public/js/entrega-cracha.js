@@ -134,19 +134,36 @@ function ecEsconderLoading() {
 // síncrono pesado (o navegador só repinta ao ceder o thread).
 const proximoFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+// Situações funcionais (SITUACAO_DETALHADA_DESC) que caracterizam trabalhador
+// desligado. Normalizadas (sem acento/caixa) para comparação robusta.
+const SITUACOES_DESLIGADO = new Set([
+  "aviso indenizado", "desligado", "aviso trabalhado", "desligamento sem rescisao"
+]);
+const normSituacao = v => (v || "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+const ehDesligado = s => SITUACOES_DESLIGADO.has(normSituacao(s.situacaoDetalhada));
+
 // ---------- KPIs (total, ativos e um por status do funil) ----------
 function renderKpis(lista) {
-  const porStatus = st => lista.filter(s => s.status === st).length;
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-  set("ecKpiTrabalhadores", lista.length);
-  set("ecKpiFoto", porStatus("Foto Pendente de Envio"));
-  set("ecKpiGrafica", porStatus("Envio à Gráfica Pendente"));
-  set("ecKpiConfeccao", porStatus("Crachás em Confecção"));
-  set("ecKpiConfeccionado", porStatus("Crachá Confeccionado"));
-  set("ecKpiEntregueEsc", porStatus("Entregue ao Escritório"));
-  set("ecKpiEntregueTrab", porStatus("Entregue ao Trabalhador"));
+  const desligados = lista.filter(ehDesligado);
+  const ativos = lista.filter(s => !ehDesligado(s));
+  // Funil e 2ª via consideram SOMENTE ativos (desligados não entram no fluxo).
+  const porStatusAtivos = st => ativos.filter(s => s.status === st).length;
+
+  set("ecKpiTrabalhadores", lista.length);   // total = base inteira
+  set("ecKpiAtivos", ativos.length);
+  set("ecKpiDesligados", desligados.length);
+
+  set("ecKpiFoto", porStatusAtivos("Foto Pendente de Envio"));
+  set("ecKpiGrafica", porStatusAtivos("Envio à Gráfica Pendente"));
+  set("ecKpiConfeccao", porStatusAtivos("Crachás em Confecção"));
+  set("ecKpiConfeccionado", porStatusAtivos("Crachá Confeccionado"));
+  set("ecKpiEntregueEsc", porStatusAtivos("Entregue ao Escritório"));
+  set("ecKpiEntregueTrab", porStatusAtivos("Entregue ao Trabalhador"));
+  set("ecKpiSegundaVia", ativos.filter(s => s.segundaVia).length);
+
+  // Crachá devolvido: conta TODOS (inclui desligados que devolveram o crachá).
   set("ecKpiDevolvido", lista.filter(s => s.devolvido).length);
-  set("ecKpiSegundaVia", lista.filter(s => s.segundaVia).length);
 }
 
 // ---------- Filtros ----------
@@ -619,15 +636,30 @@ const FOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB (igual ao limite do servidor)
 
 const MOTIVOS_2VIA = ["Perda", "Roubo", "Dano", "Extravio", "Outro"];
 
-// "Descreva o Motivo" só aparece quando o motivo da 2ª via é "Outro";
-// também atualiza o contador do campo.
+// "Descreva o Motivo" só aparece quando há solicitação de 2ª via E o motivo é
+// "Outro"; também atualiza o contador do campo.
 function sincronizarMotivo2via() {
   const ta = $("ecFormMotivo2viaOutro");
   const cont = $("ecFormMotivoContador");
   if (ta && cont) cont.textContent = `${ta.value.length}/200`;
   const wrap = $("ecFormMotivo2viaOutroWrap");
+  const sim = lerRadioBool("ecFormSegundaVia");
   const ehOutro = ($("ecFormMotivo2via")?.value || "") === "Outro";
-  if (wrap) wrap.hidden = !ehOutro;
+  if (wrap) wrap.hidden = !(sim && ehOutro);
+}
+
+// O "Motivo da 2ª Via" (e o "Descreva o Motivo") só existem quando a Solicitação
+// de 2ª Via é "Sim". Ao marcar "Não", os campos somem e são limpos — assim não
+// dá para salvar motivo/descrição sem a solicitação.
+function sincronizarSegundaVia() {
+  const sim = lerRadioBool("ecFormSegundaVia");
+  const motivoWrap = $("ecFormMotivo2viaWrap");
+  if (motivoWrap) motivoWrap.hidden = !sim;
+  if (!sim) {
+    const sel = $("ecFormMotivo2via"); if (sel) sel.value = "";
+    const ta = $("ecFormMotivo2viaOutro"); if (ta) ta.value = "";
+  }
+  sincronizarMotivo2via();
 }
 
 // Lê/define os grupos de rádio (Não/Sim) do modal de edição.
@@ -673,7 +705,7 @@ function abrirModal(editId) {
   const ehFixo = MOTIVOS_2VIA.includes(motivo) && motivo !== "Outro";
   $("ecFormMotivo2via").value = motivo ? (ehFixo ? motivo : "Outro") : "";
   $("ecFormMotivo2viaOutro").value = ehFixo ? "" : motivo;
-  sincronizarMotivo2via();
+  sincronizarSegundaVia();
 
   // Foto: carrega a existente (se houver) e zera o estado pendente.
   fotoPendente = null;
@@ -1508,6 +1540,8 @@ function ecBindModal() {
   $("ecModalSalvar")?.addEventListener("click", salvarModal);
   $("ecFormMotivo2viaOutro")?.addEventListener("input", sincronizarMotivo2via);
   $("ecFormMotivo2via")?.addEventListener("change", sincronizarMotivo2via);
+  document.querySelectorAll('#ecModal input[name="ecFormSegundaVia"]')
+    .forEach(r => r.addEventListener("change", sincronizarSegundaVia));
   $("ecModal")?.addEventListener("click", event => {
     if (event.target === $("ecModal")) fecharModal();
   });

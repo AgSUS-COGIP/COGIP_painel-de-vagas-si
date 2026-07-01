@@ -2,8 +2,8 @@
 // Processos Seletivos (dados reais dos editais)
 // Aba autocontida, alimentada por dados reais embutidos
 // (processos-seletivos-dados.js, gerado a partir do CSV oficial).
-//   - Tabela: Unidade, UF, Edital, Data de Início, Data de
-//     Encerramento, Status e Responsável.
+//   - Tabela: Unidade, UF, Edital, Data de Início, Data fim
+//     (vigência), Status e Responsável.
 //   - Detalhes (painel abaixo): as demais colunas do edital
 //     (Processo SEI, Ciclo, Etapa, Risco, Vagas Previstas,
 //     Contratados, Vagas Ociosas, Inscritos, Observações e o
@@ -37,7 +37,9 @@ const BADGE_STATUS = {
   "Concluído": "is-andamento",              // verde: finalizado
   "Andamento": "is-breve",                  // laranja: em curso
   "Aguardando Convocação": "is-aguardando", // azul: aguardando convocação
-  "Cancelado": "is-encerrado"               // vermelho: cancelado
+  "Cancelado": "is-encerrado",              // vermelho: cancelado
+  "Encerrando em Breve": "is-encerrando",   // âmbar: a ≤30 dias da data fim (vigência)
+  "Vencido": "is-vencido"                   // vermelho escuro: data fim (vigência) já passou
 };
 
 // Status que congelam o DSEI para fins de Remanejamento: enquanto houver um
@@ -47,10 +49,19 @@ const STATUS_BLOQUEIA_REMANEJAMENTO = ["Andamento"];
 
 const POR_PAGINA = 10;
 
-// Carrega os dados reais (status normalizado uma única vez).
+// Vagas previstas = vagas imediatas + cadastro reserva. Normaliza os três campos
+// (compat.: registros antigos só têm vagasPrevistas → viram todo em "imediatas").
+function normalizarVagas(p) {
+  const imediatas = Math.max(0, Number(p.vagasImediatas ?? p.vagasPrevistas ?? 0) || 0);
+  const reserva = Math.max(0, Number(p.cadastroReserva ?? 0) || 0);
+  return { vagasImediatas: imediatas, cadastroReserva: reserva, vagasPrevistas: imediatas + reserva };
+}
+
+// Carrega os dados reais (status e vagas normalizados uma única vez).
 let processos = (PROCESSOS_SELETIVOS_DADOS || []).map(p => ({
   ...p,
-  status: normalizarStatus(p.status)
+  status: normalizarStatus(p.status),
+  ...normalizarVagas(p)
 }));
 
 // ---------- Estado da aba ----------
@@ -77,9 +88,8 @@ const dadosAprovados = new Map();
 const CONFIG_PADRAO = { mostrarPosicoes: true, intervaloCota: 0 };
 let vagaSelecionada = null;  // nome do cargo com o painel de aprovados aberto
 let cronoExpandido = false;  // widget "Etapa atual": true = mostra o cronograma completo
-let aprovadoEditalId = null; // edital alvo do modal de aprovado
-let aprovadoCargo = null;    // cargo alvo do modal de aprovado
-let aprovadoEditId = null;   // id do aprovado em edição (null = novo)
+let gradeAprovados = null;   // grade Tabulator dos aprovados (edição inline por célula)
+let aprovadoFocoId = null;   // id do aprovado recém-criado: abre a edição do Nome ao montar
 let configEditalId = null;   // edital alvo do modal de configuração
 
 const $ = id => document.getElementById(id);
@@ -110,6 +120,23 @@ export function obterBloqueiosRemanejamentoPSS() {
 }
 
 // ---------- Helpers ----------
+// Status "efetivo": a data fim (vigência) SOBREPÕE o status original. Quando ela
+// já passou, o edital vira "Vencido"; quando falta até 30 dias, "Encerrando em
+// Breve". Cancelado nunca é sobreposto (edital cancelado não tem vigência ativa).
+// É o valor usado no badge (tabela + detalhe), nos KPIs e no filtro de status —
+// assim status e KPIs sempre batem. O campo bruto `status` é preservado (o
+// bloqueio de remanejamento por PSS em andamento continua lendo o status real).
+function statusEfetivo(proc) {
+  if (!proc) return "—";
+  if (proc.status === "Cancelado") return proc.status;
+  const dias = diasAteVigencia(proc.dataEncerramento);
+  if (dias !== null) {
+    if (dias < 0) return "Vencido";
+    if (dias <= 30) return "Encerrando em Breve";
+  }
+  return proc.status;
+}
+
 function badgeStatus(status) {
   const cls = BADGE_STATUS[status] || "is-naoiniciado";
   return `<span class="psBadge ${cls}">${escapeHtml(status)}</span>`;
@@ -125,16 +152,18 @@ const numFmt = n => Number(n || 0).toLocaleString("pt-BR");
 // a linha aberta fica destacada via idSelecionado (classe tab-selected). O
 // chevron acompanha o estado lendo processoExpandido no formatter.
 const PS_COLS = [
-  { title: "Unidade", field: "unidade", cssClass: "psCelNome", minWidth: 200,
+  { title: "DSEI/CASAI", field: "unidade", cssClass: "psCelNome", minWidth: 200,
     formatter: c => escapeHtml(c.getValue() || "—") },
   { title: "UF", field: "uf", hozAlign: "center", formatter: c => escapeHtml(c.getValue() || "—") },
   { title: "Edital", field: "edital", hozAlign: "center", formatter: c => escapeHtml(c.getValue() || "—") },
   { title: "Data de Início", field: "dataInicio", hozAlign: "center", formatter: c => isoParaBr(c.getValue()) },
-  { title: "Data de Encerramento", field: "dataEncerramento", hozAlign: "center", formatter: c => isoParaBr(c.getValue()) },
-  { title: "Status", field: "status", formatter: c => badgeStatus(c.getValue()) },
-  { title: "Responsável", field: "responsavel", minWidth: 160, formatter: c => {
+  { title: "Data de Divulgação do Resultado Final", field: "dataDivulgacaoResultado", hozAlign: "center", minWidth: 180,
+    formatter: c => escapeHtml(dataDivulgacaoResultado(c.getRow().getData()) || "—") },
+  { title: "Data fim (vigência)", field: "dataEncerramento", hozAlign: "center", formatter: c => isoParaBr(c.getValue()) },
+  // Status é a última coluna: leva o chevron de expandir/recolher a linha.
+  { title: "Status", field: "status", minWidth: 140, formatter: c => {
       const aberto = processoExpandido === c.getRow().getData().id;
-      return `<div class="psRespCel"><span>${escapeHtml(c.getValue() || "—")}</span>` +
+      return `<div class="psRespCel"><span>${badgeStatus(statusEfetivo(c.getRow().getData()))}</span>` +
         `<i class="fa-solid fa-chevron-down psRowChevron ${aberto ? "is-aberto" : ""}" aria-hidden="true"></i></div>`;
     } }
 ];
@@ -146,9 +175,9 @@ function processosFiltrados() {
   const termo = ($("psBusca")?.value || "").trim().toLowerCase();
   return processos.filter(p => {
     if (unidade && p.unidade !== unidade) return false;
-    if (status && p.status !== status) return false;
+    if (status && statusEfetivo(p) !== status) return false;
     if (termo) {
-      const alvo = `${p.unidade} ${p.uf} ${p.edital} ${p.processoSei} ${p.status} ${p.etapa} ${p.responsavel} ${p.ciclo}`.toLowerCase();
+      const alvo = `${p.unidade} ${p.uf} ${p.edital} ${p.processoSei} ${p.status} ${statusEfetivo(p)} ${p.etapa} ${p.ciclo}`.toLowerCase();
       if (!alvo.includes(termo)) return false;
     }
     return true;
@@ -156,12 +185,35 @@ function processosFiltrados() {
 }
 
 // ---------- KPIs ----------
+// A data fim (vigência) é o campo dataEncerramento — a validade do edital após
+// a divulgação do resultado final. A partir dela derivamos dois KPIs:
+//   "Encerrando em Breve": a data fim chega nos próximos 30 dias (0 a 30 dias).
+//   "Vencido": a data fim já passou.
+// Editais cancelados não entram nessas contagens (não têm vigência ativa).
+const MS_DIA = 86400000;
+
+// Dias entre hoje e a data fim (vigência); negativo se já passou; null se inválida.
+function diasAteVigencia(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || "").trim());
+  if (!m) return null;
+  const fim = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return Math.round((fim - hoje) / MS_DIA);
+}
+
 function renderKpis() {
-  const conta = status => processos.filter(p => p.status === status).length;
+  // Conta pelo status EFETIVO (mesma regra do badge), então cada edital cai em um
+  // único KPI e os cartões batem com a coluna Status: um edital "Concluído" a ≤30
+  // dias da vigência sai de "Concluídos" e entra em "Encerrando em Breve".
+  const efetivos = processos.map(statusEfetivo);
+  const conta = status => efetivos.filter(s => s === status).length;
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
   set("psKpiTotal", processos.length);
   set("psKpiAndamento", conta("Andamento"));
   set("psKpiConcluido", conta("Concluído"));
+  set("psKpiEncerrando", conta("Encerrando em Breve"));
+  set("psKpiVencido", conta("Vencido"));
   set("psKpiCancelado", conta("Cancelado"));
   set("psKpiVagas", numFmt(processos.reduce((s, p) => s + Number(p.vagasPrevistas || 0), 0)));
 }
@@ -171,7 +223,7 @@ function preencherFiltros() {
   const unidades = [...new Set(processos.map(p => p.unidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   preencherSelect("psFiltroUnidade", unidades, "Todas as unidades");
 
-  const statuses = [...new Set(processos.map(p => p.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const statuses = [...new Set(processos.map(statusEfetivo).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   preencherSelect("psFiltroStatus", statuses, "Todos os status");
 }
 
@@ -193,7 +245,7 @@ function renderTabela() {
     gradePs = criarTabelaArrastavel({
       elemento: "psTabelaBody",
       colunas: PS_COLS,
-      persistID: "psEditaisV2",
+      persistID: "psEditaisV3", // V3: descarta o layout salvo com o título antigo "Unidade"
       indexField: "id",
       movableRows: false,
       aoClicarLinha: row => alternarDetalhe(row.id),
@@ -347,6 +399,19 @@ function cronogramaDoEdital(proc) {
   return [];
 }
 
+// Data de divulgação do resultado final: a ÚLTIMA data do cronograma do edital
+// (última etapa com data preenchida). O cronograma só existe quando um anexo PDF
+// foi extraído nesta sessão — sem anexo, retorna "" e a coluna mostra "—". A data
+// é a string crua do PDF (mesmo texto exibido na tabela do cronograma).
+function dataDivulgacaoResultado(proc) {
+  const etapas = cronogramaDoEdital(proc);
+  for (let i = etapas.length - 1; i >= 0; i--) {
+    const d = String(etapas[i]?.data || "").trim();
+    if (d) return d;
+  }
+  return "";
+}
+
 // Destaca a etapa atual do processo no cronograma (casa pelo nome da atividade).
 function ehEtapaAtual(proc, atividade) {
   const etapa = normChave(proc?.etapa);
@@ -372,18 +437,26 @@ function cronogramaTabelaHtml(proc) {
 function montarCronograma(proc) {
   const etapas = cronogramaDoEdital(proc);
   if (!etapas.length || !$("psCronogramaTab")) return;
-  criarTabelaArrastavel({
+  const grade = criarTabelaArrastavel({
     elemento: "psCronogramaTab",
+    // fitColumns: as colunas se ajustam à largura do contêiner e o texto quebra
+    // (CSS: white-space:normal). Sem rolagem horizontal de saída — ela só aparece
+    // se o contêiner for estreito demais para os minWidth abaixo.
+    layout: "fitColumns",
+    // Sem reordenar colunas (movableColumns:false) e sem ordenação por cabeçalho
+    // (headerSort:false) — a ordem é sempre a do cronograma (campo "ordem"). O
+    // redimensionamento de largura das colunas FICA liberado (resizable padrão).
     colunas: [
-      { title: "#", field: "ordem", hozAlign: "center", width: 64,
+      { title: "#", field: "ordem", hozAlign: "center", width: 64, headerSort: false,
         formatter: c => escapeHtml(String(c.getValue() ?? "")) },
-      { title: "Atividade", field: "atividade", cssClass: "psCelNome", minWidth: 220,
+      { title: "Atividade", field: "atividade", cssClass: "psCelNome", minWidth: 200, headerSort: false,
         formatter: c => {
           const e = c.getRow().getData();
           const atual = ehEtapaAtual(proc, e.atividade);
           return `${escapeHtml(e.atividade || "—")}${atual ? ` <span class="psBadge is-breve">Etapa atual</span>` : ""}`;
         } },
-      { title: "Data", field: "data", minWidth: 120, formatter: c => escapeHtml(c.getValue() || "—") }
+      { title: "Data", field: "data", minWidth: 110, headerSort: false,
+        formatter: c => escapeHtml(c.getValue() || "—") }
     ],
     persistID: "psCronograma",
     indexField: "ordem",
@@ -394,6 +467,13 @@ function montarCronograma(proc) {
     },
     dados: etapas
   });
+
+  // Recalcula o layout já com o contêiner no tamanho final. Quando o detalhe é
+  // reconstruído junto de outras grades (ex.: ao adicionar um aprovado), o
+  // Tabulator pode medir a largura menor e estreitar a coluna "Atividade",
+  // inflando a altura (texto quebrado) e forçando rolagem vertical. O redraw
+  // após montar corrige a largura das colunas.
+  grade?.tabela?.on("tableBuilt", () => { try { grade.tabela.redraw(true); } catch { /* recriando */ } });
 }
 
 // Rótulo da etapa atual: casa pela atividade atual no cronograma; senão proc.etapa.
@@ -451,8 +531,8 @@ function renderDetalhe() {
   painel.innerHTML = `
     <div class="psDetalheTopo">
       <div class="psDetalheTitulo">
-        <h3>${escapeHtml(proc.unidade)} — Edital ${escapeHtml(proc.edital || "—")} ${badgeStatus(proc.status)}</h3>
-        <p>${escapeHtml(proc.uf || "—")} &nbsp;·&nbsp; ${escapeHtml(proc.ciclo || "Ciclo não informado")} &nbsp;·&nbsp;
+        <h3>${escapeHtml(proc.unidade)} — Edital ${escapeHtml(proc.edital || "—")} ${badgeStatus(statusEfetivo(proc))}</h3>
+        <p>${escapeHtml(proc.uf || "—")} &nbsp;·&nbsp;
           Período: ${isoParaBr(proc.dataInicio)} a ${isoParaBr(proc.dataEncerramento)}</p>
       </div>
       <div class="psDetalheAcoes">
@@ -470,9 +550,9 @@ function renderDetalhe() {
     </div>
 
     <div class="psResumoTiles">
-      <div class="psTile"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div></div>
-      <div class="psTile"><div class="psTileValue is-green">${numFmt(proc.contratados)}</div><div class="psTileLabel">Contratados</div></div>
-      <div class="psTile"><div class="psTileValue is-red">${numFmt(proc.vagasOciosas)}</div><div class="psTileLabel">Vagas Ociosas</div></div>
+      <div class="psTile"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(proc.vagasImediatas)} imediatas + ${numFmt(proc.cadastroReserva)} cadastro reserva</div></div>
+      <div class="psTile"><div class="psTileValue is-green">${numFmt(contratadosEdital(proc))}</div><div class="psTileLabel">Contratados</div></div>
+      <div class="psTile"><div class="psTileValue is-red">${numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div>
       <div class="psTile"><div class="psTileValue is-blue">${numFmt(totalAprovadosEdital(proc))}</div><div class="psTileLabel">Aprovados</div></div>
     </div>
 
@@ -571,12 +651,11 @@ function abrirModalEdital(id) {
     set("psFormUnidade", proc.unidade);
     set("psFormUf", proc.uf);
     set("psFormEditalNum", proc.edital);
+    set("psFormVagasImediatas", proc.vagasImediatas || "");
+    set("psFormCadastroReserva", proc.cadastroReserva || "");
     set("psFormVagas", proc.vagasPrevistas || "");
-    set("psFormContratados", proc.contratados || "");
-    set("psFormRisco", proc.risco);
     set("psFormDataInicio", proc.dataInicio);
     set("psFormDataFim", proc.dataEncerramento);
-    set("psFormResponsavel", proc.responsavel);
     set("psFormStatus", proc.status);
     set("psFormObs", proc.observacoes);
     // Só dá para repor um link http(s); anexos (object URL) não voltam a um input file.
@@ -606,6 +685,14 @@ function valorNum(id) {
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
+// Total de vagas previstas = vagas imediatas + cadastro reserva (campo somente
+// leitura; recalculado enquanto o usuário digita).
+function atualizarTotalVagas() {
+  const total = valorNum("psFormVagasImediatas") + valorNum("psFormCadastroReserva");
+  const el = $("psFormVagas");
+  if (el) el.value = total || "";
+}
+
 function salvarEdital(event) {
   event.preventDefault();
   const erro = $("psFormErro");
@@ -628,20 +715,23 @@ function salvarEdital(event) {
     if (arquivo) linkEdital = URL.createObjectURL(arquivo);
   }
 
-  const vagasPrevistas = valorNum("psFormVagas");
-  const contratados = valorNum("psFormContratados");
+  const vagasImediatas = valorNum("psFormVagasImediatas");
+  const cadastroReserva = valorNum("psFormCadastroReserva");
+  const vagasPrevistas = vagasImediatas + cadastroReserva; // total = soma das duas
 
+  // Contratados/Risco/Responsável não são mais editados no formulário: na edição
+  // os valores existentes são preservados (spread abaixo); em editais novos ficam
+  // ausentes (Contratados vem dos aprovados marcados; Vagas Ociosas é calculada
+  // dinamicamente no detalhe).
   const dados = {
     unidade,
     uf,
     edital,
-    risco: ($("psFormRisco")?.value || "").trim(),
+    vagasImediatas,
+    cadastroReserva,
     vagasPrevistas,
-    contratados,
-    vagasOciosas: Math.max(0, vagasPrevistas - contratados),
     dataInicio: $("psFormDataInicio")?.value || "",
     dataEncerramento: $("psFormDataFim")?.value || "",
-    responsavel: ($("psFormResponsavel")?.value || "").trim(),
     status: normalizarStatus($("psFormStatus")?.value || "Andamento"),
     observacoes: ($("psFormObs")?.value || "").trim()
   };
@@ -726,6 +816,10 @@ async function enviarAnexo(event) {
 
     anexosExtraidos.set(anexoProcessoId, { cargos, cronograma });
     fecharModalAnexo();
+    // Atualiza o detalhe (quadro de vagas/cronograma) E a tabela principal — a
+    // coluna "Data de Divulgação do Resultado Final" é derivada do cronograma
+    // recém-extraído e só recalcula ao re-renderizar as linhas.
+    renderTabela();
     renderDetalhe();
   } catch (e) {
     if (status) status.hidden = true;
@@ -769,6 +863,21 @@ function totalAprovadosEdital(proc) {
   let total = 0;
   d.aprovadosPorCargo.forEach(lista => { total += lista.length; });
   return total;
+}
+
+// Aprovados marcados como "Contratado" em todas as vagas do edital.
+function totalContratadosMarcados(proc) {
+  const d = proc && dadosAprovados.get(proc.id);
+  if (!d) return 0;
+  let total = 0;
+  d.aprovadosPorCargo.forEach(lista => { total += lista.filter(c => c.status === "Contratado").length; });
+  return total;
+}
+
+// "Contratados" exibido = os do edital (campo do cadastro) + os aprovados que
+// foram marcados "Contratado" nesta sessão. Vagas Ociosas acompanha esse total.
+function contratadosEdital(proc) {
+  return Number(proc?.contratados || 0) + totalContratadosMarcados(proc);
 }
 
 function getConfig(editalId) {
@@ -829,7 +938,10 @@ function classificar(candidatos, config) {
 
 // ---------- Badges/formatação dos aprovados ----------
 const BADGE_TIPO = { NORMAL: "is-naoiniciado", PcD: "is-aguardando", PPIQ: "is-breve" };
-const BADGE_CAND_STATUS = { Convocado: "is-andamento", Aguardando: "is-aguardando", Desistiu: "is-encerrado" };
+const BADGE_CAND_STATUS = { Convocado: "is-andamento", Aguardando: "is-aguardando", Contratado: "is-contratado", Desistiu: "is-encerrado" };
+// Valores oferecidos no editor inline de status (rótulo = próprio valor).
+const CAND_STATUS_OPCOES = { Aguardando: "Aguardando", Convocado: "Convocado", Contratado: "Contratado", Desistiu: "Desistiu" };
+const CAND_TIPO_OPCOES = { NORMAL: "Normal", PcD: "PcD", PPIQ: "PPIQ" };
 function badgeTipo(t) { return `<span class="psBadge ${BADGE_TIPO[t] || "is-naoiniciado"}">${escapeHtml(t || "—")}</span>`; }
 function badgeCandStatus(s) { return `<span class="psBadge ${BADGE_CAND_STATUS[s] || "is-naoiniciado"}">${escapeHtml(s || "—")}</span>`; }
 function fmtNota(n) {
@@ -877,10 +989,11 @@ function renderPainelAprovados(proc) {
     </div>`;
 }
 
-// Grade "Aprovados para [vaga]" (Tabulator só-estilo). Colunas condicionais:
-// "#" (posição) só se config.mostrarPosicoes; "Ações" só para Editor. A posição
-// e o selo "cota" saem da classificação; o aprovado que desistiu fica esmaecido
-// (classe is-desistiu via aoFormatarLinha).
+// Grade "Aprovados para [vaga]" (Tabulator). Edição INLINE por célula para Editor:
+// Nome/Nota/Tipo/Status são editáveis direto na linha (sem modal). A coluna
+// Documento anexa o PDF de desistência na própria linha quando o status é
+// "Desistiu". Colunas condicionais: "#" (posição) só se config.mostrarPosicoes;
+// "Ações" (excluir) só para Editor. O aprovado que desistiu fica esmaecido.
 function montarAprovados(proc) {
   if (!$("psAprovadosTab") || !proc || !vagaSelecionada) return;
   const podeEditar = podeEditarProcessos();
@@ -894,6 +1007,13 @@ function montarAprovados(proc) {
   const dados = classificados.map(({ candidato, posicao, reservado }) =>
     ({ ...candidato, _posicao: posicao, _reservado: reservado }));
 
+  // Editor só para quem pode editar; o writeback vai ao candidato real (o `dados`
+  // acima é uma cópia por classificação, então gravamos pelo id na lista original).
+  const editar = (campo, tipo, params) => podeEditar ? {
+    editor: tipo, editorParams: params || {},
+    cellEdited: c => editarCampoAprovado(c.getRow().getData().id, campo, c.getValue())
+  } : {};
+
   const cols = [];
   if (colPos) {
     cols.push({ title: "#", hozAlign: "center", width: 72, formatter: c => {
@@ -901,26 +1021,36 @@ function montarAprovados(proc) {
       return `${d._posicao}${d._reservado ? ` <span class="psBadge is-aguardando">cota</span>` : ""}`;
     } });
   }
-  cols.push({ title: "Nome", field: "nome", cssClass: "psCelNome", minWidth: 180, formatter: c => escapeHtml(c.getValue()) });
-  cols.push({ title: "Nota", field: "nota", hozAlign: "center", formatter: c => fmtNota(c.getValue()) });
-  cols.push({ title: "Tipo", field: "tipo", formatter: c => badgeTipo(c.getValue()) });
-  cols.push({ title: "Status", field: "status", formatter: c => badgeCandStatus(c.getValue()) });
-  cols.push({ title: "Documento", field: "docDesistencia", minWidth: 140, formatter: c => {
+  cols.push({ title: "Nome", field: "nome", cssClass: "psCelNome", minWidth: 180,
+    ...editar("nome", "input"), formatter: c => escapeHtml(c.getValue() || "—") });
+  cols.push({ title: "Nota", field: "nota", hozAlign: "center",
+    ...editar("nota", "number", { min: 0, step: 0.01, selectContents: true }), formatter: c => fmtNota(c.getValue()) });
+  cols.push({ title: "Tipo", field: "tipo",
+    ...editar("tipo", "list", { values: CAND_TIPO_OPCOES }), formatter: c => badgeTipo(c.getValue()) });
+  cols.push({ title: "Status", field: "status",
+    ...editar("status", "list", { values: CAND_STATUS_OPCOES }), formatter: c => badgeCandStatus(c.getValue()) });
+  cols.push({ title: "Documento", field: "docDesistencia", minWidth: 150, formatter: c => {
     const d = c.getRow().getData();
-    return (d.status === "Desistiu" && d.docDesistencia)
-      ? `<a class="psDocLink" href="${escapeAttr(safeUrl(d.docDesistencia.url))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file-arrow-down"></i> ${escapeHtml(d.docDesistencia.nome || "documento")}</a>`
+    if (d.status !== "Desistiu") return "—";
+    if (d.docDesistencia) {
+      const link = `<a class="psDocLink" href="${escapeAttr(safeUrl(d.docDesistencia.url))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file-arrow-down"></i> ${escapeHtml(d.docDesistencia.nome || "documento")}</a>`;
+      return podeEditar
+        ? `${link} <button type="button" class="psIconBtn" data-ps-aprovado-doc="${escapeAttr(d.id)}" title="Trocar documento"><i class="fa-solid fa-arrows-rotate"></i></button>`
+        : link;
+    }
+    return podeEditar
+      ? `<button type="button" class="psBtn psBtnGhost psBtnSm" data-ps-aprovado-doc="${escapeAttr(d.id)}"><i class="fa-solid fa-paperclip"></i> Anexar PDF</button>`
       : "—";
   } });
   if (podeEditar) {
-    cols.push({ title: "Ações", hozAlign: "center", minWidth: 90, formatter: c => {
+    cols.push({ title: "Ações", hozAlign: "center", minWidth: 80, formatter: c => {
       const id = c.getRow().getData().id;
       return `<span class="psAprovadoAcoes">` +
-        `<button type="button" class="psIconBtn" data-ps-aprovado-editar="${escapeAttr(id)}" title="Editar aprovado"><i class="fa-solid fa-pen-to-square"></i></button>` +
         `<button type="button" class="psIconBtn" data-ps-aprovado-excluir="${escapeAttr(id)}" title="Excluir aprovado"><i class="fa-solid fa-trash"></i></button></span>`;
     } });
   }
 
-  criarTabelaArrastavel({
+  gradeAprovados = criarTabelaArrastavel({
     elemento: "psAprovadosTab",
     colunas: cols,
     persistID: "psAprovados",
@@ -932,6 +1062,16 @@ function montarAprovados(proc) {
     },
     dados
   });
+
+  // Aprovado recém-criado: abre a edição do Nome assim que a grade monta.
+  if (aprovadoFocoId && gradeAprovados?.tabela) {
+    const alvo = aprovadoFocoId;
+    aprovadoFocoId = null;
+    gradeAprovados.tabela.on("tableBuilt", () => {
+      try { gradeAprovados.tabela.getRows().find(r => r.getData().id === alvo)?.getCell("nome")?.edit(true); }
+      catch { /* grade recriada durante a edição */ }
+    });
+  }
 }
 
 // Seleciona/deseleciona a vaga e re-renderiza o detalhamento.
@@ -940,102 +1080,65 @@ function selecionarVaga(nomeCargo) {
   renderDetalhe();
 }
 
-// ---------- Modal de aprovado (criar/editar) ----------
-function abrirModalAprovado(editalId, cargoNome, candId) {
-  if (!editalId || !cargoNome) return;
-  aprovadoEditalId = editalId;
-  aprovadoCargo = cargoNome;
-  aprovadoEditId = candId || null;
-
-  const modal = $("psModalAprovado");
-  if (!modal) return;
-  $("psFormAprovado")?.reset();
-  $("psAprovadoDoc")?._fi?.render(); // re-sincroniza o componente de arquivo após o reset
-  const erro = $("psAprovadoErro");
-  if (erro) erro.textContent = "";
-
-  const cand = aprovadoEditId
-    ? aprovadosDoCargo(editalId, cargoNome).find(c => c.id === aprovadoEditId)
-    : null;
-
-  const titulo = $("psModalAprovadoTitulo");
-  if (titulo) {
-    titulo.innerHTML = cand
-      ? `<i class="fa-solid fa-user-pen"></i> Editar aprovado`
-      : `<i class="fa-solid fa-user-plus"></i> Adicionar aprovado`;
-  }
-  if (cand) {
-    const set = (id, v) => { const el = $(id); if (el) el.value = v ?? ""; };
-    set("psAprovadoNome", cand.nome);
-    set("psAprovadoNota", notaValida(cand.nota) ? valNota(cand.nota) : "");
-    set("psAprovadoTipo", cand.tipo || "NORMAL");
-    set("psAprovadoStatus", cand.status || "Aguardando");
-  }
-  atualizarCampoDesistencia();
-
-  modal.hidden = false;
-  document.body.style.overflow = "hidden";
-  setTimeout(() => $("psAprovadoNome")?.focus(), 40);
-}
-
-function fecharModalAprovado() {
-  const modal = $("psModalAprovado");
-  if (!modal) return;
-  modal.hidden = true;
-  aprovadoEditalId = null;
-  aprovadoCargo = null;
-  aprovadoEditId = null;
-  document.body.style.overflow = "";
-}
-
-// O documento de desistência só aparece quando o status é "Desistiu".
-function atualizarCampoDesistencia() {
-  const wrap = $("psAprovadoDocWrap");
-  if (wrap) wrap.hidden = ($("psAprovadoStatus")?.value || "") !== "Desistiu";
-}
-
-function salvarAprovado(event) {
-  event.preventDefault();
-  const erro = $("psAprovadoErro");
-  if (erro) erro.textContent = "";
-
-  const nome = ($("psAprovadoNome")?.value || "").trim();
-  if (!nome) { if (erro) erro.textContent = "Informe o nome do aprovado."; return; }
-
-  const notaRaw = ($("psAprovadoNota")?.value || "").trim();
-  const nota = notaRaw === "" ? null : Number(notaRaw.replace(",", "."));
-  if (notaRaw !== "" && !Number.isFinite(nota)) { if (erro) erro.textContent = "Nota inválida."; return; }
-
-  const tipo = $("psAprovadoTipo")?.value || "NORMAL";
-  const status = $("psAprovadoStatus")?.value || "Aguardando";
-
-  const lista = aprovadosDoCargo(aprovadoEditalId, aprovadoCargo);
-  const atual = aprovadoEditId ? lista.find(c => c.id === aprovadoEditId) : null;
-
-  // Documento de desistência: só quando status = Desistiu. Mantém o anterior se
-  // nenhum arquivo novo for escolhido; limpa ao sair de "Desistiu". O object URL
-  // não é revogado (protótipo, em memória).
-  let docDesistencia = atual ? atual.docDesistencia : null;
-  if (status === "Desistiu") {
-    const arquivo = $("psAprovadoDoc")?.files?.[0];
-    if (arquivo) docDesistencia = { url: URL.createObjectURL(arquivo), nome: arquivo.name };
-  } else {
-    docDesistencia = null;
-  }
-
-  if (atual) {
-    Object.assign(atual, { nome, nota, tipo, status, docDesistencia });
-    psToast("Aprovado atualizado.");
-  } else {
-    lista.push({
-      id: `cand-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      nome, nota, tipo, status, docDesistencia
-    });
-    psToast("Aprovado adicionado.");
-  }
-
-  fecharModalAprovado();
+// ---------- Aprovados: inserção e edição inline (sem modal) ----------
+// "Adicionar aprovado" insere uma linha em branco na tabela e abre a edição do
+// Nome; os demais campos (Nota/Tipo/Status) são editáveis clicando na célula.
+function adicionarAprovadoInline(cargoNome) {
+  if (!processoExpandido || !cargoNome || !podeEditarProcessos()) return;
+  const lista = aprovadosDoCargo(processoExpandido, cargoNome);
+  const novo = {
+    id: `cand-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    nome: "", nota: null, tipo: "NORMAL", status: "Aguardando", docDesistencia: null
+  };
+  lista.push(novo);
+  vagaSelecionada = cargoNome;   // garante o painel da vaga aberto
+  aprovadoFocoId = novo.id;      // montarAprovados abre a edição do Nome desta linha
   renderDetalhe();
+}
+
+// Writeback de uma célula editada para o candidato real (na lista da vaga).
+function editarCampoAprovado(candId, campo, valor) {
+  if (!processoExpandido || !vagaSelecionada) return;
+  const cand = aprovadosDoCargo(processoExpandido, vagaSelecionada).find(c => c.id === candId);
+  if (!cand) return;
+  if (campo === "nome") {
+    cand.nome = String(valor ?? "").trim();
+    return; // nome não reordena a classificação: só atualiza a célula
+  }
+  if (campo === "nota") {
+    const raw = String(valor ?? "").trim();
+    const n = raw === "" ? null : Number(raw.replace(",", "."));
+    cand.nota = Number.isFinite(n) ? n : null;
+  } else if (campo === "tipo") {
+    cand.tipo = valor || "NORMAL";
+  } else if (campo === "status") {
+    cand.status = valor || "Aguardando";
+    if (cand.status !== "Desistiu") cand.docDesistencia = null;
+  }
+  // Nota/Tipo/Status mudam a ordem da classificação (e o status também muda a
+  // coluna Documento, o realce da linha e a contagem de Contratados/Vagas
+  // Ociosas): re-renderiza para reordenar a tabela. No próximo tick para não
+  // colidir com a finalização interna da edição do Tabulator (destruiria o DOM).
+  setTimeout(renderDetalhe, 0);
+}
+
+// Anexa (ou troca) o PDF de desistência pela própria linha — abre o seletor de
+// arquivo na hora. Object URL em memória (protótipo, não é revogado).
+function anexarDocDesistencia(candId) {
+  if (!processoExpandido || !vagaSelecionada || !podeEditarProcessos()) return;
+  const cand = aprovadosDoCargo(processoExpandido, vagaSelecionada).find(c => c.id === candId);
+  if (!cand) return;
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/pdf";
+  input.addEventListener("change", () => {
+    const arquivo = input.files?.[0];
+    if (!arquivo) return;
+    cand.docDesistencia = { url: URL.createObjectURL(arquivo), nome: arquivo.name };
+    psToast("Documento de desistência anexado.");
+    renderDetalhe();
+  });
+  input.click();
 }
 
 async function excluirAprovado(candId) {
@@ -1045,7 +1148,7 @@ async function excluirAprovado(candId) {
   if (!cand) return;
   const r = await abrirModal({
     titulo: "Excluir aprovado",
-    msg: `Deseja realmente excluir "${cand.nome}"? Esta ação não pode ser desfeita.`,
+    msg: `Deseja realmente excluir ${cand.nome ? `"${cand.nome}"` : "este aprovado"}? Esta ação não pode ser desfeita.`,
     confirmarTexto: "Excluir",
     perigo: true
   });
@@ -1120,6 +1223,9 @@ export function configurarProcessosSeletivos() {
   });
   document.querySelectorAll('input[name="psDocTipo"]').forEach(radio =>
     radio.addEventListener("change", atualizarTipoDoc));
+  // Total de vagas previstas = imediatas + cadastro reserva (recalcula ao digitar).
+  $("psFormVagasImediatas")?.addEventListener("input", atualizarTotalVagas);
+  $("psFormCadastroReserva")?.addEventListener("input", atualizarTotalVagas);
 
   // Modal de inserção de anexo (extração de vagas/cronograma do PDF).
   $("psModalAnexoFechar")?.addEventListener("click", fecharModalAnexo);
@@ -1129,14 +1235,7 @@ export function configurarProcessosSeletivos() {
     if (event.target.id === "psModalAnexo") fecharModalAnexo();
   });
 
-  // Modal de aprovado (CRUD por vaga).
-  $("psModalAprovadoFechar")?.addEventListener("click", fecharModalAprovado);
-  $("psBtnAprovadoCancelar")?.addEventListener("click", fecharModalAprovado);
-  $("psFormAprovado")?.addEventListener("submit", salvarAprovado);
-  $("psAprovadoStatus")?.addEventListener("change", atualizarCampoDesistencia);
-  $("psModalAprovado")?.addEventListener("click", event => {
-    if (event.target.id === "psModalAprovado") fecharModalAprovado();
-  });
+  // Aprovados: sem modal — inserção/edição inline na própria tabela.
 
   // Modal de configuração da classificação (por edital).
   $("psModalConfigFechar")?.addEventListener("click", fecharModalConfig);
@@ -1161,10 +1260,10 @@ export function configurarProcessosSeletivos() {
     // Vêm antes de data-ps-vaga: os botões ficam fora das linhas de vaga, então
     // nunca conflitam, mas a ordem deixa a intenção explícita.
     const aprNovo = event.target.closest("[data-ps-aprovado-novo]");
-    if (aprNovo) { abrirModalAprovado(processoExpandido, aprNovo.dataset.psAprovadoNovo); return; }
+    if (aprNovo) { adicionarAprovadoInline(aprNovo.dataset.psAprovadoNovo); return; }
 
-    const aprEdit = event.target.closest("[data-ps-aprovado-editar]");
-    if (aprEdit) { abrirModalAprovado(processoExpandido, vagaSelecionada, aprEdit.dataset.psAprovadoEditar); return; }
+    const aprDoc = event.target.closest("[data-ps-aprovado-doc]");
+    if (aprDoc) { anexarDocDesistencia(aprDoc.dataset.psAprovadoDoc); return; }
 
     const aprDel = event.target.closest("[data-ps-aprovado-excluir]");
     if (aprDel) { excluirAprovado(aprDel.dataset.psAprovadoExcluir); return; }
