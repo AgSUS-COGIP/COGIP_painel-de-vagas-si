@@ -486,15 +486,25 @@ select.ecInput {
   align-self: center;
 }
 
-/* Modo somente leitura (usuário sem nível de admin): esconde controles de escrita. */
+/* Modo somente leitura (usuário sem nível de admin): esconde controles de escrita.
+   Cobre também os botões de escrita que só aparecem em níveis profundos (ações da
+   tabela e botões dentro dos modais de edição/foto) — rede de segurança de render
+   contra cascata, mesmo que a checagem JS de um botão falhe. */
 .ec-readonly #ecBtnNova,
 .ec-readonly .ecColSelect,
 .ec-readonly .ecBtnImportar,
 .ec-readonly #ecLoteBar,
+.ec-readonly [data-ec-editar],
+.ec-readonly [data-ec-reverter],
+.ec-readonly [data-ec-acao],
+.ec-readonly #ecBtnSalvarObs,
+.ec-readonly #ecModalSalvar,
+.ec-readonly #ecFotoSelecionar,
+.ec-readonly #ecFotoRemover,
 /* Esconde os blocos inteiros "Atualizar Status" e "Observações" do detalhe
    (inclui títulos e contador), e não só os controles internos — assim o Leitor
    não vê seções vazias e inúteis. */
-.ec-readonly .ecDetalheGridAcoes { display: none; }
+.ec-readonly .ecDetalheGridAcoes { display: none !important; }
 
 /* Resultado da importação (erros por linha). */
 .ecImportInfo {

@@ -255,6 +255,12 @@ function renderMatriz() {
 }
 
 export async function carregarPerfisAcesso(silencioso) {
+  // Modo somente-visualização (nível 1 no módulo "solicitacoes"): o CSS
+  // (.perfis-readonly) esconde os botões de ação/escrita em qualquer profundidade,
+  // além dos <select> da matriz já ficarem desabilitados. Os <select> NÃO são
+  // escondidos — eles são a própria visualização dos níveis atuais.
+  const raizPerfis = el("view-solicitacoes");
+  if (raizPerfis) raizPerfis.classList.toggle("perfis-readonly", !podeEditarPerfis());
   if (!el("perfisMatrizTab")) return;
   let dados;
   try {

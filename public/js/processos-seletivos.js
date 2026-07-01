@@ -581,8 +581,19 @@ function renderDetalhe() {
   montarCronograma(proc);
 }
 
+// Marca o container em modo somente-leitura quando o usuário não é Editor. O CSS
+// (.ps-readonly [data-ps-*]) esconde TODO botão de escrita em qualquer profundidade
+// — assim, mesmo que um botão vaze (bug de render, DOM manipulado, cascata a partir
+// de um botão de nível superior), ele nunca fica visível para o Leitor. Reavalia a
+// cada render: no init o usuário ainda pode estar sem nível (0).
+function aplicarModoLeituraPs() {
+  const raiz = $("view-processosSeletivos");
+  if (raiz) raiz.classList.toggle("ps-readonly", !podeEditarProcessos());
+}
+
 // ---------- Render geral ----------
 function renderTudo() {
+  aplicarModoLeituraPs();
   renderKpis();
   preencherFiltros();
   renderTabela();
@@ -592,6 +603,7 @@ function renderTudo() {
 // A grade Tabulator não monta com a aba oculta (largura 0). Ao navegar para a
 // aba, re-renderiza (monta na 1ª vez) e recalcula o layout.
 export function renderProcessosSeletivosAoMostrar() {
+  aplicarModoLeituraPs();
   renderTabela();
   gradePs?.redraw();
 }

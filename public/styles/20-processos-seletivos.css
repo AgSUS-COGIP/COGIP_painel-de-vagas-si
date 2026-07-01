@@ -938,3 +938,15 @@
   .psFormRow.psFormRowCand { grid-template-columns: 1fr; }
   .psField.psField2 { grid-column: span 1; }
 }
+
+/* Modo somente leitura (Leitor, sem nível de Editor): esconde TODO botão de
+   escrita por atributo, em qualquer profundidade do detalhe/painel de aprovados.
+   É a rede de segurança de render: mesmo que a checagem JS de um botão falhe ou
+   um botão apareça por cascata (ex.: após inserir anexo), o CSS o mantém oculto.
+   A ação em si já é bloqueada nos handlers; aqui garantimos que nem apareça. */
+.ps-readonly [data-ps-editar],
+.ps-readonly [data-ps-anexo],
+.ps-readonly [data-ps-aprovado-novo],
+.ps-readonly [data-ps-config],
+.ps-readonly [data-ps-aprovado-doc],
+.ps-readonly [data-ps-aprovado-excluir] { display: none !important; }

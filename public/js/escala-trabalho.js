@@ -349,6 +349,10 @@ function renderResumo() {
 // ---------- Render completo ----------
 export function renderEscalaTrabalhoAoMostrar() {
   popularFiltros();
+  // Modo somente-leitura (Leitor): o CSS (.et-readonly [data-et-*]) esconde os
+  // botões de escrita em qualquer profundidade, mesmo que vazem no render.
+  const view = $("view-escalaTrabalho");
+  if (view) view.classList.toggle("et-readonly", !podeEditarEscala());
   const btnNova = document.querySelector("[data-et-nova]");
   if (btnNova) btnNova.hidden = !podeEditarEscala();
   renderAlerta();

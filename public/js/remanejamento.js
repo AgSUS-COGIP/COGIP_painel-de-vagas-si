@@ -103,8 +103,17 @@ export function abrirPainelFerias() {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+// Marca a aba em modo somente-leitura (Leitor, nível < 2). O CSS (.rem-readonly)
+// esconde TODOS os botões de escrita em qualquer profundidade — rede de segurança
+// de render, complementando o que auth.js já esconde (bloco de documentação/salvar).
+function aplicarModoLeituraRemanejamento() {
+  const raiz = document.getElementById("view-remanejamento");
+  if (raiz) raiz.classList.toggle("rem-readonly", nivelUsuarioRemanejamento() < NIVEL.ADMIN);
+}
+
 export function configurarRemanejamento() {
   state.remanejamentoDetalhePage = 1;
+  aplicarModoLeituraRemanejamento();
 
   if (!pageLoadState.remanejamentoCadastro) {
     preencherSelectRemanejamento("remanejamentoDsei", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
@@ -311,6 +320,7 @@ function fecharDetalheRem() {
 }
 
 export function renderRemanejamentoLista() {
+  aplicarModoLeituraRemanejamento();
   atualizarIndicadoresRemanejamento();
   if (!document.getElementById("remanejamentoBody")) return;
 

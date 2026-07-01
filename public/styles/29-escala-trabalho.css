@@ -536,3 +536,9 @@
   .etToast.is-erro { background: var(--status-erro); }
   .etToast.is-ok   { background: var(--status-ok); }
 }
+
+/* Modo somente leitura (Leitor): esconde os botões de escrita em qualquer
+   profundidade — rede de segurança de render contra cascata. */
+.et-readonly [data-et-nova],
+.et-readonly [data-et-editar],
+.et-readonly [data-et-excluir] { display: none !important; }

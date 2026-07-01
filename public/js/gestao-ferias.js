@@ -84,6 +84,12 @@ function atualizarAcessoCoape() {
   if ((!okCoape && abaAtiva === "coape") || (!okSolic && abaAtiva === "solicitacao")) {
     trocarTab("visaoGeral");
   }
+
+  // Modo somente-leitura (Leitor): além de esconder as sub-abas acima, o CSS
+  // (.gf-readonly) esconde os controles de escrita em qualquer profundidade —
+  // rede de segurança de render caso um botão vaze fora do fluxo normal.
+  const raiz = $("view-gestaoFerias");
+  if (raiz) raiz.classList.toggle("gf-readonly", !podeSolicitarFerias());
 }
 
 // Filtros (multi-seleção) — cada um é um array de valores selecionados.
