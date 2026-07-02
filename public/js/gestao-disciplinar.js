@@ -375,7 +375,8 @@ function ordenarPorPreferencia(linhas) {
 // aviso) usam formatador HTML — sempre escapando o texto dinâmico. As demais usam
 // o formatador padrão do Tabulator, que insere o valor como texto (já escapado).
 const COLUNAS_GD = [
-  { title: "Dias Pendentes", field: "_dias", hozAlign: "center", headerHozAlign: "center" },
+  { title: "Dias Pendentes", field: "_dias", hozAlign: "center", headerHozAlign: "center",
+    sorter: "number", formatter: cell => escapeHtml(diasPendentesLabel(cell.getData())) },
   {
     title: "Nº Processo SEI", field: "processo", widthGrow: 2,
     formatter: cell => {
@@ -405,7 +406,7 @@ const COLUNAS_GD = [
 function dadosTabela() {
   return ordenarPorPreferencia(registrosFiltrados()).map(r => ({
     ...r,
-    _dias: diasPendentesLabel(r),
+    _dias: diasPendentes(r),
     _decisao: tipoSancaoDisplay(r),
     responsavel: r.responsavel || "—",
   }));

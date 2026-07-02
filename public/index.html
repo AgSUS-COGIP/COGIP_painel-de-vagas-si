@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitoramento de Vagas - Saúde Indígena</title>
+  <title>EGO - UGP - Saúde Indígena</title>
+  <link rel="icon" type="image/png" href="./assets/images/Logo%20AgSUS%20sem%20fundo.png">
+  <link rel="apple-touch-icon" href="./assets/images/Logo%20AgSUS%20sem%20fundo.png">
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -331,7 +333,7 @@
       <h1 id="tituloPagina" class="sr-only">Visão Geral</h1>
       <header class="top">
         <div>
-          <div class="titleSmall">Monitoramento de Vagas</div>
+          <div class="titleSmall">Unidade de Gestão de Pessoas - UGP</div>
           <div class="titleBig">Saúde Indígena</div>
         </div>
 
@@ -2155,7 +2157,7 @@
 
           <section class="psDetalhe" id="psDetalhe" hidden></section>
 
-          <!-- Modal: adicionar novo edital -->
+          <!-- Modal: assistente de edital (3 passos: dados -> anexo -> conferência) -->
           <div class="psModalOverlay" id="psModalEdital" hidden>
             <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalTitulo">
               <div class="psModalHead">
@@ -2164,119 +2166,136 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
-              <form class="psModalBody" id="psFormEdital">
-                <div class="psFormGrid">
-                  <label class="psField psField2">
-                    <span>DSEI/CASAI <i class="psReq">*</i></span>
-                    <select class="psSelect" id="psFormUnidade"><option value="">Selecione o DSEI/CASAI</option></select>
-                  </label>
-                  <label class="psField">
-                    <span>UF <i class="psReq">*</i></span>
-                    <input class="psInput" id="psFormUf" type="text" maxlength="2" autocomplete="off">
-                  </label>
-                  <label class="psField">
-                    <span>Edital <i class="psReq">*</i></span>
-                    <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
-                  </label>
-                  <label class="psField">
-                    <span>Vagas previstas</span>
-                    <input class="psInput" id="psFormVagas" type="number" min="0" placeholder="0">
-                  </label>
-                  <label class="psField psFieldCheck">
-                    <span>Cadastro reserva</span>
-                    <label class="psCheck"><input type="checkbox" id="psFormCadastroReserva"> Possui cadastro reserva (+ CR)</label>
-                  </label>
-                  <label class="psField">
-                    <span>Data de início</span>
-                    <input class="psInput" id="psFormDataInicio" type="date">
-                  </label>
-                  <label class="psField">
-                    <span>Data fim (vigência)</span>
-                    <input class="psInput" id="psFormDataFim" type="date">
-                  </label>
-                  <label class="psField">
-                    <span>Status</span>
-                    <select class="psSelect" id="psFormStatus">
-                      <option value="Andamento">Em Andamento</option>
-                      <option value="Aguardando Convocação">Aguardando Convocação</option>
-                      <option value="Concluído">Concluído</option>
-                      <option value="Cancelado">Cancelado</option>
-                    </select>
-                  </label>
-                  <label class="psField psField3">
-                    <span>Observação</span>
-                    <textarea class="psInput psTextarea" id="psFormObs" rows="3"></textarea>
-                  </label>
+
+              <!-- Passo a passo -->
+              <ol class="psStepper" id="psStepper" aria-label="Etapas do cadastro">
+                <li class="psStep is-atual" data-step="1"><span class="psStepNum">1</span><span class="psStepTxt">Criar edital</span></li>
+                <li class="psStep" data-step="2"><span class="psStepNum">2</span><span class="psStepTxt">Anexar documento</span></li>
+                <li class="psStep" data-step="3"><span class="psStepNum">3</span><span class="psStepTxt">Conferência de dados</span></li>
+              </ol>
+
+              <div class="psModalBody">
+                <!-- PASSO 1: dados do edital -->
+                <form class="psStepPane" data-pane="1" id="psFormEdital">
+                  <div class="psFormGrid">
+                    <label class="psField psField2">
+                      <span>DSEI/CASAI <i class="psReq">*</i></span>
+                      <select class="psSelect" id="psFormUnidade"><option value="">Selecione o DSEI/CASAI</option></select>
+                    </label>
+                    <label class="psField">
+                      <span>UF <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormUf" type="text" maxlength="2" autocomplete="off">
+                    </label>
+                    <label class="psField">
+                      <span>Edital <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
+                    </label>
+                    <label class="psField">
+                      <span>Vagas previstas</span>
+                      <input class="psInput" id="psFormVagas" type="number" min="0" placeholder="0">
+                    </label>
+                    <label class="psField psFieldCheck">
+                      <span>Cadastro reserva</span>
+                      <label class="psCheck"><input type="checkbox" id="psFormCadastroReserva"> Possui cadastro reserva (+ CR)</label>
+                    </label>
+                    <label class="psField">
+                      <span>Data de início <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormDataInicio" type="date" required>
+                    </label>
+                    <label class="psField">
+                      <span>Data fim (previsto) <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormDataFim" type="date" required>
+                    </label>
+                    <label class="psField">
+                      <span>Status</span>
+                      <select class="psSelect" id="psFormStatus">
+                        <option value="Andamento">Em Andamento</option>
+                        <option value="Aguardando Convocação">Aguardando Convocação</option>
+                        <option value="Concluído">Concluído</option>
+                        <option value="Cancelado">Cancelado</option>
+                      </select>
+                    </label>
+                    <label class="psField psField3">
+                      <span>Observação</span>
+                      <textarea class="psInput psTextarea" id="psFormObs" rows="3"></textarea>
+                    </label>
+                  </div>
+
+                  <div class="psFormSecao">
+                    <div class="psFormSecaoHead">
+                      <h4>Documento do edital</h4>
+                      <small>Informe um link <strong>ou</strong> anexe um PDF</small>
+                    </div>
+                    <div class="psDocToggle" role="radiogroup" aria-label="Tipo de documento do edital">
+                      <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
+                      <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
+                    </div>
+                    <label class="psField psField3" id="psDocLinkWrap">
+                      <span>Link do edital</span>
+                      <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
+                    </label>
+                    <div class="psField psField3" id="psDocAnexoWrap" hidden>
+                      <span>Anexo (PDF)</span>
+                      <input class="psInputFile" id="psFormAnexo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                    </div>
+                  </div>
+
+                  <p class="psModalErro" id="psFormErro" role="alert" aria-live="assertive"></p>
+                </form>
+
+                <!-- PASSO 2: anexar documento de anexos (cronograma + quadro de vagas) -->
+                <div class="psStepPane" data-pane="2" hidden>
+                  <div class="psFormSecao">
+                    <div class="psFormSecaoHead">
+                      <h4>Anexos (cronograma e quadro de vagas)</h4>
+                      <small>Envie o PDF de “Anexos” do edital. Se for um PDF escaneado (imagem), o sistema tenta OCR — os dados são conferidos no próximo passo. Sem documento? Use “Pular etapa”.</small>
+                    </div>
+                    <div class="psField psField3">
+                      <span>Arquivo dos Anexos (PDF)</span>
+                      <input class="psInputFile" id="psFormAnexoDados" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                    </div>
+                    <p class="psAnexoStatus" id="psFormAnexoDadosStatus" hidden></p>
+                    <p class="psModalErro" id="psWizAnexoErro"></p>
+                  </div>
                 </div>
 
-                <div class="psFormSecao">
-                  <div class="psFormSecaoHead">
-                    <h4>Documento do edital</h4>
-                    <small>Informe um link <strong>ou</strong> anexe um PDF</small>
+                <!-- PASSO 3: conferência dos dados extraídos -->
+                <div class="psStepPane" data-pane="3" hidden>
+                  <p class="psAnexoIntro">
+                    Confira e <strong>corrija</strong> os dados lidos do PDF antes de salvar. A leitura
+                    automática (OCR de PDF escaneado) pode errar números e datas — revise principalmente
+                    as <strong>quantidades de vagas</strong> e as <strong>datas</strong>. Use “CR” para
+                    Cadastro Reserva. Linhas/etapas sem nome são descartadas ao salvar.
+                  </p>
+                  <h4 class="psConfSecTitulo"><i class="fa-solid fa-table-list"></i> Quadro de Vagas</h4>
+                  <div class="psConfVagaHead">
+                    <span>Cargo</span><span>AC</span><span>PcD</span><span>P/P</span>
+                    <span>Ind.</span><span>Quil.</span><span></span>
                   </div>
-                  <div class="psDocToggle" role="radiogroup" aria-label="Tipo de documento do edital">
-                    <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
-                    <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
+                  <div id="psConfVagasLista" class="psConfVagasLista"></div>
+                  <button type="button" class="psBtn psBtnGhost psBtnSm" id="psConfAddVaga">
+                    <i class="fa-solid fa-plus"></i> Adicionar cargo
+                  </button>
+                  <h4 class="psConfSecTitulo" style="margin-top:18px;"><i class="fa-solid fa-calendar-days"></i> Cronograma</h4>
+                  <div class="psCronoEditHead">
+                    <span>#</span><span>Atividade</span><span>Data</span><span></span>
                   </div>
-                  <label class="psField psField3" id="psDocLinkWrap">
-                    <span>Link do edital</span>
-                    <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
-                  </label>
-                  <div class="psField psField3" id="psDocAnexoWrap" hidden>
-                    <span>Anexo (PDF)</span>
-                    <input class="psInputFile" id="psFormAnexo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
-                  </div>
+                  <div id="psConfCronoLista" class="psCronoEditLista"></div>
+                  <button type="button" class="psBtn psBtnGhost psBtnSm" id="psConfAddCrono">
+                    <i class="fa-solid fa-plus"></i> Adicionar etapa
+                  </button>
+                  <p class="psModalErro" id="psConfErro"></p>
                 </div>
+              </div>
 
-                <div class="psFormSecao">
-                  <div class="psFormSecaoHead">
-                    <h4>Anexos (cronograma e quadro de vagas)</h4>
-                    <small>Insira o documento "Anexos" do edital que contenha os dados do cronograma e do quadro de vagas</small>
-                  </div>
-                  <div class="psField psField3">
-                    <span>Arquivo dos Anexos (PDF)</span>
-                    <input class="psInputFile" id="psFormAnexoDados" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
-                  </div>
-                  <p class="psAnexoStatus" id="psFormAnexoDadosStatus" hidden></p>
-                </div>
-
-                <p class="psModalErro" id="psFormErro" role="alert" aria-live="assertive"></p>
-              </form>
               <div class="psModalFoot">
                 <button type="button" class="psBtn psBtnGhost" id="psModalCancelar">Cancelar</button>
-                <button type="submit" form="psFormEdital" class="psBtn" id="psModalSalvar"><i class="fa-solid fa-check"></i> Salvar edital</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Modal: inserir anexo (extrai vagas e cronograma do PDF) -->
-          <div class="psModalOverlay" id="psModalAnexo" hidden>
-            <div class="psModalCard psModalCardSm" role="dialog" aria-modal="true" aria-labelledby="psModalAnexoTitulo">
-              <div class="psModalHead">
-                <h3 id="psModalAnexoTitulo"><i class="fa-solid fa-file-arrow-up"></i> Inserir anexo do edital</h3>
-                <button type="button" class="psModalClose" id="psModalAnexoFechar" aria-label="Fechar">
-                  <i class="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-              <form class="psModalBody" id="psFormAnexoEdital">
-                <p class="psAnexoIntro">
-                  Envie o PDF de <strong>anexos do edital</strong> (Quadro de Vagas / Cronograma).
-                  Os dados serão lidos diretamente do arquivo para montar as tabelas de
-                  <strong>Cronograma do Edital</strong> e <strong>Vagas Previstas</strong>.
-                  O arquivo é processado na hora e <strong>não é salvo</strong> em lugar nenhum.
-                </p>
-                <div class="psField psField3">
-                  <span>Arquivo PDF <i class="psReq">*</i></span>
-                  <input class="psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                <div class="psWizFootAcoes">
+                  <button type="button" class="psBtn psBtnGhost" id="psWizVoltar" hidden><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                  <button type="button" class="psBtn psBtnGhost" id="psWizPular" hidden>Pular etapa</button>
+                  <button type="button" class="psBtn" id="psWizProximo">Próximo <i class="fa-solid fa-arrow-right"></i></button>
+                  <button type="button" class="psBtn" id="psWizConcluir" hidden><i class="fa-solid fa-check"></i> Concluir</button>
                 </div>
-                <div class="psAnexoStatus" id="psAnexoStatus" hidden></div>
-                <p class="psModalErro" id="psAnexoErro"></p>
-              </form>
-              <div class="psModalFoot">
-                <button type="button" class="psBtn psBtnGhost" id="psModalAnexoCancelar">Cancelar</button>
-                <button type="submit" form="psFormAnexoEdital" class="psBtn" id="psAnexoEnviar">
-                  <i class="fa-solid fa-wand-magic-sparkles"></i> Extrair dados
-                </button>
               </div>
             </div>
           </div>
@@ -2306,6 +2325,42 @@
               </div>
             </div>
           </div>
+
+          <!-- Modal: ajustar cronograma (editar atividades e datas manualmente) -->
+          <div class="psModalOverlay" id="psModalCronograma" hidden>
+            <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalCronogramaTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalCronogramaTitulo"><i class="fa-solid fa-calendar-days"></i> Ajustar cronograma</h3>
+                <button type="button" class="psModalClose" id="psModalCronogramaFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormCronograma">
+                <p class="psAnexoIntro">
+                  Edite o texto das <strong>atividades</strong> e das <strong>datas</strong>. Datas incompletas
+                  (ex.: <strong>24/07</strong>) não são reconhecidas — inclua o ano no formato
+                  <strong>dd/mm/aaaa</strong> (ex.: 24/07/2026). Intervalos (“22 a 24/06/2026”) e
+                  listas (“31/07 e 01/08/2026”) também são aceitos. Etapas sem atividade são descartadas.
+                </p>
+                <div class="psCronoEditHead">
+                  <span>#</span>
+                  <span>Atividade</span>
+                  <span>Data</span>
+                  <span></span>
+                </div>
+                <div id="psCronogramaLista" class="psCronoEditLista"></div>
+                <button type="button" class="psBtn psBtnGhost psBtnSm" id="psCronogramaAddLinha">
+                  <i class="fa-solid fa-plus"></i> Adicionar etapa
+                </button>
+                <p class="psModalErro" id="psCronogramaErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalCronogramaCancelar">Cancelar</button>
+                <button type="submit" form="psFormCronograma" class="psBtn" id="psModalCronogramaSalvar"><i class="fa-solid fa-check"></i> Salvar cronograma</button>
+              </div>
+            </div>
+          </div>
+
         </section>
 
 
