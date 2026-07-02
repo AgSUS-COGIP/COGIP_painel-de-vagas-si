@@ -242,6 +242,221 @@ def extract_cronograma(pdf_bytes):
 
 
 # ----------------------------------------------------------------------------
+# Fallback OCR — PDFs escaneados (sem camada de texto)
+# ----------------------------------------------------------------------------
+# Quando o PDF é só imagem, pdfplumber não acha texto/tabela nenhuma. Aqui
+# rasterizamos as páginas (pypdfium2) e passamos por OCR (rapidocr-onnxruntime,
+# pip-only, sem binário de sistema), reconstruindo o QUADRO e o CRONOGRAMA por
+# GEOMETRIA: as colunas vêm do x dos cabeçalhos; as linhas do agrupamento por y
+# dos valores/datas; o texto do cargo/atividade (que quebra em várias linhas) é
+# atribuído à linha de y mais próximo. Imports são lazy: sem as libs, o extrator
+# segue funcionando para PDFs com texto e o OCR apenas não roda.
+_OCR_ENGINE = None
+
+
+def _ocr_libs_ok():
+    import importlib.util as u
+    return all(u.find_spec(m) for m in ("pypdfium2", "rapidocr_onnxruntime", "numpy"))
+
+
+def _get_ocr():
+    global _OCR_ENGINE
+    if _OCR_ENGINE is None:
+        from rapidocr_onnxruntime import RapidOCR
+        _OCR_ENGINE = RapidOCR()
+    return _OCR_ENGINE
+
+
+def _ocr_uma_pagina(pdf, i, ocr, scale, np):
+    """Rasteriza + OCR de UMA página. Retorna [word, ...].
+    word = {text, x0,x1,y0,y1, cx,cy}. box_thresh/text_score baixos p/ detectar
+    dígitos isolados (ex.: '1','2') que o default do detector perde."""
+    pil = pdf[i].render(scale=scale).to_pil().convert("RGB")
+    res, _ = ocr(np.array(pil), box_thresh=0.3, text_score=0.3)
+    ws = []
+    for box, txt, _conf in (res or []):
+        xs = [p[0] for p in box]
+        ys = [p[1] for p in box]
+        ws.append({
+            "text": unicodedata.normalize("NFKC", str(txt)),
+            "x0": min(xs), "x1": max(xs), "y0": min(ys), "y1": max(ys),
+            "cx": (min(xs) + max(xs)) / 2.0, "cy": (min(ys) + max(ys)) / 2.0,
+        })
+    return ws
+
+
+# Início da parte irrelevante: os editais trazem Anexo I (cronograma), Anexo II
+# (quadro de vagas) e, por último, o Anexo III (descrição/atribuições dos cargos),
+# que não interessa e costuma ser a maior parte do PDF. Ao detectar seu início,
+# paramos o OCR — o que precisávamos (Anexos I e II) já ficou para trás.
+OCR_STOP = ("anexo iii", "anexo 3", "descricao das func", "descricao das atividades",
+            "descricao sumaria", "atribuicoes do", "atribuicoes dos cargos",
+            "das atribuicoes", "descricao dos cargos")
+
+
+def _pagina_de_parada(words):
+    txt = norm(" ".join(w["text"] for w in words))
+    return any(m in txt for m in OCR_STOP)
+
+
+def _header_word(words, key):
+    """Palavra (mais ao topo) cujo texto normalizado contém `key`."""
+    cand = sorted([w for w in words if key in norm(w["text"])], key=lambda w: w["cy"])
+    return cand[0] if cand else None
+
+
+def _cluster_rows(anchor, gap):
+    """Agrupa os tokens-âncora (valores/datas) em linhas por proximidade de cy."""
+    rows = []
+    for w in sorted(anchor, key=lambda w: w["cy"]):
+        if rows and (w["cy"] - rows[-1]["cy"]) < gap:
+            rows[-1]["items"].append(w)
+            rows[-1]["cy"] = sum(it["cy"] for it in rows[-1]["items"]) / len(rows[-1]["items"])
+        else:
+            rows.append({"cy": w["cy"], "items": [w]})
+    return rows
+
+
+def _nearest_row(rows, cy):
+    if not rows:
+        return None
+    return min(range(len(rows)), key=lambda k: abs(rows[k]["cy"] - cy))
+
+
+OCR_COLS = [("ampla", "Ampla_Concorrencia"), ("pcd", "PcD"), ("pretos", "Pretos_Pardos"),
+            ("indigena", "Indigenas"), ("quilombola", "Quilombolas"), ("total", "Total")]
+OCR_VAL_RE = re.compile(r"^(\d{1,3}\+?cr|\d{1,3}|cr)$")
+OCR_DATE_RE = re.compile(r"\d{1,2}\s*(?:a|e|/)?\s*\d{0,2}/\d{1,2}")
+OCR_JUNK = ("sei agsus", "anexo", "pagina", "quadro de vagas", "www", "reserva se",
+            "cadastro reserva", "agencia brasileira", "documento", "pg ")
+
+
+def _ocr_junk(text):
+    n = norm(text)
+    return any(j in n for j in OCR_JUNK)
+
+
+def _quadro_linhas(words, centers, cargo_bound, hdr_y):
+    """Reconstrói as linhas do quadro numa página, dadas as colunas (centers)."""
+    data = [w for w in words if w["cy"] > hdr_y + 4 and not _ocr_junk(w["text"])]
+    values = [w for w in data if w["cx"] >= cargo_bound
+              and OCR_VAL_RE.match(norm(w["text"]).replace(" ", ""))]
+    rows = _cluster_rows(values, gap=28)
+    recs = [{"cargo": [], "cells": {}} for _ in rows]
+    for w in values:
+        k = _nearest_row(rows, w["cy"])
+        dest = min(centers, key=lambda d: abs(centers[d] - w["cx"]))
+        recs[k]["cells"].setdefault(dest, w["text"])
+    for w in [w for w in data if w["cx"] < cargo_bound]:
+        k = _nearest_row(rows, w["cy"])
+        if k is not None:
+            recs[k]["cargo"].append(w)
+    out = []
+    for r in recs:
+        cargo = re.sub(r"\s+", " ", " ".join(
+            w["text"] for w in sorted(r["cargo"], key=lambda w: (round(w["cy"] / 18), w["cx"])))).strip()
+        if len(norm(cargo)) < 3 or not r["cells"]:
+            continue
+        rec = {"Cargo": cargo}
+        rec.update(r["cells"])
+        out.append(rec)
+    return out
+
+
+def _ocr_quadro(paginas):
+    """Quadro de vagas via OCR, com continuação em páginas sem cabeçalho: a
+    geometria (colunas) da página do cabeçalho é reaproveitada nas seguintes,
+    parando na 1ª página de continuação sem linhas válidas."""
+    todos, pg_ini = [], None
+    centers = cargo_bound = None
+    for i, ws in enumerate(paginas):
+        hdr = {dest: _header_word(ws, key) for key, dest in OCR_COLS}
+        tem_hdr = hdr.get("Ampla_Concorrencia") and hdr.get("PcD") and hdr.get("Total")
+        if tem_hdr:
+            centers = {d: h["cx"] for d, h in hdr.items() if h}
+            cargo_bound = centers["Ampla_Concorrencia"] - (centers["PcD"] - centers["Ampla_Concorrencia"]) / 2.0
+            hdr_y = max(h["y1"] for h in hdr.values() if h)
+        elif centers is not None:
+            hdr_y = 0  # continuação: sem cabeçalho, usa as colunas já conhecidas
+        else:
+            continue  # ainda não encontramos o cabeçalho do quadro
+        linhas = _quadro_linhas(ws, centers, cargo_bound, hdr_y)
+        if not linhas:
+            if not tem_hdr:
+                break  # continuação vazia => fim da tabela
+            continue
+        if pg_ini is None:
+            pg_ini = i + 1
+        todos.extend(linhas)
+    return todos, pg_ini
+
+
+def _ocr_cronograma(paginas):
+    """Cronograma via OCR: colunas Atividades|Datas; linhas ancoradas pelas datas."""
+    for i, words in enumerate(paginas):
+        a = _header_word(words, "atividade")
+        d = _header_word(words, "data")
+        if not a or not d:
+            continue
+        bound = (a["cx"] + d["cx"]) / 2.0
+        hdr_y = max(a["y1"], d["y1"])
+        data = [w for w in words if w["cy"] > hdr_y + 4 and not _ocr_junk(w["text"])]
+        dates = [w for w in data if w["cx"] >= bound and OCR_DATE_RE.search(w["text"])]
+        if not dates:
+            continue
+        rows = _cluster_rows(dates, gap=30)
+        recs = [{"ativ": [], "data": []} for _ in rows]
+        for w in dates:
+            recs[_nearest_row(rows, w["cy"])]["data"].append(w)
+        # Não atribui texto muito abaixo da última data (evita o parágrafo "Obs:"
+        # e rodapés que ficam sob a tabela colarem na última atividade).
+        y_lim = max(w["cy"] for w in dates) + 40
+        for w in [w for w in data if w["cx"] < bound and w["cy"] <= y_lim]:
+            k = _nearest_row(rows, w["cy"])
+            if k is not None:
+                recs[k]["ativ"].append(w)
+        out = []
+        for r in recs:
+            ativ = re.sub(r"\s+", " ", " ".join(
+                w["text"] for w in sorted(r["ativ"], key=lambda w: (round(w["cy"] / 18), w["cx"])))).strip()
+            ativ = re.split(r"\bObs\b", ativ)[0].strip()
+            data = " ".join(w["text"] for w in sorted(r["data"], key=lambda w: w["cx"])).strip()
+            if len(norm(ativ)) < 3:
+                continue
+            out.append({"Ordem": len(out) + 1, "Atividade": ativ, "Data": data})
+        if out:
+            return out, i + 1
+    return [], None
+
+
+def _extrair_ocr(pdf_bytes):
+    """Roda o OCR (se as libs existirem) e devolve (cargos_rows, quadro_pg,
+    cronograma_rows, crono_pg, status)."""
+    if not _ocr_libs_ok():
+        return [], None, [], None, "ocr:indisponivel"
+    try:
+        import numpy as np
+        import pypdfium2 as pdfium
+        max_pg = int(os.environ.get("EXTRATOR_OCR_MAX_PAGINAS") or 12)
+        scale = float(os.environ.get("EXTRATOR_OCR_SCALE") or 3.0)
+        ocr = _get_ocr()
+        pdf = pdfium.PdfDocument(pdf_bytes)
+        paginas = []
+        for i in range(min(len(pdf), max_pg)):
+            ws = _ocr_uma_pagina(pdf, i, ocr, scale, np)
+            paginas.append(ws)
+            # Chegou no Anexo III (descrição das funções)? Inclui a página (pode
+            # ter o fim do quadro no topo) e PARA — o resto do PDF não importa.
+            if _pagina_de_parada(ws):
+                break
+        cargos, qpg = _ocr_quadro(paginas)
+        crono, cpg = _ocr_cronograma(paginas)
+        return cargos, qpg, crono, cpg, "ocr"
+    except Exception as e:  # noqa
+        return [], None, [], None, "ocr:erro:" + str(e)[:80]
+
+
+# ----------------------------------------------------------------------------
 # Saida no formato do front
 # ----------------------------------------------------------------------------
 # Nomes do extrator (Python) -> campos usados pelo front (processos-seletivos.js).
@@ -269,6 +484,23 @@ def mapear_cargo(rec):
     return out
 
 
+# Verifica (barato) se o PDF tem CAMADA DE TEXTO: lê o texto de umas poucas
+# páginas (extract_text é rápido; extract_tables é que é caro). Num PDF escaneado
+# volta ~0, e aí NÃO vale a pena rodar a extração por tabelas do pdfplumber sobre
+# todas as páginas-imagem (custa minutos e não acha nada) — vamos direto ao OCR.
+def _tem_camada_texto(pdf_bytes, amostra=6, minimo=40):
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            total = 0
+            for pg in pdf.pages[:amostra]:
+                total += len((pg.extract_text() or "").strip())
+                if total >= minimo:
+                    return True
+    except Exception:  # noqa
+        return False
+    return False
+
+
 def extrair(pdf_bytes):
     """Núcleo reutilizável: PDF (bytes) -> dict {cargos, cronograma, ...}.
 
@@ -281,20 +513,36 @@ def extrair(pdf_bytes):
     cargos, formato, quadro_pagina = [], "", None
     cronograma, crono_pagina = [], None
 
-    try:
-        rows, pg, fmt = extract_quadro(pdf_bytes)
-        cargos = [mapear_cargo(r) for r in rows]
-        quadro_pagina, formato = pg, fmt
-    except Exception as e:  # noqa
-        formato = "erro:" + str(e)[:80]
+    # Só roda o pdfplumber (por tabelas) se houver texto; escaneado pula direto ao OCR.
+    if _tem_camada_texto(pdf_bytes):
+        try:
+            rows, pg, fmt = extract_quadro(pdf_bytes)
+            cargos = [mapear_cargo(r) for r in rows]
+            quadro_pagina, formato = pg, fmt
+        except Exception as e:  # noqa
+            formato = "erro:" + str(e)[:80]
 
-    try:
-        crows, cpg = extract_cronograma(pdf_bytes)
-        cronograma = [{"ordem": r["Ordem"], "atividade": r["Atividade"],
-                       "data": r["Data"]} for r in crows]
-        crono_pagina = cpg
-    except Exception:  # noqa
-        cronograma = []
+        try:
+            crows, cpg = extract_cronograma(pdf_bytes)
+            cronograma = [{"ordem": r["Ordem"], "atividade": r["Atividade"],
+                           "data": r["Data"]} for r in crows]
+            crono_pagina = cpg
+        except Exception:  # noqa
+            cronograma = []
+
+    # Nada na camada de texto => provável PDF escaneado: tenta OCR (best-effort).
+    ocr_status = None
+    if not cargos and not cronograma:
+        crows, qpg, ocr_crono, ccpg, ocr_status = _extrair_ocr(pdf_bytes)
+        if crows:
+            cargos = [mapear_cargo(r) for r in crows]
+            quadro_pagina, formato = qpg, ocr_status
+        if ocr_crono:
+            cronograma = [{"ordem": r["Ordem"], "atividade": r["Atividade"],
+                           "data": r["Data"]} for r in ocr_crono]
+            crono_pagina = ccpg
+            if not formato:
+                formato = ocr_status
 
     return {
         "cargos": cargos,
@@ -302,6 +550,7 @@ def extrair(pdf_bytes):
         "quadroPagina": quadro_pagina,
         "cronograma": cronograma,
         "cronogramaPagina": crono_pagina,
+        "ocr": ocr_status,
     }
 
 

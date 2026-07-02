@@ -786,6 +786,10 @@
   font-size: 12px;
   font-weight: 800;
 }
+/* `display:flex` acima venceria o atributo [hidden] (que só faz display:none):
+   esta regra, mais específica, garante que status oculto realmente suma — senão
+   o "Lendo o PDF…" continua na tela mesmo após um erro. */
+.psAnexoStatus[hidden] { display: none; }
 
 /* Modal: ajustar cronograma (edição manual de atividades/datas). */
 .psCronoEditHead,
@@ -832,6 +836,94 @@
 .psCronoDataHint.is-ok { color: #0a7a44; }
 .psCronoDataHint.is-erro { color: #c0392b; }
 #psCronogramaAddLinha { margin-top: 12px; }
+
+/* ---------- Conferência dos dados extraídos do anexo ---------- */
+.psConfSecTitulo {
+  margin: 4px 0 8px;
+  color: var(--azul-escuro);
+  font-size: 13px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.psConfVagaHead,
+.psConfVagaRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px 52px 52px 52px 52px 34px;
+  gap: 6px;
+  align-items: center;
+}
+.psConfVagaHead {
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: #2d537f;
+  text-align: center;
+}
+.psConfVagaHead > span:first-child { text-align: left; }
+.psConfVagasLista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 32vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.psConfVagaRow .psInput { text-align: center; padding: 6px 4px; }
+.psConfVagaRow .psConfCargo { text-align: left; }
+#psConfCronoLista { max-height: 30vh; }
+#psConfAddVaga { margin-top: 10px; }
+
+/* ---------- Assistente de edital: passo a passo (stepper) ---------- */
+.psStepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 12px 20px;
+  background: #eef6ff;
+  border-bottom: 1px solid rgba(0, 83, 166, .12);
+}
+.psStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b86a8;
+  font-size: 12px;
+  font-weight: 800;
+}
+.psStep:not(:last-child)::after {
+  content: "\203a"; /* › */
+  margin-left: 8px;
+  color: #a9c0dd;
+  font-size: 16px;
+  font-weight: 900;
+}
+.psStepNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #cddcf0;
+  color: #4a6a93;
+  font-weight: 900;
+  flex: none;
+}
+.psStep.is-atual { color: var(--azul-escuro); }
+.psStep.is-atual .psStepNum { background: linear-gradient(135deg, #007de0, #0055a7); color: #fff; }
+.psStep.is-feito { color: #0a7a44; }
+.psStep.is-feito .psStepNum { background: #0a8a4d; color: #fff; }
+.psStepPane[hidden] { display: none; }
+/* Rodapé do assistente: Cancelar à esquerda, ações (Voltar/Pular/Próximo) à direita. */
+.psWizFootAcoes { display: flex; align-items: center; gap: 10px; }
+.psModalFoot:has(.psWizFootAcoes) { justify-content: space-between; }
 
 .psBlocoFonte {
   color: #0a7a44;

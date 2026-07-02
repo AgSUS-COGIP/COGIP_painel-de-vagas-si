@@ -40,20 +40,33 @@ const MIME_ANEXO_BLOQUEADOS = new Set([
   "text/xml"
 ]);
 
+function anexoFileFilter(req, file, cb) {
+  const mime = String(file.mimetype || "").toLowerCase();
+  if (MIME_ANEXO_BLOQUEADOS.has(mime)) {
+    const erro = new Error("Tipo de arquivo não permitido para anexo.");
+    erro.status = 400;
+    erro.expose = true;
+    cb(erro);
+    return;
+  }
+  cb(null, true);
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const mime = String(file.mimetype || "").toLowerCase();
-    if (MIME_ANEXO_BLOQUEADOS.has(mime)) {
-      const erro = new Error("Tipo de arquivo não permitido para anexo.");
-      erro.status = 400;
-      erro.expose = true;
-      cb(erro);
-      return;
-    }
-    cb(null, true);
-  }
+  fileFilter: anexoFileFilter
+});
+
+// Anexos do edital (quadro de vagas + cronograma) costumam ser PDFs ESCANEADOS,
+// bem maiores que os demais uploads — usam um limite próprio (30MB) só na rota de
+// extração, para que o OCR consiga processá-los. (Nota: em produção na Vercel, o
+// corpo da função serverless é limitado a ~4,5MB; este limite maior vale sobretudo
+// no ambiente local, onde o extrator roda via CLI.)
+const uploadEditalAnexo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 },
+  fileFilter: anexoFileFilter
 });
 
 // O multer (via busboy) decodifica o nome do arquivo do multipart como latin1, o
@@ -1293,7 +1306,7 @@ app.post(
   apiLimiter,
   autenticarFrescoMiddleware,
   exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN),
-  comNomesUtf8(upload.single("anexo")),
+  comNomesUtf8(uploadEditalAnexo.single("anexo")),
   asyncHandler(async (req, res) => {
     if (!req.file || !req.file.buffer || !req.file.buffer.length) {
       res.status(400).json({ error: "Envie um arquivo PDF no campo 'anexo'." });
@@ -1337,7 +1350,16 @@ app.use((err, req, res, next) => {
   // Só devolve a mensagem real quando for um erro "seguro" (validação/operacional);
   // erros internos (500) retornam mensagem genérica para não vazar detalhes.
   const podeExpor = !!(err && err.expose) || status < 500 || ehMulter;
-  const message = podeExpor && err && err.message ? err.message : "Erro interno. Tente novamente mais tarde.";
+  let message = podeExpor && err && err.message ? err.message : "Erro interno. Tente novamente mais tarde.";
+  // Mensagens do multer vêm em inglês (ex.: "File too large") — traduz p/ o usuário.
+  if (ehMulter) {
+    const msgsMulter = {
+      LIMIT_FILE_SIZE: "Arquivo muito grande. Envie um PDF menor.",
+      LIMIT_FILE_COUNT: "Foram enviados arquivos demais.",
+      LIMIT_UNEXPECTED_FILE: "Campo de arquivo inesperado."
+    };
+    message = msgsMulter[err.code] || "Não foi possível processar o arquivo enviado.";
+  }
   res.status(status).json({ error: message });
 });
 

@@ -61,8 +61,9 @@ let gradePs = null;           // grade Tabulator da tabela principal (só coluna
 // por id de edital: { cargos: [...], cronograma: [...] }. Apenas em memória
 // (não persiste; some ao recarregar a página).
 const anexosExtraidos = new Map();
-let anexoProcessoId = null; // edital alvo do modal "Inserir anexo"
-let editandoId = null;      // edital em edição no modal (null = novo cadastro)
+let editandoId = null;      // edital em edição no assistente (null = novo cadastro)
+let wizardPasso = 1;        // passo atual do assistente (1..3)
+let wizardModo = "edital";  // "edital" (criar/editar) | "anexo" (só inserir anexo)
 
 // ---------- Aprovados por vaga (protótipo em memória) ----------
 // dadosAprovados.get(editalId) = {
@@ -782,17 +783,25 @@ function atualizarTipoDoc() {
   if (anexoWrap) anexoWrap.hidden = tipo !== "anexo";
 }
 
-// Abre o modal em modo "novo" (sem id) ou "edição" (com o id do edital).
-async function abrirModalEdital(id) {
+// Abre o assistente. `opts.modo`: "edital" (criar/editar, padrão) ou "anexo"
+// (só inserir anexo num edital existente — começa no passo 2). `opts.passo`:
+// passo inicial. Sem id => novo edital; com id => edição/anexo do edital.
+async function abrirModalEdital(id, opts) {
   const modal = $("psModalEdital");
   if (!modal) return;
+  opts = opts || {};
+  wizardModo = opts.modo === "anexo" ? "anexo" : "edital";
+
   $("psFormEdital")?.reset();
   $("psFormAnexo")?._fi?.render();      // re-sincroniza o componente de arquivo após o reset
-  $("psFormAnexoDados")?._fi?.render(); // idem para o anexo dos dados (cronograma/vagas)
+  // O anexo (passo 2) fica FORA do form, então reset() não o limpa: zera na mão.
+  const faDados = $("psFormAnexoDados");
+  if (faDados) { faDados.value = ""; faDados._fi?.render(); }
   const stAnx = $("psFormAnexoDadosStatus");
   if (stAnx) { stAnx.hidden = true; stAnx.innerHTML = ""; }
-  const erro = $("psFormErro");
-  if (erro) erro.textContent = "";
+  ["psFormErro", "psWizAnexoErro", "psConfErro"].forEach(idErr => { const e = $(idErr); if (e) e.textContent = ""; });
+  const vl = $("psConfVagasLista"); if (vl) vl.innerHTML = "";
+  const cl = $("psConfCronoLista"); if (cl) cl.innerHTML = "";
 
   editandoId = typeof id === "string" ? id : null;
   const proc = editandoId ? processos.find(p => p.id === editandoId) : null;
@@ -802,21 +811,16 @@ async function abrirModalEdital(id) {
   await carregarDseisForm();
   popularSelectDsei(proc?.unidade);
 
-  // Ajusta título e botão conforme o modo.
   const titulo = $("psModalTitulo");
   if (titulo) {
-    titulo.innerHTML = proc
-      ? `<i class="fa-solid fa-pen-to-square"></i> Editar edital`
-      : `<i class="fa-solid fa-file-circle-plus"></i> Adicionar edital`;
-  }
-  const btnSalvar = $("psModalSalvar");
-  if (btnSalvar) {
-    btnSalvar.innerHTML = proc
-      ? `<i class="fa-solid fa-check"></i> Salvar alterações`
-      : `<i class="fa-solid fa-check"></i> Salvar edital`;
+    titulo.innerHTML = wizardModo === "anexo"
+      ? `<i class="fa-solid fa-file-arrow-up"></i> Inserir anexo do edital`
+      : proc
+        ? `<i class="fa-solid fa-pen-to-square"></i> Editar edital`
+        : `<i class="fa-solid fa-file-circle-plus"></i> Adicionar edital`;
   }
 
-  // Em edição, preenche os campos com os dados atuais do edital.
+  // Em edição/anexo, preenche os campos com os dados atuais do edital.
   if (proc) {
     const set = (campo, valor) => { const el = $(campo); if (el) el.value = valor ?? ""; };
     set("psFormUnidade", proc.unidade);
@@ -837,9 +841,10 @@ async function abrirModalEdital(id) {
   }
 
   atualizarTipoDoc();
+  irParaPasso(opts.passo || (wizardModo === "anexo" ? 2 : 1));
   modal.hidden = false;
   document.body.style.overflow = "hidden";
-  setTimeout(() => $("psFormUnidade")?.focus(), 40);
+  if (wizardModo !== "anexo") setTimeout(() => $("psFormUnidade")?.focus(), 40);
 }
 
 function fecharModalEdital() {
@@ -847,6 +852,8 @@ function fecharModalEdital() {
   if (!modal) return;
   modal.hidden = true;
   editandoId = null;
+  wizardModo = "edital";
+  wizardPasso = 1;
   document.body.style.overflow = "";
 }
 
@@ -856,84 +863,191 @@ function valorNum(id) {
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-async function salvarEdital(event) {
-  event.preventDefault();
+// ---------- Assistente de edital: navegação e gravação ----------
+function irParaPasso(n) {
+  wizardPasso = n;
+  document.querySelectorAll("#psModalEdital .psStepPane").forEach(p => {
+    p.hidden = Number(p.dataset.pane) !== n;
+  });
+  document.querySelectorAll("#psStepper .psStep").forEach(li => {
+    const s = Number(li.dataset.step);
+    li.classList.toggle("is-atual", s === n);
+    // No modo anexo o passo 1 já está "concluído" (edital existe).
+    li.classList.toggle("is-feito", s < n || (wizardModo === "anexo" && s === 1));
+  });
+  atualizarBotoesWizard();
+}
+
+function atualizarBotoesWizard() {
+  const show = (idBtn, v) => { const el = $(idBtn); if (el) el.hidden = !v; };
+  const anexo = wizardModo === "anexo";
+  show("psWizVoltar", wizardPasso > 1 && !(anexo && wizardPasso === 2));
+  show("psWizPular", wizardPasso === 2 && !anexo);  // pular a etapa de anexo (só ao criar/editar)
+  show("psWizProximo", wizardPasso < 3);
+  show("psWizConcluir", wizardPasso === 3);
+}
+
+// Passo 1: DSEI/UF/Edital + datas (obrigatórias) precisam estar preenchidos.
+function validarPasso1() {
   const erro = $("psFormErro");
-  if (erro) erro.textContent = "";
-
+  const set = m => { if (erro) erro.textContent = m; };
   const unidade = ($("psFormUnidade")?.value || "").trim();
-  const uf = ($("psFormUf")?.value || "").trim().toUpperCase();
+  const uf = ($("psFormUf")?.value || "").trim();
   const edital = ($("psFormEditalNum")?.value || "").trim();
-  if (!unidade || !uf || !edital) {
-    if (erro) erro.textContent = "Preencha os campos obrigatórios: DSEI/CASAI, UF e Edital.";
-    return;
-  }
+  const di = $("psFormDataInicio")?.value || "";
+  const df = $("psFormDataFim")?.value || "";
+  if (!unidade || !uf || !edital) { set("Preencha os campos obrigatórios: DSEI/CASAI, UF e Edital."); return false; }
+  if (!di || !df) { set("Informe a Data de início e a Data fim (previsto)."); return false; }
+  set("");
+  return true;
+}
 
-  // "Anexos" do edital: se um PDF foi selecionado, extrai o cronograma + quadro
-  // de vagas ANTES de salvar. Se a extração falhar, mostra o erro e mantém o
-  // modal aberto (o cadastro só conclui com o anexo lido, ou sem anexo nenhum).
-  const arquivoAnexo = $("psFormAnexoDados")?.files?.[0] || null;
-  let dadosAnexo = null;
-  if (arquivoAnexo) {
-    const statusAnx = $("psFormAnexoDadosStatus");
-    const btnSalvar = $("psModalSalvar");
-    if (statusAnx) { statusAnx.hidden = false; statusAnx.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF dos Anexos e extraindo os dados…`; }
-    if (btnSalvar) btnSalvar.disabled = true;
-    try {
-      dadosAnexo = await extrairDadosAnexo(arquivoAnexo);
-    } catch (e) {
-      if (statusAnx) statusAnx.hidden = true;
-      if (erro) erro.textContent = e.message || "Não foi possível ler o PDF dos Anexos.";
-      if (btnSalvar) btnSalvar.disabled = false;
-      return;
-    }
-    if (statusAnx) statusAnx.hidden = true;
-    if (btnSalvar) btnSalvar.disabled = false;
-  }
-
-  // Datas são obrigatórias (colunas DATE NOT NULL no banco).
-  const dataInicio = $("psFormDataInicio")?.value || "";
-  const dataEncerramento = $("psFormDataFim")?.value || "";
-  if (!dataInicio || !dataEncerramento) {
-    if (erro) erro.textContent = "Informe a Data de início e a Data fim (vigência).";
-    return;
-  }
-
-  // Documento: por ora só o LINK é persistido (o PDF do documento é blob, adiado).
-  // Na edição, mantém o link atual se o usuário não informar um novo.
+function coletarDadosEdital() {
+  // Documento: só o LINK é persistido (o PDF do documento é blob, adiado). Na
+  // edição, mantém o link atual se o usuário não informar um novo.
   const tipoDoc = document.querySelector('input[name="psDocTipo"]:checked')?.value || "link";
   const procAtual = editandoId ? processos.find(p => p.id === editandoId) : null;
   let linkEdital = procAtual ? (procAtual.linkEdital || "") : "";
   if (tipoDoc === "link") linkEdital = ($("psFormLink")?.value || "").trim();
-
-  const dados = {
-    unidade, uf, edital,
-    vagasPrevistas: valorNum("psFormVagas"),                       // número escolhido pelo usuário
-    temCadastroReserva: !!$("psFormCadastroReserva")?.checked,     // "+ CR"
-    dataInicio,
-    dataEncerramento,
+  return {
+    unidade: ($("psFormUnidade")?.value || "").trim(),
+    uf: ($("psFormUf")?.value || "").trim().toUpperCase(),
+    edital: ($("psFormEditalNum")?.value || "").trim(),
+    vagasPrevistas: valorNum("psFormVagas"),
+    temCadastroReserva: !!$("psFormCadastroReserva")?.checked,
+    dataInicio: $("psFormDataInicio")?.value || "",
+    dataEncerramento: $("psFormDataFim")?.value || "",
     status: normalizarStatus($("psFormStatus")?.value || "Andamento"),
     observacoes: ($("psFormObs")?.value || "").trim(),
     linkEdital
   };
-  if (dadosAnexo) dados.anexo = dadosAnexo; // { cargos, cronograma } extraídos do PDF
+}
 
-  const btnSalvar = $("psModalSalvar");
-  if (btnSalvar) btnSalvar.disabled = true;
+// Preenche as listas da conferência (passo 3) com o que foi extraído do PDF.
+function popularConferencia(dados) {
+  const vagasEl = $("psConfVagasLista");
+  if (vagasEl) {
+    vagasEl.innerHTML = "";
+    const cargos = (dados && dados.cargos) || [];
+    (cargos.length ? cargos : [{}]).forEach(c => vagasEl.appendChild(criarLinhaVaga(c)));
+  }
+  const cronoEl = $("psConfCronoLista");
+  if (cronoEl) {
+    cronoEl.innerHTML = "";
+    const et = (dados && dados.cronograma) || [];
+    (et.length ? et : [{ atividade: "", data: "" }]).forEach(e => cronoEl.appendChild(criarLinhaCronograma(e.atividade, e.data)));
+    renumerarLinhasCronograma(cronoEl);
+  }
+}
+
+// Lê as edições da conferência -> { cargos, cronograma }. Descarta linhas vazias.
+function lerConferencia() {
+  const vagaRows = [...($("psConfVagasLista")?.querySelectorAll("[data-vaga-row]") || [])];
+  const val = (row, k) => (row.querySelector(`[data-vaga-${k}]`)?.value || "").trim();
+  const cargos = vagaRows.map(row => ({
+    cargo: val(row, "cargo"),
+    ampla: val(row, "ampla"),
+    pcd: val(row, "pcd"),
+    pretosPardos: val(row, "pretosPardos"),
+    indigenas: val(row, "indigenas"),
+    quilombolas: val(row, "quilombolas"),
+  })).filter(c => c.cargo);
+  const cronoRows = [...($("psConfCronoLista")?.querySelectorAll("[data-crono-row]") || [])];
+  const cronograma = cronoRows.map(row => ({
+    atividade: (row.querySelector("[data-crono-ativ]")?.value || "").trim(),
+    data: (row.querySelector("[data-crono-data]")?.value || "").trim()
+  })).filter(e => e.atividade);
+  return { cargos, cronograma };
+}
+
+function wizardVoltar() {
+  if (wizardPasso > 1) irParaPasso(wizardPasso - 1);
+}
+
+async function wizardProximo() {
+  if (wizardPasso === 1) {
+    if (validarPasso1()) irParaPasso(2);
+  } else if (wizardPasso === 2) {
+    await wizardAnalisarAnexo();
+  }
+}
+
+// Passo 2 -> 3: lê o PDF (com OCR se for escaneado) e abre a conferência.
+async function wizardAnalisarAnexo() {
+  const erro = $("psWizAnexoErro");
+  if (erro) erro.textContent = "";
+  const arquivo = $("psFormAnexoDados")?.files?.[0];
+  if (!arquivo) {
+    if (erro) erro.textContent = wizardModo === "anexo"
+      ? "Selecione um arquivo PDF."
+      : "Selecione um PDF ou use “Pular etapa”.";
+    return;
+  }
+  const status = $("psFormAnexoDadosStatus");
+  const btn = $("psWizProximo");
+  if (status) { status.hidden = false; status.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF e extraindo os dados…`; }
+  if (btn) btn.disabled = true;
+  try {
+    const dados = await extrairDadosAnexo(arquivo);
+    popularConferencia(dados);
+    irParaPasso(3);
+  } catch (e) {
+    if (erro) erro.textContent = e.message || "Não foi possível ler o PDF.";
+  } finally {
+    // Some com o "Lendo o PDF…" em qualquer desfecho (sucesso ou erro).
+    if (status) { status.hidden = true; status.innerHTML = ""; }
+    if (btn) btn.disabled = false;
+  }
+}
+
+// "Pular etapa" (passo 2, ao criar/editar): salva o edital sem anexo.
+async function wizardPular() {
+  if (wizardModo === "anexo") { fecharModalEdital(); return; }
+  await gravarWizard({ semAnexo: true, botao: "psWizPular" });
+}
+
+// "Concluir" (passo 3): salva com os dados conferidos/corrigidos.
+async function wizardConcluir() {
+  const { cargos, cronograma } = lerConferencia();
+  await gravarWizard({ cargos, cronograma, botao: "psWizConcluir" });
+}
+
+async function gravarWizard({ cargos, cronograma, semAnexo, botao } = {}) {
+  const btn = botao ? $(botao) : null;
+  const mostrarErro = m => {
+    const idErr = wizardPasso === 3 ? "psConfErro" : (wizardPasso === 2 ? "psWizAnexoErro" : "psFormErro");
+    const e = $(idErr); if (e) e.textContent = m;
+  };
+
+  // Modo "anexo": grava só o anexo no edital existente (não altera os campos).
+  if (wizardModo === "anexo") {
+    if (btn) btn.disabled = true;
+    try {
+      await psApi("POST", `/api/processos-seletivos/editais/${encodeURIComponent(editandoId)}/anexo`, { cargos, cronograma });
+    } catch (e) { mostrarErro(e.message || "Não foi possível salvar o anexo."); if (btn) btn.disabled = false; return; }
+    if (btn) btn.disabled = false;
+    fecharModalEdital();
+    await recarregar();
+    psToast("Anexo salvo.");
+    return;
+  }
+
+  // Modo "edital": valida os campos e cria/atualiza o edital (com anexo, se houver).
+  if (!validarPasso1()) { irParaPasso(1); return; }
+  const dados = coletarDadosEdital();
+  if (!semAnexo && ((cargos && cargos.length) || (cronograma && cronograma.length))) {
+    dados.anexo = { cargos: cargos || [], cronograma: cronograma || [] };
+  }
+  if (btn) btn.disabled = true;
   try {
     if (editandoId) await psApi("PUT", `/api/processos-seletivos/editais/${encodeURIComponent(editandoId)}`, dados);
     else await psApi("POST", "/api/processos-seletivos/editais", dados);
-  } catch (e) {
-    if (erro) erro.textContent = e.message || "Não foi possível salvar o edital.";
-    if (btnSalvar) btnSalvar.disabled = false;
-    return;
-  }
-  if (btnSalvar) btnSalvar.disabled = false;
-
+  } catch (e) { mostrarErro(e.message || "Não foi possível salvar o edital."); if (btn) btn.disabled = false; return; }
+  if (btn) btn.disabled = false;
   if (!editandoId) paginaAtual = 1;
   fecharModalEdital();
   await recarregar();
-  psToast(dadosAnexo ? "Edital salvo e Anexos extraídos." : "Edital salvo.");
+  psToast(dados.anexo ? "Edital salvo e anexo lido." : "Edital salvo.");
 }
 
 // Exclui um edital (protótipo em memória): confirma e remove da lista, junto do
@@ -985,10 +1099,10 @@ async function removerAnexo(id) {
   await recarregar();
 }
 
-// ---------- Inserir anexo (extrai vagas + cronograma do PDF) ----------
+// ---------- Extração do anexo (PDF -> { cargos, cronograma }) ----------
 // Envia o PDF ao extrator e devolve { cargos, cronograma }. Lança erro (mensagem
-// amigável) se o servidor falhar ou se nada for localizado no PDF. Reutilizada
-// pelo modal "Inserir anexo" e pelo próprio formulário de cadastro/edição.
+// amigável) se o servidor falhar ou se nada for localizado no PDF. Usada no
+// passo 2 do assistente (analisar anexo).
 async function extrairDadosAnexo(arquivo) {
   const fd = new FormData();
   fd.append("anexo", arquivo);
@@ -1005,63 +1119,6 @@ async function extrairDadosAnexo(arquivo) {
     throw new Error("Não foi possível localizar o quadro de vagas nem o cronograma neste PDF.");
   }
   return { cargos, cronograma };
-}
-
-function abrirModalAnexo(id) {
-  anexoProcessoId = id;
-  const modal = $("psModalAnexo");
-  if (!modal) return;
-  $("psFormAnexoEdital")?.reset();
-  $("psAnexoArquivo")?._fi?.render(); // re-sincroniza o componente de arquivo após o reset
-  const erro = $("psAnexoErro");
-  if (erro) erro.textContent = "";
-  const status = $("psAnexoStatus");
-  if (status) { status.hidden = true; status.innerHTML = ""; }
-  const botao = $("psAnexoEnviar");
-  if (botao) botao.disabled = false;
-  modal.hidden = false;
-  document.body.style.overflow = "hidden";
-}
-
-function fecharModalAnexo() {
-  const modal = $("psModalAnexo");
-  if (!modal) return;
-  modal.hidden = true;
-  document.body.style.overflow = "";
-}
-
-async function enviarAnexo(event) {
-  event.preventDefault();
-  const erro = $("psAnexoErro");
-  const status = $("psAnexoStatus");
-  const botao = $("psAnexoEnviar");
-  if (erro) erro.textContent = "";
-
-  const arquivo = $("psAnexoArquivo")?.files?.[0];
-  if (!arquivo) {
-    if (erro) erro.textContent = "Selecione um arquivo PDF.";
-    return;
-  }
-
-  if (status) {
-    status.hidden = false;
-    status.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF e extraindo os dados…`;
-  }
-  if (botao) botao.disabled = true;
-
-  try {
-    const { cargos, cronograma } = await extrairDadosAnexo(arquivo);
-    // Persiste o cronograma + quadro de vagas no edital e recarrega do banco.
-    await psApi("POST", `/api/processos-seletivos/editais/${encodeURIComponent(anexoProcessoId)}/anexo`, { cargos, cronograma });
-    fecharModalAnexo();
-    await recarregar();
-    renderDetalhe();
-  } catch (e) {
-    if (status) status.hidden = true;
-    if (erro) erro.textContent = e.message || "Erro ao processar o anexo.";
-  } finally {
-    if (botao) botao.disabled = false;
-  }
 }
 
 // =========================================================
@@ -1530,8 +1587,8 @@ function atualizarHintData(row) {
   }
 }
 
-function renumerarLinhasCronograma() {
-  const lista = $("psCronogramaLista");
+function renumerarLinhasCronograma(lista) {
+  lista = lista || $("psCronogramaLista");
   if (!lista) return;
   [...lista.querySelectorAll("[data-crono-row]")].forEach((row, i) => {
     const num = row.querySelector("[data-crono-num]");
@@ -1568,6 +1625,30 @@ async function salvarCronograma(event) {
   await recarregar();
 }
 
+// ---------- Conferência (passo 3 do assistente): linha do quadro de vagas ----------
+// Linha editável do quadro de vagas: cargo + 5 cotas (AC/PcD/P-P/Ind/Quil).
+// Aceita número ou "CR". Total é derivado no back — não entra aqui.
+function criarLinhaVaga(c) {
+  c = c || {};
+  const row = document.createElement("div");
+  row.className = "psConfVagaRow";
+  row.dataset.vagaRow = "";
+  row.innerHTML = `
+    <input class="psInput psConfCargo" data-vaga-cargo type="text" placeholder="Nome do cargo" maxlength="150">
+    <input class="psInput" data-vaga-ampla type="text" maxlength="8" title="Ampla Concorrência">
+    <input class="psInput" data-vaga-pcd type="text" maxlength="8" title="PcD">
+    <input class="psInput" data-vaga-pretosPardos type="text" maxlength="8" title="Pretos/Pardos">
+    <input class="psInput" data-vaga-indigenas type="text" maxlength="8" title="Indígenas">
+    <input class="psInput" data-vaga-quilombolas type="text" maxlength="8" title="Quilombolas">
+    <button type="button" class="psIconBtn" data-vaga-remover title="Remover cargo"><i class="fa-solid fa-trash"></i></button>`;
+  row.querySelector("[data-vaga-cargo]").value = c.cargo || "";
+  ["ampla", "pcd", "pretosPardos", "indigenas", "quilombolas"].forEach(k => {
+    const v = c[k];
+    row.querySelector(`[data-vaga-${k}]`).value = (v === undefined || v === null) ? "" : String(v);
+  });
+  return row;
+}
+
 // ---------- Inicialização ----------
 let processosConfigurado = false;
 
@@ -1584,14 +1665,20 @@ export function configurarProcessosSeletivos() {
   $("psFiltroStatus")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psBusca")?.addEventListener("input", debounce(() => { paginaAtual = 1; renderTabela(); }, 250));
 
-  // Modal de cadastro/edição de edital.
+  // Assistente de edital (3 passos: dados -> anexo -> conferência).
   $("psBtnAddEdital")?.addEventListener("click", () => abrirModalEdital());
   $("psModalFechar")?.addEventListener("click", fecharModalEdital);
   $("psModalCancelar")?.addEventListener("click", fecharModalEdital);
-  $("psFormEdital")?.addEventListener("submit", salvarEdital);
+  // Enter no formulário do passo 1 = avançar (não submete/grava direto).
+  $("psFormEdital")?.addEventListener("submit", event => { event.preventDefault(); wizardProximo(); });
   $("psModalEdital")?.addEventListener("click", event => {
     if (event.target.id === "psModalEdital") fecharModalEdital();
   });
+  // Botões de navegação do assistente.
+  $("psWizVoltar")?.addEventListener("click", wizardVoltar);
+  $("psWizProximo")?.addEventListener("click", wizardProximo);
+  $("psWizPular")?.addEventListener("click", wizardPular);
+  $("psWizConcluir")?.addEventListener("click", wizardConcluir);
   document.querySelectorAll('input[name="psDocTipo"]').forEach(radio =>
     radio.addEventListener("change", atualizarTipoDoc));
   // Ao escolher o DSEI/CASAI, traz a UF principal automaticamente.
@@ -1601,14 +1688,6 @@ export function configurarProcessosSeletivos() {
     if (uf && el) el.value = uf;
   });
   carregarDseisForm(); // aquece o cache da lista de DSEIs (não bloqueia o init)
-
-  // Modal de inserção de anexo (extração de vagas/cronograma do PDF).
-  $("psModalAnexoFechar")?.addEventListener("click", fecharModalAnexo);
-  $("psModalAnexoCancelar")?.addEventListener("click", fecharModalAnexo);
-  $("psFormAnexoEdital")?.addEventListener("submit", enviarAnexo);
-  $("psModalAnexo")?.addEventListener("click", event => {
-    if (event.target.id === "psModalAnexo") fecharModalAnexo();
-  });
 
   // Aprovados: sem modal — inserção/edição inline na própria tabela.
 
@@ -1642,6 +1721,28 @@ export function configurarProcessosSeletivos() {
     if (event.target.matches("[data-crono-data]")) atualizarHintData(event.target.closest("[data-crono-row]"));
   });
 
+  // Conferência (passo 3 do assistente): adicionar/remover cargos e etapas.
+  $("psConfAddVaga")?.addEventListener("click", () => {
+    $("psConfVagasLista")?.appendChild(criarLinhaVaga({}));
+  });
+  $("psConfVagasLista")?.addEventListener("click", event => {
+    const rem = event.target.closest("[data-vaga-remover]");
+    if (rem) rem.closest("[data-vaga-row]")?.remove();
+  });
+  $("psConfAddCrono")?.addEventListener("click", () => {
+    const lista = $("psConfCronoLista");
+    if (!lista) return;
+    lista.appendChild(criarLinhaCronograma("", ""));
+    renumerarLinhasCronograma(lista);
+  });
+  $("psConfCronoLista")?.addEventListener("click", event => {
+    const rem = event.target.closest("[data-crono-remover]");
+    if (rem) { const l = $("psConfCronoLista"); rem.closest("[data-crono-row]")?.remove(); renumerarLinhasCronograma(l); }
+  });
+  $("psConfCronoLista")?.addEventListener("input", event => {
+    if (event.target.matches("[data-crono-data]")) atualizarHintData(event.target.closest("[data-crono-row]"));
+  });
+
   // Delegação para os elementos gerados dinamicamente (tabela + detalhe).
   raiz.addEventListener("click", event => {
     const editar = event.target.closest("[data-ps-editar]");
@@ -1651,7 +1752,7 @@ export function configurarProcessosSeletivos() {
     if (excluir) { excluirEdital(excluir.dataset.psExcluir); return; }
 
     const anexo = event.target.closest("[data-ps-anexo]");
-    if (anexo) { abrirModalAnexo(anexo.dataset.psAnexo); return; }
+    if (anexo) { abrirModalEdital(anexo.dataset.psAnexo, { modo: "anexo", passo: 2 }); return; }
 
     const remAnexo = event.target.closest("[data-ps-remover-anexo]");
     if (remAnexo) { removerAnexo(remAnexo.dataset.psRemoverAnexo); return; }
