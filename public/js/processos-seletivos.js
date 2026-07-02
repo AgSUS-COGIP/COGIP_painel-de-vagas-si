@@ -166,34 +166,18 @@ export function obterBloqueiosRemanejamentoPSS() {
 }
 
 // ---------- Helpers ----------
-// Status "efetivo": a data fim (vigência) SOBREPÕE o status original. Quando ela
-// já passou, o edital vira "Vencido"; quando falta até 30 dias, "Encerrando em
-// Breve". Cancelado nunca é sobreposto (edital cancelado não tem vigência ativa).
-// É o valor usado no badge (tabela + detalhe), nos KPIs e no filtro de status —
-// assim status e KPIs sempre batem. O campo bruto `status` é preservado (o
-// bloqueio de remanejamento por PSS em andamento continua lendo o status real).
-// Status "base" derivado do cronograma: após a ÚLTIMA data do cronograma o
-// edital fica "Concluído"; antes disso mantém o status cadastrado (Andamento,
-// Aguardando Convocação…). Cancelado nunca é sobreposto.
-function statusBaseEdital(proc) {
-  if (proc.status === "Cancelado") return "Cancelado";
-  const ultima = ultimaDataCronograma(cronogramaDoEdital(proc));
-  if (ultima && hojeZerado() > ultima) return "Concluído";
-  return proc.status || "Andamento";
-}
-
-// Status efetivo (exibido): a vigência sobrepõe tudo — "Vencido" quando a data
-// fim já passou e "Encerrando em Breve" (apenas visual) quando falta ≤30 dias;
-// senão, usa o status base derivado do cronograma.
+// Status efetivo (exibido): o status é definido pelo USUÁRIO (campo `status`) —
+// NÃO é derivado automaticamente do cronograma nem da vigência. A única
+// sobreposição automática é o aviso visual "Encerrando em Breve", quando faltam
+// ≤30 dias para a data fim (vigência). "Cancelado" tem prioridade e nunca é
+// sobreposto. É o valor usado no badge (tabela + detalhe), nos KPIs e no filtro
+// de status — assim status e KPIs sempre batem.
 function statusEfetivo(proc) {
   if (!proc) return "—";
   if (proc.status === "Cancelado") return "Cancelado";
   const dias = diasAteVigencia(proc.dataEncerramento);
-  if (dias !== null) {
-    if (dias < 0) return "Vencido";
-    if (dias <= 30) return "Encerrando em Breve";
-  }
-  return statusBaseEdital(proc);
+  if (dias !== null && dias >= 0 && dias <= 30) return "Encerrando em Breve";
+  return proc.status || "Andamento";
 }
 
 function badgeStatus(status) {
@@ -440,7 +424,14 @@ function montarQuadroVagas(proc) {
       } },
     ...colunas.map(col => ({
       title: col.rotulo, field: col.campo, hozAlign: ehNumerica(col.campo) ? "center" : "left",
-      formatter: c => escapeHtml(celulaVazia(c.getValue()) ? "—" : c.getValue())
+      // Cota sem vaga imediata (valor 0) é Cadastro Reserva: mostra "CR" no lugar
+      // do 0. Célula em branco continua "—"; texto (ex.: Lotação) não é afetado.
+      formatter: c => {
+        const v = c.getValue();
+        if (celulaVazia(v)) return "—";
+        if (ehNumerica(col.campo) && Number(v) === 0) return "CR";
+        return escapeHtml(v);
+      }
     })),
     { title: "Fila", hozAlign: "center", minWidth: 70,
       formatter: c => String(filaDoCargo(proc.id, c.getRow().getData().cargo)) }
@@ -493,16 +484,6 @@ function parseDatasCronograma(texto) {
   return { inicio: datas[0], fim: datas[datas.length - 1] };
 }
 
-// Última data (máxima) de todo o cronograma — marca a "conclusão" do processo.
-function ultimaDataCronograma(cronograma) {
-  let ultima = null;
-  (cronograma || []).forEach(e => {
-    const { fim } = parseDatasCronograma(e.data);
-    if (fim && (!ultima || fim > ultima)) ultima = fim;
-  });
-  return ultima;
-}
-
 // Índice da etapa atual: a de maior data de INÍCIO que já começou (início <= hoje).
 // Uma etapa com intervalo vale durante o intervalo; com data única, vale a partir
 // dela até a próxima começar. Retorna -1 se nenhuma começou.
@@ -516,15 +497,21 @@ function indiceEtapaAtual(cronograma) {
   return idx;
 }
 
-// Data de divulgação do resultado final: a ÚLTIMA data do cronograma do edital
-// (última etapa com data preenchida). O cronograma só existe quando um anexo PDF
-// foi extraído nesta sessão — sem anexo, retorna "" e a coluna mostra "—". A data
-// é a string crua do PDF (mesmo texto exibido na tabela do cronograma).
+// Data de divulgação do resultado final: a data da etapa do cronograma cuja
+// ATIVIDADE é o "Resultado Final do Processo Seletivo". Antes usávamos a última
+// data do cronograma, mas etapas posteriores (homologação, convocação, posse…)
+// resultavam numa data tarde demais. O casamento é por texto normalizado (sem
+// acento/caixa): primeiro a frase completa; como reserva, qualquer "resultado
+// final" (pega a ÚLTIMA ocorrência, para não cair em recurso/preliminar antes).
+// Sem etapa correspondente (ou sem anexo), retorna "" e a coluna mostra "—" — aí
+// basta usar "Ajustar cronograma" para nomear/ajustar a etapa. A data é a string
+// crua do PDF (mesmo texto exibido na tabela do cronograma).
 function dataDivulgacaoResultado(proc) {
   const etapas = cronogramaDoEdital(proc);
+  const exato = etapas.find(e => normChave(e?.atividade).includes("resultado final do processo seletivo"));
+  if (exato) return String(exato.data || "").trim();
   for (let i = etapas.length - 1; i >= 0; i--) {
-    const d = String(etapas[i]?.data || "").trim();
-    if (d) return d;
+    if (normChave(etapas[i]?.atividade).includes("resultado final")) return String(etapas[i].data || "").trim();
   }
   return "";
 }
@@ -603,9 +590,15 @@ function renderEtapaAtual(proc) {
   const viaAnexo = extra && extra.cronograma && extra.cronograma.length
     ? ` <span class="psBlocoFonte"><i class="fa-solid fa-file-arrow-up"></i> via anexo</span>`
     : "";
+  // "Ajustar cronograma" fica junto do próprio cronograma (só ao expandir): editor
+  // e desde que haja dados extraídos (anexo) para corrigir/complementar.
+  const podeAjustarCrono = podeEditarProcessos() && anexosExtraidos.has(proc?.id);
   const corpo = cronoExpandido
     ? `<div class="psEtapaCorpo">
-         ${etapas.length ? `<div class="psEtapaMeta">${etapas.length} etapa(s)${viaAnexo}</div>` : ""}
+         <div class="psEtapaBarra">
+           <span class="psEtapaMeta">${etapas.length ? `${etapas.length} etapa(s)${viaAnexo}` : ""}</span>
+           ${podeAjustarCrono ? `<button type="button" class="psBtn psBtnGhost psBtnSm" data-ps-cronograma="${escapeAttr(proc.id)}"><i class="fa-solid fa-calendar-days"></i> Ajustar cronograma</button>` : ""}
+         </div>
          ${cronogramaTabelaHtml(proc)}
        </div>`
     : "";
@@ -655,9 +648,13 @@ function renderDetalhe() {
         <button type="button" class="psBtn psBtnGhost psBtnExcluir" data-ps-excluir="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-trash"></i> Excluir
         </button>
-        <button type="button" class="psBtn psBtnGhost" data-ps-anexo="${escapeAttr(proc.id)}">
+        <button type="button" class="psBtn psBtnGhost psBtnEditar" data-ps-anexo="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-file-arrow-up"></i> Inserir anexo
-        </button>` : ""}
+        </button>
+        ${anexosExtraidos.has(proc.id) ? `
+        <button type="button" class="psBtn psBtnGhost psBtnExcluir" data-ps-remover-anexo="${escapeAttr(proc.id)}">
+          <i class="fa-solid fa-file-circle-xmark"></i> Remover anexo
+        </button>` : ""}` : ""}
         <button type="button" class="psBtn psBtnGhost" data-ps-detalhe="${escapeAttr(proc.id)}">
           Recolher detalhes <i class="fa-solid fa-chevron-up"></i>
         </button>
@@ -961,6 +958,30 @@ async function excluirEdital(id) {
   }
   if (processoExpandido === id) { processoExpandido = null; vagaSelecionada = null; }
   psToast("Edital excluído.");
+  await recarregar();
+}
+
+// Remove o anexo do edital (cronograma + quadro de vagas e, por consequência,
+// TODOS os aprovados). Ação destrutiva: confirma com aviso do que será apagado.
+async function removerAnexo(id) {
+  if (!podeEditarProcessos()) return;
+  const proc = processos.find(p => p.id === id);
+  if (!proc) return;
+  const r = await abrirModal({
+    titulo: "Remover anexo",
+    msg: `Isto vai apagar o cronograma, o quadro de vagas e TODOS os aprovados cadastrados do edital ${proc.edital ? `"${escapeHtml(proc.edital)}" ` : ""}de ${escapeHtml(proc.unidade || "—")}. Esta ação não pode ser desfeita. Deseja continuar?`,
+    confirmarTexto: "Remover anexo",
+    perigo: true
+  });
+  if (!r.ok) return;
+  try {
+    await psApi("DELETE", `/api/processos-seletivos/editais/${encodeURIComponent(id)}/anexo`);
+  } catch (e) {
+    psToast(e.message || "Não foi possível remover o anexo.");
+    return;
+  }
+  vagaSelecionada = null;
+  psToast("Anexo removido.");
   await recarregar();
 }
 
@@ -1434,6 +1455,119 @@ function salvarConfig(event) {
   psToast("Configuração de classificação salva.");
 }
 
+// ---------- Modal: ajustar cronograma (editar atividades/datas manualmente) ----------
+// O cronograma extraído do PDF às vezes traz datas incompletas (ex.: "24/07" sem
+// ano) que parseDatasCronograma() não reconhece. Este modal permite corrigir o
+// texto das atividades e das datas e salvar. Reaproveita o endpoint do anexo
+// enviando só o cronograma — sem `cargos`, o upsert de vagas é no-op, então o
+// quadro de vagas e os aprovados são preservados.
+let cronogramaEditId = null;
+
+function abrirModalCronograma(editalId) {
+  if (!editalId || !podeEditarProcessos()) return;
+  cronogramaEditId = editalId;
+  const modal = $("psModalCronograma");
+  if (!modal) return;
+  const erro = $("psCronogramaErro");
+  if (erro) erro.textContent = "";
+  const proc = processos.find(p => p.id === editalId);
+  const etapas = cronogramaDoEdital(proc);
+  const lista = $("psCronogramaLista");
+  if (lista) {
+    lista.innerHTML = "";
+    (etapas.length ? etapas : [{ atividade: "", data: "" }])
+      .forEach(e => lista.appendChild(criarLinhaCronograma(e.atividade, e.data)));
+    renumerarLinhasCronograma();
+  }
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function fecharModalCronograma() {
+  const modal = $("psModalCronograma");
+  if (!modal) return;
+  modal.hidden = true;
+  cronogramaEditId = null;
+  document.body.style.overflow = "";
+}
+
+// Monta uma linha editável (atividade + data) com o selo de leitura da data.
+function criarLinhaCronograma(atividade, data) {
+  const row = document.createElement("div");
+  row.className = "psCronoEditRow";
+  row.dataset.cronoRow = "";
+  row.innerHTML = `
+    <span class="psCronoEditColNum" data-crono-num></span>
+    <input class="psInput" data-crono-ativ type="text" placeholder="Atividade" maxlength="255">
+    <div class="psCronoEditColData">
+      <input class="psInput" data-crono-data type="text" placeholder="dd/mm/aaaa" maxlength="120">
+      <span class="psCronoDataHint" data-crono-hint></span>
+    </div>
+    <button type="button" class="psIconBtn" data-crono-remover title="Remover etapa"><i class="fa-solid fa-trash"></i></button>`;
+  row.querySelector("[data-crono-ativ]").value = atividade || "";
+  row.querySelector("[data-crono-data]").value = data || "";
+  atualizarHintData(row);
+  return row;
+}
+
+// Atualiza o selo de leitura da data: verde com a(s) data(s) reconhecida(s) ou
+// vermelho quando o texto não vira uma data válida (mesma regra da tabela/KPIs).
+function atualizarHintData(row) {
+  const valor = (row.querySelector("[data-crono-data]")?.value || "").trim();
+  const hint = row.querySelector("[data-crono-hint]");
+  if (!hint) return;
+  if (!valor) { hint.className = "psCronoDataHint"; hint.textContent = ""; return; }
+  const { inicio, fim } = parseDatasCronograma(valor);
+  if (!inicio) {
+    hint.className = "psCronoDataHint is-erro";
+    hint.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> não reconhecida — inclua o ano`;
+  } else {
+    const txt = fim && fim.getTime() !== inicio.getTime()
+      ? `${inicio.toLocaleDateString("pt-BR")} a ${fim.toLocaleDateString("pt-BR")}`
+      : inicio.toLocaleDateString("pt-BR");
+    hint.className = "psCronoDataHint is-ok";
+    hint.innerHTML = `<i class="fa-solid fa-check"></i> ${escapeHtml(txt)}`;
+  }
+}
+
+function renumerarLinhasCronograma() {
+  const lista = $("psCronogramaLista");
+  if (!lista) return;
+  [...lista.querySelectorAll("[data-crono-row]")].forEach((row, i) => {
+    const num = row.querySelector("[data-crono-num]");
+    if (num) num.textContent = String(i + 1);
+  });
+}
+
+async function salvarCronograma(event) {
+  event.preventDefault();
+  if (!cronogramaEditId || !podeEditarProcessos()) { fecharModalCronograma(); return; }
+  const lista = $("psCronogramaLista");
+  const rows = lista ? [...lista.querySelectorAll("[data-crono-row]")] : [];
+  // Etapas sem atividade são descartadas (mesmo critério do servidor).
+  const cronograma = rows.map(row => ({
+    atividade: (row.querySelector("[data-crono-ativ]")?.value || "").trim(),
+    data: (row.querySelector("[data-crono-data]")?.value || "").trim()
+  })).filter(e => e.atividade);
+
+  const btn = $("psModalCronogramaSalvar");
+  if (btn) btn.disabled = true;
+  try {
+    // Só `cronograma`: sem `cargos`, o upsert de vagas não altera nada (quadro de
+    // vagas e aprovados ficam intactos).
+    await psApi("POST", `/api/processos-seletivos/editais/${encodeURIComponent(cronogramaEditId)}/anexo`, { cronograma });
+  } catch (e) {
+    const erro = $("psCronogramaErro");
+    if (erro) erro.textContent = e.message || "Não foi possível salvar o cronograma.";
+    if (btn) btn.disabled = false;
+    return;
+  }
+  if (btn) btn.disabled = false;
+  fecharModalCronograma();
+  psToast("Cronograma atualizado.");
+  await recarregar();
+}
+
 // ---------- Inicialização ----------
 let processosConfigurado = false;
 
@@ -1486,6 +1620,28 @@ export function configurarProcessosSeletivos() {
     if (event.target.id === "psModalConfig") fecharModalConfig();
   });
 
+  // Modal de ajuste do cronograma (edição manual de atividades/datas).
+  $("psModalCronogramaFechar")?.addEventListener("click", fecharModalCronograma);
+  $("psModalCronogramaCancelar")?.addEventListener("click", fecharModalCronograma);
+  $("psFormCronograma")?.addEventListener("submit", salvarCronograma);
+  $("psModalCronograma")?.addEventListener("click", event => {
+    if (event.target.id === "psModalCronograma") fecharModalCronograma();
+  });
+  $("psCronogramaAddLinha")?.addEventListener("click", () => {
+    const lista = $("psCronogramaLista");
+    if (!lista) return;
+    lista.appendChild(criarLinhaCronograma("", ""));
+    renumerarLinhasCronograma();
+  });
+  // Remover etapa e revalidar o selo da data ao digitar (delegação na lista).
+  $("psCronogramaLista")?.addEventListener("click", event => {
+    const rem = event.target.closest("[data-crono-remover]");
+    if (rem) { rem.closest("[data-crono-row]")?.remove(); renumerarLinhasCronograma(); }
+  });
+  $("psCronogramaLista")?.addEventListener("input", event => {
+    if (event.target.matches("[data-crono-data]")) atualizarHintData(event.target.closest("[data-crono-row]"));
+  });
+
   // Delegação para os elementos gerados dinamicamente (tabela + detalhe).
   raiz.addEventListener("click", event => {
     const editar = event.target.closest("[data-ps-editar]");
@@ -1496,6 +1652,12 @@ export function configurarProcessosSeletivos() {
 
     const anexo = event.target.closest("[data-ps-anexo]");
     if (anexo) { abrirModalAnexo(anexo.dataset.psAnexo); return; }
+
+    const remAnexo = event.target.closest("[data-ps-remover-anexo]");
+    if (remAnexo) { removerAnexo(remAnexo.dataset.psRemoverAnexo); return; }
+
+    const ajCrono = event.target.closest("[data-ps-cronograma]");
+    if (ajCrono) { abrirModalCronograma(ajCrono.dataset.psCronograma); return; }
 
     const det = event.target.closest("[data-ps-detalhe]");
     if (det) { alternarDetalhe(det.dataset.psDetalhe); return; }

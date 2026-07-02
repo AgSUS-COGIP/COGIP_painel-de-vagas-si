@@ -20,7 +20,7 @@ const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { listarDseisCasaiComConn } = require("./lib/dsei-casai");
 const {
   listarEditaisComConn, criarEditalComConn, atualizarEditalComConn, excluirEditalComConn,
-  substituirAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
+  substituirAnexoComConn, removerAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
 } = require("./lib/processos-seletivos");
 const { getFeriasData } = require("./lib/ferias");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
@@ -1237,6 +1237,14 @@ app.delete("/api/processos-seletivos/editais/:id", apiLimiter, autenticarFrescoM
 app.post("/api/processos-seletivos/editais/:id/anexo", ...psEscrita, asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try { await substituirAnexoComConn(conn, Number(req.params.id), req.body || {}); res.json({ ok: true }); }
+  finally { await fecharJdbc(conn); }
+}));
+
+// Remove o anexo do edital (cronograma, quadro de vagas e aprovados). Destrutivo:
+// exige nível admin, como as demais exclusões do módulo.
+app.delete("/api/processos-seletivos/editais/:id/anexo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { await removerAnexoComConn(conn, Number(req.params.id)); res.json({ ok: true }); }
   finally { await fecharJdbc(conn); }
 }));
 

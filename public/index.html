@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitoramento de Vagas - Saúde Indígena</title>
+  <title>Unidade de Gestão de Pessoas - UGP - Saúde Indígena</title>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -331,7 +331,7 @@
       <h1 id="tituloPagina" class="sr-only">Visão Geral</h1>
       <header class="top">
         <div>
-          <div class="titleSmall">Monitoramento de Vagas</div>
+          <div class="titleSmall">Unidade de Gestão de Pessoas - UGP</div>
           <div class="titleBig">Saúde Indígena</div>
         </div>
 
@@ -2295,6 +2295,41 @@
               <div class="psModalFoot">
                 <button type="button" class="psBtn psBtnGhost" id="psModalConfigCancelar">Cancelar</button>
                 <button type="submit" form="psFormConfig" class="psBtn" id="psModalConfigSalvar"><i class="fa-solid fa-check"></i> Salvar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: ajustar cronograma (editar atividades e datas manualmente) -->
+          <div class="psModalOverlay" id="psModalCronograma" hidden>
+            <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalCronogramaTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalCronogramaTitulo"><i class="fa-solid fa-calendar-days"></i> Ajustar cronograma</h3>
+                <button type="button" class="psModalClose" id="psModalCronogramaFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormCronograma">
+                <p class="psAnexoIntro">
+                  Edite o texto das <strong>atividades</strong> e das <strong>datas</strong>. Datas incompletas
+                  (ex.: <strong>24/07</strong>) não são reconhecidas — inclua o ano no formato
+                  <strong>dd/mm/aaaa</strong> (ex.: 24/07/2026). Intervalos (“22 a 24/06/2026”) e
+                  listas (“31/07 e 01/08/2026”) também são aceitos. Etapas sem atividade são descartadas.
+                </p>
+                <div class="psCronoEditHead">
+                  <span>#</span>
+                  <span>Atividade</span>
+                  <span>Data</span>
+                  <span></span>
+                </div>
+                <div id="psCronogramaLista" class="psCronoEditLista"></div>
+                <button type="button" class="psBtn psBtnGhost psBtnSm" id="psCronogramaAddLinha">
+                  <i class="fa-solid fa-plus"></i> Adicionar etapa
+                </button>
+                <p class="psModalErro" id="psCronogramaErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalCronogramaCancelar">Cancelar</button>
+                <button type="submit" form="psFormCronograma" class="psBtn" id="psModalCronogramaSalvar"><i class="fa-solid fa-check"></i> Salvar cronograma</button>
               </div>
             </div>
           </div>

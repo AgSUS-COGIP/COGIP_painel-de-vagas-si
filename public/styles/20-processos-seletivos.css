@@ -473,7 +473,7 @@
 /* ---------- Tiles de resumo do processo ---------- */
 .psResumoTiles {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -661,7 +661,15 @@
 }
 .psEtapaValor { flex: 1; font-size: 12px; font-weight: 800; color: var(--azul-escuro); }
 .psEtapaCorpo { margin-top: 8px; }
-.psEtapaMeta { margin-bottom: 4px; color: #6b86a8; font-size: 10.5px; font-weight: 800; }
+.psEtapaMeta { color: #6b86a8; font-size: 10.5px; font-weight: 800; }
+/* Barra acima da tabela do cronograma: meta à esquerda, "Ajustar cronograma" à direita. */
+.psEtapaBarra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
 
 /* Painel "Aprovados para [vaga]" abaixo do quadro de vagas. */
 .psAprovadosPainel {
@@ -778,6 +786,52 @@
   font-size: 12px;
   font-weight: 800;
 }
+
+/* Modal: ajustar cronograma (edição manual de atividades/datas). */
+.psCronoEditHead,
+.psCronoEditRow {
+  display: grid;
+  grid-template-columns: 34px 1fr 190px 36px;
+  gap: 8px;
+  align-items: start;
+}
+.psCronoEditHead {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: #2d537f;
+}
+.psCronoEditLista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.psCronoEditRow > .psCronoEditColNum,
+.psCronoEditRow > .psIconBtn { align-self: center; }
+.psCronoEditColNum {
+  text-align: center;
+  font-weight: 800;
+  color: #2d537f;
+}
+.psCronoEditColData {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.psCronoDataHint {
+  min-height: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.psCronoDataHint.is-ok { color: #0a7a44; }
+.psCronoDataHint.is-erro { color: #c0392b; }
+#psCronogramaAddLinha { margin-top: 12px; }
 
 .psBlocoFonte {
   color: #0a7a44;

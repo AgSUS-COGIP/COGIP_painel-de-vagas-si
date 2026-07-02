@@ -342,3 +342,57 @@
   filter: brightness(1.06);
   box-shadow: 0 12px 20px rgba(0, 43, 93, .26);
 }
+
+/* ---------- Dropdown do editor `list` (ex.: colunas Tipo/Status dos Aprovados) ----------
+   O Tabulator anexa o menu ao <body> dentro de .tabulator-popup-container (FORA do
+   .tabArrWrap), por isso os seletores são globais. Ficam na camada tabela-arrastavel,
+   que vem depois de tabulator-base e vence o tema padrão sem !important. */
+.tabulator-popup-container {
+  border: 1px solid rgba(0, 83, 166, .18);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0, 24, 61, .22);
+  padding: 5px;
+}
+
+.tabulator-edit-list {
+  font-family: inherit;
+  font-size: 12px;
+  max-height: 240px;
+}
+
+.tabulator-edit-list .tabulator-edit-list-item {
+  color: #143a63;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 7px;
+  transition: background .12s ease, color .12s ease;
+}
+
+.tabulator-edit-list .tabulator-edit-list-item:hover {
+  background: rgba(0, 112, 217, .10);
+  color: #0a3d73;
+  cursor: pointer;
+}
+
+/* Foco por teclado: realce suave no lugar do outline padrão do tema. */
+.tabulator-edit-list .tabulator-edit-list-item.focused {
+  outline: none;
+  background: rgba(0, 112, 217, .10);
+  color: #0a3d73;
+}
+
+/* Valor atualmente selecionado: mesmo azul do cabeçalho das grades. */
+.tabulator-edit-list .tabulator-edit-list-item.active,
+.tabulator-edit-list .tabulator-edit-list-item.active.focused,
+.tabulator-edit-list .tabulator-edit-list-item.active:hover {
+  background: linear-gradient(135deg, #00457f, var(--azul-card));
+  color: #fff;
+  outline: none;
+}
+
+.tabulator-edit-list .tabulator-edit-list-placeholder {
+  color: #4a6a93;
+  font-weight: 700;
+  padding: 8px 12px;
+  text-align: center;
+}
