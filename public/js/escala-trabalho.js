@@ -274,12 +274,16 @@ function renderAlerta() {
   if (total) total.textContent = String(sem.length);
   const chips = $("etAlertaChips");
   if (chips) {
-    chips.innerHTML = sem.slice(0, 8).map(p => `
+    const chipsHtml = sem.slice(0, 8).map(p => `
       <span class="etChip">
         <span class="etChipNome">${escapeHtml(p.nome)}</span>
         <span class="etChipCargo">${escapeHtml(p.cargo || "—")}</span>
       </span>
     `).join("");
+    // "Ver todos" entra no MESMO fluxo dos chips (último item) — ocupa o espaço
+    // livre na linha dos nomes e só quebra para a próxima linha se não couber.
+    chips.innerHTML = chipsHtml +
+      `<button type="button" class="etBtn etBtnVerTodos" data-et-ver-sem-escala>Ver todos <i class="fa-solid fa-arrow-right"></i></button>`;
   }
 }
 

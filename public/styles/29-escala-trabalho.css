@@ -222,6 +222,10 @@
     white-space: nowrap;
   }
 
+  /* Empurra o "Ver todos" para o fim da linha (extrema direita da linha em que
+     estiver), mantendo os chips alinhados à esquerda. */
+  .etAlertaChips .etBtnVerTodos { margin-left: auto; }
+
   /* ---------- Alerta: sem escala ---------- */
   .etAlerta {
     background: linear-gradient(180deg, #fff7ec, #fdefda);
@@ -274,6 +278,7 @@
   .etAlertaChips {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 10px;
     flex: 1 1 auto;
   }

@@ -1323,6 +1323,14 @@ body.ec-import-aberto .top { visibility: hidden; }
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+/* Botões "Marcar todos" / "Desmarcar todos" ao lado do "Selecionar todas". */
+.ecImportSelBtns {
+  display: flex;
+  gap: 8px;
+  margin-right: auto; /* empurra o contador para a direita */
 }
 
 .ecImportSelAll {
@@ -1351,6 +1359,9 @@ body.ec-import-aberto .top { visibility: hidden; }
   width: max-content;
   min-width: 100%;
   font-size: 11.5px;
+  /* Colunas de largura fixa (colgroup): estabiliza a tabela com a virtualização
+     (senão as colunas "pulam" ao rolar, conforme o conteúdo das linhas visíveis). */
+  table-layout: fixed;
 }
 
 .ecImportTable th,
@@ -1358,8 +1369,19 @@ body.ec-import-aberto .top { visibility: hidden; }
   padding: 7px 10px;
   border-bottom: 1px solid rgba(0, 83, 166, .10);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: left;
 }
+
+/* Altura de linha FIXA — a virtualização calcula as posições por índice × altura,
+   então cada linha precisa ter exatamente esta altura. */
+.ecImportTable tbody tr:not(.ecImportSpacer) { height: 44px; }
+
+/* Espaçadores (linhas vazias que representam as linhas fora da janela visível):
+   só ocupam altura, sem conteúdo/borda. */
+.ecImportSpacer td { padding: 0; border: none; }
+.ecImportSpacer:hover { background: none; }
 
 .ecImportTable thead th {
   position: sticky;

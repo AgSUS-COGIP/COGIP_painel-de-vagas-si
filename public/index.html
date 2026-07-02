@@ -1678,6 +1678,14 @@
               </div>
               <div class="ecImportToolbar">
                 <label class="ecImportSelAll"><input type="checkbox" id="ecImportSelAll"> Selecionar todas</label>
+                <div class="ecImportSelBtns">
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecImportMarcarTodos">
+                    <i class="fa-solid fa-check-double"></i> Marcar todos
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecImportDesmarcarTodos">
+                    <i class="fa-regular fa-square"></i> Desmarcar todos
+                  </button>
+                </div>
                 <span class="ecImportContador" id="ecImportContador">0 de 0 selecionada(s)</span>
               </div>
               <div class="ecImportAviso" id="ecImportAviso" hidden></div>
@@ -2337,8 +2345,9 @@
             </div>
             <p class="etAlertaSub">Os seguintes profissionais ainda não foram inseridos no controle de escala.</p>
             <div class="etAlertaCorpo">
+              <!-- Chips + botão "Ver todos" fluem juntos (o botão vai no fim da mesma
+                   linha dos nomes, indo para a linha de baixo só se não couber). -->
               <div class="etAlertaChips" id="etAlertaChips"></div>
-              <button type="button" class="etBtn etBtnVerTodos" data-et-ver-sem-escala>Ver todos <i class="fa-solid fa-arrow-right"></i></button>
             </div>
           </div>
 

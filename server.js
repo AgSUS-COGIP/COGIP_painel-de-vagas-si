@@ -295,6 +295,7 @@ app.get("/api/escala", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoMo
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
+  res.set("Cache-Control", "no-store"); // evita o navegador servir dados antigos após alterações
   res.json(await getCrachaData(forcar, req.usuario.escopo));
 }));
 
