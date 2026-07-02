@@ -2314,12 +2314,12 @@
               </button>
             </div>
             <div class="etHeaderFiltros">
-              <div class="etField"><span class="etFieldLabel">DSEI</span><select class="etSelect" id="etFDsei" aria-label="Filtrar por DSEI"></select></div>
-              <div class="etField"><span class="etFieldLabel">Polo base / CASAI</span><select class="etSelect" id="etFPolo" aria-label="Filtrar por polo base"></select></div>
-              <div class="etField"><span class="etFieldLabel">UBSI (se houver)</span><select class="etSelect" id="etFUbsi" aria-label="Filtrar por UBSI"></select></div>
-              <div class="etField"><span class="etFieldLabel">Cargo</span><select class="etSelect" id="etFCargo" aria-label="Filtrar por cargo"></select></div>
-              <div class="etField"><span class="etFieldLabel">Escala</span><select class="etSelect" id="etFEscala" aria-label="Filtrar por escala"></select></div>
-              <div class="etField"><span class="etFieldLabel">Situação</span><select class="etSelect" id="etFSituacao" aria-label="Filtrar por situação"></select></div>
+              <div class="etField"><span class="etFieldLabel">DSEI</span><div class="etCombo" id="etFDsei"></div></div>
+              <div class="etField"><span class="etFieldLabel">Polo base / CASAI</span><div class="etCombo" id="etFPolo"></div></div>
+              <div class="etField"><span class="etFieldLabel">UBSI (se houver)</span><div class="etCombo" id="etFUbsi"></div></div>
+              <div class="etField"><span class="etFieldLabel">Cargo</span><div class="etCombo" id="etFCargo"></div></div>
+              <div class="etField"><span class="etFieldLabel">Escala</span><div class="etCombo" id="etFEscala"></div></div>
+              <div class="etField"><span class="etFieldLabel">Situação</span><div class="etCombo" id="etFSituacao"></div></div>
               <div class="etField etFieldBusca">
                 <span class="etFieldLabel">Buscar</span>
                 <div class="etSearchBox">
@@ -2348,12 +2348,23 @@
               <span class="etCardCount" id="etTabelaCount" aria-live="polite">—</span>
             </div>
             <div id="etTabelaBody" class="etGrid"></div>
+            <div class="etTableFooter">
+              <div class="etRodapeEsq">
+                <span class="etRegistros" id="etRegistros">Mostrando 0 profissionais</span>
+                <label class="etPorPagina">Mostrar
+                  <select class="etSelect etSelectPagina" id="etPorPagina" aria-label="Registros por página"></select>
+                  por página
+                </label>
+              </div>
+              <div class="etPagination" id="etPagination"></div>
+            </div>
           </section>
 
           <div class="etDuplo">
             <section class="etCard">
               <div class="etCardHead">
                 <h3 class="etCardTitle">Detalhamento — Plantonistas <span class="etCardComp" id="etCompPlant">—</span></h3>
+                <span class="etCardCount" id="etPlantCount"></span>
               </div>
               <div id="etPlantBody" class="etGrid etGridPlant"></div>
               <div class="etPlantLegenda">
@@ -2366,6 +2377,7 @@
             <section class="etCard">
               <div class="etCardHead">
                 <h3 class="etCardTitle">Detalhamento — Escalas de Território</h3>
+                <span class="etCardCount" id="etTerrCount"></span>
               </div>
               <div id="etTerritorioBody" class="etGrid"></div>
             </section>

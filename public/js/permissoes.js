@@ -217,14 +217,19 @@ function colsPerfis() {
     },
   ];
   if (podeEditarPerfis()) cols.push({
-    title: "Ações", field: "_acoes", width: 84, hozAlign: "center", headerHozAlign: "center",
+    title: "Ações", field: "_acoes", width: 116, hozAlign: "center", headerHozAlign: "center",
     formatter: c => {
       const u = c.getData();
-      const email = escapeHtml(u.email || "");
+      if (!u.email) return "";
+      const email = escapeHtml(u.email);
       const temOverride = u.permissoes && Object.keys(u.permissoes).length > 0;
-      return u.email
-        ? `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Restaurar tudo para o nível global"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`
-        : "";
+      const btnLimpar = `<button type="button" class="permAcaoBtn" data-perm-limpar="${email}" title="Remover todas as permissões (deixa sem acesso a todas as abas)"${temOverride ? "" : " disabled"}><i class="fa-solid fa-rotate-left"></i></button>`;
+      // Excluir usuário e suas solicitações. Tratado pelo onClickAdmin (delegação
+      // no view-solicitacoes, que engloba esta matriz). Não permite excluir a si mesmo.
+      const btnExcluir = mesmoUsuarioLogado(u.email)
+        ? ""
+        : `<button type="button" class="permAcaoBtn permAcaoExcluir" data-acesso-excluir="${email}" title="Excluir usuário e suas solicitações"><i class="fa-solid fa-trash"></i></button>`;
+      return `<div class="permAcoesBtns">${btnLimpar}${btnExcluir}</div>`;
     },
   });
   return cols;
@@ -348,6 +353,19 @@ export function configurarPerfisAcesso() {
   if (busca && !busca.dataset.bound) {
     busca.dataset.bound = "1";
     busca.addEventListener("input", () => { filtroBusca = busca.value || ""; renderMatriz(); });
+  }
+  // Ao abrir a aba, recalcula o layout da grade (pode ter sido montada com a aba
+  // oculta ou com o corpo vazio até um relayout). Mesmo padrão da Gestão Disciplinar.
+  const navItem = document.querySelector('.navItem[data-view="solicitacoes"]');
+  if (navItem && !navItem.dataset.permRedrawBound) {
+    navItem.dataset.permRedrawBound = "1";
+    navItem.addEventListener("click", () => {
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => gradePerfis?.redraw());
+      } else {
+        gradePerfis?.redraw();
+      }
+    });
   }
 }
 
