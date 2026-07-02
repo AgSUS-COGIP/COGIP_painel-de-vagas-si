@@ -1383,6 +1383,9 @@
                 <span class="ecLoteBadge"><strong id="ecLoteQtd">0</strong> selecionado(s)</span>
                 <span class="ecLoteSub">Preencha os campos que quiser mudar — os demais ficam como estão.</span>
                 <div class="ecLoteHeadAcoes">
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno ecLoteReverterBtn" id="ecLoteReverter">
+                    <i class="fa-solid fa-rotate-left"></i> Reverter alterações
+                  </button>
                   <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecLoteLimpar">
                     <i class="fa-solid fa-eraser"></i> Limpar seleção
                   </button>
@@ -1431,6 +1434,16 @@
                 <select class="ecSelect" id="ecFiltroDsei" data-ec-filtro></select>
                 <select class="ecSelect" id="ecFiltroStatus" data-ec-filtro></select>
                 <select class="ecSelect" id="ecFiltroEscritorio" data-ec-filtro></select>
+                <select class="ecSelect" id="ecFiltroDevolvido" data-ec-filtro aria-label="Crachá Devolvido">
+                  <option value="">Crachá Devolvido (todos)</option>
+                  <option value="sim">Devolvido: Sim</option>
+                  <option value="nao">Devolvido: Não</option>
+                </select>
+                <select class="ecSelect" id="ecFiltroSegundaVia" data-ec-filtro aria-label="Solicitação de 2ª Via">
+                  <option value="">Solicitação 2ª Via (todos)</option>
+                  <option value="sim">2ª Via: Sim</option>
+                  <option value="nao">2ª Via: Não</option>
+                </select>
                 <div class="ecField ecFieldDate">
                   <input class="ecInput" type="date" id="ecFiltroDataInicial" data-ec-filtro aria-label="Data inicial">
                 </div>
@@ -1686,6 +1699,9 @@
                   </button>
                   <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecImportDesmarcarTodos">
                     <i class="fa-regular fa-square"></i> Desmarcar todos
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno ecLoteReverterBtn" id="ecImportReverter">
+                    <i class="fa-solid fa-rotate-left"></i> Reverter alterações
                   </button>
                 </div>
                 <span class="ecImportContador" id="ecImportContador">0 de 0 selecionada(s)</span>
@@ -2372,9 +2388,6 @@
                 <p>Controle das escalas dos profissionais da Saúde Indígena — diaristas, plantonistas
                   (diurno/noturno) e escalas de território — por DSEI, polo base e unidade.</p>
               </div>
-              <button type="button" class="etBtn etBtnNova" data-et-nova hidden>
-                <i class="fa-solid fa-plus"></i> Nova Escala
-              </button>
             </div>
             <div class="etHeaderFiltros">
               <div class="etField"><span class="etFieldLabel">DSEI</span><div class="etCombo" id="etFDsei"></div></div>
@@ -2424,11 +2437,19 @@
             </div>
           </section>
 
-          <div class="etDuplo">
+          <div class="etEmpilhado">
             <section class="etCard">
               <div class="etCardHead">
                 <h3 class="etCardTitle">Detalhamento — Plantonistas <span class="etCardComp" id="etCompPlant">—</span></h3>
                 <span class="etCardCount" id="etPlantCount"></span>
+              </div>
+              <div class="etDetalheBar">
+                <div class="etDetalheFiltros">
+                  <div class="etDetalheBusca"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="etDetalheSearch" id="etPlantBusca" type="search" placeholder="Nome do profissional..."></div>
+                  <div class="etCombo etComboSm" id="etPlantFCargo"></div>
+                  <div class="etCombo etComboSm" id="etPlantFLocal"></div>
+                </div>
+                <button type="button" class="etBtn etBtnExportar" data-et-exportar="plantonistas"><i class="fa-solid fa-file-arrow-down"></i> Exportar</button>
               </div>
               <div id="etPlantBody" class="etGrid etGridPlant"></div>
               <div class="etPlantLegenda">
@@ -2442,6 +2463,14 @@
               <div class="etCardHead">
                 <h3 class="etCardTitle">Detalhamento — Escalas de Território</h3>
                 <span class="etCardCount" id="etTerrCount"></span>
+              </div>
+              <div class="etDetalheBar">
+                <div class="etDetalheFiltros">
+                  <div class="etDetalheBusca"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="etDetalheSearch" id="etTerrBusca" type="search" placeholder="Nome do profissional..."></div>
+                  <div class="etCombo etComboSm" id="etTerrFCargo"></div>
+                  <div class="etCombo etComboSm" id="etTerrFTipo"></div>
+                </div>
+                <button type="button" class="etBtn etBtnExportar" data-et-exportar="territorio"><i class="fa-solid fa-file-arrow-down"></i> Exportar</button>
               </div>
               <div id="etTerritorioBody" class="etGrid"></div>
             </section>

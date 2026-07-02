@@ -14,7 +14,7 @@
 // exige Editor (nível >= 2). Registrada em
 // configurarEscalaTrabalho(); busca sob demanda ao abrir a aba.
 // =========================================================
-import { escapeHtml, escapeAttr, debounce } from "./utils.js";
+import { escapeHtml, escapeAttr, debounce, valorCsv, baixarArquivoCsv } from "./utils.js";
 import { criarToast } from "./ui-utils.js";
 import { nivelModulo } from "./permissoes.js";
 import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
@@ -62,6 +62,9 @@ const DIAS_JANELA = [
 // ---------- Estado da aba ----------
 // Cada filtro é um ARRAY de valores selecionados (multi-seleção). Vazio = todos.
 const filtros = { dsei: [], polo: [], ubsi: [], cargo: [], escala: [], situacao: [], busca: "" };
+// Filtros próprios de cada detalhamento (nome + cargo + local/tipo).
+const filtrosPlant = { busca: "", cargo: [], local: [] };
+const filtrosTerr = { busca: "", cargo: [], tipo: [] };
 let escalas = [];            // profissionais (payload do servidor, já prontos)
 let estado = "idle";         // idle | carregando | ok | erro
 let erroMsg = "";
@@ -106,6 +109,23 @@ function popularFiltros() {
   ["dsei", "cargo", "escala", "situacao", "ubsi"].forEach(k => { if (combos[k]) filtros[k] = combos[k].getValues(); });
   // Cascata de polo depende de filtros.dsei já sincronizado.
   atualizarOpcoesPolo();
+
+  // Opções dos filtros dos DETALHAMENTOS (a partir dos respectivos subconjuntos).
+  const plant = escalas.filter(p => p.escala === "diurno" || p.escala === "noturno");
+  const terr = escalas.filter(p => p.escala === "territorio");
+  combos.plantCargo?.setOptions(distintos(plant, "cargo"), "Cargo");
+  combos.plantLocal?.setOptions(distintos(plant, "polo"), "Polo / CASAI");
+  combos.terrCargo?.setOptions(distintos(terr, "cargo"), "Cargo");
+  combos.terrTipo?.setOptions(distintos(terr, "tipoTerritorio"), "Território");
+  filtrosPlant.cargo = combos.plantCargo?.getValues() || [];
+  filtrosPlant.local = combos.plantLocal?.getValues() || [];
+  filtrosTerr.cargo = combos.terrCargo?.getValues() || [];
+  filtrosTerr.tipo = combos.terrTipo?.getValues() || [];
+}
+
+// Valores distintos de um campo num conjunto de linhas (ordenados pt-BR).
+function distintos(rows, chave) {
+  return [...new Set(rows.map(r => r[chave]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
 // ---------- Filtragem da tabela principal ----------
@@ -316,11 +336,22 @@ function colunasPlantonistas() {
   return cols;
 }
 
+// Plantonistas que passam pelos filtros do próprio detalhamento (nome/cargo/local).
+function filtrarPlantonistas() {
+  const termo = filtrosPlant.busca.trim().toLowerCase();
+  const casa = (sel, val) => !sel.length || sel.includes(val);
+  return escalas.filter(p =>
+    (p.escala === "diurno" || p.escala === "noturno") &&
+    casa(filtrosPlant.cargo, p.cargo) &&
+    casa(filtrosPlant.local, p.polo) &&
+    (!termo || p.nome.toLowerCase().includes(termo)));
+}
+
 function renderPlantonistas() {
   if (!$("etPlantBody")) return;
   const comp = $("etCompPlant");
   if (comp) comp.textContent = `(${COMPETENCIA})`;
-  const todos = escalas.filter(p => p.escala === "diurno" || p.escala === "noturno");
+  const todos = filtrarPlantonistas();
   const amostra = todos.slice(0, DETALHE_MAX);
   const cnt = $("etPlantCount");
   if (cnt) cnt.textContent = todos.length > amostra.length ? `amostra: ${amostra.length} de ${todos.length}` : `${todos.length} plantonistas`;
@@ -367,9 +398,20 @@ function colunasTerritorio() {
   ];
 }
 
+// Escalas de território que passam pelos filtros do detalhamento (nome/cargo/tipo).
+function filtrarTerritorio() {
+  const termo = filtrosTerr.busca.trim().toLowerCase();
+  const casa = (sel, val) => !sel.length || sel.includes(val);
+  return escalas.filter(p =>
+    p.escala === "territorio" &&
+    casa(filtrosTerr.cargo, p.cargo) &&
+    casa(filtrosTerr.tipo, p.tipoTerritorio) &&
+    (!termo || p.nome.toLowerCase().includes(termo)));
+}
+
 function renderTerritorio() {
   if (!$("etTerritorioBody")) return;
-  const todos = escalas.filter(p => p.escala === "territorio");
+  const todos = filtrarTerritorio();
   const amostra = todos.slice(0, DETALHE_MAX);
   const cnt = $("etTerrCount");
   if (cnt) cnt.textContent = todos.length > amostra.length ? `amostra: ${amostra.length} de ${todos.length}` : `${todos.length} em território`;
@@ -397,6 +439,30 @@ function renderResumo() {
   set("etResCom", com);
   set("etResSem", sem);
   set("etResTerr", terr);
+}
+
+// ---------- Exportação CSV (respeita os filtros do detalhamento) ----------
+function exportarDetalhe(tipo) {
+  let linhas;
+  let nome;
+  if (tipo === "territorio") {
+    const rows = filtrarTerritorio();
+    linhas = [["Matrícula", "Profissional", "Cargo", "DSEI", "Polo/CASAI", "Escala", "Data de Ida", "Data de Retorno", "Dias em Território", "Situação"]];
+    rows.forEach(p => linhas.push([
+      p.matricula, p.nome, p.cargo, p.dsei, p.polo,
+      `Território ${p.tipoTerritorio || ""}`.trim(), p.ida, p.retorno,
+      diasEntre(p.ida, p.retorno), (SITUACOES[p.situacao] || {}).rotulo || ""
+    ]));
+    nome = "detalhamento_territorio";
+  } else {
+    const rows = filtrarPlantonistas();
+    linhas = [["Matrícula", "Profissional", "Cargo", "DSEI", "Polo/CASAI", "Escala"]];
+    rows.forEach(p => linhas.push([p.matricula, p.nome, p.cargo, p.dsei, p.polo, rotuloEscala(p)]));
+    nome = "detalhamento_plantonistas";
+  }
+  if (linhas.length <= 1) { etToast("Nada para exportar com os filtros atuais.", "erro"); return; }
+  const csv = "﻿" + linhas.map(l => l.map(valorCsv).join(";")).join("\n");
+  baixarArquivoCsv(csv, nome);
 }
 
 function renderTudo() {
@@ -435,8 +501,6 @@ export function renderEscalaTrabalhoAoMostrar() {
   // Modo somente-leitura (Leitor): o CSS (.et-readonly [data-et-*]) esconde os
   // botões de escrita em qualquer profundidade, mesmo que vazem no render.
   if (view) view.classList.toggle("et-readonly", !podeEditarEscala());
-  const btnNova = document.querySelector("[data-et-nova]");
-  if (btnNova) btnNova.hidden = !podeEditarEscala();
 
   if (estado === "idle") { carregarEscala(); return; }
   renderTudo();
@@ -486,15 +550,23 @@ export function configurarEscalaTrabalho() {
     });
   }
 
+  // ---- Filtros dos DETALHAMENTOS (nome/cargo/local · nome/cargo/tipo) ----
+  combos.plantCargo = criarMultiCombo("etPlantFCargo", { prefixo: "et", placeholder: "Cargo", ariaLabel: "Filtrar plantonistas por cargo", onChange: () => { filtrosPlant.cargo = combos.plantCargo.getValues(); renderPlantonistas(); } });
+  combos.plantLocal = criarMultiCombo("etPlantFLocal", { prefixo: "et", placeholder: "Polo / CASAI", ariaLabel: "Filtrar plantonistas por polo/CASAI", onChange: () => { filtrosPlant.local = combos.plantLocal.getValues(); renderPlantonistas(); } });
+  combos.terrCargo = criarMultiCombo("etTerrFCargo", { prefixo: "et", placeholder: "Cargo", ariaLabel: "Filtrar território por cargo", onChange: () => { filtrosTerr.cargo = combos.terrCargo.getValues(); renderTerritorio(); } });
+  combos.terrTipo = criarMultiCombo("etTerrFTipo", { prefixo: "et", placeholder: "Território", ariaLabel: "Filtrar por tipo de território", onChange: () => { filtrosTerr.tipo = combos.terrTipo.getValues(); renderTerritorio(); } });
+
+  const buscaPlant = $("etPlantBusca");
+  if (buscaPlant) buscaPlant.addEventListener("input", debounce(() => { filtrosPlant.busca = buscaPlant.value || ""; renderPlantonistas(); }, 200));
+  const buscaTerr = $("etTerrBusca");
+  if (buscaTerr) buscaTerr.addEventListener("input", debounce(() => { filtrosTerr.busca = buscaTerr.value || ""; renderTerritorio(); }, 200));
+
   // Ações (demonstração): apenas feedback via toast, sem persistência.
   view.addEventListener("click", ev => {
     const pagina = ev.target.closest("[data-et-pagina]");
     if (pagina && !pagina.disabled) { irParaPagina(pagina.dataset.etPagina); return; }
-    if (ev.target.closest("[data-et-nova]")) {
-      if (!podeEditarEscala()) return;
-      etToast("Cadastro de nova escala — demonstração (sem gravação no banco).");
-      return;
-    }
+    const exportar = ev.target.closest("[data-et-exportar]");
+    if (exportar) { exportarDetalhe(exportar.dataset.etExportar); return; }
     if (ev.target.closest("[data-et-ver-sem-escala]")) {
       const sem = escalas.filter(p => p.semEscala).length;
       etToast(`${sem} profissionais sem escala registrada.`);
