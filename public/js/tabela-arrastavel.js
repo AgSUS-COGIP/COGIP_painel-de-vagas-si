@@ -181,6 +181,12 @@ export function criarTabelaArrastavel(opts) {
       pronta = true;
       if (coach) atualizarVisibilidadeCoach(coach);
       if (pendente !== null) { const p = pendente; pendente = null; aplicarDados(p); }
+      // Alguns navegadores montam a grade com o CORPO vazio (só cabeçalho) até um
+      // relayout — o conteúdo "some" e só aparece ao rolar/redimensionar. Um redraw
+      // no próximo frame, após o layout assentar, corrige de forma determinística.
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => { try { tabela.redraw(true); } catch { /* aba oculta/destruída */ } });
+      }
     });
     if (typeof opts.aoClicarLinha === "function") {
       tabela.on("rowClick", (e, row) => opts.aoClicarLinha(row.getData(), e, row));

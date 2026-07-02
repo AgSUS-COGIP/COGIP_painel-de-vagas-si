@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const path = require("path");
+const zlib = require("zlib");
 const { spawn } = require("child_process");
 const express = require("express");
 const rateLimit = require("express-rate-limit");
@@ -14,7 +15,7 @@ const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, garantirEscopoPedidoComConn, garantirEscopoAnexoComConn, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
-const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn } = require("./lib/escopo");
+const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn, obterEscopoUsuarioComConn } = require("./lib/escopo");
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { listarDseisCasaiComConn } = require("./lib/dsei-casai");
@@ -23,6 +24,7 @@ const {
   substituirAnexoComConn, removerAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
 } = require("./lib/processos-seletivos");
 const { getFeriasData } = require("./lib/ferias");
+const { getEscalaData } = require("./lib/escala");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
 const app = express();
 app.disable("x-powered-by"); // não revela o framework/versão
@@ -281,6 +283,13 @@ app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirPer
 // ---- Gestão de Férias (análise — somente leitura) ----
 app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoFerias", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getFeriasData(req.usuario.escopo));
+}));
+
+// ---- Escala de Trabalho (roster: identidade + polo base por matrícula) ----
+// Payload grande (~16k linhas): comprime com gzip quando o cliente aceita, para
+// não trafegar ~2MB por request (a leitura da view é cacheada em lib/escala.js).
+app.get("/api/escala", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("escalaTrabalho", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  responderJsonTalvezComprimido(req, res, await getEscalaData(req.usuario.escopo));
 }));
 
 // ---- Entrega de Crachá ----
@@ -584,6 +593,9 @@ app.get("/api/sessao", apiLimiter, autenticarMiddleware, asyncHandler(async (req
     }
     // Permissões por módulo (sem mais nível global: módulo sem linha = sem acesso).
     usuario.permissoes = usuario.aprovado ? await obterMapaPermissoesComConn(conn, usuario.email) : {};
+    // Escopo de DSEI: enviado para o front detectar mudança e recarregar (o
+    // heartbeat compara com o snapshot anterior, igual às permissões de aba).
+    usuario.escopo = usuario.aprovado ? await obterEscopoUsuarioComConn(conn, usuario.email) : { todos: true, dseis: [] };
     res.json({ usuario });
   } finally {
     await fecharJdbc(conn);
@@ -745,14 +757,24 @@ app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, 
 // existir. Todo acesso é definido por módulo na matriz (/api/acesso/perfis/permissao).
 
 // Enriquece o objeto de usuário (devolvido no login) com os overrides de
-// permissão por módulo. Best-effort: uma falha aqui não impede o login.
+// permissão por módulo E o escopo de DSEI. Assim o snapshot inicial casa com o
+// que o /api/sessao devolve, evitando um recarregamento espúrio no 1º heartbeat.
+// Best-effort: uma falha aqui não impede o login.
 async function anexarPermissoesUsuario(usuario) {
-  if (!usuario || !usuario.aprovado) { if (usuario) usuario.permissoes = {}; return; }
+  if (!usuario || !usuario.aprovado) {
+    if (usuario) { usuario.permissoes = {}; usuario.escopo = { todos: true, dseis: [] }; }
+    return;
+  }
   const conn = await getMysqlConnection();
   try {
     usuario.permissoes = await obterMapaPermissoesComConn(conn, usuario.email);
   } catch (e) {
     usuario.permissoes = {};
+  }
+  try {
+    usuario.escopo = await obterEscopoUsuarioComConn(conn, usuario.email);
+  } catch (e) {
+    usuario.escopo = { todos: true, dseis: [] };
   } finally {
     await fecharJdbc(conn);
   }
@@ -1396,6 +1418,25 @@ function asyncHandler(fn) {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
+}
+
+// Envia um objeto como JSON, comprimindo com gzip quando o cliente aceita e o
+// corpo é grande o suficiente para compensar (o app não usa middleware global de
+// compressão). Fallback para JSON puro em erro/corpo pequeno.
+function responderJsonTalvezComprimido(req, res, obj) {
+  const json = JSON.stringify(obj);
+  res.type("application/json");
+  res.setHeader("Vary", "Accept-Encoding");
+  const aceitaGzip = /\bgzip\b/i.test(String(req.headers["accept-encoding"] || ""));
+  if (!aceitaGzip || Buffer.byteLength(json) < 2048) {
+    res.send(json);
+    return;
+  }
+  zlib.gzip(json, (err, buf) => {
+    if (err || res.headersSent) { res.send(json); return; }
+    res.setHeader("Content-Encoding", "gzip");
+    res.send(buf);
+  });
 }
 
 Object.assign(module.exports, {

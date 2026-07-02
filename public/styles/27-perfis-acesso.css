@@ -202,6 +202,11 @@
 }
 .permAcaoBtn:hover:not(:disabled) { background: #eef4fb; color: #0053a6; }
 .permAcaoBtn:disabled { opacity: .4; cursor: default; }
+/* Botões da coluna "Ações" lado a lado (não empilhar). */
+.permAcoesBtns { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: nowrap; }
+/* Botão de excluir usuário na coluna Ações da matriz (tom de perigo). */
+.permAcaoExcluir { border-color: rgba(220, 63, 63, .28); color: var(--status-erro); }
+.permAcaoExcluir:hover:not(:disabled) { background: rgba(220, 63, 63, .12); color: var(--status-erro); }
 
 .permVazio {
   color: var(--muted);

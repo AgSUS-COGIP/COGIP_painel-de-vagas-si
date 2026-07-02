@@ -664,13 +664,9 @@ function colsHistorico() {
     },
     { title: "Data e hora", field: "CRIADO_EM", formatter: c => escapeHtml(fmtDataHora(c.getValue())) },
   ];
-  if (podeEditarPerfis()) cols.push({
-    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center",
-    formatter: c => {
-      const email = escapeHtml(c.getData().EMAIL || "");
-      return `<button type="button" class="solExcluirBtn" title="Excluir usuário e suas solicitações" data-acesso-excluir="${email}"><i class="fa-solid fa-trash"></i></button>`;
-    }
-  });
+  // A exclusão de usuários foi movida para a coluna "Ações" da matriz de Perfis
+  // de Acesso (card "Administração de Perfis de Acesso"). O histórico não tem
+  // mais coluna de ações.
   return cols;
 }
 

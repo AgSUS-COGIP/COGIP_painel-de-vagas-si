@@ -59,7 +59,7 @@
 }
 
 .ecKpi {
-  flex: 0 1 calc((100% - 70px) / 6); /* 6 por linha (5 espaços de 14px) */
+  flex: 0 1 calc((100% - 70px) / 5); /* 6 por linha (5 espaços de 14px) */
   min-width: 0; /* permite encolher para caber 6 por linha (senão o conteúdo mínimo empurra p/ 5) */
   display: flex;
   align-items: flex-start;
@@ -81,6 +81,14 @@
 }
 @media (max-width: 560px) {
   .ecKpi { flex-basis: calc((100% - 14px) / 2); } /* 2 por linha */
+}
+
+/* Telas largas: linha 1 com 5 métricas (resumo + indicadores) e linha 2 com as
+   6 do funil. Os 5 primeiros ocupam 1/5 (enchem a 1ª linha e empurram o funil
+   p/ baixo); os 6 seguintes ocupam 1/6 (cabem juntos na 2ª linha). */
+@media (min-width: 1181px) {
+  .ecKpi:nth-child(-n+5) { flex-basis: calc((100% - 56px) / 5); } /* 5 na 1ª linha */
+  .ecKpi:nth-child(n+6)  { flex-basis: calc((100% - 70px) / 6); } /* 6 na 2ª linha */
 }
 
 .ecKpiIcone {
