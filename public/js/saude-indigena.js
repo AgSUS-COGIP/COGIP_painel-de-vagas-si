@@ -15,15 +15,17 @@ import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const $ = id => document.getElementById(id);
 
-// Paleta base azul (SUS) — tons frios (azul/teal/verde).
+// Paleta "Saúde Indígena": azul SUS + tons de terra (urucum, ocre, terra) e
+// mata/rio (verde/teal). As 8 primeiras foram validadas (banda de luminosidade,
+// piso de croma e separação para daltonismo) para tema claro.
 const PALETA = [
-  "#007de0", "#0a66b0", "#1F7A8C", "#2E8B57", "#0053a7", "#5b9bd5",
-  "#3A6B7E", "#1f8a53", "#6aa9d6", "#2C6E76", "#88b8e0", "#4C9A6A",
-  "#00b5d8", "#155e6e", "#3d8fd6", "#5aa0a8"
+  "#007de0", "#E2872E", "#2E8B57", "#C8472B", "#0f8fa3",
+  "#C08A1E", "#9C4221", "#0a66b0", "#6aa9d6", "#1f8a53",
+  "#5aa0a8", "#88b8e0"
 ];
-const COR_INDIGENA = "#1F7A8C"; // teal — destaque dos indígenas no gráfico de raça
+const COR_INDIGENA = "#1F7A8C"; // teal (rio) — destaque dos indígenas no gráfico de raça
 const COR_SUS_AZUL = "#0a66b0";
-const COR_SUS_VERDE = "#1f8a53";
+const COR_SUS_VERDE = "#2E8B57";
 const TEXTO = "#1f3a5f";
 
 // Raças/cores (ordem e cores fixas) para os gráficos empilhados — tons frios.
@@ -479,9 +481,11 @@ function render() {
   barH("siChartSituacao", situ.map(d => d[0]), situ.map(d => d[1]), PALETA[4]);
   regExport("siChartSituacao", "Situação", "trabalhadores_por_situacao", situ);
 
-  const grau = topN(contar(rows, "grauInstrucao"));
-  barH("siChartGrau", grau.map(d => d[0]), grau.map(d => d[1]), PALETA[6]);
-  regExport("siChartGrau", "Grau de instrução", "trabalhadores_por_grau_instrucao", grau);
+  // Tipo de desligamento (DESC_AFASTAMENTO): só quem tem o tipo informado
+  // (ativos/sem informação — valor "—" — ficam de fora).
+  const deslig = topN(contar(rows.filter(r => r.tipoDesligamento && r.tipoDesligamento !== "—"), "tipoDesligamento"));
+  barH("siChartTipoDeslig", deslig.map(d => d[0]), deslig.map(d => d[1]), PALETA[3]);
+  regExport("siChartTipoDeslig", "Tipo de desligamento", "trabalhadores_por_tipo_desligamento", deslig);
 
   const raca = topN(contar(rows, "raca"));
   rosca("siChartRaca", raca.map(d => d[0]), raca.map(d => d[1]),
@@ -655,6 +659,24 @@ function exportarExcel() {
 
   const csv = "\uFEFF" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
   baixarArquivoCsv(csv, "trabalhadores_saude_indigena.csv");
+}
+
+// Exporta\u00E7\u00E3o reduzida: rela\u00E7\u00E3o de trabalhadores ATIVOS por DSEI (respeita os
+// filtros). Colunas: Nome, Admiss\u00E3o, Cargo, Situa\u00E7\u00E3o, Data Afast./Deslig., T\u00E9rmino.
+function exportarAtivosDsei() {
+  if (!carregado || !dados) return;
+  const rows = aplicarFiltros().filter(r => r.ativo);
+  if (!rows.length) { abrirAviso({ titulo: "Exporta\u00E7\u00E3o", msg: "Nenhum trabalhador ativo para exportar com os filtros atuais.", perigo: true }); return; }
+
+  const headers = ["Nome", "Admiss\u00E3o", "Cargo", "Situa\u00E7\u00E3o", "Data Afastamento / Desligamento", "T\u00E9rmino Afastamento"];
+  const linhas = [headers];
+  rows.forEach(r => {
+    linhas.push([
+      r.nome, fData(r.dataAdmissao), r.cargo, r.situacao,
+      fData(r.dataDesligamento || r.situacaoDataInicio), fData(r.situacaoDataFim)
+    ]);
+  });
+  baixarCsv(linhas, "trabalhadores_ativos_dsei.csv");
 }
 
 function badgeSituacao(r) {
@@ -861,6 +883,7 @@ export function configurarSaudeIndigena() {
 
   $("siBtnLimpar")?.addEventListener("click", limparFiltros);
   $("siBtnExportar")?.addEventListener("click", exportarExcel);
+  $("siBtnExportarAtivos")?.addEventListener("click", exportarAtivosDsei);
 
   // Exportação por gráfico (botões com data-export).
   raiz.addEventListener("click", e => {

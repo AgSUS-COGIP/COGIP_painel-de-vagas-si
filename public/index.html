@@ -13,6 +13,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="./vendor/tabulator/tabulator.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <!-- Leaflet (mapas da aba "Mapa dos DSEIs"). Servido pelo cdnjs (liberado na CSP);
+       os tiles do mapa são imagens https (liberadas em img-src). -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <link rel="stylesheet" href="./styles.css">
 </head>
 
@@ -284,6 +288,11 @@
           <span>Painel da Força de Trabalho</span>
         </button>
 
+        <button type="button" class="navItem" data-view="mapaDseis">
+          <span class="navIcon"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i></span>
+          <span>Mapa - Iara</span>
+        </button>
+
         <button type="button" class="navItem" data-view="gestaoFerias">
           <span class="navIcon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>
           <span>Gestão de Férias</span>
@@ -304,10 +313,6 @@
         <button type="button" class="navItem" data-view="escalaTrabalho">
           <span class="navIcon"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
           <span>Escala de Trabalho</span>
-        </button>
-        <button type="button" class="navItem" data-view="mapaDseis">
-          <span class="navIcon"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i></span>
-          <span>Mapa dos DSEIs</span>
         </button>
         <button type="button" class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
           <span class="navIcon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
@@ -954,10 +959,10 @@
 
               <article class="siCard">
                 <div class="siCardHead">
-                  <h3 class="siCardTitle"><i class="fa-solid fa-graduation-cap"></i> Grau de Instrução</h3>
-                  <button type="button" class="siCardExport" data-export="siChartGrau" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <h3 class="siCardTitle"><i class="fa-solid fa-user-xmark"></i> Tipo de Desligamento</h3>
+                  <button type="button" class="siCardExport" data-export="siChartTipoDeslig" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
-                <div class="siChartBox siChartTall"><canvas id="siChartGrau"></canvas></div>
+                <div class="siChartBox siChartTall"><canvas id="siChartTipoDeslig"></canvas></div>
               </article>
 
             </section>
@@ -1013,9 +1018,137 @@
               </div>
             </section>
 
+            <!-- Exportação: relação de trabalhadores ATIVOS por DSEI (colunas
+                 reduzidas) — respeita os filtros aplicados. -->
+            <div class="siExportBar">
+              <button type="button" class="siExportRelacao" id="siBtnExportarAtivos">
+                <i class="fa-solid fa-file-arrow-down"></i> Exportar relação de trabalhadores ao DSEI
+              </button>
+            </div>
+
             <footer class="siFooter">
               <span><i class="fa-solid fa-database"></i> Fonte: UGP/SIP</span>
             </footer>
+          </div>
+        </section>
+
+
+        <!-- ====================== MAPA DOS DSEIs ======================
+             Painel territorial dos DSEIs/CASAIs. Dados reais de /api/mapa-dseis
+             (VW_SAUDE_INDIGENA + TB_LOTACAO_OVERRIDE, join por MATRICULA).
+             Layout no padrão da Saúde Indígena (hero + cards + filtros) com
+             mapas via Leaflet. Lógica em js/mapa-dseis.js.
+        ========================================================== -->
+        <section id="view-mapaDseis" class="viewPanel mdView">
+
+          <!-- Cabeçalho temático (padrão SI) -->
+          <header class="siHero mdHero">
+            <div class="siHeroPattern" aria-hidden="true"></div>
+            <div class="siHeroContent">
+              <div class="siHeroMain">
+                <span class="siHeroKicker"><i class="fa-solid fa-map-location-dot"></i> Painel Territorial</span>
+                <h2 class="siHeroTitle">Mapa - Iara</h2>
+                <p class="siHeroSub">Distritos Sanitários Especiais Indígenas e suas unidades de saúde.</p>
+                <div class="siHeroBadges">
+                  <span class="siChip siChipSus"><i class="fa-solid fa-heart-pulse"></i> A serviço do SUS</span>
+                  <span class="siChip siChipAgsus"><i class="fa-solid fa-people-group"></i> AgSUS · Gestão de Pessoas</span>
+                </div>
+              </div>
+              <div class="siHeroAside">
+                <img class="siHeroLogo" src="/assets/images/Logo AgSUS sem fundo.png" alt="AgSUS" />
+                <img class="siHeroMascote" src="/assets/images/ze-gotinha-indigena.png" alt="" aria-hidden="true" />
+              </div>
+            </div>
+          </header>
+
+          <!-- Barra de filtros -->
+          <div class="siToolbar mdToolbar">
+            <div class="siToolbarHead">
+              <div class="siToolbarTitle"><i class="fa-solid fa-sliders"></i> Filtros</div>
+              <button type="button" class="siBtnLimpar" id="mdBtnLimpar">
+                <i class="fa-solid fa-filter-circle-xmark"></i> Limpar filtros
+              </button>
+            </div>
+
+            <div class="siFilters mdFilters">
+              <div class="siField"><span class="siFieldLabel">DSEI/CASAI</span><div class="siCombo" id="mdFiltroDsei"></div></div>
+              <div class="siField"><span class="siFieldLabel">Unidade / Polo</span><div class="siCombo" id="mdFiltroLotacao"></div></div>
+              <div class="siField"><span class="siFieldLabel"><i class="fa-solid fa-magnifying-glass"></i> Nome</span><div class="siCombo" id="mdFiltroNome"></div></div>
+              <div class="siField"><span class="siFieldLabel">Cargo</span><div class="siCombo" id="mdFiltroCargo"></div></div>
+              <div class="siField"><span class="siFieldLabel">Situação</span><div class="siCombo" id="mdFiltroSituacao"></div></div>
+              <div class="siField"><span class="siFieldLabel">Vínculo com a Agência</span><div class="siCombo" id="mdFiltroVinculo"></div></div>
+              <div class="siField"><span class="siFieldLabel">Tipo de Admissão</span><div class="siCombo" id="mdFiltroTipoAdmissao"></div></div>
+              <div class="siField"><span class="siFieldLabel">Grau de Instrução</span><div class="siCombo" id="mdFiltroGrau"></div></div>
+            </div>
+
+            <div class="siResumoFiltro" id="mdResumoFiltro">—</div>
+          </div>
+
+          <!-- Estado de carregamento / erro -->
+          <div class="siEstado" id="mdEstado" hidden></div>
+
+          <!-- Corpo: mapa do Brasil (esquerda) + detalhe do DSEI (direita) -->
+          <div class="mdGrid" id="mdBody">
+
+            <!-- Coluna esquerda: mapa do Brasil + lista de DSEIs/CASAIs -->
+            <article class="siCard mdCardBrasil">
+              <div class="siCardHead">
+                <h3 class="siCardTitle"><i class="fa-solid fa-earth-americas"></i> DSEIs / CASAIs do Brasil</h3>
+              </div>
+              <div id="mdMapaBrasil" class="mdMapa mdMapaBrasil"></div>
+              <p class="mdListaHint">Clique em um DSEI/CASAI para ver os detalhes.</p>
+              <ul class="mdListaDseis" id="mdListaDseis"></ul>
+            </article>
+
+            <!-- Coluna direita: detalhe do DSEI selecionado -->
+            <div class="mdColDireita">
+
+              <!-- Cabeçalho + KPIs (métricas de trabalhadores) -->
+              <article class="siCard mdCardResumo">
+                <div class="mdDseiTitulo"><span class="mdDot"></span> <span id="mdDseiNome">Selecione um DSEI/CASAI</span></div>
+                <div class="mdKpiRow" id="mdKpiRow"></div>
+              </article>
+
+              <!-- Mapa do DSEI + lista de lotações (unidades/polos) à direita -->
+              <article class="siCard mdCardMapaDsei">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-location-dot"></i> Mapa do <span id="mdMapaDseiNome">DSEI</span></h3>
+                </div>
+                <div class="mdMapaWrap">
+                  <div id="mdMapaDsei" class="mdMapa mdMapaDsei"></div>
+                  <div class="mdMapaUnidades" id="mdMapaUnidades"></div>
+                </div>
+              </article>
+
+              <!-- Resumo por categorias (cargo, situação, grau, tipo de admissão) -->
+              <article class="siCard mdCardInfo">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-chart-simple"></i> Resumo do <span id="mdInfoDseiNome">DSEI</span></h3>
+                </div>
+                <div class="mdInfoGrid" id="mdInfoGrid"></div>
+              </article>
+
+              <!-- Tabela de trabalhadores -->
+              <article class="siCard mdCardTabela">
+                <div class="siTableHead">
+                  <h3 class="siTableTitle"><i class="fa-solid fa-table-list"></i> Trabalhadores</h3>
+                  <span class="siTableCount" id="mdTabelaCount">—</span>
+                </div>
+                <div class="mdTableWrap">
+                  <table class="siTable mdTable">
+                    <thead>
+                      <tr>
+                        <th>Registro</th><th>Nome</th><th>Cargo</th><th>Situação</th><th>Vínculo</th>
+                        <th>Lotação</th><th>DSEI/CASAI</th><th>UF</th><th>Sexo</th><th>Grau</th><th>Tipo Admissão</th>
+                      </tr>
+                    </thead>
+                    <tbody id="mdTabelaBody"></tbody>
+                  </table>
+                </div>
+                <div class="siTableFooter"><span id="mdTabelaRegistros">—</span></div>
+              </article>
+
+            </div>
           </div>
         </section>
 
@@ -2474,35 +2607,6 @@
           </div>
 
           <div class="etToast" id="etToast"></div>
-        </section>
-
-
-        <section id="view-mapaDseis" class="viewPanel mapaDseisView">
-          <div class="mapaHeader">
-            <div>
-              <h2 class="mapaTitulo">Mapa dos DSEIs</h2>
-              <p class="mapaSub">Rede de estabelecimentos (CNES) posicionada por latitude/longitude sobre o mapa do Brasil. Clique num estado para dar zoom e ver os estabelecimentos dele.</p>
-            </div>
-            <label class="mapaFiltro">
-              <span>Estado</span>
-              <select id="mapaDseisFiltro"><option value="">Todos os estados</option></select>
-            </label>
-          </div>
-
-          <div class="mapaKpis" id="mapaKpis"></div>
-
-          <div class="mapaCorpo">
-            <div class="mapaMapaCol">
-              <div class="mapaMapaWrap" id="mapaDseisMapa"><div class="mapaVazio">Carregando mapa…</div></div>
-              <div class="mapaLegenda" id="mapaLegenda"></div>
-            </div>
-            <aside class="mapaDetalhe" id="mapaDetalhe">
-              <div class="mapaDetalheVazio">
-                <i class="fa-solid fa-hand-pointer" aria-hidden="true"></i>
-                <p>Clique num estado do mapa (ou escolha no filtro) para dar zoom e ver os estabelecimentos: CASAI, UBSI e os DSEIs presentes.</p>
-              </div>
-            </aside>
-          </div>
         </section>
 
 
