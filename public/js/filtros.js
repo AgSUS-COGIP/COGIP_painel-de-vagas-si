@@ -53,6 +53,50 @@ export function atualizarModoRolagem(view) {
 
 let menuRecolhidoFinalTimer = null;
 
+// --- Suaviza a animação de recolher/expandir o menu nas abas com Tabulator ---
+// A transição anima a LARGURA (grid-template-columns do .app). O ResizeObserver do
+// Tabulator recalcularia as colunas + re-renderizaria as linhas a CADA frame da
+// animação (engasgo, pior em tabelas grandes). Solução: "congelar" o redraw das
+// tabelas durante a transição e fazer UM único redraw ao final (transitionend),
+// com fallback por tempo e proteção contra toggles rápidos.
+let tabelasCongeladas = false;
+let descongelarTabelasTimer = null;
+let aoTerminarTransicaoMenu = null;
+
+function tabelasTabulatorAtivas() {
+  const T = window.Tabulator;
+  if (!T || typeof T.findTable !== "function") return [];
+  try { return T.findTable(".tabulator") || []; } catch (e) { return []; }
+}
+
+function congelarTabelasMenu() {
+  if (tabelasCongeladas) return; // idempotente: não empilha blockRedraw
+  tabelasTabulatorAtivas().forEach(t => { try { t.blockRedraw(); } catch (e) { /* nada */ } });
+  tabelasCongeladas = true;
+}
+
+function descongelarTabelasMenu(app) {
+  if (descongelarTabelasTimer) { clearTimeout(descongelarTabelasTimer); descongelarTabelasTimer = null; }
+  if (aoTerminarTransicaoMenu) { app.removeEventListener("transitionend", aoTerminarTransicaoMenu); aoTerminarTransicaoMenu = null; }
+  if (!tabelasCongeladas) return;
+  tabelasCongeladas = false;
+  // restoreRedraw reativa; redraw(true) recalcula colunas/linhas p/ a nova largura.
+  tabelasTabulatorAtivas().forEach(t => { try { t.restoreRedraw(); t.redraw(true); } catch (e) { /* nada */ } });
+}
+
+function suavizarTransicaoMenu(app) {
+  congelarTabelasMenu();
+  // (Re)configura o gatilho de descongelamento — sempre um único listener/timer.
+  if (descongelarTabelasTimer) clearTimeout(descongelarTabelasTimer);
+  if (aoTerminarTransicaoMenu) app.removeEventListener("transitionend", aoTerminarTransicaoMenu);
+  aoTerminarTransicaoMenu = (ev) => {
+    if (ev.target === app && ev.propertyName === "grid-template-columns") descongelarTabelasMenu(app);
+  };
+  app.addEventListener("transitionend", aoTerminarTransicaoMenu);
+  // Fallback: sem transitionend (sem mudança real de largura, prefers-reduced-motion…).
+  descongelarTabelasTimer = setTimeout(() => descongelarTabelasMenu(app), 450);
+}
+
 export function toggleSidebar(forceState) {
   const app = document.querySelector(".app");
   if (!app) return;
@@ -60,6 +104,10 @@ export function toggleSidebar(forceState) {
   const shouldCollapse = typeof forceState === "boolean"
     ? forceState
     : !app.classList.contains("sidebar-collapsed");
+
+  // Congela as tabelas ANTES de mudar a largura (a mudança de classe abaixo inicia
+  // a transição de grid-template-columns).
+  suavizarTransicaoMenu(app);
 
   if (menuRecolhidoFinalTimer) {
     clearTimeout(menuRecolhidoFinalTimer);
