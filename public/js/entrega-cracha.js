@@ -18,7 +18,8 @@ import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const PAGE_SIZE_OPCOES = [10, 25, 50, 100];
 let pageSize = 10; // registros por página (ajustável pelo usuário)
-const NIVEL_ADMIN = 2;
+const NIVEL_ADMIN = 2;         // Editor+ (pode editar)
+const NIVEL_ADMINISTRADOR = 3; // Administrador (nível máximo) — ex.: ver CPF
 
 // Funil de status (rótulos amigáveis; o de-para para o banco é feito no backend).
 let STATUS_LISTA = [
@@ -61,6 +62,11 @@ function escritorioDoDsei(dsei) {
 
 function podeEditar() {
   return nivelModulo("entregaCracha") >= NIVEL_ADMIN;
+}
+
+// Só o Administrador (nível 3); Editor (2) não. Usado para dados sensíveis (CPF).
+function ehAdministrador() {
+  return nivelModulo("entregaCracha") >= NIVEL_ADMINISTRADOR;
 }
 
 // ---------- Estado da view ----------
@@ -264,6 +270,13 @@ function celulaData(valor) {
   return valor ? escapeHtml(valor) : "—";
 }
 
+// Formata CPF (###.###.###-##) quando tiver 11 dígitos; senão devolve como veio.
+function formatarCpf(valor) {
+  const d = (valor || "").toString().replace(/\D/g, "");
+  if (d.length !== 11) return (valor || "").toString();
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
 // Colunas da tabela principal (Tabulator, só colunas). Os botões de ação e os
 // checkboxes seguem com data-* e são tratados pela delegação existente em `raiz`
 // (sobrevivem à re-renderização do Tabulator). As permissões são reavaliadas a
@@ -291,6 +304,8 @@ const EC_COLS = [
   { title: "Matrícula", field: "matricula", minWidth: 110, formatter: c => celulaData(c.getValue()) },
   { title: "DSEI", field: "dsei", minWidth: 120, formatter: c => escapeHtml(c.getValue() || "—") },
   { title: "Nome", field: "nome", minWidth: 180, formatter: c => escapeHtml(c.getValue() || "—") },
+  // CPF: só administradores enxergam (a visibilidade é alternada em render()).
+  { title: "CPF", field: "cpf", minWidth: 130, formatter: c => { const v = formatarCpf(c.getValue()); return v ? escapeHtml(v) : "—"; } },
   { title: "Cargo", field: "cargo", minWidth: 150, formatter: c => escapeHtml(c.getValue() || "—") },
   { title: "Possui Foto", field: "possuiFoto", hozAlign: "center", minWidth: 90,
     formatter: c => c.getValue() ? '<span class="ecFotoSim">Sim</span>' : '<span class="ecFotoNao">Não</span>' },
@@ -340,6 +355,12 @@ function render() {
     });
   }
   gradeEc?.render(pagina, placeholder);
+  // Coluna CPF só é visível para ADMINISTRADORES (nível 3); Editor (2) não vê.
+  // Mostra/oculta a cada render, pois o nível do usuário passa a valer após o login.
+  try {
+    const colCpf = gradeEc?.tabela?.getColumn?.("cpf");
+    if (colCpf) (ehAdministrador() ? colCpf.show() : colCpf.hide());
+  } catch (e) { /* grade ainda montando */ }
   // O Tabulator às vezes não pinta as linhas após substituir os dados (só ao
   // rolar). Um redraw no próximo frame força o redesenho das linhas visíveis.
   // Cobre todos os caminhos (reverter, lote, filtro, paginação, "por página").
