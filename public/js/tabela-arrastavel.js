@@ -166,6 +166,10 @@ export function criarTabelaArrastavel(opts) {
       headerSort: !!opts.headerSort,
       movableColumns: moverColunas,
       movableRows: moverLinhas,
+      // autoResize usa ResizeObserver e pode entrar em laço de redimensionamento
+      // ("Maximum call stack size exceeded") com fitColumns/containers reflowando.
+      // Grades que redesenham manualmente (via redraw() ao mostrar) passam false.
+      autoResize: opts.autoResize !== false,
       persistence: { columns: true },
       persistenceID: opts.persistID,
       placeholder: placeholderAtual,
@@ -185,7 +189,10 @@ export function criarTabelaArrastavel(opts) {
       // relayout — o conteúdo "some" e só aparece ao rolar/redimensionar. Um redraw
       // no próximo frame, após o layout assentar, corrige de forma determinística.
       if (typeof requestAnimationFrame === "function") {
-        requestAnimationFrame(() => { try { tabela.redraw(true); } catch { /* aba oculta/destruída */ } });
+        // Só redesenha se o elemento tem largura (visível). Redesenhar com
+        // clientWidth=0 (aba oculta / layout ainda não assentou) faz o Tabulator
+        // entrar em laço no adjustTableSize (RangeError: Maximum call stack).
+        requestAnimationFrame(() => { try { if (el.clientWidth) tabela.redraw(true); } catch { /* aba oculta/destruída */ } });
       }
     });
     if (typeof opts.aoClicarLinha === "function") {
@@ -198,7 +205,7 @@ export function criarTabelaArrastavel(opts) {
     // texto quebrar, mas a ALTURA da linha só é recalculada ao SOLTAR o
     // redimensionamento (columnResized dispara no mouseup, não a cada mousemove).
     // Evita o variableHeight, que remede todas as linhas a cada pixel arrastado.
-    tabela.on("columnResized", () => { try { tabela.redraw(true); } catch { /* construindo */ } });
+    tabela.on("columnResized", () => { try { if (el.clientWidth) tabela.redraw(true); } catch { /* construindo */ } });
   }
 
   // Alimenta a grade. Construção PREGUIÇOSA: a tabela é montada já COM os dados na
@@ -239,7 +246,9 @@ export function criarTabelaArrastavel(opts) {
     // elemento interno ainda é null). No 1º "mostrar", a grade acabou de ser
     // montada com dados — não precisa de redraw; o guard pronta evita o erro.
     redraw() {
-      if (tabela && pronta) {
+      // clientWidth=0 (aba oculta/sem layout) faz o Tabulator entrar em laço no
+      // adjustTableSize — só redesenha quando o elemento está visível.
+      if (tabela && pronta && el.clientWidth) {
         try { tabela.redraw(true); } catch { /* aba oculta/recém-montada */ }
       }
     },
