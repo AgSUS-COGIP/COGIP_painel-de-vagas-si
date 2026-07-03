@@ -124,7 +124,11 @@ export function configurarRemanejamento() {
 
   const dseis = montarOpcoesDseiRemanejamento();
   preencherSelectRemanejamento("remanejamentoDsei", dseis, item => item.label);
-  inicializarFormularioRemanejamento(true);
+  // NÃO reseta o formulário: quando os dados do cadastro chegam (on-open/prefetch),
+  // apenas repopula os selects e re-renderiza as linhas com as opções de DSEI já
+  // disponíveis, PRESERVANDO o que o usuário porventura já preencheu — antes o
+  // reset (argumento `true`) descartava a edição em andamento (race).
+  inicializarFormularioRemanejamento();
   atualizarResumoRemanejamento();
 }
 

@@ -51,8 +51,10 @@ function afastamentoExcluido(situacao) {
 
 // ---------- Estado da view ----------
 let dados = null;
-let carregado = false;
-let carregando = false;
+let carregado = false;      // base buscada + decodificada (em memória)
+let carregando = false;     // busca em andamento
+let renderizado = false;    // selects/gráficos/tabela já montados no DOM (aba visível)
+let promessaCargaSI = null; // compartilha a mesma requisição entre prefetch e abertura
 let configurado = false;
 
 const chartsSI = {};
@@ -188,22 +190,50 @@ function criarCombo(containerId, rotuloTodos, onChange, opts) {
 }
 
 // ---------- Carregamento ----------
-async function carregar() {
-  if (carregando || carregado) return;
-  carregando = true;
-  mostrarEstado("Carregando dados da Saúde Indígena…");
-  try {
-    const payload = await apiGet("/api/saude-indigena");
-    dados = decodificar(payload);
-    carregado = true;
-    esconderEstado();
-    preencherSelects();
-    render();
-  } catch (e) {
-    mostrarEstado(e && e.message ? e.message : "Falha ao carregar os dados.", true);
-  } finally {
-    carregando = false;
+// Busca + decodifica a base (~20k) SEM renderizar. Idempotente e reusa a mesma
+// requisição em voo (compartilhada entre o prefetch em segundo plano e a abertura
+// da aba). NÃO monta tabela/gráficos aqui: o Tabulator não mede a altura com a aba
+// oculta (a tabela ficava vazia), então o render fica para carregar() — aba visível.
+function garantirDadosSI() {
+  if (carregado) return Promise.resolve(true);
+  if (!promessaCargaSI) {
+    carregando = true;
+    promessaCargaSI = apiGet("/api/saude-indigena")
+      .then(payload => { dados = decodificar(payload); carregado = true; return true; })
+      .catch(e => {
+        console.warn("[saude-indigena] falha ao carregar a base:", e && e.message ? e.message : e);
+        promessaCargaSI = null; // libera nova tentativa ao reabrir a aba
+        return false;
+      })
+      .finally(() => { carregando = false; });
   }
+  return promessaCargaSI;
+}
+
+// Abre a aba: garante os dados e monta selects/gráficos/tabela UMA vez, já com a
+// aba VISÍVEL (o Tabulator precisa medir a altura). Reabertura só recalcula o layout.
+async function carregar() {
+  if (renderizado) { setTimeout(() => gradeSI?.redraw(true), 60); return; }
+  mostrarEstado("Carregando dados da Saúde Indígena…");
+  const ok = await garantirDadosSI();
+  if (!ok) { mostrarEstado("Falha ao carregar os dados.", true); return; }
+  if (renderizado) return; // outra chamada já renderizou enquanto aguardávamos
+  esconderEstado();
+  preencherSelects();
+  render();
+  renderizado = true;
+}
+
+// Ao ABRIR a aba (disparado pelo registro central de views em filtros.js).
+export function renderSaudeIndigenaAoMostrar() {
+  carregar();
+}
+
+// Prefetch em segundo plano (idle): SÓ busca+decodifica a base, para a 1ª abertura
+// não esperar a rede. O render (selects/gráficos/tabela) fica para a abertura, com
+// a aba visível — montar o Tabulator escondido deixava a tabela geral sem popular.
+export function prefetchSaudeIndigena() {
+  garantirDadosSI();
 }
 
 function decodificar(payload) {
@@ -843,14 +873,9 @@ export function configurarSaudeIndigena() {
   // Fecha qualquer combo ao clicar fora.
   document.addEventListener("click", () => fecharTodosCombos(null));
 
-  // Carregamento sob demanda ao abrir a aba.
-  const navItem = document.querySelector('.navItem[data-view="painelSaudeIndigena"]');
-  if (navItem) navItem.addEventListener("click", () => {
-    if (!carregado && !carregando) carregar();
-    // Já carregado: a grade pode ter sido medida com a aba oculta; recalcula o
-    // layout/virtualização agora que voltou a ficar visível.
-    else if (carregado) setTimeout(() => gradeSI?.redraw(true), 60);
-  });
+  // Carregamento sob demanda ao ABRIR a aba: disparado pelo registro central de
+  // views (filtros.js -> REGISTRO_VIEWS.painelSaudeIndigena -> renderSaudeIndigenaAoMostrar).
+  // O fallback abaixo cobre o deep-link direto na aba.
   if (state.activeView === "painelSaudeIndigena") carregar();
 
   // Períodos por data (reagem na digitação): debounced (~250ms) para não

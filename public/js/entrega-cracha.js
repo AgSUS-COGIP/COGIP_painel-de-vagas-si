@@ -1685,8 +1685,12 @@ async function carregarDados(forcar = false, comToast = false) {
 // A grade Tabulator não monta com a aba oculta (largura 0). Ao navegar para a
 // aba, re-renderiza (render() já dispara o redraw no próximo frame — mesmo padrão
 // da aba Solicitações/Perfis — para o Tabulator medir a aba já visível).
+// Ao ABRIR a aba (disparado pelo registro central de views em filtros.js):
+// mostra a tabela atual de imediato e recarrega do servidor (força/fura o cache)
+// para refletir mudanças feitas fora desta sessão (outro admin, ETL, banco).
 export function renderEntregaCrachaAoMostrar() {
   render();
+  if (!carregando) carregarDados(true);
 }
 
 // ---------- Inicialização ----------
@@ -1703,15 +1707,10 @@ export function configurarEntregaCracha() {
   preencherSelects();
   render();
 
-  // Carregamento sob demanda: a base tem ~18k linhas; só busca quando a aba é
-  // aberta pela primeira vez (evita baixar tudo em todo load do painel).
-  // Recarrega ao abrir a aba: reflete mudanças feitas fora desta sessão (outro
-  // admin, ETL, banco). Em recargas seguintes a tabela atual fica na tela até os
-  // dados novos chegarem (sem "piscar" o loading).
-  const navItem = document.querySelector('.navItem[data-view="entregaCracha"]');
-  // Força (fura o cache) ao abrir a aba, para refletir mudanças feitas fora desta
-  // sessão (outro admin, ETL, alterações diretas na UGP_CRACHAS_CONTROLE_MANUAL).
-  if (navItem) navItem.addEventListener("click", () => { if (!carregando) carregarDados(true); });
+  // Carregamento sob demanda: a base tem ~18k linhas; só busca ao ABRIR a aba
+  // (evita baixar tudo em todo load do painel). Disparado pelo registro central de
+  // views (filtros.js -> REGISTRO_VIEWS.entregaCracha -> renderEntregaCrachaAoMostrar),
+  // que recarrega a cada abertura. O fallback abaixo cobre o deep-link direto.
   if (state.activeView === "entregaCracha") carregarDados(true);
 
   ecBindFiltros(raiz);

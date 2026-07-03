@@ -11,7 +11,7 @@ import { preencherKpiBloco, renderAlertasKpis, renderGraficos, renderKpis, rende
 import { configurarPainelExterno, configurarPainelFerias, configurarRemanejamento, renderRemanejamentoLista, renderRemanejamentoListaErro } from "./remanejamento.js";
 import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { configurarEntregaCracha } from "./entrega-cracha.js";
-import { configurarSaudeIndigena } from "./saude-indigena.js";
+import { configurarSaudeIndigena, prefetchSaudeIndigena } from "./saude-indigena.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
 import { configurarMapaDseis } from "./mapa-dseis.js";
@@ -27,7 +27,12 @@ import { formatNumber, formatPercent, part, setText } from "./utils.js";
 import { renderVagasDaPagina, renderVagasErro } from "./vagas.js";
 
 export async function init() {
-  await carregarConfiguracaoApp_();
+  // Config em PARALELO com a configuração síncrona abaixo (antes era o 1º await,
+  // serializando tudo). carregarConfiguracaoApp_ nunca rejeita (segue com defaults),
+  // então uma falha em /api/config não derruba mais o app. É aguardada logo antes
+  // da sessão, só para o googleClientId estar pronto quando a tela de login montar.
+  const configPromise = carregarConfiguracaoApp_();
+
   if (typeof ChartDataLabels !== "undefined") {
     Chart.register(ChartDataLabels);
   }
@@ -65,6 +70,11 @@ export async function init() {
   // Inputs de arquivo marcados com [data-file-input] viram o componente padrão
   // (botão + chips/estados), inclusive os criados dinamicamente.
   ativarFileInputsGlobal();
+
+  // Espera a config (já em voo desde o topo) antes de decidir login/painel — o
+  // botão "Entrar com Google" depende de state.googleClientId. Não é mais o 1º
+  // await do boot e nunca rejeita, então não bloqueia a preparação nem quebra o app.
+  await configPromise;
   await verificarSessaoInicial();
 }
 
@@ -120,18 +130,33 @@ function garantirFiltrosMultiSelect(filtros) {
   state.filtrosCriados = true;
 }
 
+// Agenda um trabalho em segundo plano para quando o browser estiver ocioso, sem
+// competir com o 1º paint. Cai em setTimeout onde requestIdleCallback não existe.
+function agendarEmIdle(fn) {
+  if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(fn, { timeout: 2000 });
+  } else {
+    setTimeout(fn, 1);
+  }
+}
+
 export function carregarDadosInicial() {
   const loading = document.getElementById("loading");
   if (loading) loading.style.display = "grid";
 
   marcarDetalhesCarregandoInicial();
 
+  // Prefetch das demais páginas EM PARALELO com o resumo (antes ficava encadeado
+  // no .then do resumo, criando a cascata sessão -> resumo -> prefetch). Agendado
+  // em idle para não competir com o 1º paint; o guard interno (backgroundLoadStarted)
+  // evita disparo duplo. Vale para todos, tenham ou não acesso à Visão Geral.
+  agendarEmIdle(iniciarCarregamentoPaginasEmSegundoPlano);
+
   // A Visão Geral é gateada como qualquer módulo: só busca o resumo quem tem
   // acesso. Sem acesso, a aba já está oculta e a navegação redireciona para a
   // primeira aba permitida; os filtros do topo são populados pela aba que carregar.
   if (!podeVerModulo("visaoGeral")) {
     if (loading) loading.style.display = "none";
-    iniciarCarregamentoPaginasEmSegundoPlano();
     return;
   }
 
@@ -164,7 +189,8 @@ export function onResumoDataLoaded(payload) {
   const loading = document.getElementById("loading");
   if (loading) loading.style.display = "none";
 
-  iniciarCarregamentoPaginasEmSegundoPlano();
+  // O prefetch das demais páginas já foi agendado em paralelo por
+  // carregarDadosInicial() — não é mais encadeado aqui (fim da cascata).
 }
 
 export function renderResumoInicial(payload) {
@@ -397,17 +423,22 @@ export function recarregarPaginasEmSegundoPlano() {
   // filtrar os dados desde a primeira tela (sem precisar abrir a aba Vagas antes).
   carregarVagasEmSegundoPlano();
   carregarAlertasEmSegundoPlano();
-  // Remanejamento só pré-carrega se o usuário tiver acesso ao módulo (evita 403
-  // desnecessário para quem está em "Sem acesso" — o backend bloqueia a leitura).
-  if (podeVerModulo("remanejamento")) {
-    carregarRemanejamentoListaEmSegundoPlano();
-    carregarRemanejamentoCadastroEmSegundoPlano();
-  }
+  // Remanejamento NÃO é mais pré-carregado no boot: carrega sob demanda ao abrir a
+  // aba (garantirCarregamentoPagina). Poupa 2 GETs por sessão para quem só usa a
+  // Visão Geral; o refresh manual (recarregarTodosOsDados) segue atualizando-o.
+
+  // Saúde Indígena (base ~20k, render pesado): pré-carrega em segundo plano SÓ para
+  // quem tem a aba, num idle POSTERIOR ao núcleo (não compete com Vagas/Alertas),
+  // para que a 1ª abertura seja instantânea em vez de esperar o fetch+render.
+  if (podeVerModulo("painelSaudeIndigena")) agendarEmIdle(prefetchSaudeIndigena);
 }
 
 export function garantirCarregamentoPagina(view) {
   if (view === "vagas" && !pageLoadState.vagas) carregarVagasEmSegundoPlano();
   if (view === "alertas" && !pageLoadState.alertas) carregarAlertasEmSegundoPlano();
+  // Alertas usam a base de monitoramento de Vagas: ao abrir Alertas, garante que a
+  // base esteja carregando (self-guard por permissão + pageLoadState evitam duplo GET).
+  if (view === "alertas" && !pageLoadState.vagas) carregarVagasEmSegundoPlano();
   if ((view === "remanejamento" || view === "remanejamentoFormulario") && !pageLoadState.remanejamentoLista) carregarRemanejamentoListaEmSegundoPlano();
   if ((view === "remanejamento" || view === "remanejamentoFormulario") && !pageLoadState.remanejamentoCadastro) carregarRemanejamentoCadastroEmSegundoPlano();
 }
@@ -452,12 +483,17 @@ export function carregarVagasEmSegundoPlano(forcar) {
     aoCarregar: payload => {
       state.vagasBaseRows = payload.rows || [];
       state.allRows = state.vagasBaseRows;
+      // Alertas usam a MESMA base de monitoramento que Vagas: reaproveita aqui
+      // para não baixar a base uma 2ª vez (ver carregarAlertasEmSegundoPlano).
+      state.alertasBaseRows = state.vagasBaseRows;
       if (payload.indicadores) {
         state.indicadoresResumoBase = payload.indicadores;
       }
       // Garante os filtros do topo mesmo quando a Visão Geral (resumo) não foi carregada.
       garantirFiltrosMultiSelect(payload.filtros);
       if (payload.atualizadoEm) document.getElementById("updatedAt").innerText = payload.atualizadoEm;
+      // aplicarFiltros -> renderTudo já re-renderiza os Alertas (KPIs + tabela)
+      // quando as observações também já chegaram (pageLoadState.alertas).
       aplicarFiltros();
     },
     aoFalhar: renderVagasErro
@@ -466,6 +502,32 @@ export function carregarVagasEmSegundoPlano(forcar) {
 
 export function carregarAlertasEmSegundoPlano(forcar) {
   if (!podeVerModulo("alertas")) return; // sem acesso à aba Alertas: backend bloqueia o GET
+
+  // Alertas usam a MESMA base de monitoramento que Vagas. Se o usuário tem acesso
+  // a Vagas, reaproveita state.vagasBaseRows e busca SÓ as observações (endpoint
+  // leve) — evita transferir a base inteira uma 2ª vez. Sem acesso a Vagas (a base
+  // não vem de lá e o GET /api/vagas daria 403), baixa a base completa por /api/alertas.
+  if (podeVerModulo("vagas")) {
+    carregarPaginaEmSegundoPlano({
+      chave: "alertas",
+      endpoint: "/api/alertas/observacoes",
+      forcar,
+      mensagemErro: "Falha ao carregar as observações de Alertas:",
+      aoCarregar: payload => {
+        state.observacoesAlertas = payload.observacoes || {};
+        // A base vem de Vagas. Se já chegou, renderiza; senão, o load de Vagas
+        // renderiza os Alertas quando a base chegar (renderTudo em aplicarFiltros).
+        if (pageLoadState.vagas) {
+          state.alertasBaseRows = state.vagasBaseRows || [];
+          renderAlertasKpis(filtrarRowsBase(state.alertasBaseRows));
+          renderAlertasDaPagina();
+        }
+      },
+      aoFalhar: renderAlertasErro
+    });
+    return;
+  }
+
   carregarPaginaEmSegundoPlano({
     chave: "alertas",
     endpoint: "/api/alertas",
@@ -482,6 +544,7 @@ export function carregarAlertasEmSegundoPlano(forcar) {
 }
 
 export function carregarRemanejamentoListaEmSegundoPlano(forcar) {
+  if (!podeVerModulo("remanejamento")) return; // sem acesso: backend bloqueia o GET
   carregarPaginaEmSegundoPlano({
     chave: "remanejamentoLista",
     endpoint: "/api/remanejamento/lista",
@@ -496,6 +559,7 @@ export function carregarRemanejamentoListaEmSegundoPlano(forcar) {
 }
 
 export function carregarRemanejamentoCadastroEmSegundoPlano(forcar) {
+  if (!podeVerModulo("remanejamento")) return; // sem acesso: backend bloqueia o GET
   carregarPaginaEmSegundoPlano({
     chave: "remanejamentoCadastro",
     endpoint: "/api/remanejamento/cadastro",

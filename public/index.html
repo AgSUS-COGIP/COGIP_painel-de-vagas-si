@@ -243,7 +243,12 @@
     </div>
   </div>
 
-  <div class="app">
+  <!-- Começa OCULTO: só é revelado após a sessão confirmar login+aprovação
+       (iniciarPainelAutenticado/aplicarPermissoesUsuario definem display=""). Sem
+       isso, o painel (Visão Geral) piscava por um instante antes do redirect para
+       o login de quem não está logado. Enquanto a sessão é verificada, o overlay
+       #loading cobre a tela; depois aparece o login (deslogado) ou o painel (logado). -->
+  <div class="app" style="display:none;">
     <aside class="sidebar">
       <div class="brand">
         <img class="brandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">

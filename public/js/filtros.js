@@ -8,6 +8,9 @@ import { renderEntregaCrachaAoMostrar } from "./entrega-cracha.js";
 import { renderProcessosSeletivosAoMostrar } from "./processos-seletivos.js";
 import { renderMapaDseisAoMostrar } from "./mapa-dseis.js";
 import { renderEscalaTrabalhoAoMostrar } from "./escala-trabalho.js";
+import { renderGestaoDisciplinarAoMostrar } from "./gestao-disciplinar.js";
+import { renderGestaoFeriasAoMostrar } from "./gestao-ferias.js";
+import { renderSaudeIndigenaAoMostrar } from "./saude-indigena.js";
 import { charts, filterConfigs, pageLoadState } from "./runtime.js";
 import { state } from "./state.js";
 import { escapeAttr, escapeHtml, normalizarTextoPainel, debounce } from "./utils.js";
@@ -120,6 +123,27 @@ export function restaurarEstadoMenuLateral() {
   }
 }
 
+// Registro declarativo do "on-show" de cada view: o que roda ao ABRIR a aba.
+// FONTE ÚNICA desse comportamento — antes espalhado num if-chain aqui + listeners
+// de navegação próprios em alguns módulos (Gestão Disciplinar/Férias). Adicionar
+// uma view nova passa a ser UMA entrada aqui. As entradas que dependem da base de
+// monitoramento chamam garantirCarregamentoPagina (carga sob demanda) antes de
+// renderizar. Views sem entrada (visaoGeral, solicitacoes) não têm ação de abertura
+// própria aqui (visaoGeral vem do resumo; Perfis tem um redraw próprio em permissoes.js).
+const REGISTRO_VIEWS = {
+  vagas: () => { garantirCarregamentoPagina("vagas"); renderVagasDaPagina(); },
+  alertas: () => { garantirCarregamentoPagina("alertas"); renderAlertasDaPagina(); },
+  remanejamento: () => { garantirCarregamentoPagina("remanejamento"); renderRemanejamentoLista(); },
+  processosSeletivos: () => renderProcessosSeletivosAoMostrar(),
+  mapaDseis: () => renderMapaDseisAoMostrar(),
+  escalaTrabalho: () => renderEscalaTrabalhoAoMostrar(),
+  entregaCracha: () => renderEntregaCrachaAoMostrar(),
+  painelSaudeIndigena: () => renderSaudeIndigenaAoMostrar(),
+  ferias: () => carregarPainelFeriasSobDemanda(),
+  gestaoDisciplinar: () => renderGestaoDisciplinarAoMostrar(),
+  gestaoFerias: () => renderGestaoFeriasAoMostrar(),
+};
+
 export function configurarNavegacao() {
   document.querySelectorAll(".navItem").forEach(item => {
     // Tooltip com o nome completo: útil quando o texto é truncado (reticências)
@@ -152,26 +176,10 @@ export function configurarNavegacao() {
       if (conteudo) conteudo.focus({ preventScroll: false });
 
       atualizarModoRolagem(view);
-      garantirCarregamentoPagina(view);
 
-      // A grade Tabulator de Alertas pode ter sido montada com a aba oculta
-      // (carga em segundo plano). Reconstrói/recalcula agora que está visível.
-      if (view === "alertas") renderAlertasDaPagina();
-      if (view === "processosSeletivos") renderProcessosSeletivosAoMostrar();
-      if (view === "mapaDseis") renderMapaDseisAoMostrar();
-      if (view === "escalaTrabalho") renderEscalaTrabalhoAoMostrar();
-      if (view === "entregaCracha") renderEntregaCrachaAoMostrar();
-      // Vagas: as grades Tabulator não montam com a aba oculta — re-renderiza ao abrir.
-      if (view === "vagas") renderVagasDaPagina();
-      if (view === "remanejamento") renderRemanejamentoLista();
-
-      if (view === "painelSaudeIndigena") {
-        carregarPainelExternoSobDemanda();
-      }
-
-      if (view === "ferias") {
-        carregarPainelFeriasSobDemanda();
-      }
+      // Dispara o "on-show" da aba pelo registro central: garante a carga sob
+      // demanda e re-renderiza as grades Tabulator montadas com a aba oculta.
+      REGISTRO_VIEWS[view]?.();
 
       setTimeout(() => {
         Object.values(charts).forEach(chart => {

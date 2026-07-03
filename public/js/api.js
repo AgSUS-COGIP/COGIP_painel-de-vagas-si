@@ -1,7 +1,15 @@
 import { state } from "./state.js";
 
 export async function carregarConfiguracaoApp_() {
-  const config = await apiGet("/api/config");
+  // Config é OPCIONAL para o boot: só define URLs de painéis externos, o
+  // googleClientId (botão de login Google) e imagens de fundo — todos com default
+  // seguro. Uma falha em /api/config NÃO deve derrubar o app; segue com defaults.
+  let config = {};
+  try {
+    config = await apiGet("/api/config");
+  } catch (e) {
+    console.warn("[config] Falha ao carregar /api/config; seguindo com defaults.", e && e.message ? e.message : e);
+  }
   state.DASHBOARD_SAUDE_INDIGENA_URL = String(config.dashboardSaudeIndigenaUrl || "").trim();
   state.DASHBOARD_FERIAS_URL = String(config.dashboardFeriasUrl || "").trim();
   state.googleClientId = String(config.googleClientId || "").trim();
