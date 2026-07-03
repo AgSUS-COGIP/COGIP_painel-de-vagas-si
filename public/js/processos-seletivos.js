@@ -78,6 +78,7 @@ const CONFIG_PADRAO = { mostrarPosicoes: true, intervaloCota: 0 };
 let vagaSelecionada = null;  // nome do cargo com o painel de aprovados aberto
 let cronoExpandido = false;  // widget "Etapa atual": true = mostra o cronograma completo
 let gradeAprovados = null;   // grade Tabulator dos aprovados (edição inline por célula)
+let gradeVagas = null;       // grade Tabulator do quadro de vagas (para atualizar sem reconstruir)
 let aprovadoFocoId = null;   // id do aprovado recém-criado: abre a edição do Nome ao montar
 let configEditalId = null;   // edital alvo do modal de configuração
 
@@ -415,7 +416,7 @@ function renderQuadroVagas(proc) {
 // coluna "Fila" = nº de aprovados da vaga (sem field, lê a linha no formatter).
 function montarQuadroVagas(proc) {
   const cargos = cargosDoEdital(proc);
-  if (!cargos.length || !$("psVagasTab")) return;
+  if (!cargos.length || !$("psVagasTab")) { gradeVagas = null; return; }
   const colunas = COLUNAS_VAGAS.filter(c => cargos.some(cargo => !celulaVazia(cargo[c.campo])));
   const ehNumerica = campo => campo !== "lotacao";
   const cols = [
@@ -434,10 +435,12 @@ function montarQuadroVagas(proc) {
         return escapeHtml(v);
       }
     })),
-    { title: "Fila", hozAlign: "center", minWidth: 70,
+    { title: "Cadastro Reserva Vigente", field: "reservaVigente", hozAlign: "center", minWidth: 70,
+      // field só para localizar a célula em atualizações no lugar (o valor vem do
+      // formatter, não dos dados). Ver atualizarAprovadoEmLinha.
       formatter: c => String(filaDoCargo(proc.id, c.getRow().getData().cargo)) }
   ];
-  criarTabelaArrastavel({
+  gradeVagas = criarTabelaArrastavel({
     elemento: "psVagasTab",
     colunas: cols,
     persistID: "psVagas",
@@ -1143,9 +1146,10 @@ function aprovadosDoCargo(editalId, nomeCargo) {
   return d.aprovadosPorCargo.get(chave);
 }
 
-// Fila = todos os aprovados cadastrados na vaga (decisão do produto).
+// Cadastro Reserva Vigente = aprovados ainda disponíveis na vaga. Quem já foi
+// contratado sai da reserva (não conta mais); os demais status permanecem.
 function filaDoCargo(editalId, nomeCargo) {
-  return aprovadosDoCargo(editalId, nomeCargo).length;
+  return aprovadosDoCargo(editalId, nomeCargo).filter(c => c.status !== "Contratado").length;
 }
 
 // "Aprovados" do edital = soma dos aprovados de todas as vagas (contagem real).
@@ -1353,7 +1357,9 @@ function montarAprovados(proc) {
     movableColumns: false,
     movableRows: false,
     aoFormatarLinha: row => {
-      if (row.getData().status === "Desistiu") row.getElement().classList.add("is-desistiu");
+      // toggle (não só add): ao re-alimentar a grade sem reconstruir (edição
+      // inline), uma linha que deixou de ser "Desistiu" precisa perder a classe.
+      row.getElement().classList.toggle("is-desistiu", row.getData().status === "Desistiu");
     },
     dados
   });
@@ -1369,10 +1375,117 @@ function montarAprovados(proc) {
   }
 }
 
-// Seleciona/deseleciona a vaga e re-renderiza o detalhamento.
+// Re-renderiza o detalhe preservando a rolagem da PÁGINA (para não "subir ao
+// topo"). O innerHTML pesado faz as grades remontarem com build assíncrono: por um
+// instante os containers ficam com altura ~0, o documento encolhe e o navegador
+// clampa a rolagem para cima. Seguramos a altura atual do painel até as grades
+// reassentarem (2 frames) e reaplicamos o scrollY — a tela fica onde estava.
+function renderDetalheMantendoScroll() {
+  const painel = $("psDetalhe");
+  const alturaAtual = painel ? painel.offsetHeight : 0;
+  const y = window.scrollY || window.pageYOffset || 0;
+  if (painel && alturaAtual) painel.style.minHeight = `${alturaAtual}px`;
+  renderDetalhe();
+  window.scrollTo(0, y);
+  if (typeof requestAnimationFrame !== "function") { if (painel) painel.style.minHeight = ""; return; }
+  requestAnimationFrame(() => {
+    window.scrollTo(0, y);
+    requestAnimationFrame(() => { if (painel) painel.style.minHeight = ""; window.scrollTo(0, y); });
+  });
+}
+
+// Atualiza uma alteração inline de aprovado SEM reconstruir o painel — mesma ideia
+// da Entrega de Crachá: re-alimenta as grades no lugar (replaceData preserva a
+// rolagem e a instância, então nada de "pulo" na página) e atualiza só os números
+// derivados. Serve para editar célula, anexar documento, adicionar e excluir.
+// `focoId` (opcional) = id da linha recém-criada: abre a edição do Nome dela.
+// O innerHTML pesado do detalhe fica reservado às mudanças estruturais (trocar
+// edital/vaga, criar o 1º aprovado ou excluir o último), aí feito preservando a
+// rolagem via renderDetalheMantendoScroll.
+function atualizarAprovadoEmLinha(focoId) {
+  const proc = processos.find(p => p.id === processoExpandido);
+  const lista = (proc && vagaSelecionada) ? aprovadosDoCargo(proc.id, vagaSelecionada) : [];
+  // Sem grade viva, ou a lista ficou vazia (o painel passa a mostrar a mensagem
+  // "nenhum aprovado", que não é uma grade): precisa do render estrutural — feito
+  // preservando a rolagem da página.
+  if (!proc || !vagaSelecionada || !$("psAprovadosTab") || !gradeAprovados?.tabela || !lista.length) {
+    if (focoId) aprovadoFocoId = focoId; // montarAprovados abre a edição no build
+    renderDetalheMantendoScroll();
+    return;
+  }
+  const config = getConfig(proc.id);
+  const dados = classificar(lista, config).map(({ candidato, posicao, reservado }) =>
+    ({ ...candidato, _posicao: posicao, _reservado: reservado }));
+  const y = window.scrollY || window.pageYOffset || 0; // rolagem da página antes de re-alimentar
+  gradeAprovados.render(dados);              // reordena/atualiza sem resetar a rolagem
+  // "Cadastro Reserva Vigente": atualiza SÓ o texto da célula de cada cargo, direto
+  // no DOM. Re-renderizar a tabela de vagas inteira (replaceData) reflowava o
+  // layout e, com ela acima da vista, puxava a tela pra cima. Texto direto não
+  // reflowa nada.
+  try {
+    gradeVagas?.tabela?.getRows().forEach(row => {
+      const cell = row.getCell("reservaVigente");
+      if (cell) cell.getElement().textContent = String(filaDoCargo(proc.id, row.getData().cargo));
+    });
+  } catch { /* grade de vagas em (re)construção */ }
+  const painel = $("psDetalhe");
+  if (painel) {
+    // Contagem "N aprovado(s)" (muda ao adicionar) e tiles derivados do status.
+    const regra = config.intervaloCota > 0
+      ? ` · regra: 1 cotista a cada ${config.intervaloCota} de ampla concorrência` : "";
+    const meta = painel.querySelector(".psAprovadosPainel .psBlocoMeta");
+    if (meta) meta.textContent = `${lista.length} aprovado(s)${regra}`;
+    const set = (sel, v) => { const el = painel.querySelector(sel); if (el) el.textContent = v; };
+    set(".psTileValue.is-green", numFmt(contratadosEdital(proc)));
+    set(".psTileValue.is-red", numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc))));
+    set(".psTileValue.is-blue", numFmt(totalAprovadosEdital(proc)));
+  }
+  // Linha nova: abre a edição do Nome (replaceData não dispara o tableBuilt, então
+  // fazemos aqui, no próximo frame, quando as linhas já estão no DOM). Rolar até a
+  // linha nova é desejável, então NÃO restauramos a rolagem neste caso.
+  if (focoId && typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => {
+      try { gradeAprovados.tabela.getRows().find(r => r.getData().id === focoId)?.getCell("nome")?.edit(true); }
+      catch { /* grade recriada durante a edição */ }
+    });
+    return;
+  }
+  // Edição de célula: re-alimentar as grades pode reflowar o layout (a tabela de
+  // vagas fica acima) e "levar a tela pra cima". Reaplica a rolagem da página —
+  // agora (reflow síncrono) e no próximo frame (reflow do re-render das grades) —
+  // para a tela ficar exatamente onde estava.
+  window.scrollTo(0, y);
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
+// Seleciona/deseleciona a vaga. Reconstruir o painel inteiro faria a tabela de
+// vagas "piscar" (o Tabulator é recriado do zero). Em vez disso, atualiza no lugar
+// e apenas o bloco de aprovados abaixo do quadro é trocado — a tabela de vagas não
+// se move, então também não "pula". Cai no render estrutural (preservando a
+// rolagem) se a grade ainda não existir.
+//
+// IMPORTANTE: NÃO usar gradeVagas.redraw() aqui. O redraw(true) do Tabulator, com o
+// DOM em volta mudando (o bloco de aprovados é removido/inserido), entra em laço do
+// ResizeObserver (redraw → tableEmpty → _showPlaceholder → adjustTableSize →
+// tableResized → redraw…), estourando a pilha e travando a página. Como só mudam o
+// realce e o chevron (dependem de vagaSelecionada, não dos dados), basta alternar
+// as classes direto no DOM — sem redraw, sem resize, sem loop.
 function selecionarVaga(nomeCargo) {
   vagaSelecionada = (normChave(vagaSelecionada) === normChave(nomeCargo)) ? null : nomeCargo;
-  renderDetalhe();
+  const proc = processos.find(p => p.id === processoExpandido);
+  const bloco = $("psVagasTab")?.closest(".psBloco");
+  if (!proc || !gradeVagas?.tabela || !bloco) { renderDetalheMantendoScroll(); return; }
+  gradeVagas.marcarSelecionada(); // realce da linha (só alterna classes)
+  try {
+    gradeVagas.tabela.getRows().forEach(row => {
+      const aberto = !!vagaSelecionada && normChave(row.getData().cargo) === normChave(vagaSelecionada);
+      row.getElement().querySelector(".psRowChevron")?.classList.toggle("is-aberto", aberto);
+    });
+  } catch { /* grade em (re)construção */ }
+  bloco.querySelector(".psAprovadosPainel")?.remove();
+  const html = renderPainelAprovados(proc);
+  if (html) bloco.insertAdjacentHTML("beforeend", html);
+  montarAprovados(proc);
 }
 
 // ---------- Aprovados: inserção e edição inline (sem modal) ----------
@@ -1394,8 +1507,10 @@ async function adicionarAprovadoInline(cargoNome) {
   }
   aprovadosDoCargo(processoExpandido, cargoNome).push(
     { id: novoId, nome: "", nota: null, tipo: "AMPLA_CONCORRENCIA", status: "Aguardando", docDesistencia: null });
-  aprovadoFocoId = novoId; // montarAprovados abre a edição do Nome desta linha
-  renderDetalhe();
+  // Insere a linha no lugar e abre a edição do Nome, sem reconstruir o painel
+  // (preserva a rolagem — sem "pulo"). Se for o 1º aprovado da vaga, a própria
+  // função cai no render estrutural para criar a tabela.
+  atualizarAprovadoEmLinha(novoId);
 }
 
 // Persiste a linha inteira do aprovado (PUT). Silencioso; avisa só em falha.
@@ -1425,9 +1540,10 @@ function editarCampoAprovado(candId, campo, valor) {
   persistirAprovado(cand);
   if (campo === "nome") return; // nome não reordena a classificação: só atualiza a célula
   // Nota/Tipo/Status mudam a ordem da classificação (e o status muda a coluna
-  // Documento, o realce da linha e a contagem de Contratados): re-renderiza no
-  // próximo tick para não colidir com a finalização interna da edição do Tabulator.
-  setTimeout(renderDetalhe, 0);
+  // Documento, o realce da linha e a contagem de Contratados): atualiza no próximo
+  // tick, sem reconstruir o painel (preserva a rolagem — sem "pulo"), para não
+  // colidir com a finalização interna da edição do Tabulator.
+  setTimeout(atualizarAprovadoEmLinha, 0);
 }
 
 // Anexa (ou troca) o PDF de desistência pela própria linha — abre o seletor de
@@ -1444,7 +1560,7 @@ function anexarDocDesistencia(candId) {
     if (!arquivo) return;
     cand.docDesistencia = { url: URL.createObjectURL(arquivo), nome: arquivo.name };
     psToast("Documento de desistência anexado.");
-    renderDetalhe();
+    atualizarAprovadoEmLinha(); // atualiza a coluna Documento sem reconstruir o painel
   });
   input.click();
 }
@@ -1470,7 +1586,9 @@ async function excluirAprovado(candId) {
   const i = lista.findIndex(c => c.id === candId);
   if (i >= 0) lista.splice(i, 1);
   psToast("Aprovado excluído.");
-  renderDetalhe();
+  // Remove a linha no lugar (sem reconstruir → sem "pulo"); se era o último
+  // aprovado, a função cai no render estrutural preservando a rolagem.
+  atualizarAprovadoEmLinha();
 }
 
 // ---------- Modal de configuração da classificação (por edital) ----------

@@ -1209,6 +1209,12 @@ async function extrairAnexoViaHttp(buffer, req) {
   }
 }
 
+// Timeout do extrator local (ms). Um PDF escaneado passa pelo OCR, que faz
+// cold-start do modelo (~150MB) e leva ~5s/página (até 12 páginas) — 90s era
+// apertado e estourava com editais escaneados inteiros. Padrão 4 min; ajuste com
+// EXTRATOR_TIMEOUT_MS. (No caminho da Vercel a função HTTP tem seu próprio limite.)
+const EXTRATOR_TIMEOUT_MS = Number(process.env.EXTRATOR_TIMEOUT_MS) || 240000;
+
 // Local (dev): pipe do PDF pelo stdin do CLI Python e lê o JSON no stdout.
 function extrairAnexoViaPython(buffer) {
   return new Promise((resolve, reject) => {
@@ -1218,7 +1224,7 @@ function extrairAnexoViaPython(buffer) {
     const timer = setTimeout(() => {
       py.kill("SIGKILL");
       reject(new Error("Tempo excedido ao ler o PDF (o arquivo pode ser muito grande)."));
-    }, 90000);
+    }, EXTRATOR_TIMEOUT_MS);
 
     py.stdout.on("data", d => { out += d.toString("utf8"); });
     py.stderr.on("data", d => { err += d.toString("utf8"); });
