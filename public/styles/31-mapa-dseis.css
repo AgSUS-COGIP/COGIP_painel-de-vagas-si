@@ -1,487 +1,442 @@
-/* =========================================================
-   Mapa dos DSEIs (MVP) — estilos da aba
-   Contorno dos estados (SVG) + pontos da rede CNES por lat/long.
-   ========================================================= */
+/* ============================================================
+   Mapa dos DSEIs — painel territorial
+   Reaproveita os tokens visuais da Saúde Indígena (--si-*), com layout
+   próprio de mapas (Leaflet) + cards de detalhe do DSEI.
+   ============================================================ */
 
-.mapaDseisView {
-  padding: 22px 26px 32px;
-  color: var(--azul-escuro, #0b3568);
-}
-
-.mapaHeader {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.mapaTitulo {
-  font-size: 22px;
-  font-weight: 900;
-  letter-spacing: -.4px;
-  margin: 0;
-  color: #0b3568;
-}
-
-.mapaSub {
-  margin: 4px 0 0;
-  color: #4a6a93;
-  font-size: 13px;
-  max-width: 640px;
-}
-
-.mapaFiltro {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #4a6a93;
-}
-
-.mapaFiltro select {
-  min-width: 220px;
-  padding: 8px 10px;
-  border: 1px solid rgba(0, 83, 166, .22);
-  border-radius: 10px;
-  background: #fff;
-  color: #0b3568;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-/* KPIs (Total + um por tipo presente) */
-.mapaKpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+/* Filtros lado a lado, ocupando toda a largura do card (4 por linha). */
+.mdFilters {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 12px;
-  margin-bottom: 18px;
 }
+@media (max-width: 1100px) { .mdFilters { grid-template-columns: repeat(2, 1fr) !important; } }
+@media (max-width: 620px) { .mdFilters { grid-template-columns: 1fr !important; } }
 
-.mapaKpi {
-  background: rgba(255, 255, 255, .72);
-  border: 1px solid rgba(0, 83, 166, .14);
-  border-radius: 14px;
-  padding: 14px 16px;
-  text-align: center;
+.mdResumoFiltro, .siResumoFiltro.mdResumoFiltro { margin-top: 6px; }
+
+/* ---- Lista de DSEIs: bolinha + nome + contagem ---- */
+.mdListaItem { grid-template-columns: 12px 1fr auto !important; }
+.mdListaValor { font-weight: 900; color: var(--si-azul-prof, #0a2a4d); font-size: 12.5px; }
+
+/* ---- Marcadores de contagem (ambos os mapas) ---- */
+.mdMapDot {
+  display: grid; place-items: center;
+  min-width: 30px; height: 26px; padding: 0 6px;
+  border-radius: 13px;
+  background: #fff; border: 2px solid #2563eb; color: #1d4ed8;
+  font-size: 11px; font-weight: 900;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .28);
 }
+.mdMapDot.is-ativo { background: #2563eb; color: #fff; transform: scale(1.1); }
 
-.mapaKpiValor {
-  font-size: 26px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -.6px;
-  color: #0b3568;
+/* ---- KPIs: dica sob o valor ---- */
+.mdKpiHint { font-size: 10.5px; font-weight: 700; color: #16a34a; }
+
+/* ---- Painel de unidades/lotações ao lado do mapa (lista rolável) ---- */
+.mdMapaUnidades {
+  flex: 0 0 220px !important;
+  display: flex; flex-direction: column; gap: 6px;
+  justify-content: flex-start !important;
+  max-height: 360px; overflow-y: auto;
 }
-
-.mapaKpiValor.is-casai { color: #e8833a; }
-.mapaKpiValor.is-ubsi { color: #2f9e6b; }
-
-.mapaKpiLabel {
-  margin-top: 6px;
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  color: #4a6a93;
+.mdUniTitulo {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .3px;
+  color: var(--si-azul, #007de0); padding: 2px 2px 6px;
+  position: sticky; top: 0; background: #fff;
 }
-
-/* Corpo: mapa (esquerda) + painel de detalhe (direita) */
-.mapaCorpo {
-  display: flex;
-  gap: 16px;
-  align-items: stretch;
-  flex-wrap: wrap;
+.mdUniTitulo span { background: rgba(0, 125, 224, .12); color: var(--si-azul-prof, #0a2a4d); border-radius: 8px; padding: 1px 7px; }
+.mdUniRow {
+  display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 8px;
+  padding: 7px 9px; border-radius: 10px; border: 1px solid var(--si-borda, #cfe0f3); background: #fff;
 }
+.mdUniIcon { width: 26px; height: 26px; font-size: 12px; align-self: start; }
+/* Nome completo da lotação, sem cortar (quebra em várias linhas se preciso). */
+.mdUniLabel { font-size: 12px; font-weight: 700; color: var(--si-azul-prof, #0a2a4d); white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+.mdUniValor { font-size: 14px; font-weight: 900; color: var(--si-azul-prof, #0a2a4d); align-self: start; }
 
-.mapaMapaCol {
-  flex: 1 1 58%;
-  min-width: 300px;
-  background: linear-gradient(180deg, #f4f8ff, #eaf1fb);
-  border: 1px solid rgba(0, 83, 166, .14);
-  border-radius: 18px;
-  padding: 16px;
+/* ---- Tabela de trabalhadores ---- */
+.mdTableWrap { max-height: 420px; overflow: auto; border: 1px solid var(--si-borda, #cfe0f3); border-radius: 12px; }
+.mdTable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mdTable thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: #eef4fb; color: var(--si-azul-prof, #0a2a4d);
+  text-align: left; font-weight: 800; padding: 8px 10px; white-space: nowrap;
+  border-bottom: 1px solid var(--si-borda, #cfe0f3);
 }
+.mdTable tbody td { padding: 7px 10px; border-bottom: 1px solid rgba(0, 0, 0, .05); color: #334155; white-space: nowrap; }
+.mdTable tbody tr:hover { background: rgba(0, 125, 224, .05); }
+.mdTdNome { font-weight: 700; color: var(--si-azul-prof, #0a2a4d); }
+.mdBadge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.mdBadge.is-ativo { background: rgba(22, 163, 74, .14); color: #15803d; }
+.mdBadge.is-deslig { background: rgba(220, 38, 38, .12); color: #b91c1c; }
 
-.mapaMapaWrap {
-  width: 100%;
-  min-height: 320px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative; /* base do tooltip flutuante */
-}
+.mdView {
+  /* As variáveis --si-* são definidas no escopo do painel SI
+     (#view-painelSaudeIndigena.siDash). Como esta aba reaproveita os componentes
+     SI (siHero, siToolbar, siCard, siBtnLimpar…), replicamos os mesmos tokens
+     aqui para que herdem as cores corretas (senão o gradiente fica sem cor). */
+  --si-azul: #007de0;
+  --si-azul-esc: #0053a7;
+  --si-azul-prof: var(--azul-escuro, #07346b);
+  --si-azul-medio: #0a66b0;
+  --si-borda: rgba(0, 83, 166, .18);
+  --si-sombra: rgba(0, 50, 113, .14);
+  --si-sombra-forte: rgba(0, 50, 113, .22);
+  --si-urucum: #C8472B;
+  --si-terra: #9C4221;
+  --si-ocre: #E2872E;
+  --si-amarelo: #E7B93D;
+  --si-mata: #2E8B57;
+  --si-rio: #1F7A8C;
+  --si-texto: #1f3a5f;
 
-/* Tooltip dos pontos */
-.mapaTooltip {
-  position: absolute;
-  pointer-events: none;
-  z-index: 20;
-  min-width: 190px;
-  max-width: 270px;
-  background: #0b2444;
-  color: #eaf2ff;
-  border-radius: 10px;
-  padding: 9px 11px;
-  font-size: 12px;
-  line-height: 1.35;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, .3);
-}
-
-.mapaTipNome {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-weight: 800;
-  font-size: 12.5px;
-}
-
-.mapaTipDot {
-  flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, .6);
-}
-
-.mapaTipTipo {
-  font-size: 10px;
-  font-weight: 800;
-  color: #a9c4e8;
-  text-transform: uppercase;
-  letter-spacing: .03em;
-  margin: 2px 0 6px;
-}
-
-.mapaTipLinha {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 1.5px 0;
-}
-
-.mapaTipLinha span { color: #9db6d8; }
-.mapaTipLinha b { color: #fff; font-weight: 700; text-align: right; word-break: break-word; }
-
-.mapaMapaWrap svg {
-  width: 100%;
-  height: auto;
-  max-height: 72vh;
   display: block;
+  color: var(--si-texto);
+  padding: 18px 22px 28px;
 }
 
-.mapaVazio {
-  color: #4a6a93;
+/* ---------------- Toolbar (só DSEI e Unidade) + legenda ---------------- */
+.mdToolbar { margin-bottom: 16px; }
+/* O botão "Limpar filtros" (#mdBtnLimpar) usa a classe .siBtnLimpar, então herda
+   o mesmo gradiente azul do Painel da Força de Trabalho — sem override aqui. */
+
+.mdFilters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 320px));
+  gap: 14px;
+}
+
+.mdSelect {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--si-borda, #cfe0f3);
+  background: #fff;
+  color: var(--si-azul-prof, #0a2a4d);
+  font-size: 13px;
   font-weight: 700;
-  padding: 60px 0;
 }
 
-/* Estados (contorno) */
-.mapaUf {
-  fill: #cfe0f5;
-  stroke: #fff;
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-  cursor: pointer;
-  transition: fill .12s ease;
-}
-
-.mapaUf:hover {
-  fill: #bcd4f2;
-}
-
-/* Estado selecionado (com zoom aplicado). */
-.mapaUf.is-sel {
-  fill: #9cc0ee;
-  stroke-width: 1.5;
-}
-
-/* Pontos da rede */
-.mapaPonto {
-  fill-opacity: .82;
-  stroke: #ffffff;
-  stroke-width: .8;
-  vector-effect: non-scaling-stroke;
-  cursor: pointer;
-  transition: fill-opacity .1s ease;
-}
-
-.mapaPonto:hover {
-  fill-opacity: 1;
-}
-
-/* Com um DSEI selecionado: destaque nos pontos dele, demais esmaecidos. */
-.mapaPonto.is-hl {
-  fill-opacity: 1;
-  stroke-width: 1.4;
-}
-
-.mapaPonto.is-dim {
-  fill: #9fb2cc !important;
-  fill-opacity: .35;
-}
-
-/* Legenda */
-.mapaLegenda {
+.mdLegenda {
   display: flex;
-  gap: 20px;
-  justify-content: center;
-  margin-top: 12px;
   flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--si-borda, #cfe0f3);
 }
-
-.mapaLegItem {
+.mdLegItem {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
-  font-weight: 800;
-  color: #35507a;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--si-azul-prof, #0a2a4d);
 }
-
-.mapaDot {
-  width: 12px;
-  height: 12px;
+.mdPin {
+  width: 13px; height: 13px;
   border-radius: 50%;
-  border: 1.5px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .06);
+  display: inline-block;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, .06);
+}
+.mdPin-sede { background: #2563eb; }
+.mdPin-casai { background: #f59e0b; }
+.mdPin-ubsi { background: #16a34a; }
+.mdPin-polo { background: #7c3aed; }
+
+/* ---------------- Grade principal ---------------- */
+.mdGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 16px;
+  align-items: stretch; /* as duas colunas ficam com a mesma altura */
 }
 
-.mapaDot.is-casai { background: #e8833a; }
-.mapaDot.is-ubsi { background: #2f9e6b; }
-
-/* ---------- Painel lateral de detalhe ---------- */
-.mapaDetalhe {
-  flex: 1 1 300px;
-  min-width: 280px;
-  max-width: 400px;
-  background: #fff;
-  border: 1px solid rgba(0, 83, 166, .14);
-  border-radius: 18px;
-  padding: 16px;
+/* Card do mapa do Brasil ocupa toda a altura da coluna (alinha o rodapé da lista
+   com o fim do card "Informações gerais" à direita); a lista cresce/rola. */
+.mdCardBrasil {
   display: flex;
   flex-direction: column;
-  max-height: 76vh;
 }
-
-.mapaDetalheVazio {
-  margin: auto;
-  text-align: center;
-  color: #6b7d96;
-  padding: 40px 16px;
-}
-
-.mapaDetalheVazio i {
-  font-size: 26px;
-  color: #a9bcd8;
-  margin-bottom: 10px;
-  display: block;
-}
-
-.mapaDetalheVazio p {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.mapaDetalheHead {
+.mdColDireita {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ---------------- Mapas (Leaflet) ---------------- */
+.mdMapa {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--si-borda, #cfe0f3);
+  overflow: hidden;
+  background: #eef4fb;
+  z-index: 0; /* mantém os controles do Leaflet abaixo dos menus do app */
+}
+.mdMapaBrasil { height: 560px; }
+.mdMapaDsei { height: 360px; }
+
+/* Mapa do DSEI + painel de unidades à direita (como na referência) */
+.mdMapaWrap {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+}
+.mdMapaWrap .mdMapaDsei { flex: 1 1 auto; min-width: 0; }
+
+.mdMapaUnidades {
+  flex: 0 0 186px;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+  justify-content: center;
 }
-
-.mapaDetalheRotulo {
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  color: #7c8fab;
-  letter-spacing: .04em;
-}
-
-.mapaDetalheTitulo {
-  margin: 2px 0 0;
-  font-size: 17px;
-  font-weight: 900;
-  color: #0b3568;
-  line-height: 1.15;
-}
-
-.mapaDetalheFechar {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 83, 166, .16);
-  background: #f3f7fd;
-  color: #35507a;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.mapaDetalheFechar:hover { background: #e7eefb; }
-
-.mapaDetalheKpis {
+.mdUniRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 8px;
-  margin: 14px 0 10px;
-}
-
-.mapaMiniKpi {
-  background: #f4f8ff;
-  border: 1px solid rgba(0, 83, 166, .1);
-  border-radius: 10px;
-  padding: 8px 4px;
-  text-align: center;
-}
-
-.mapaMiniKpi b {
-  display: block;
-  font-size: 17px;
-  font-weight: 900;
-  color: #0b3568;
-  line-height: 1;
-}
-
-.mapaMiniKpi b.is-casai { color: #e8833a; }
-.mapaMiniKpi b.is-ubsi { color: #2f9e6b; }
-
-.mapaMiniKpi span {
-  display: block;
-  margin-top: 4px;
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #6b7d96;
-}
-
-.mapaDetalheUfs {
-  display: flex;
+  grid-template-columns: 34px 1fr auto;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 11px;
-  font-weight: 700;
-  color: #6b7d96;
-  margin-bottom: 12px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--si-borda, #cfe0f3);
+  background: #fff;
+  box-shadow: 0 4px 12px var(--si-sombra, rgba(0, 50, 113, .1));
 }
-
-.mapaUfTag {
-  background: #eaf1fb;
-  color: #315c8e;
-  border-radius: 6px;
-  padding: 2px 7px;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-/* Nº de municípios / DSEI destacado */
-.mapaDetalheMun {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #6b7d96;
-  margin-bottom: 10px;
-}
-.mapaDetalheMun b { color: #123a68; }
-
-/* Tags de DSEI (clicáveis: destacam o DSEI no mapa) */
-.mapaTags { margin-bottom: 12px; }
-
-.mapaTagsLabel {
-  display: block;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #7c8fab;
-  letter-spacing: .03em;
-  margin-bottom: 6px;
-}
-
-.mapaTagsLista {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  max-height: 116px;
-  overflow-y: auto;
-}
-
-.mapaTag {
-  background: #eaf1fb;
-  color: #315c8e;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 11px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background .12s ease, color .12s ease;
-}
-
-.mapaTag:hover { background: #dbe7f8; }
-
-.mapaTag.is-sel {
-  background: #0b3568;
+.mdUniIcon {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--md-c, #2563eb);
   color: #fff;
-  border-color: #0b3568;
+  font-size: 14px;
+}
+.mdUniText { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mdUniLabel { font-size: 12.5px; font-weight: 800; color: var(--si-azul-prof, #0a2a4d); }
+.mdVerUnidades {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--si-azul, #007de0);
+  cursor: pointer;
+  text-decoration: none;
+}
+.mdVerUnidades:hover { text-decoration: underline; }
+.mdUniValor { font-size: 18px; font-weight: 900; color: var(--si-azul-prof, #0a2a4d); }
+
+@media (max-width: 720px) {
+  .mdMapaWrap { flex-direction: column; }
+  .mdMapaUnidades { flex-basis: auto; }
 }
 
-.mapaLista {
+/* Marcador numerado (mapa do Brasil) */
+.mdMapNum {
+  display: grid;
+  place-items: center;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #2563eb;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+}
+.mdMapNum.is-ativo {
+  background: #2563eb;
+  color: #fff;
+  transform: scale(1.15);
+}
+
+/* Marcador de unidade (mapa do DSEI): pino colorido com ícone */
+.mdMapPin {
+  display: grid;
+  place-items: center;
+  width: 28px; height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--md-pin, #2563eb);
+  border: 2px solid #fff;
+  box-shadow: 0 3px 7px rgba(0, 0, 0, .3);
+}
+.mdMapPin i {
+  transform: rotate(45deg);
+  color: #fff;
+  font-size: 12px;
+}
+
+/* ---------------- Lista de DSEIs ---------------- */
+.mdListaHint {
+  margin: 12px 0 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+.mdListaDseis {
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 1 1 0;         /* preenche só o espaço restante do card, sem inflá-lo */
+  min-height: 0;       /* permite rolar em vez de esticar o card */
   overflow-y: auto;
-  border-top: 1px solid #eef2f8;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-auto-rows: max-content;
+  gap: 2px;
 }
+.mdListaItem {
+  display: grid;
+  grid-template-columns: 16px 22px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--si-azul-prof, #0a2a4d);
+  transition: background .12s;
+}
+.mdListaItem:hover { background: rgba(37, 99, 235, .08); }
+.mdListaItem.is-ativo { background: rgba(37, 99, 235, .16); font-weight: 800; }
+.mdListaDot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #2563eb;
+}
+.mdListaId { font-weight: 800; color: #1d4ed8; }
+.mdListaNome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.mapaItem {
+/* ---------------- Cabeçalho + KPIs do DSEI ---------------- */
+.mdDseiTitulo {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 9px;
-  padding: 9px 2px;
-  border-bottom: 1px solid #f1f5fa;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--si-azul-prof, #0a2a4d);
+  margin-bottom: 12px;
+}
+.mdDot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, .18);
+}
+.mdKpiRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
 }
 
-.mapaItemDot {
+/* Pino de estabelecimento (CNES) no mapa do DSEI */
+.mdEstabPin {
+  display: grid; place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #2563eb; border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+.mdEstabPin i { transform: rotate(45deg); color: #fff; font-size: 10px; }
+.mdKpi {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 125, 224, .05);
+  border: 1px solid var(--si-borda, #cfe0f3);
+}
+.mdKpiIcon {
   flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  background: var(--si-azul, #007de0);
+  color: #fff;
+  font-size: 14px;
+}
+.mdKpiText { display: flex; flex-direction: column; min-width: 0; }
+.mdKpiLabel { font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .3px; }
+.mdKpiValue { font-size: 17px; font-weight: 900; color: var(--si-azul-prof, #0a2a4d); }
+.mdKpiValue small { font-size: 11px; font-weight: 700; color: #64748b; }
+.mdKpiUf, .mdKpiSede { font-size: 14px; }
+
+/* ---------------- Contadores de unidades ---------------- */
+.mdContadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+.mdContador {
+  flex: 1 1 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--si-borda, #cfe0f3);
+}
+.mdContadorIcon {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
   border-radius: 50%;
-  margin-top: 4px;
-  border: 1.5px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .08);
+  background: var(--md-c, #2563eb);
+  color: #fff;
+  font-size: 14px;
+  margin-bottom: 2px;
 }
+.mdContadorValor { font-size: 18px; font-weight: 900; color: var(--si-azul-prof, #0a2a4d); }
+.mdContadorRotulo { font-size: 11px; font-weight: 700; color: #64748b; text-align: center; }
+.mdContadorModais { flex: 2 1 170px; justify-content: center; }
+.mdModais { display: flex; gap: 12px; font-size: 18px; color: var(--si-azul, #007de0); margin-top: 4px; }
+.mdModais .mdVazio { font-size: 14px; color: #94a3b8; }
 
-.mapaItemTxt { min-width: 0; }
-
-.mapaItemNome {
-  display: block;
+/* ---------------- Informações gerais ---------------- */
+.mdInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.mdInfoBloco { min-width: 0; }
+.mdInfoTitulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  color: var(--si-azul, #007de0);
+}
+.mdInfoLista { list-style: none; margin: 0; padding: 0; }
+.mdInfoLista li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
   font-size: 12.5px;
-  font-weight: 800;
-  color: #123a68;
-  line-height: 1.2;
+  color: var(--si-azul-prof, #0a2a4d);
 }
+.mdInfoLista li strong { font-weight: 800; }
+.mdInfoTexto { font-size: 12.5px; line-height: 1.5; color: #334155; margin: 0; }
+.mdVazio { color: #94a3b8; font-style: italic; }
 
-.mapaItemMun {
-  display: block;
-  font-size: 11px;
-  color: #6b7d96;
-  font-weight: 600;
-  margin-top: 1px;
+/* ---------------- Responsivo ---------------- */
+@media (max-width: 1100px) {
+  .mdGrid { grid-template-columns: 1fr; }
+  .mdKpiRow { grid-template-columns: repeat(2, 1fr); }
+  .mdInfoGrid { grid-template-columns: repeat(2, 1fr); }
 }
-
-.mapaListaVazia {
-  color: #6b7d96;
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 14px 2px;
-  margin: 0;
-}
-
-@media (max-width: 760px) {
-  .mapaDseisView { padding: 16px; }
-  .mapaKpis { grid-template-columns: 1fr 1fr; }
-  .mapaDetalhe { max-width: none; max-height: none; }
+@media (max-width: 620px) {
+  .mdFilters { grid-template-columns: 1fr; }
+  .mdKpiRow, .mdInfoGrid { grid-template-columns: 1fr; }
 }

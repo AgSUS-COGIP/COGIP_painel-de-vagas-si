@@ -12,9 +12,9 @@ import { configurarPainelExterno, configurarPainelFerias, configurarRemanejament
 import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { configurarEntregaCracha } from "./entrega-cracha.js";
 import { configurarSaudeIndigena, prefetchSaudeIndigena } from "./saude-indigena.js";
+import { configurarMapaDseis } from "./mapa-dseis.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
-import { configurarMapaDseis } from "./mapa-dseis.js";
 import { configurarEscalaTrabalho } from "./escala-trabalho.js";
 import { configurarAssistente } from "./assistente.js";
 import { configurarOrdenacaoTabelas } from "./ordenacao-tabelas.js";
@@ -50,9 +50,9 @@ export async function init() {
   configurarGestaoFerias();
   configurarEntregaCracha();
   configurarSaudeIndigena();
+  configurarMapaDseis();
   configurarGestaoDisciplinar();
   configurarProcessosSeletivos();
-  configurarMapaDseis();
   configurarEscalaTrabalho();
   configurarAssistente();
   configurarOrdenacaoTabelas();

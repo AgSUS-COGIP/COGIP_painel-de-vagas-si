@@ -23,6 +23,7 @@ const {
   listarEditaisComConn, criarEditalComConn, atualizarEditalComConn, excluirEditalComConn,
   substituirAnexoComConn, removerAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
 } = require("./lib/processos-seletivos");
+const { getMapaDseisData, getRedeCnes } = require("./lib/mapa-dseis");
 const { getFeriasData } = require("./lib/ferias");
 const { getEscalaData } = require("./lib/escala");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
@@ -291,6 +292,17 @@ app.post("/api/feedback", apiLimiter, express.json(), autenticarMiddleware, asyn
 // ---- Dashboard Saúde Indígena (nativo) ----
 app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getSaudeIndigenaData(req.usuario.escopo));
+}));
+
+// ---- Mapa dos DSEIs (VW_SAUDE_INDIGENA + TB_LOTACAO_OVERRIDE) ----
+// Mesma base/permissão do Painel da Força de Trabalho (painelSaudeIndigena).
+app.get("/api/mapa-dseis", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  res.json(await getMapaDseisData(req.usuario.escopo));
+}));
+
+// Rede CNES (estabelecimentos por DSEI: lat/lng + município), para os mapas.
+app.get("/api/mapa-dseis/rede", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  res.json(getRedeCnes());
 }));
 
 // ---- Gestão de Férias (análise — somente leitura) ----
