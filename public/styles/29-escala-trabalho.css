@@ -545,6 +545,10 @@
     gap: 14px;
   }
 
+  /* Cartões empilhados (um sobre o outro, largura total) — usado nos
+     detalhamentos de Plantonistas e Território. */
+  .etEmpilhado { display: block; }
+
   /* Sem isto, o `min-width: auto` padrão dos itens de grid faz a grade larga do
      Tabulator empurrar a coluna além de 1fr — a tabela de território "vazava"
      da tela em vez de dividir o espaço. Com min-width:0 cada cartão respeita
@@ -556,6 +560,38 @@
   @media (max-width: 1040px) {
     .etDuplo { grid-template-columns: 1fr; }
   }
+
+  /* ---------- Barra de filtros dos detalhamentos ---------- */
+  .etDetalheBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .etDetalheFiltros {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+  }
+  .etCombo.etComboSm { width: auto; min-width: 170px; max-width: 240px; }
+  .etDetalheBusca {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    min-width: 200px;
+    border: 1px solid rgba(0, 61, 122, .22);
+    border-radius: 10px;
+    padding: 0 10px;
+    background: #fff;
+  }
+  .etDetalheBusca i { color: var(--muted); font-size: 13px; }
+  .etDetalheSearch { border: 0; outline: 0; width: 100%; background: transparent; font-size: 13px; font-weight: 600; color: var(--texto); }
+  .etBtnExportar { background: linear-gradient(135deg, #1f9d57, #157a43); white-space: nowrap; }
 
   /* ---------- Detalhamento plantonistas (conteúdo das células) ---------- */
   .etPlantProfNome {

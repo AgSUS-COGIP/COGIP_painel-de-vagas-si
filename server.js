@@ -9,7 +9,7 @@ const multer = require("multer");
 const { DASH_CONFIG, resolverPortaAplicacao } = require("./lib/config");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
-const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
+const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
 const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
@@ -481,6 +481,22 @@ app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMid
     res.json({ ok: true, registro });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao reverter o crachá." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Reverter em LOTE: desfaz a última alteração de várias matrículas de uma vez.
+app.post("/api/cracha/reverter-lote", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const matriculas = (req.body || {}).matriculas;
+    await garantirEscopoMatriculasComConn(conn, matriculas, req.usuario.escopo);
+    const { registros, erros } = await reverterLoteComConn(conn, matriculas);
+    limparCacheDashboard();
+    res.json({ ok: true, registros, erros });
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao reverter em lote." });
   } finally {
     await fecharJdbc(conn);
   }

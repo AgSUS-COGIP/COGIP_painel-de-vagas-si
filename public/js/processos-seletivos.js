@@ -1658,8 +1658,12 @@ export function configurarProcessosSeletivos() {
   if (!raiz) return;
   processosConfigurado = true;
 
-  renderTudo();       // estrutura inicial (vazia) enquanto carrega
-  recarregar(true);   // carrega os editais do banco (silencioso: roda p/ todos no init)
+  // Estrutura inicial (vazia). Os dados NÃO são buscados no init: o GET dos
+  // editais roda ao ABRIR a aba (renderProcessosSeletivosAoMostrar -> recarregar),
+  // e a lista de DSEIs do formulário é carregada sob demanda em abrirModalEdital
+  // (carregarDseisForm tem cache próprio). Evita fetch eager para todo usuário no
+  // boot — inclusive para quem nunca abre esta aba.
+  renderTudo();
 
   $("psFiltroUnidade")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psFiltroStatus")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
@@ -1671,9 +1675,8 @@ export function configurarProcessosSeletivos() {
   $("psModalCancelar")?.addEventListener("click", fecharModalEdital);
   // Enter no formulário do passo 1 = avançar (não submete/grava direto).
   $("psFormEdital")?.addEventListener("submit", event => { event.preventDefault(); wizardProximo(); });
-  $("psModalEdital")?.addEventListener("click", event => {
-    if (event.target.id === "psModalEdital") fecharModalEdital();
-  });
+  // NÃO fecha ao clicar fora (evita perder o preenchimento do assistente por
+  // engano): só fecha pelo X, "Cancelar" ou ao concluir/salvar.
   // Botões de navegação do assistente.
   $("psWizVoltar")?.addEventListener("click", wizardVoltar);
   $("psWizProximo")?.addEventListener("click", wizardProximo);
@@ -1687,7 +1690,8 @@ export function configurarProcessosSeletivos() {
     const el = $("psFormUf");
     if (uf && el) el.value = uf;
   });
-  carregarDseisForm(); // aquece o cache da lista de DSEIs (não bloqueia o init)
+  // A lista de DSEIs/CASAIs do formulário é carregada sob demanda em
+  // abrirModalEdital (carregarDseisForm, com cache) — não é aquecida no init.
 
   // Aprovados: sem modal — inserção/edição inline na própria tabela.
 
@@ -1695,17 +1699,11 @@ export function configurarProcessosSeletivos() {
   $("psModalConfigFechar")?.addEventListener("click", fecharModalConfig);
   $("psModalConfigCancelar")?.addEventListener("click", fecharModalConfig);
   $("psFormConfig")?.addEventListener("submit", salvarConfig);
-  $("psModalConfig")?.addEventListener("click", event => {
-    if (event.target.id === "psModalConfig") fecharModalConfig();
-  });
 
   // Modal de ajuste do cronograma (edição manual de atividades/datas).
   $("psModalCronogramaFechar")?.addEventListener("click", fecharModalCronograma);
   $("psModalCronogramaCancelar")?.addEventListener("click", fecharModalCronograma);
   $("psFormCronograma")?.addEventListener("submit", salvarCronograma);
-  $("psModalCronograma")?.addEventListener("click", event => {
-    if (event.target.id === "psModalCronograma") fecharModalCronograma();
-  });
   $("psCronogramaAddLinha")?.addEventListener("click", () => {
     const lista = $("psCronogramaLista");
     if (!lista) return;

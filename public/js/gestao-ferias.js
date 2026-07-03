@@ -213,6 +213,12 @@ async function carregar() {
   }
 }
 
+// Ao ABRIR a aba (disparado pelo registro central de views em filtros.js):
+// carrega os dados na 1ª abertura (carregar() se autoguarda contra recarga).
+export function renderGestaoFeriasAoMostrar() {
+  if (!carregado && !carregando) carregar();
+}
+
 function decodificar(payload) {
   const fields = payload.fields || [];
   const rawFields = payload.rawFields || [];
@@ -799,9 +805,9 @@ export function configurarGestaoFerias() {
   document.addEventListener("click", () => fecharTodosCombos(null));
   $("gfBtnLimparFiltros")?.addEventListener("click", limparFiltros);
 
-  // Carregamento sob demanda ao abrir a aba.
-  const navItem = document.querySelector('.navItem[data-view="gestaoFerias"]');
-  if (navItem) navItem.addEventListener("click", () => { if (!carregado && !carregando) carregar(); });
+  // Carregamento sob demanda ao ABRIR a aba: disparado pelo registro central de
+  // views (filtros.js -> REGISTRO_VIEWS.gestaoFerias -> renderGestaoFeriasAoMostrar).
+  // O fallback abaixo cobre o deep-link direto na aba.
   if (state.activeView === "gestaoFerias") carregar();
 
   // Exportações.

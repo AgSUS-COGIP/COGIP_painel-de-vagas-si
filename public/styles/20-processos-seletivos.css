@@ -153,6 +153,10 @@
   box-shadow: 0 12px 22px rgba(0, 43, 93, .18);
   transition: .16s ease;
 }
+/* `display:inline-flex` acima venceria o atributo [hidden]; esta regra (mais
+   específica) faz o botão oculto realmente sumir — usado pelos botões do
+   assistente (Voltar/Pular/Próximo/Concluir), que aparecem conforme o passo. */
+.psBtn[hidden] { display: none; }
 
 .psBtn:hover {
   transform: translateY(-1px);
