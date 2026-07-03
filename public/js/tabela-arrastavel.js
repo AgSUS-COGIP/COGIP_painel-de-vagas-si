@@ -39,7 +39,7 @@ const COACH_HTML = `
       <button type="button" class="tabCoachBtn" data-coach-fechar="colunas"><i class="fa-solid fa-check"></i> Entendi</button>
     </div>
     <div class="tabCoachBubble tabCoachBubble--rows" data-coach="linhas">
-      <span>Também é possível reordenar as linhas para compará-las lado a lado.</span>
+      <span>É possível reordenar as linhas para compará-las lado a lado.</span>
       <button type="button" class="tabCoachBtn" data-coach-fechar="linhas"><i class="fa-solid fa-check"></i> Entendi</button>
     </div>
   </div>`;
