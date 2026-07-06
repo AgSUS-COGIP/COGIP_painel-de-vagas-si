@@ -943,7 +943,7 @@ app.post("/api/acesso/perfis/escopo", apiLimiter, autenticarFrescoMiddleware, ex
 }));
 
 // ---- Gestão Disciplinar (pedidos de sanção) ----
-// Edição liberada a usuários aprovados (nível >= 1); assumir/delegar responsável e
+// Edição liberada a usuários aprovados (nível >= 1); assumir/responsável e
 // excluir são exclusivos de administradores (nível >= 2). O autor/login é sempre
 // derivado do token (nunca do corpo).
 function loginDoToken(req) {
@@ -1098,7 +1098,7 @@ app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddlew
   }
 }));
 
-// Assumir/delegar responsável — exclusivo de administradores.
+// Assumir/responsável — exclusivo de administradores.
 app.post("/api/disciplinar/:id/responsavel", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {

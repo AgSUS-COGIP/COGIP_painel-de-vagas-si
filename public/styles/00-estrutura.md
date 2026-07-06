@@ -55,7 +55,6 @@ Esse é o padrão para "regra que precisa ganhar de todas": uma camada-topo dedi
 | **19-gestao-disciplinar.css** | Aba **Gestão Disciplinar** (`gd*`): reaproveita os componentes da Gestão de Férias (`gfPanel`, `gfTable`, `gfBtn`, `gfBadge`, `gfKpi`) e acrescenta o específico (grade de detalhe, stepper). |
 | **20-processos-seletivos.css** | Aba **Processos Seletivos** (`ps*`): KPIs, tabela, badges de status, paginação, painel de detalhamento e modal de cadastro. |
 | **21-login.css** | **Tela de login** (layout dividido acesso + imagem; acesso por conta Google). Escopo restrito a `#loginScreen` para não afetar `.acessoPendenteScreen`, que reusa `.loginCard`. **Mexa no login aqui** (vence a base de login do 13). |
-| **22-ordenacao-tabelas.css** | Ordenação por clique no cabeçalho (genérica, todas as tabelas): indicadores visuais de coluna clicável e direção. |
 | **23-filtros-padrao.css** | **Padrão visual único de filtros/dropdowns** (`.multiSelect`): gatilho branco arredondado + popup. Aplica o mesmo formato a todos os dropdowns. |
 | **24-date-picker.css** | Date picker customizado dos filtros de data: gatilho branco + calendário em popup (portal no `<body>`). |
 | **25-file-input.css** | Input de arquivo padronizado: botão "Selecionar arquivos" + área de estado (chips, overflow "+N", desabilitado). |

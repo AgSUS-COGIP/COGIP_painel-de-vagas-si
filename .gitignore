@@ -7,5 +7,5 @@ node_modules/
 # Variáveis de ambiente
 .env
 
-appsScript/
 .claude/
+CLAUDE.md

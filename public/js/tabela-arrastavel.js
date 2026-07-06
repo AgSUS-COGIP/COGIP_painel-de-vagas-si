@@ -32,6 +32,21 @@ function marcarCoachVisto(tipo) {
   try { localStorage.setItem(chaveCoach(tipo), "1"); } catch { /* só nesta sessão */ }
 }
 
+// ---- "O usuário já ajustou a largura das colunas desta grade?" (por persistID) ----
+// Regra 1 (dividir o espaço por igual) vale só no 1º acesso; assim que o usuário
+// redimensiona uma coluna, marcamos aqui e passamos a RESPEITAR a largura escolhida
+// — a partir daí é o fitDataStretch que estica a última coluna p/ não sobrar vão.
+const chaveLargura = pid => `tabLarguraCustom:${pid}`;
+function larguraTocada(pid) {
+  if (!pid) return false;
+  try { return localStorage.getItem(chaveLargura(pid)) === "1"; }
+  catch { return false; }
+}
+function marcarLarguraTocada(pid) {
+  if (!pid) return;
+  try { localStorage.setItem(chaveLargura(pid), "1"); } catch { /* só nesta sessão */ }
+}
+
 const COACH_HTML = `
   <div class="tabCoach" data-tab-coach hidden>
     <div class="tabCoachBubble tabCoachBubble--cols" data-coach="colunas">
@@ -93,6 +108,27 @@ export function criarTabelaArrastavel(opts) {
   const usarCoach = opts.coach !== false && !soEstilo;
   const idSelecionado = typeof opts.idSelecionado === "function" ? opts.idSelecionado : null;
 
+  // ---- Preenchimento da largura (regra 1: dividir igual no 1º acesso) ----
+  // Ligado por padrão; passe equalizarColunas:false p/ desligar numa grade específica.
+  const equalizar = opts.equalizarColunas !== false;
+  const layoutBase = opts.layout || "fitDataStretch";
+  const minWidthPadrao = opts.minWidthColuna || 90;
+  // Fonte da verdade p/ "coluna de largura fixa" (ex.: ações, checkbox, dias da
+  // escala): a definição ORIGINAL — imune à persistência, que grava width nas
+  // colunas depois que o usuário redimensiona. Assim distribuímos só o espaço das
+  // colunas realmente flexíveis e nunca "engordamos" uma coluna de ação/checkbox.
+  const larguraFixaPorCampo = new Map();
+  const minWidthPorCampo = new Map();
+  (opts.colunas || []).forEach(c => {
+    if (!c || c.field == null) return;
+    if (c.width != null) larguraFixaPorCampo.set(c.field, c.width);
+    if (c.minWidth != null) minWidthPorCampo.set(c.field, c.minWidth);
+  });
+  const estadoLargura = { equalizando: false, equalizado: false, ultimaLargura: 0 };
+
+  // Esqueleto (shimmer) durante a reconstrução da grade — opt-in por grade.
+  const usarEsqueleto = opts.esqueleto === true;
+
   // Envolve o elemento num wrapper posicionado (base dos coachmarks) — idempotente.
   let wrap = el.closest(".tabArrWrap");
   if (!wrap) {
@@ -121,6 +157,42 @@ export function criarTabelaArrastavel(opts) {
     });
   }
 
+  // ---- Esqueleto (skeleton) durante a reconstrução da grade ----
+  // Entre destruir() e o tableBuilt da nova grade, mostra um cabeçalho + linhas
+  // "shimmer" no lugar, para parecer que só os DADOS trocaram — não a tabela toda.
+  // Vive no wrapper (persistente entre destruir/recriar), então a grade nova o remove.
+  function mostrarEsqueleto() {
+    if (!usarEsqueleto || !wrap) return;
+    const altura = el.offsetHeight || 0;              // altura da grade ANTES de destruir
+    let sk = wrap.querySelector(".tabSkeleton");
+    if (!sk) {
+      sk = document.createElement("div");
+      sk.className = "tabSkeleton";
+      sk.setAttribute("aria-hidden", "true");
+      wrap.appendChild(sk);
+    }
+    // Preenche a altura anterior com ~N linhas (cabeçalho ~44px + linhas ~41px).
+    const n = Math.max(4, Math.min(16, Math.round(((altura || 320) - 44) / 41)));
+    sk.innerHTML = '<div class="tabSkeletonHead"></div><div class="tabSkeletonBody">' +
+      '<div class="tabSkeletonRow"></div>'.repeat(n) + "</div>";
+    if (altura) wrap.style.minHeight = `${altura}px`; // segura a altura enquanto remonta
+    // Rede de segurança: normalmente é o tableBuilt da nova grade que esconde o
+    // esqueleto (revelação limpa, já com as colunas equalizadas). Mas se aquele rAF
+    // não vier (ex.: aba em segundo plano pausa o requestAnimationFrame), este timer
+    // garante que o esqueleto não fique preso cobrindo a tabela. Guardado no wrapper
+    // (não no closure) para ser compartilhado entre a grade destruída e a recriada.
+    if (wrap._skTimer) clearTimeout(wrap._skTimer);
+    wrap._skTimer = setTimeout(esconderEsqueleto, 2000);
+  }
+
+  function esconderEsqueleto() {
+    if (wrap && wrap._skTimer) { clearTimeout(wrap._skTimer); wrap._skTimer = 0; }
+    const sk = wrap && wrap.querySelector(".tabSkeleton");
+    if (!sk) return;
+    sk.remove();
+    wrap.style.minHeight = "";
+  }
+
   let tabela = null;
 
   function marcarSelecionada() {
@@ -134,6 +206,56 @@ export function criarTabelaArrastavel(opts) {
 
   function dadosOrdenados(linhas) {
     return ordenarPorPreferencia(linhas || [], ordemKey, campoId);
+  }
+
+  // Regra 1 — preenche a tabela dividindo o espaço IGUALMENTE entre as colunas
+  // flexíveis (sem width fixa na definição). Só roda no 1º acesso (enquanto o
+  // usuário não redimensionou nada nesta grade); depois disso é o fitDataStretch
+  // que estica a última coluna para não sobrar vão à direita (regra 2). Colunas de
+  // largura fixa (ações/checkbox/dias) são respeitadas; em overflow, deixa rolar.
+  function equalizarLarguras() {
+    if (!tabela || !equalizar) return;
+    if (layoutBase.indexOf("fitColumns") === 0) return; // fitColumns já preenche sozinho
+    if (!el.clientWidth) return;                         // aba oculta: mediria errado
+    if (larguraTocada(opts.persistID)) return;           // usuário já ajustou: respeita
+    let cols;
+    try { cols = tabela.getColumns().filter(c => c.isVisible()); } catch { return; }
+    if (!cols.length) return;
+    const holder = el.querySelector(".tabulator-tableholder");
+    const disponivel = (holder && holder.clientWidth) || el.clientWidth;
+    if (!disponivel) return;
+    // Idempotente: já dividido nesta mesma largura → não refaz a cada render.
+    if (estadoLargura.equalizado && estadoLargura.ultimaLargura === disponivel) return;
+    const ehFixa = c => {
+      const f = c.getField();
+      return f != null ? larguraFixaPorCampo.has(f) : c.getDefinition().width != null;
+    };
+    const flex = cols.filter(c => !ehFixa(c));
+    if (!flex.length) return;                            // todas fixas: nada a dividir
+    // minWidth efetivo da coluna (o do columnDefaults quando ela não define o seu).
+    const minEfetivo = c => {
+      const f = c.getField();
+      const m = f != null && minWidthPorCampo.has(f) ? minWidthPorCampo.get(f) : minWidthPadrao;
+      return parseInt(m, 10) || 0;
+    };
+    // A largura REAL de uma coluna fixa é o maior entre a width definida e o seu
+    // minWidth (o Tabulator faz esse clamp — ex.: width:64 com minWidth:90 vira 90).
+    // Usar só a width definida subestimaria a soma e estouraria a tabela na direita.
+    const somaFixas = cols.filter(ehFixa).reduce((soma, c) => {
+      const f = c.getField();
+      const def = f != null && larguraFixaPorCampo.has(f) ? larguraFixaPorCampo.get(f) : (c.getWidth() || 0);
+      return soma + Math.max(def, minEfetivo(c));
+    }, 0);
+    const livre = disponivel - somaFixas;
+    if (livre <= 0) return;                              // overflow: deixa rolar na horizontal
+    const cada = Math.floor(livre / flex.length);
+    estadoLargura.equalizando = true;                    // marca p/ o columnResized ignorar
+    try {
+      flex.forEach(c => c.setWidth(Math.max(minEfetivo(c), cada)));
+    } catch { /* ainda construindo */ }
+    estadoLargura.equalizando = false;
+    estadoLargura.equalizado = true;
+    estadoLargura.ultimaLargura = disponivel;
   }
 
   let pronta = false;       // tableBuilt já disparou?
@@ -158,7 +280,7 @@ export function criarTabelaArrastavel(opts) {
       // fitDataStretch: colunas na largura própria; a última estica para preencher
       // (nunca sobra espaço vazio à direita) e rola na horizontal quando o total
       // passa do container. É o "mínimo = largura do container".
-      layout: opts.layout || "fitDataStretch",
+      layout: layoutBase,
       columnDefaults: { minWidth: opts.minWidthColuna || 90 },
       // Ordenação por cabeçalho desligada por padrão (não conflita com mover
       // linhas). Pode ser ligada (headerSort:true) quando as linhas NÃO se movem
@@ -192,7 +314,10 @@ export function criarTabelaArrastavel(opts) {
         // Só redesenha se o elemento tem largura (visível). Redesenhar com
         // clientWidth=0 (aba oculta / layout ainda não assentou) faz o Tabulator
         // entrar em laço no adjustTableSize (RangeError: Maximum call stack).
-        requestAnimationFrame(() => { try { if (el.clientWidth) tabela.redraw(true); } catch { /* aba oculta/destruída */ } });
+        requestAnimationFrame(() => {
+          try { if (el.clientWidth) { tabela.redraw(true); equalizarLarguras(); } } catch { /* aba oculta/destruída */ }
+          esconderEsqueleto();  // revela a grade nova já pronta, no lugar do esqueleto
+        });
       }
     });
     if (typeof opts.aoClicarLinha === "function") {
@@ -205,7 +330,14 @@ export function criarTabelaArrastavel(opts) {
     // texto quebrar, mas a ALTURA da linha só é recalculada ao SOLTAR o
     // redimensionamento (columnResized dispara no mouseup, não a cada mousemove).
     // Evita o variableHeight, que remede todas as linhas a cada pixel arrastado.
-    tabela.on("columnResized", () => { try { if (el.clientWidth) tabela.redraw(true); } catch { /* construindo */ } });
+    tabela.on("columnResized", () => {
+      // Ignora o resize disparado pela nossa própria equalização (regra 1).
+      if (estadoLargura.equalizando) return;
+      // Regra 2: o usuário ajustou → respeita a largura escolhida daqui pra frente
+      // (não reequaliza) e o fitDataStretch estica a última coluna p/ preencher o vão.
+      marcarLarguraTocada(opts.persistID);
+      try { if (el.clientWidth) tabela.redraw(true); } catch { /* construindo */ }
+    });
   }
 
   // Alimenta a grade. Construção PREGUIÇOSA: a tabela é montada já COM os dados na
@@ -249,13 +381,14 @@ export function criarTabelaArrastavel(opts) {
       // clientWidth=0 (aba oculta/sem layout) faz o Tabulator entrar em laço no
       // adjustTableSize — só redesenha quando o elemento está visível.
       if (tabela && pronta && el.clientWidth) {
-        try { tabela.redraw(true); } catch { /* aba oculta/recém-montada */ }
+        try { tabela.redraw(true); equalizarLarguras(); } catch { /* aba oculta/recém-montada */ }
       }
     },
     // Destroi a grade (mantém o wrapper/coach). Usado quando o conjunto de
     // colunas muda de forma estrutural e a grade precisa ser recriada (ex.: as
     // tabelas de Vagas ao alternar entre os modos detalhado × agregado).
     destruir() {
+      mostrarEsqueleto();  // esqueleto no lugar enquanto a nova grade é remontada
       if (tabela) { try { tabela.destroy(); } catch { /* já destruída */ } }
       tabela = null; pronta = false; pendente = null;
     },

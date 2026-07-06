@@ -56,17 +56,9 @@
 .mdUniLabel { font-size: 12px; font-weight: 700; color: var(--si-azul-prof, #0a2a4d); white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
 .mdUniValor { font-size: 14px; font-weight: 900; color: var(--si-azul-prof, #0a2a4d); align-self: start; }
 
-/* ---- Tabela de trabalhadores ---- */
-.mdTableWrap { max-height: 420px; overflow: auto; border: 1px solid var(--si-borda, #cfe0f3); border-radius: 12px; }
-.mdTable { width: 100%; border-collapse: collapse; font-size: 12px; }
-.mdTable thead th {
-  position: sticky; top: 0; z-index: 1;
-  background: #eef4fb; color: var(--si-azul-prof, #0a2a4d);
-  text-align: left; font-weight: 800; padding: 8px 10px; white-space: nowrap;
-  border-bottom: 1px solid var(--si-borda, #cfe0f3);
-}
-.mdTable tbody td { padding: 7px 10px; border-bottom: 1px solid rgba(0, 0, 0, .05); color: #334155; white-space: nowrap; }
-.mdTable tbody tr:hover { background: rgba(0, 125, 224, .05); }
+/* ---- Tabela de trabalhadores (grade Tabulator; ver js/tabela-arrastavel.js) ---- */
+/* A "moldura" (borda, cabeçalho, hover, rolagem) vem do skin Tabulator em
+   28-tabela-arrastavel.css. Aqui só o que é específico das células desta grade. */
 .mdTdNome { font-weight: 700; color: var(--si-azul-prof, #0a2a4d); }
 .mdBadge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; }
 .mdBadge.is-ativo { background: rgba(22, 163, 74, .14); color: #15803d; }

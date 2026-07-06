@@ -15,6 +15,7 @@
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
 import { formatNumber, formatPercent, escapeHtml, escapeAttr } from "./utils.js";
+import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const $ = id => document.getElementById(id);
 const norm = s => (s || "").trim().toLowerCase();
@@ -454,36 +455,52 @@ function renderMapaUnidades(rows) {
       : `<div class="mdVazio">Sem lotações para os filtros.</div>`);
 }
 
-// ---------- Tabela ----------
-const cel = v => v ? escapeHtml(v) : "—";
-const TABELA_MAX = 300;
+// ---------- Tabela (grade Tabulator via helper compartilhado) ----------
+const cel = v => (v || v === 0) ? escapeHtml(String(v)) : "—";
+
+// Colunas da grade de Trabalhadores. Registro é numérico (ordena como número); as
+// demais são texto. Vínculo vira um selo (ativo/desligado). O Tabulator virtualiza
+// as linhas, então a base inteira é exibida por rolagem (sem o antigo limite de 300).
+const MD_COLS = [
+  { title: "Registro", field: "registro", sorter: "number", minWidth: 90, formatter: c => cel(c.getValue()) },
+  { title: "Nome", field: "nome", cssClass: "mdTdNome", minWidth: 180, formatter: c => cel(c.getValue()) },
+  { title: "Cargo", field: "cargo", minWidth: 160, formatter: c => cel(c.getValue()) },
+  { title: "Situação", field: "situacao", minWidth: 120, formatter: c => cel(c.getValue()) },
+  { title: "Vínculo", field: "vinculo", minWidth: 110, formatter: c => {
+      const v = c.getValue();
+      return `<span class="mdBadge ${v === "Ativo" ? "is-ativo" : "is-deslig"}">${cel(v)}</span>`;
+    } },
+  { title: "Lotação", field: "lotacao", minWidth: 150, formatter: c => cel(c.getValue()) },
+  { title: "DSEI/CASAI", field: "dsei", minWidth: 150, formatter: c => cel(c.getValue()) },
+  { title: "UF", field: "uf", minWidth: 70, formatter: c => cel(c.getValue()) },
+  { title: "Sexo", field: "sexo", minWidth: 80, formatter: c => cel(c.getValue()) },
+  { title: "Grau", field: "grauInstrucao", minWidth: 120, formatter: c => cel(c.getValue()) },
+  { title: "Tipo Admissão", field: "tipoAdmissao", minWidth: 130, formatter: c => cel(c.getValue()) },
+];
+
+let gradeMapa = null;
+
 function renderTabela(rows) {
-  const body = $("mdTabelaBody");
-  if (!body) return;
-  $("mdTabelaCount").textContent = `${formatNumber(rows.length)} trabalhadores`;
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="11" class="mdVazio">Nenhum trabalhador para os filtros selecionados.</td></tr>`;
-    $("mdTabelaRegistros").textContent = "Nenhum registro";
-    return;
+  const total = formatNumber(rows.length);
+  const setTxt = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+  setTxt("mdTabelaCount", `${total} trabalhadores`);
+  setTxt("mdTabelaRegistros", rows.length ? `${total} trabalhadores` : "Nenhum registro");
+
+  if (!$("mdTabelaGrade")) return;
+  if (!gradeMapa) {
+    gradeMapa = criarTabelaArrastavel({
+      elemento: "mdTabelaGrade",
+      colunas: MD_COLS,
+      persistID: "mdTrabalhadores",
+      indexField: "registro",
+      movableRows: false,   // tabela de consulta: sem reordenar linhas à mão
+      headerSort: true,     // ordenação por clique (Registro numérico; demais texto)
+      alturaFixa: true,     // base grande → DOM virtual garantido, rola dentro da grade
+      altura: "420px",
+      vazio: "Nenhum trabalhador para os filtros selecionados."
+    });
   }
-  const vis = rows.slice(0, TABELA_MAX);
-  body.innerHTML = vis.map(r => `
-    <tr>
-      <td>${cel(r.registro)}</td>
-      <td class="mdTdNome">${cel(r.nome)}</td>
-      <td>${cel(r.cargo)}</td>
-      <td>${cel(r.situacao)}</td>
-      <td><span class="mdBadge ${r.vinculo === "Ativo" ? "is-ativo" : "is-deslig"}">${cel(r.vinculo)}</span></td>
-      <td>${cel(r.lotacao)}</td>
-      <td>${cel(r.dsei)}</td>
-      <td>${cel(r.uf)}</td>
-      <td>${cel(r.sexo)}</td>
-      <td>${cel(r.grauInstrucao)}</td>
-      <td>${cel(r.tipoAdmissao)}</td>
-    </tr>`).join("");
-  $("mdTabelaRegistros").textContent = rows.length > TABELA_MAX
-    ? `Mostrando ${formatNumber(TABELA_MAX)} de ${formatNumber(rows.length)} trabalhadores`
-    : `${formatNumber(rows.length)} trabalhadores`;
+  gradeMapa.render(rows);
 }
 
 // ---------- Mapas (Leaflet) ----------
@@ -629,5 +646,7 @@ export function configurarMapaDseis() {
 export function renderMapaDseisAoMostrar() {
   if (!carregado && !carregando) carregar();
   else garantirMapas();
-  setTimeout(() => { mapaBrasil && mapaBrasil.invalidateSize(); mapaDsei && mapaDsei.invalidateSize(); }, 120);
+  // Redesenha a grade ao reexibir a aba (montada oculta mede colunas erradas) e
+  // recalcula o tamanho dos mapas do Leaflet.
+  setTimeout(() => { mapaBrasil && mapaBrasil.invalidateSize(); mapaDsei && mapaDsei.invalidateSize(); gradeMapa?.redraw(); }, 120);
 }

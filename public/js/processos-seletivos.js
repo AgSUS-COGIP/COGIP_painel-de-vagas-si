@@ -541,10 +541,12 @@ function montarCronograma(proc) {
   const ehAtual = e => iAtual >= 0 && e.ordem === etapas[iAtual].ordem;
   const grade = criarTabelaArrastavel({
     elemento: "psCronogramaTab",
-    // fitColumns: as colunas se ajustam à largura do contêiner e o texto quebra
-    // (CSS: white-space:normal). Sem rolagem horizontal de saída — ela só aparece
-    // se o contêiner for estreito demais para os minWidth abaixo.
-    layout: "fitColumns",
+    // Sem override de layout: usa o padrão do helper (fitDataStretch) + equalização —
+    // no 1º acesso as colunas dividem a largura por igual (a coluna "#" mantém sua
+    // largura fixa) e, ao redimensionar, a última coluna estica p/ preencher o vão
+    // (rolando na horizontal se exceder). Antes usava fitColumns, que "prendia" o
+    // redimensionamento: a última coluna não podia ser arrastada e as demais só
+    // trocavam largura entre si, sem nunca passar da largura do contêiner.
     // Sem reordenar colunas (movableColumns:false) e sem ordenação por cabeçalho
     // (headerSort:false) — a ordem é sempre a do cronograma (campo "ordem"). O
     // redimensionamento de largura das colunas FICA liberado (resizable padrão).
@@ -559,7 +561,7 @@ function montarCronograma(proc) {
       { title: "Data", field: "data", minWidth: 110, headerSort: false,
         formatter: c => escapeHtml(c.getValue() || "—") }
     ],
-    persistID: "psCronograma",
+    persistID: "psCronogramaV2",   // V2: descarta larguras da época do fitColumns
     indexField: "ordem",
     movableColumns: false,
     movableRows: false,
@@ -666,10 +668,10 @@ function renderDetalhe() {
     </div>
 
     <div class="psResumoTiles">
-      <div class="psTile"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(vagasImediatasEdital(proc))} imediatas${proc.temCadastroReserva ? " + CR" : ""}</div></div>
-      <div class="psTile"><div class="psTileValue is-green">${numFmt(contratadosEdital(proc))}</div><div class="psTileLabel">Contratados</div></div>
-      <div class="psTile"><div class="psTileValue is-red">${numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div>
-      <div class="psTile"><div class="psTileValue is-blue">${numFmt(totalAprovadosEdital(proc))}</div><div class="psTileLabel">Aprovados</div></div>
+      <div class="psTile"><span class="psTileIcone is-blue"><i class="fa-solid fa-user-group"></i></span><div class="psTileInfo"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(vagasImediatasEdital(proc))} imediatas${proc.temCadastroReserva ? " + CR" : ""}</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-green"><i class="fa-solid fa-user-check"></i></span><div class="psTileInfo"><div class="psTileValue is-green">${numFmt(contratadosEdital(proc))}</div><div class="psTileLabel">Contratados</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-red"><i class="fa-solid fa-chair"></i></span><div class="psTileInfo"><div class="psTileValue is-red">${numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-blue"><i class="fa-solid fa-award"></i></span><div class="psTileInfo"><div class="psTileValue is-blue">${numFmt(totalAprovadosEdital(proc))}</div><div class="psTileLabel">Aprovados</div></div></div>
     </div>
 
     <div class="psDetalheGrid">
