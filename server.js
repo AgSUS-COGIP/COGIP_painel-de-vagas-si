@@ -25,7 +25,7 @@ const {
 } = require("./lib/processos-seletivos");
 const { getMapaDseisData, getRedeCnes } = require("./lib/mapa-dseis");
 const { getFeriasData } = require("./lib/ferias");
-const { getEscalaData } = require("./lib/escala");
+const { getEscalaData, garantirTabelaEscala, salvarEscalaComConn, removerEscalaComConn, garantirEscopoMatriculaEscalaComConn } = require("./lib/escala");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
 const app = express();
 app.disable("x-powered-by"); // não revela o framework/versão
@@ -315,6 +315,42 @@ app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoMo
 // não trafegar ~2MB por request (a leitura da view é cacheada em lib/escala.js).
 app.get("/api/escala", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("escalaTrabalho", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   responderJsonTalvezComprimido(req, res, await getEscalaData(req.usuario.escopo));
+}));
+
+// Gravar/editar a escala de um profissional (por matrícula) — escrita: Editor+.
+// Persiste na tabela-companheira TB_ESCALA_TRABALHO; a identidade/situação/polo base
+// não são tocados. Respeita o escopo de DSEI do usuário.
+app.post("/api/escala/salvar", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("escalaTrabalho", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    await garantirEscopoMatriculaEscalaComConn(conn, body.matricula, req.usuario.escopo);
+    const registro = await salvarEscalaComConn(conn, body.matricula, body, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar a escala." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Remover a escala de um profissional (mantém identidade, situação e polo base).
+app.post("/api/escala/remover", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("escalaTrabalho", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    await garantirEscopoMatriculaEscalaComConn(conn, body.matricula, req.usuario.escopo);
+    const registro = await removerEscalaComConn(conn, body.matricula, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao remover a escala." });
+  } finally {
+    await fecharJdbc(conn);
+  }
 }));
 
 // ---- Entrega de Crachá ----
@@ -1430,6 +1466,10 @@ if (require.main === module) {
 
   garantirTabelaCrachasControle().catch(err => {
     console.error("Não foi possível garantir a tabela de controle de crachás:", err && err.message ? err.message : err);
+  });
+
+  garantirTabelaEscala().catch(err => {
+    console.error("Não foi possível garantir a tabela de escala de trabalho:", err && err.message ? err.message : err);
   });
 
   garantirColunaMesesRemanejamento().catch(err => {

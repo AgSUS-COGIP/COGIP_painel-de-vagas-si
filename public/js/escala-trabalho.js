@@ -4,14 +4,13 @@
 // servidor -> aqui). Este módulo só renderiza o que o payload
 // traz: profissionais (nome/cargo/DSEI/polo + escala/situação/
 // dias/etc.) e as opções de filtro (filtros + polosPorDsei).
-// As colunas de escala ainda são placeholder GERADO NO SERVIDOR
-// (lib/escala.js) até existir a fonte real — o front não muda
-// quando ela chegar.
+// A ESCALA é REAL e persistida no banco (TB_ESCALA_TRABALHO via
+// lib/escala.js): editar/remover fazem POST /api/escala/salvar e
+// /api/escala/remover; quem não tem linha conta como "sem escala".
 //   - Filtros (DSEI/polo em cascata/UBSI/cargo/escala/situação
 //     + busca), tabela paginada (modelo da aba de Crachás),
 //     alerta de sem escala, detalhamentos e resumo (KPIs).
-// Escrita (Nova Escala/editar/excluir) é só demonstração e
-// exige Editor (nível >= 2). Registrada em
+// Escrita (editar/excluir) exige Editor (nível >= 2). Registrada em
 // configurarEscalaTrabalho(); busca sob demanda ao abrir a aba.
 // =========================================================
 import { escapeHtml, escapeAttr, debounce, valorCsv, baixarArquivoCsv } from "./utils.js";
@@ -21,7 +20,7 @@ import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 import { criarMultiCombo } from "./multi-combo.js";
 import { abrirModal } from "./modal.js";
 import { POLOS_POR_DSEI, ALIAS_DSEI } from "./escala-polos-dados.js";
-import { apiGet } from "./api.js";
+import { apiGet, apiPost } from "./api.js";
 
 const COMPETENCIA = "Mai/2024";
 const NIVEL_EDITOR = 2;
@@ -1065,6 +1064,12 @@ async function limparEscalaProfissional(r) {
     perigo: true
   });
   if (!resp || !resp.ok) return;
+  try {
+    await apiPost("/api/escala/remover", { matricula: r.matricula });
+  } catch (e) {
+    etToast((e && e.message) ? e.message : "Falha ao remover a escala.", "erro");
+    return;
+  }
   r.escala = null;
   r.alternancia = null;
   r.regime = null;
@@ -1073,7 +1078,7 @@ async function limparEscalaProfissional(r) {
   r.ida = null;
   r.retorno = null;
   r.ubsi = "";
-  // situacao NÃO é alterada: é o status real do empregado (SITUACAO_DETALHADA_DESC).
+  // situacao e polo base NÃO são alterados: são dados reais (view/override).
   r.semEscala = true;
   renderTudo();
   etToast(`Escala de ${r.nome} removida (identidade mantida).`);
@@ -1231,33 +1236,56 @@ async function abrirEdicaoEscala(r) {
   });
 }
 
-function salvarEdicaoEscala(r, ov) {
+// Monta o payload da escala a partir do formulário (sem tocar em `r` ainda).
+function coletarEscalaDoForm(ov) {
   const sel = id => ov.querySelector("#" + id);
   const esc = sel("etEdEscala").value;
-  r.polo = sel("etEdPolo").value || "";
-  r.ubsi = sel("etEdUbsi").value || "";
-  r.escala = esc;
-  r.semEscala = false;
-
-  // situacao NÃO é editada aqui: é o status real do empregado (vem da view).
+  const dados = {
+    polo: sel("etEdPolo").value || "",
+    ubsi: sel("etEdUbsi").value || "",
+    escala: esc,
+    tipoTerritorio: null, ida: null, retorno: null, alternancia: null, diasMarcados: null
+  };
   if (esc === "territorio") {
-    r.tipoTerritorio = sel("etEdTerrTipo").value || null;
-    r.ida = sel("etEdIda").value.trim() || null;
-    r.retorno = sel("etEdRetorno").value.trim() || null;
-    r.alternancia = null;
-    r.regime = null;
-    r.diasMarcados = null;
+    dados.tipoTerritorio = sel("etEdTerrTipo").value || null;
+    dados.ida = sel("etEdIda").value.trim() || null;
+    dados.retorno = sel("etEdRetorno").value.trim() || null;
   } else {
     // Diarista/plantonista: os dias trabalhados vêm SEMPRE do calendário.
-    r.tipoTerritorio = null;
-    r.ida = null;
-    r.retorno = null;
-    r.diasMarcados = [...ov.querySelectorAll(".etEdCalCheck:checked")].map(c => Number(c.value)).sort((a, b) => a - b);
-    r.alternancia = (esc === "diurno" || esc === "noturno") ? (sel("etEdAlt").value || "par") : null;
-    r.regime = null;
+    dados.diasMarcados = [...ov.querySelectorAll(".etEdCalCheck:checked")].map(c => Number(c.value)).sort((a, b) => a - b);
+    dados.alternancia = (esc === "diurno" || esc === "noturno") ? (sel("etEdAlt").value || "par") : null;
   }
+  return dados;
+}
 
-  fecharEdicaoEscala();
-  renderTudo();
-  etToast(`Escala de ${r.nome} atualizada.`);
+// Aplica no objeto `r` em memória (após a gravação no servidor confirmar).
+function aplicarEscalaEmR(r, d) {
+  r.polo = d.polo;
+  r.ubsi = d.ubsi;
+  r.escala = d.escala;
+  r.tipoTerritorio = d.tipoTerritorio;
+  r.ida = d.ida;
+  r.retorno = d.retorno;
+  r.alternancia = d.alternancia;
+  r.diasMarcados = d.diasMarcados;
+  r.regime = null;
+  r.semEscala = !d.escala;
+}
+
+// Grava a escala no banco (POST) e só então atualiza a tela. Situação/identidade
+// não são editadas aqui — vêm da view.
+async function salvarEdicaoEscala(r, ov) {
+  const dados = coletarEscalaDoForm(ov);
+  const btn = ov.querySelector("[data-et-ed-salvar]");
+  if (btn) { btn.disabled = true; btn.dataset.txt = btn.innerHTML; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando…'; }
+  try {
+    await apiPost("/api/escala/salvar", { matricula: r.matricula, ...dados });
+    aplicarEscalaEmR(r, dados);
+    fecharEdicaoEscala();
+    renderTudo();
+    etToast(`Escala de ${r.nome} salva.`);
+  } catch (e) {
+    if (btn) { btn.disabled = false; if (btn.dataset.txt) btn.innerHTML = btn.dataset.txt; }
+    etToast((e && e.message) ? e.message : "Falha ao salvar a escala.", "erro");
+  }
 }
