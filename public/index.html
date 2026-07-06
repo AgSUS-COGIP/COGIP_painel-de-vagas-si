@@ -2549,6 +2549,17 @@
                 <div class="etAlertaChips" id="etAlertaChips"></div>
               </div>
             </div>
+            <!-- Inconformidade de escala — SOMENTE administradores (nível 3). -->
+            <div id="etConformidadeBloco" hidden>
+              <div class="etAlertaHead">
+                <span class="etAlertaTitulo is-conf"><i class="fa-solid fa-user-shield"></i> Inconformidades de escala <span class="etConfTag">só administradores</span></span>
+                <span class="etAlertaTotal">Total: <strong id="etConfTotal">0</strong> profissionais</span>
+              </div>
+              <p class="etAlertaSub">Escala registrada contraria a regra do tipo: diarista escalado em fim de semana, ou plantonista escalado fora da sua alternância (par/ímpar). Clique num nome para corrigir.</p>
+              <div class="etAlertaCorpo">
+                <div class="etAlertaChips" id="etConfChips"></div>
+              </div>
+            </div>
           </div>
 
           <section class="etCard">
@@ -2600,6 +2611,16 @@
                 <button type="button" class="etBtn etBtnExportar" data-et-exportar="plantonistas"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
               </div>
               <div id="etPlantBody" class="etGrid etGridPlant"></div>
+              <div class="etTableFooter">
+                <div class="etRodapeEsq">
+                  <span class="etRegistros" id="etPlantRegistros">Mostrando 0 profissionais</span>
+                  <label class="etPorPagina">Mostrar
+                    <select class="etSelect etSelectPagina" id="etPlantPorPagina" aria-label="Registros por página"></select>
+                    por página
+                  </label>
+                </div>
+                <div class="etPagination" id="etPlantPagination"></div>
+              </div>
               <div class="etPlantLegenda">
                 <span class="etPlantLeg"><i class="fa-solid fa-sun etIconDia"></i> Plantonista Diurno</span>
                 <span class="etPlantLeg"><i class="fa-solid fa-moon etIconNoite"></i> Plantonista Noturno</span>
@@ -2625,6 +2646,16 @@
                 <button type="button" class="etBtn etBtnExportar" data-et-exportar="territorio"><i class="fa-solid fa-file-arrow-down"></i> Exportar</button>
               </div>
               <div id="etTerritorioBody" class="etGrid"></div>
+              <div class="etTableFooter">
+                <div class="etRodapeEsq">
+                  <span class="etRegistros" id="etTerrRegistros">Mostrando 0 em território</span>
+                  <label class="etPorPagina">Mostrar
+                    <select class="etSelect etSelectPagina" id="etTerrPorPagina" aria-label="Registros por página"></select>
+                    por página
+                  </label>
+                </div>
+                <div class="etPagination" id="etTerrPagination"></div>
+              </div>
             </section>
           </div>
 

@@ -7,7 +7,7 @@ import { abrirModal } from "./modal.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { preencherSelect } from "./ui-utils.js";
-import { carregarPerfisAcesso, podeEditarPerfis, abrirPermissoesPendente } from "./permissoes.js";
+import { carregarPerfisAcesso, podeEditarPerfis, abrirPermissoesPendente, abrirEscopoDsei } from "./permissoes.js";
 import { iniciarPainelAutenticado } from "./auth.js";
 import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
@@ -423,6 +423,12 @@ async function enviarSolicitacao(ev) {
     if (erro) erro.innerText = "Informe o cargo / função.";
     return;
   }
+  // A unidade define o escopo de dados (DSEI/escritório/CASAI); é obrigatória
+  // quando a aba a exibe, senão o usuário ficaria sem restrição por engano.
+  if (campos.includes("unidade") && !unidade) {
+    if (erro) erro.innerText = tipoAcessoAtual === "distrital" ? "Selecione o escritório." : "Selecione o DSEI / CASAI.";
+    return;
+  }
 
   // Cadastro de usuário novo: e-mail e senha são obrigatórios (viram a conta).
   const eraNovo = modoNovoCadastro;
@@ -545,13 +551,14 @@ function colsPendentes() {
     { title: "Data e hora", field: "CRIADO_EM", formatter: c => escapeHtml(fmtDataHora(c.getValue())) },
   ];
   if (podeEditarPerfis()) cols.push({
-    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center", minWidth: 240,
+    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center", minWidth: 320,
     formatter: c => {
       const s = c.getData();
       const id = escapeHtml(String(s.ID_SOLICITACAO));
       const email = escapeHtml(s.EMAIL || "");
       return `<div class="solPendAcoesBtns">
          <button type="button" class="solBtnMini solBtnPerm" data-perm-pendente="${email}" title="Definir permissões por módulo antes de aprovar"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Permissões</button>
+         <button type="button" class="solBtnMini solBtnDseis" data-esc-pendente="${email}" title="Definir/corrigir os DSEIs que este usuário poderá acessar"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> DSEIs</button>
          <button type="button" class="solBtnMini solBtnAprovar" data-acesso-aprovar="${id}"><i class="fa-solid fa-check" aria-hidden="true"></i> Aprovar</button>
          <button type="button" class="solBtnMini solBtnRecusar" data-acesso-recusar="${id}"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Recusar</button>
          <button type="button" class="solExcluirBtn" data-acesso-excluir="${email}" title="Excluir usuário e suas solicitações"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
@@ -716,6 +723,27 @@ async function onClickAdmin(ev) {
     // (assim a mensagem de aprovação reflete o que foi definido aqui).
     if (p && !p.permissoes) p.permissoes = {};
     abrirPermissoesPendente(alvo, p ? p.NOME : "", (p && p.permissoes) || {});
+    return;
+  }
+
+  // Definir/corrigir os DSEIs (escopo de acesso) de um solicitante pendente.
+  const escPend = ev.target.closest("[data-esc-pendente]");
+  if (escPend) {
+    const alvo = String(escPend.dataset.escPendente || "");
+    const p = pendentesCache.find(x => String(x.EMAIL || "").toLowerCase() === alvo.toLowerCase());
+    let escopoInicial = (p && p.escopo) || { todos: true, dseis: [] };
+    // Se o escopo ainda não foi definido (padrão "todos", sem DSEIs) e o pedido
+    // trouxe uma unidade reconhecida, abre já restrito e com ela marcada — o admin
+    // confere/ajusta antes de aprovar.
+    if (p && p.unidadeSugerida && escopoInicial.todos !== false && !(escopoInicial.dseis || []).length) {
+      escopoInicial = { todos: false, dseis: [p.unidadeSugerida.id] };
+    }
+    abrirEscopoDsei(alvo, {
+      nome: p ? p.NOME : "",
+      escopo: escopoInicial,
+      // Mantém o cache do pendente em sincronia (não recarrega a lista à toa).
+      aoSalvar: esc => { if (p) p.escopo = esc; }
+    });
     return;
   }
 
