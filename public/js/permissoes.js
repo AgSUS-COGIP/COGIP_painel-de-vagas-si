@@ -19,7 +19,7 @@ export const MODULOS_PERMISSAO = [
   { chave: "vagas", rotulo: "Vagas", icone: "fa-folder-open" },
   { chave: "remanejamento", rotulo: "Remanejamento", icone: "fa-folder-tree" },
   { chave: "alertas", rotulo: "Alertas", icone: "fa-circle-exclamation" },
-  { chave: "painelSaudeIndigena", rotulo: "Dashboard SI", icone: "fa-chart-column" },
+  { chave: "painelSaudeIndigena", rotulo: "Força de Trabalho", icone: "fa-chart-column" },
   { chave: "gestaoFerias", rotulo: "Gestão de Férias", icone: "fa-calendar-check" },
   { chave: "entregaCracha", rotulo: "Entrega de Crachá", icone: "fa-id-card" },
   { chave: "gestaoDisciplinar", rotulo: "Gestão Disciplinar", icone: "fa-gavel" },
@@ -489,14 +489,18 @@ function fecharEscopoDsei() {
   if (ov) ov.remove();
 }
 
-function abrirEscopoDsei(email) {
+// Abre o editor de escopo de DSEI. Para um usuário APROVADO (matriz), acha os
+// dados em perfisCache. Para um PENDENTE, o chamador passa opcoes.{nome, escopo,
+// aoSalvar} — assim funciona sem depender da matriz.
+export function abrirEscopoDsei(email, opcoes = {}) {
   const e = String(email || "").trim();
   if (!e) return;
   const usuario = perfisCache.find(x => String(x.email || "").toLowerCase() === e.toLowerCase());
-  if (!usuario) return;
+  if (!usuario && !opcoes.nome && !opcoes.escopo) return; // nada para editar
   fecharEscopoDsei();
 
-  const escAtual = usuario.escopo || { todos: true, dseis: [] };
+  const nomeAlvo = opcoes.nome || (usuario && usuario.nome) || e;
+  const escAtual = opcoes.escopo || (usuario && usuario.escopo) || { todos: true, dseis: [] };
   const selecionados = new Set((escAtual.dseis || []).map(Number));
   const todosInicial = escAtual.todos !== false;
 
@@ -517,7 +521,7 @@ function abrirEscopoDsei(email) {
       <div class="permPendHead">
         <div>
           <h3>Acesso por DSEI</h3>
-          <p>Defina quais DSEIs <b>${escapeHtml(usuario.nome || e)}</b> pode acessar. "Todos" libera todas as unidades (sede); "Apenas os selecionados" restringe aos marcados.</p>
+          <p>Defina quais DSEIs <b>${escapeHtml(nomeAlvo)}</b> pode acessar. "Todos" libera todas as unidades (sede); "Apenas os selecionados" restringe aos marcados.</p>
         </div>
         <button type="button" class="permPendClose" data-esc-fechar aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
@@ -562,8 +566,9 @@ function abrirEscopoDsei(email) {
     if (status) { status.textContent = "Salvando..."; status.className = "permPendStatus"; }
     try {
       await apiPost("/api/acesso/perfis/escopo", { email: e, todos, dseis });
-      usuario.escopo = { todos, dseis };
-      renderMatriz();
+      // Usuário aprovado: atualiza a matriz. Pendente: o chamador atualiza o cache.
+      if (usuario) { usuario.escopo = { todos, dseis }; renderMatriz(); }
+      if (typeof opcoes.aoSalvar === "function") opcoes.aoSalvar({ todos, dseis });
       fecharEscopoDsei();
     } catch (err) {
       btn.disabled = false;
