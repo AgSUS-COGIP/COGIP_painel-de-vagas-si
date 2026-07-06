@@ -1022,11 +1022,13 @@ function exportarExcel() {
     return;
   }
 
+  const admin = ehAdministrador(); // CPF só entra na planilha para Administrador
   const rows = lista.map(s => ({
     "Matrícula": s.matricula || "",
     "DSEI": s.dsei || "",
     "Escritório": escritorioDoDsei(s.dsei),
     "Nome": s.nome || "",
+    ...(admin ? { "CPF": s.cpf ? formatarCpf(s.cpf) : "" } : {}),
     "Cargo": s.cargo || "",
     "Situação Funcional": s.situacaoDetalhada || "",
     "Possui Foto": s.possuiFoto ? "Sim" : "Não",
