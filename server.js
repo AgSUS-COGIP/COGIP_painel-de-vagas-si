@@ -320,11 +320,13 @@ app.get("/api/escala", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoMo
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
-  // CPF é dado sensível: só vai no payload para ADMINISTRADORES (nível 3);
-  // Editor (2) e Leitor (1) recebem sem CPF (não basta esconder a coluna no front).
-  const incluirCpf = Number((req.permissoesMapa || {}).entregaCracha || 0) >= DASH_CONFIG.NIVEL_SUPERADMIN;
+  // CPF é dado sensível: a ÚNICA trava é ser da SEDE (escopo = todos os DSEIs).
+  // Qualquer nível (Leitor/Editor/Admin) da sede recebe o CPF; usuários restritos
+  // a DSEI/escritório recebem sem CPF (não basta esconder a coluna no front).
+  const escopo = req.usuario.escopo;
+  const incluirCpf = !escopo || escopo.todos !== false;
   res.set("Cache-Control", "no-store"); // evita o navegador servir dados antigos após alterações
-  res.json(await getCrachaData(forcar, req.usuario.escopo, incluirCpf));
+  res.json(await getCrachaData(forcar, escopo, incluirCpf));
 }));
 
 // Editar overlay manual (datas / observação) — escrita: administradores.
