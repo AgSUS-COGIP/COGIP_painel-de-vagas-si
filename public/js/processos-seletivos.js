@@ -541,10 +541,12 @@ function montarCronograma(proc) {
   const ehAtual = e => iAtual >= 0 && e.ordem === etapas[iAtual].ordem;
   const grade = criarTabelaArrastavel({
     elemento: "psCronogramaTab",
-    // fitColumns: as colunas se ajustam à largura do contêiner e o texto quebra
-    // (CSS: white-space:normal). Sem rolagem horizontal de saída — ela só aparece
-    // se o contêiner for estreito demais para os minWidth abaixo.
-    layout: "fitColumns",
+    // Sem override de layout: usa o padrão do helper (fitDataStretch) + equalização —
+    // no 1º acesso as colunas dividem a largura por igual (a coluna "#" mantém sua
+    // largura fixa) e, ao redimensionar, a última coluna estica p/ preencher o vão
+    // (rolando na horizontal se exceder). Antes usava fitColumns, que "prendia" o
+    // redimensionamento: a última coluna não podia ser arrastada e as demais só
+    // trocavam largura entre si, sem nunca passar da largura do contêiner.
     // Sem reordenar colunas (movableColumns:false) e sem ordenação por cabeçalho
     // (headerSort:false) — a ordem é sempre a do cronograma (campo "ordem"). O
     // redimensionamento de largura das colunas FICA liberado (resizable padrão).
@@ -559,7 +561,7 @@ function montarCronograma(proc) {
       { title: "Data", field: "data", minWidth: 110, headerSort: false,
         formatter: c => escapeHtml(c.getValue() || "—") }
     ],
-    persistID: "psCronograma",
+    persistID: "psCronogramaV2",   // V2: descarta larguras da época do fitColumns
     indexField: "ordem",
     movableColumns: false,
     movableRows: false,
