@@ -19,7 +19,7 @@ import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 const PAGE_SIZE_OPCOES = [10, 25, 50, 100];
 let pageSize = 10; // registros por página (ajustável pelo usuário)
 const NIVEL_ADMIN = 2;         // Editor+ (pode editar)
-const NIVEL_ADMINISTRADOR = 3; // Administrador (nível máximo) — ex.: ver CPF
+const NIVEL_ADMINISTRADOR = 3; // Administrador (nível máximo)
 
 // Funil de status (rótulos amigáveis; o de-para para o banco é feito no backend).
 let STATUS_LISTA = [
@@ -64,9 +64,16 @@ function podeEditar() {
   return nivelModulo("entregaCracha") >= NIVEL_ADMIN;
 }
 
-// Só o Administrador (nível 3); Editor (2) não. Usado para dados sensíveis (CPF).
+// Só o Administrador (nível 3); Editor (2) não. (CPF agora é travado por Sede.)
 function ehAdministrador() {
   return nivelModulo("entregaCracha") >= NIVEL_ADMINISTRADOR;
+}
+
+// Usuário da Sede = escopo "Todos os DSEIs". DSEI/escritório = escopo restrito
+// (escopo.todos === false). O CPF nos modelos da gráfica só aparece para a Sede.
+function ehSede() {
+  const esc = (state.painelLoginUsuario || {}).escopo;
+  return !esc || esc.todos !== false;
 }
 
 // ---------- Estado da view ----------
@@ -355,11 +362,12 @@ function render() {
     });
   }
   gradeEc?.render(pagina, placeholder);
-  // Coluna CPF só é visível para ADMINISTRADORES (nível 3); Editor (2) não vê.
-  // Mostra/oculta a cada render, pois o nível do usuário passa a valer após o login.
+  // Coluna CPF: a única trava é ser da SEDE (escopo = todos os DSEIs). Qualquer
+  // nível da sede vê; usuário restrito a DSEI/escritório não (o backend também
+  // não manda o CPF nesse caso). Reavalia a cada render (o escopo vale após login).
   try {
     const colCpf = gradeEc?.tabela?.getColumn?.("cpf");
-    if (colCpf) (ehAdministrador() ? colCpf.show() : colCpf.hide());
+    if (colCpf) (ehSede() ? colCpf.show() : colCpf.hide());
   } catch (e) { /* grade ainda montando */ }
   // O Tabulator às vezes não pinta as linhas após substituir os dados (só ao
   // rolar). Um redraw no próximo frame força o redesenho das linhas visíveis.
@@ -1022,13 +1030,13 @@ function exportarExcel() {
     return;
   }
 
-  const admin = ehAdministrador(); // CPF só entra na planilha para Administrador
+  const cpfVisivel = ehSede(); // CPF só entra na planilha para usuários da Sede
   const rows = lista.map(s => ({
     "Matrícula": s.matricula || "",
     "DSEI": s.dsei || "",
     "Escritório": escritorioDoDsei(s.dsei),
     "Nome": s.nome || "",
-    ...(admin ? { "CPF": s.cpf ? formatarCpf(s.cpf) : "" } : {}),
+    ...(cpfVisivel ? { "CPF": s.cpf ? formatarCpf(s.cpf) : "" } : {}),
     "Cargo": s.cargo || "",
     "Situação Funcional": s.situacaoDetalhada || "",
     "Possui Foto": s.possuiFoto ? "Sim" : "Não",
@@ -1053,6 +1061,84 @@ function exportarExcel() {
 
 function baixarCsv(conteudo, nomeArquivo) {
   baixarArquivoCsv(conteudo, nomeArquivo);
+}
+
+// ---------- Modelos para a gráfica ----------
+// Primeiro + último nome (ex.: "APARECIDA BRITO DE SOUSA" -> "APARECIDA SOUSA").
+function primeiroUltimoNome(nome) {
+  const p = (nome || "").trim().split(/\s+/).filter(Boolean);
+  if (!p.length) return "";
+  return p.length === 1 ? p[0] : `${p[0]} ${p[p.length - 1]}`;
+}
+
+// Campos comuns aos dois modelos, preenchidos com o que o sistema tem hoje.
+function camposModeloGrafica(s) {
+  const nome = s.nome || "";
+  return {
+    nomeFrente: primeiroUltimoNome(nome),           // NOME (FRENTE) = 1º + último
+    cargo: s.cargo || "",                           // CARGO (FRENTE)
+    nomeVerso: nome,                                // Nome (Verso) = completo
+    admissao: s.dataAdmissao || "",                 // Admissão (Verso)
+    cpf: s.cpf ? formatarCpf(s.cpf) : "",           // CPF (Verso) — vazio se não vier
+    foto: [s.dsei, nome].filter(Boolean).join(" - ") // FOTO (FRENTE) = "DSEI - Nome completo"
+  };
+}
+
+// Identifica se a unidade (campo DSEI) é o CASAI SP. Os dois modelos se excluem:
+// CASAI SP exporta só o CASAI SP; DSEIs/CASAI DF exporta todo o resto.
+function ehCasaiSp(dsei) {
+  const d = (dsei || "").toUpperCase();
+  return /\bCASAI\b/.test(d) && /\bSP\b|\bS[AÃ]O\s+PAULO\b/.test(d);
+}
+
+// Gera e baixa um CSV modelo para a gráfica a partir da lista FILTRADA atual,
+// restrita à unidade do modelo (`restricao(s)` -> boolean). Os demais filtros da
+// aba continuam valendo. Se nada sobrar, o arquivo é gerado só com o cabeçalho
+// (Excel vazio) — ex.: filtrar CASAI DF e baixar o modelo CASAI SP.
+// `linhaDe(s)` monta o objeto {cabeçalho: valor} de cada trabalhador (colunas sem
+// dado ficam em branco).
+function exportarModeloGrafica(nomeArquivo, restricao, linhaDe) {
+  const rows = aplicarFiltros().filter(restricao).map(linhaDe);
+  const headers = Object.keys(linhaDe({})); // cabeçalho fixo, mesmo sem registros
+  const linhas = [headers, ...rows.map(r => headers.map(h => r[h]))];
+  baixarCsv("﻿" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n"), nomeArquivo);
+  if (!rows.length) ecToast("Modelo gerado sem registros: nenhum trabalhador atende à regra do modelo com os filtros atuais.", "ok");
+}
+
+// Modelo CASAI SP (8 colunas) — apenas trabalhadores do CASAI SP. A coluna CPF só
+// entra para usuários da Sede (DSEI/escritório não vê essa informação).
+function exportarModeloCasaiSp() {
+  const cpfVisivel = ehSede();
+  exportarModeloGrafica("modelo_crachas_casai_sp.csv", s => ehCasaiSp(s.dsei), s => {
+    const c = camposModeloGrafica(s);
+    return {
+      "NOME (FRENTE)": c.nomeFrente,
+      "CARGO (FRENTE)": c.cargo,
+      "REGISTRO PROFISSIONAL (FRENTE)": "",
+      "Nome (Verso)": c.nomeVerso,
+      "Admissão (Verso)": c.admissao,
+      ...(cpfVisivel ? { "CPF (Verso)": c.cpf } : {}),
+      "Tipo Sanguíneo (Verso)": "",
+      "FOTO (FRENTE)": c.foto
+    };
+  });
+}
+
+// Modelo DSEIs e CASAI DF (6 colunas) — todos, menos o CASAI SP. A coluna CPF só
+// entra para usuários da Sede (DSEI/escritório não vê essa informação).
+function exportarModeloDseis() {
+  const cpfVisivel = ehSede();
+  exportarModeloGrafica("modelo_crachas_dseis_casai_df.csv", s => !ehCasaiSp(s.dsei), s => {
+    const c = camposModeloGrafica(s);
+    return {
+      "NOME (FRENTE)": c.nomeFrente,
+      "CARGO (FRENTE)": c.cargo,
+      "Nome (Verso)": c.nomeVerso,
+      "Admissão (Verso)": c.admissao,
+      ...(cpfVisivel ? { "CPF (Verso)": c.cpf } : {}),
+      "FOTO (FRENTE)": c.foto
+    };
+  });
 }
 
 // ---------- Importa\u00E7\u00E3o de planilha (CSV) ----------
@@ -1782,6 +1868,8 @@ function ecBindToolbar() {
   $("ecBtnAtualizar")?.addEventListener("click", () => { if (!carregando) carregarDados(true, true); });
   $("ecBtnLimpar")?.addEventListener("click", limparFiltros);
   $("ecBtnExportar")?.addEventListener("click", exportarExcel);
+  $("ecBtnModeloCasaiSp")?.addEventListener("click", exportarModeloCasaiSp);
+  $("ecBtnModeloDseis")?.addEventListener("click", exportarModeloDseis);
   $("ecBtnImportar")?.addEventListener("click", () => $("ecInputImport")?.click());
   $("ecInputImport")?.addEventListener("change", e => {
     const file = e.target.files && e.target.files[0];

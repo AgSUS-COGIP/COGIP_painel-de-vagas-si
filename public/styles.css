@@ -40,7 +40,6 @@
   escala-trabalho,
   mapa-dseis,
   login,
-  ordenacao-tabelas,
   filtros-padrao,
   date-picker,
   perfis-acesso,
@@ -81,7 +80,6 @@
 @import url("./styles/29-escala-trabalho.css") layer(escala-trabalho);
 @import url("./styles/31-mapa-dseis.css") layer(mapa-dseis);
 @import url("./styles/21-login.css") layer(login);
-@import url("./styles/22-ordenacao-tabelas.css") layer(ordenacao-tabelas);
 @import url("./styles/23-filtros-padrao.css") layer(filtros-padrao);
 @import url("./styles/24-date-picker.css") layer(date-picker);
 @import url("./styles/25-file-input.css") layer(file-input);

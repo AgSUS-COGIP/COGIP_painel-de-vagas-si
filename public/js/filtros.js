@@ -1,5 +1,5 @@
 import { cancelarEdicaoObservacaoAlertaPainel, editarObservacaoAlertaPainel, renderAlertasDaPagina, salvarObservacaoAlertaPainel } from "./alertas.js";
-import { ajustarEscalaPainelFixo, garantirCarregamentoPagina, renderTudo } from "./app.js";
+import { ajustarEscalaPainelFixo, carregarRemanejamentoListaEmSegundoPlano, garantirCarregamentoPagina, renderTudo } from "./app.js";
 import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
@@ -181,7 +181,11 @@ export function restaurarEstadoMenuLateral() {
 const REGISTRO_VIEWS = {
   vagas: () => { garantirCarregamentoPagina("vagas"); renderVagasDaPagina(); },
   alertas: () => { garantirCarregamentoPagina("alertas"); renderAlertasDaPagina(); },
-  remanejamento: () => { garantirCarregamentoPagina("remanejamento"); renderRemanejamentoLista(); },
+  remanejamento: () => {
+    garantirCarregamentoPagina("remanejamento");
+    carregarRemanejamentoListaEmSegundoPlano(true);
+    renderRemanejamentoLista();
+  },
   processosSeletivos: () => renderProcessosSeletivosAoMostrar(),
   mapaDseis: () => renderMapaDseisAoMostrar(),
   escalaTrabalho: () => renderEscalaTrabalhoAoMostrar(),

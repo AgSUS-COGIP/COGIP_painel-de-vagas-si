@@ -144,11 +144,16 @@ function obterGradeVagas(id, modo, colunas, persistBase) {
       movableRows: true,
       // Só linhas: mover COLUNAS fica desativado (a ordem das colunas é fixa).
       movableColumns: false,
-      // fitColumns: as colunas se ajustam à LARGURA DO CONTAINER (cabem todas na
-      // tela já no 1º acesso) e a tabela nunca estica o card para fora — se o
-      // usuário alargar uma coluna além do que cabe, a rolagem é interna.
-      layout: "fitColumns",
+      // Layout padrão do helper (fitDataStretch) + equalização: no 1º acesso as
+      // colunas dividem a largura do container por IGUAL (cabem todas na tela, sem
+      // sobrar vão à direita); se o usuário redimensionar e a soma ficar menor que o
+      // container, a última coluna estica p/ preencher; se passar, rola na horizontal.
+      // (Antes usava fitColumns, mas a largura persistida anulava o preenchimento e
+      // deixava o enorme espaço vazio à direita.)
       vazio: "Sem dados para os filtros selecionados.",
+      // Esqueleto ao trocar a visualização: mantém a "moldura" da tabela enquanto
+      // remonta, dando a sensação de que só os dados mudaram (não a tabela inteira).
+      esqueleto: true,
       aoFormatarLinha: row => { if (row.getData()._total) row.getElement().classList.add("vagasTotalRow"); }
     });
     g = gradesVagas[id] = { grade, modo, sortKeys };
@@ -170,9 +175,9 @@ const comChave = linhas => linhas.map(r => ({ ...r, _key: chaveLinhaVagas(r) }))
 // largura para montar e exibir o placeholder; as ocultas montam ao serem abertas.
 function placeholderVagas(msg) {
   const view = state.vagasViewAtual;
-  obterGradeVagas("vagasBody", view, colunasVagasMain(view), "vagasMainV2").render([], msg);
-  obterGradeVagas("distribuicaoOciosasBody", view, colunasDistribuicao(view), "vagasDistV2").render([], msg);
-  obterGradeVagas("processoSeletivoBody", view, colunasProcesso(view), "vagasProcV2").render([], msg);
+  obterGradeVagas("vagasBody", view, colunasVagasMain(view), "vagasMainV3").render([], msg);
+  obterGradeVagas("distribuicaoOciosasBody", view, colunasDistribuicao(view), "vagasDistV3").render([], msg);
+  obterGradeVagas("processoSeletivoBody", view, colunasProcesso(view), "vagasProcV3").render([], msg);
 }
 
 export function renderVagasDaPagina() {
@@ -234,42 +239,66 @@ export function montarVagas(data) {
     });
 }
 
+// Preserva a rolagem da PÁGINA ao trocar a visualização/tabela de Vagas. A troca
+// DESTRÓI e reconstrói a grade (o conjunto de colunas muda → build assíncrono do
+// Tabulator): por um instante o container fica com altura ~0, o documento encolhe e
+// o navegador "puxa" a rolagem pro topo. Fixamos a altura atual do cartão até a grade
+// reassentar (2 frames) e reaplicamos o scrollY — mesma ideia usada em Processos
+// Seletivos (renderDetalheMantendoScroll), para a tela ficar onde estava.
+function renderVagasMantendoScroll(reRender) {
+  const card = document.querySelector("#view-vagas .vagasInfoCard");
+  const y = window.scrollY || window.pageYOffset || 0;
+  const altura = card ? card.offsetHeight : 0;
+  if (card && altura) card.style.minHeight = `${altura}px`;
+  reRender();
+  window.scrollTo(0, y);
+  if (typeof requestAnimationFrame !== "function") { if (card) card.style.minHeight = ""; return; }
+  requestAnimationFrame(() => {
+    window.scrollTo(0, y);
+    requestAnimationFrame(() => { if (card) card.style.minHeight = ""; window.scrollTo(0, y); });
+  });
+}
+
 export function alterarVisualizacaoVagas(view) {
   state.vagasViewAtual = view || "dsei";
   state.vagasSortState = { key: state.vagasViewAtual === "detalhado" ? "dseiCasai" : "label", direction: "asc" };
   state.vagasCurrentPage = 1;
-  renderVagasDaPagina();
+  renderVagasMantendoScroll(renderVagasDaPagina);
 }
 
 export function alterarTabelaVagas(tabela) {
-  state.vagasTabelaAtual = VAGAS_TABELA_CONFIG[tabela] ? tabela : "vagas";
-  const cfg = VAGAS_TABELA_CONFIG[state.vagasTabelaAtual];
+  // Trocar de sub-tabela troca o bloco visível e re-renderiza a grade — preserva a
+  // rolagem da página (mesma ideia da troca de visualização).
+  renderVagasMantendoScroll(() => {
+    state.vagasTabelaAtual = VAGAS_TABELA_CONFIG[tabela] ? tabela : "vagas";
+    const cfg = VAGAS_TABELA_CONFIG[state.vagasTabelaAtual];
 
-  document.querySelectorAll(".vagasTabelaTab").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.vagasTabela === state.vagasTabelaAtual);
+    document.querySelectorAll(".vagasTabelaTab").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.vagasTabela === state.vagasTabelaAtual);
+    });
+
+    Object.keys(VAGAS_TABELA_CONFIG).forEach(chave => {
+      const el = document.getElementById(VAGAS_TABELA_CONFIG[chave].bloco);
+      if (el) el.hidden = chave !== state.vagasTabelaAtual;
+    });
+
+    setText("vagasTituloDinamico", cfg.titulo);
+    setText("vagasSubtituloDinamico", cfg.subtitulo);
+    const exp = document.getElementById("vagasExportActions");
+    if (exp) exp.innerHTML = cfg.exportHtml;
+    const aviso = document.getElementById("vagasAvisoDinamico");
+    if (aviso) aviso.innerHTML = cfg.avisoHtml;
+
+    // A grade da tabela recém-exibida pode não ter montado enquanto o bloco estava
+    // oculto (Tabulator precisa de largura). Re-renderiza a tabela ativa agora que
+    // ficou visível. (Na 1ª chamada, em renderVagasDaPagina, os dados ainda não
+    // chegaram e o guard abaixo evita render sem dados.)
+    if (pageLoadState.vagas && state.vagasRows) {
+      if (state.vagasTabelaAtual === "vagas") renderVagasTable(state.vagasRows);
+      else if (state.vagasTabelaAtual === "ociosas") renderDistribuicaoVagasOciosas(state.vagasRows);
+      else if (state.vagasTabelaAtual === "processo") renderProcessoSeletivo(state.vagasRows);
+    }
   });
-
-  Object.keys(VAGAS_TABELA_CONFIG).forEach(chave => {
-    const el = document.getElementById(VAGAS_TABELA_CONFIG[chave].bloco);
-    if (el) el.hidden = chave !== state.vagasTabelaAtual;
-  });
-
-  setText("vagasTituloDinamico", cfg.titulo);
-  setText("vagasSubtituloDinamico", cfg.subtitulo);
-  const exp = document.getElementById("vagasExportActions");
-  if (exp) exp.innerHTML = cfg.exportHtml;
-  const aviso = document.getElementById("vagasAvisoDinamico");
-  if (aviso) aviso.innerHTML = cfg.avisoHtml;
-
-  // A grade da tabela recém-exibida pode não ter montado enquanto o bloco estava
-  // oculto (Tabulator precisa de largura). Re-renderiza a tabela ativa agora que
-  // ficou visível. (Na 1ª chamada, em renderVagasDaPagina, os dados ainda não
-  // chegaram e o guard abaixo evita render sem dados.)
-  if (pageLoadState.vagas && state.vagasRows) {
-    if (state.vagasTabelaAtual === "vagas") renderVagasTable(state.vagasRows);
-    else if (state.vagasTabelaAtual === "ociosas") renderDistribuicaoVagasOciosas(state.vagasRows);
-    else if (state.vagasTabelaAtual === "processo") renderProcessoSeletivo(state.vagasRows);
-  }
 }
 
 export function atualizarPesquisaVagas(valor) {
@@ -368,7 +397,7 @@ export function renderVagasTable(rows) {
 
   const pagination = document.getElementById("vagasPagination");
   const view = state.vagasViewAtual;
-  const grade = obterGradeVagas("vagasBody", view, colunasVagasMain(view), "vagasMainV2");
+  const grade = obterGradeVagas("vagasBody", view, colunasVagasMain(view), "vagasMainV3");
   const linhas = obterRowsVagasPorVisualizacao(rows);
 
   if (!linhas.length) {
@@ -567,7 +596,7 @@ export function renderDistribuicaoVagasOciosas(rows) {
   renderPaginacaoTabela("distribuicaoPagination", rows);
 
   const view = state.vagasViewAtual;
-  const grade = obterGradeVagas("distribuicaoOciosasBody", view, colunasDistribuicao(view), "vagasDistV2");
+  const grade = obterGradeVagas("distribuicaoOciosasBody", view, colunasDistribuicao(view), "vagasDistV3");
   const linhas = montarDistribuicaoVagasOciosas(rows).filter(item => {
     return Number(item.vagasOciosas || 0) !== 0 ||
       Number(item.substituicaoTabela || 0) !== 0 ||
@@ -616,7 +645,7 @@ export function renderProcessoSeletivo(rows) {
   renderPaginacaoTabela("processoSeletivoPagination", rows);
 
   const view = state.vagasViewAtual;
-  const grade = obterGradeVagas("processoSeletivoBody", view, colunasProcesso(view), "vagasProcV2");
+  const grade = obterGradeVagas("processoSeletivoBody", view, colunasProcesso(view), "vagasProcV3");
   // Mantém as linhas com movimento de processo seletivo E, também, as que têm
   // previsão de pelo menos 1 vaga no DSEI mas sem vaga ociosa (cargo totalmente
   // preenchido). Estas últimas entram com 0 nas colunas e "CR" (Cadastro Reserva)

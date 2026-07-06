@@ -15,7 +15,7 @@ const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, garantirEscopoPedidoComConn, garantirEscopoAnexoComConn, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
-const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn, obterEscopoUsuarioComConn } = require("./lib/escopo");
+const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn, obterEscopoUsuarioComConn, resolverIdUnidadePorNomeComConn } = require("./lib/escopo");
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { listarDseisCasaiComConn } = require("./lib/dsei-casai");
@@ -25,7 +25,7 @@ const {
 } = require("./lib/processos-seletivos");
 const { getMapaDseisData, getRedeCnes } = require("./lib/mapa-dseis");
 const { getFeriasData } = require("./lib/ferias");
-const { getEscalaData } = require("./lib/escala");
+const { getEscalaData, garantirTabelaEscala, salvarEscalaComConn, removerEscalaComConn, garantirEscopoMatriculaEscalaComConn } = require("./lib/escala");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
 const app = express();
 app.disable("x-powered-by"); // não revela o framework/versão
@@ -317,14 +317,52 @@ app.get("/api/escala", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoMo
   responderJsonTalvezComprimido(req, res, await getEscalaData(req.usuario.escopo));
 }));
 
+// Gravar/editar a escala de um profissional (por matrícula) — escrita: Editor+.
+// Persiste na tabela-companheira TB_ESCALA_TRABALHO; a identidade/situação/polo base
+// não são tocados. Respeita o escopo de DSEI do usuário.
+app.post("/api/escala/salvar", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("escalaTrabalho", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    await garantirEscopoMatriculaEscalaComConn(conn, body.matricula, req.usuario.escopo);
+    const registro = await salvarEscalaComConn(conn, body.matricula, body, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar a escala." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
+// Remover a escala de um profissional (mantém identidade, situação e polo base).
+app.post("/api/escala/remover", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("escalaTrabalho", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const body = req.body || {};
+    const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
+    await garantirEscopoMatriculaEscalaComConn(conn, body.matricula, req.usuario.escopo);
+    const registro = await removerEscalaComConn(conn, body.matricula, usuario);
+    limparCacheDashboard();
+    res.json({ ok: true, registro });
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao remover a escala." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
-  // CPF é dado sensível: só vai no payload para ADMINISTRADORES (nível 3);
-  // Editor (2) e Leitor (1) recebem sem CPF (não basta esconder a coluna no front).
-  const incluirCpf = Number((req.permissoesMapa || {}).entregaCracha || 0) >= DASH_CONFIG.NIVEL_SUPERADMIN;
+  // CPF é dado sensível: a ÚNICA trava é ser da SEDE (escopo = todos os DSEIs).
+  // Qualquer nível (Leitor/Editor/Admin) da sede recebe o CPF; usuários restritos
+  // a DSEI/escritório recebem sem CPF (não basta esconder a coluna no front).
+  const escopo = req.usuario.escopo;
+  const incluirCpf = !escopo || escopo.todos !== false;
   res.set("Cache-Control", "no-store"); // evita o navegador servir dados antigos após alterações
-  res.json(await getCrachaData(forcar, req.usuario.escopo, incluirCpf));
+  res.json(await getCrachaData(forcar, escopo, incluirCpf));
 }));
 
 // Editar overlay manual (datas / observação) — escrita: administradores.
@@ -746,10 +784,17 @@ app.get("/api/acesso/solicitacoes", apiLimiter, autenticarFrescoMiddleware, exig
   try {
     res.setHeader("Cache-Control", "no-store"); // dados de acesso: sempre frescos
     const dados = await listarSolicitacoesComConn(conn);
-    // Anexa os overrides de permissão por módulo de cada pendente, para o admin
-    // poder pré-definir o acesso (por e-mail) antes mesmo de aprovar a solicitação.
+    // Anexa os overrides de permissão por módulo E o escopo de DSEI de cada
+    // pendente, para o admin pré-definir/corrigir o acesso (por e-mail) antes
+    // mesmo de aprovar a solicitação.
     for (const p of dados.pendentes || []) {
       p.permissoes = await obterMapaPermissoesComConn(conn, p.EMAIL);
+      p.escopo = await obterEscopoUsuarioComConn(conn, p.EMAIL);
+      // Sugestão de DSEI/CASAI a partir da unidade que o solicitante informou no
+      // pedido — para o modal de DSEIs já abrir com ela pré-marcada.
+      const unidadeNome = p.DSEI || p.CASAI || "";
+      const idSugerido = unidadeNome ? await resolverIdUnidadePorNomeComConn(conn, unidadeNome) : null;
+      if (idSugerido) p.unidadeSugerida = { id: idSugerido, nome: unidadeNome };
     }
     res.json(dados);
   } finally {
@@ -898,7 +943,7 @@ app.post("/api/acesso/perfis/escopo", apiLimiter, autenticarFrescoMiddleware, ex
 }));
 
 // ---- Gestão Disciplinar (pedidos de sanção) ----
-// Edição liberada a usuários aprovados (nível >= 1); assumir/delegar responsável e
+// Edição liberada a usuários aprovados (nível >= 1); assumir/responsável e
 // excluir são exclusivos de administradores (nível >= 2). O autor/login é sempre
 // derivado do token (nunca do corpo).
 function loginDoToken(req) {
@@ -1053,7 +1098,7 @@ app.get("/api/disciplinar/:id/sancao/termo", apiLimiter, autenticarFrescoMiddlew
   }
 }));
 
-// Assumir/delegar responsável — exclusivo de administradores.
+// Assumir/responsável — exclusivo de administradores.
 app.post("/api/disciplinar/:id/responsavel", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoDisciplinar", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
@@ -1421,6 +1466,10 @@ if (require.main === module) {
 
   garantirTabelaCrachasControle().catch(err => {
     console.error("Não foi possível garantir a tabela de controle de crachás:", err && err.message ? err.message : err);
+  });
+
+  garantirTabelaEscala().catch(err => {
+    console.error("Não foi possível garantir a tabela de escala de trabalho:", err && err.message ? err.message : err);
   });
 
   garantirColunaMesesRemanejamento().catch(err => {

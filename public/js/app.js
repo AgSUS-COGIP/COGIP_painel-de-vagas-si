@@ -17,7 +17,6 @@ import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
 import { configurarEscalaTrabalho } from "./escala-trabalho.js";
 import { configurarAssistente } from "./assistente.js";
-import { configurarOrdenacaoTabelas } from "./ordenacao-tabelas.js";
 import { ativarSelectsPesquisaveisGlobal } from "./searchable-select.js";
 import { ativarDatePickersGlobal } from "./date-picker.js";
 import { ativarFileInputsGlobal } from "./file-input.js";
@@ -55,7 +54,6 @@ export async function init() {
   configurarProcessosSeletivos();
   configurarEscalaTrabalho();
   configurarAssistente();
-  configurarOrdenacaoTabelas();
   configurarResponsividadePainel();
   configurarLogin();
   configurarAcesso();

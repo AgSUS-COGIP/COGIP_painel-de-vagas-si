@@ -220,20 +220,62 @@
 }
 
 /* ---------- KPIs ---------- */
+/* 10 colunas: as 5 primeiras métricas ocupam 2/10 (5 na 1ª linha) e as duas
+   últimas (Cancelados e Vagas Previstas) ocupam 5/10 (2 cartões largos na 2ª). */
 .psKpiGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
 
 .psKpi {
-  background: rgba(255, 255, 255, .92);
-  border: 1px solid rgba(255, 255, 255, .72);
+  grid-column: span 2;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e6eef7;
   border-radius: 16px;
-  box-shadow: 0 12px 22px rgba(0, 43, 93, .14);
+  box-shadow: 0 10px 22px rgba(0, 43, 93, .10);
   padding: 14px 16px;
 }
+
+.psKpi:nth-child(6),
+.psKpi:nth-child(7) { grid-column: span 5; }
+
+/* "Onda" decorativa no canto, no tom da categoria (bem sutil). */
+.psKpi::after {
+  content: "";
+  position: absolute;
+  right: -34px;
+  bottom: -46px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: var(--psKpiTint, rgba(0, 104, 184, .12));
+  opacity: .55;
+  pointer-events: none;
+}
+
+.psKpiIcone {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 17px;
+  background: var(--psKpiIcon, linear-gradient(135deg, #1f8de6, #0a5fb0));
+  box-shadow: 0 6px 14px rgba(0, 32, 74, .16);
+}
+
+.psKpiInfo { position: relative; z-index: 1; min-width: 0; }
 
 .psKpiLabel {
   color: #4a6a93;
@@ -241,23 +283,35 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: .3px;
+  line-height: 1.15;
 }
 
 .psKpiValue {
-  color: var(--azul-escuro);
+  color: var(--psKpiNum, var(--azul-escuro));
   font-size: 30px;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1.05;
   letter-spacing: -.6px;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
-.psKpiValue.is-muted { color: #6b7d96; }
-.psKpiValue.is-green { color: #0a8a4d; }
-.psKpiValue.is-orange { color: #d98200; }
-.psKpiValue.is-amber { color: #c77700; }   /* encerrando em breve (≤30 dias da vigência) */
-.psKpiValue.is-vencido { color: #9b1c1c; } /* vencido (data fim de vigência já passou) */
-.psKpiValue.is-red { color: var(--status-perigo); }
+/* Cor por categoria: ícone (gradiente) + número + onda. */
+.psKpi.is-orange  { --psKpiIcon: linear-gradient(135deg, #f59331, #e07712); --psKpiNum: #d98200; --psKpiTint: rgba(245, 147, 49, .18); }
+.psKpi.is-green   { --psKpiIcon: linear-gradient(135deg, #27ab63, #178a4c); --psKpiNum: #0a8a4d; --psKpiTint: rgba(39, 171, 99, .18); }
+.psKpi.is-amber   { --psKpiIcon: linear-gradient(135deg, #f1b53b, #d99a10); --psKpiNum: #c77700; --psKpiTint: rgba(241, 181, 59, .20); } /* encerrando em breve (≤30 dias) */
+.psKpi.is-vencido { --psKpiIcon: linear-gradient(135deg, #c0392b, #8f1d14); --psKpiNum: #9b1c1c; --psKpiTint: rgba(192, 57, 43, .15); } /* vencido (vigência passou) */
+.psKpi.is-red     { --psKpiIcon: linear-gradient(135deg, #ef6253, #d63d2c); --psKpiNum: var(--status-perigo, #d63d2c); --psKpiTint: rgba(239, 98, 83, .15); }
+.psKpi.is-blue    { --psKpiIcon: linear-gradient(135deg, #1f8de6, #0a5fb0); --psKpiNum: #0a5fb0; --psKpiTint: rgba(31, 141, 230, .15); }
+
+/* Cartão primário (Total de Editais): preenchido em azul, conteúdo branco. */
+.psKpi.is-primary {
+  background: linear-gradient(135deg, #00457f, var(--azul-card, #0053a6));
+  border-color: transparent;
+}
+.psKpi.is-primary .psKpiLabel { color: rgba(255, 255, 255, .85); }
+.psKpi.is-primary .psKpiValue { color: #fff; }
+.psKpi.is-primary .psKpiIcone { background: rgba(255, 255, 255, .18); box-shadow: none; }
+.psKpi.is-primary::after { background: rgba(255, 255, 255, .12); opacity: 1; }
 
 /* ---------- Painel / tabela principal ---------- */
 .psPanel {
@@ -483,12 +537,32 @@
 }
 
 .psTile {
-  background: rgba(255, 255, 255, .72);
-  border: 1px solid rgba(0, 83, 166, .14);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e6eef7;
   border-radius: 14px;
-  padding: 12px;
-  text-align: center;
+  box-shadow: 0 8px 18px rgba(0, 43, 93, .08);
+  padding: 12px 14px;
 }
+
+/* Ícone em círculo tintado (fundo claro no tom da categoria + ícone colorido). */
+.psTileIcone {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+}
+.psTileIcone.is-blue  { background: rgba(31, 141, 230, .14); color: #0a5fb0; }
+.psTileIcone.is-green { background: rgba(39, 171, 99, .16); color: #0a8a4d; }
+.psTileIcone.is-red   { background: rgba(239, 98, 83, .15); color: #c0392b; }
+
+.psTileInfo { min-width: 0; }
 
 .psTileValue {
   color: var(--azul-escuro);
@@ -1097,6 +1171,10 @@
 /* ---------- Responsivo ---------- */
 @media (max-width: 1180px) {
   .psKpiGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Fora do layout 5+2: cada cartão ocupa uma coluna igual. */
+  .psKpi,
+  .psKpi:nth-child(6),
+  .psKpi:nth-child(7) { grid-column: auto; }
   .psResumoTiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .psDetalheGrid { grid-template-columns: 1fr; }
   .psFormGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
