@@ -668,10 +668,10 @@ function renderDetalhe() {
     </div>
 
     <div class="psResumoTiles">
-      <div class="psTile"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(vagasImediatasEdital(proc))} imediatas${proc.temCadastroReserva ? " + CR" : ""}</div></div>
-      <div class="psTile"><div class="psTileValue is-green">${numFmt(contratadosEdital(proc))}</div><div class="psTileLabel">Contratados</div></div>
-      <div class="psTile"><div class="psTileValue is-red">${numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div>
-      <div class="psTile"><div class="psTileValue is-blue">${numFmt(totalAprovadosEdital(proc))}</div><div class="psTileLabel">Aprovados</div></div>
+      <div class="psTile"><span class="psTileIcone is-blue"><i class="fa-solid fa-user-group"></i></span><div class="psTileInfo"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(vagasImediatasEdital(proc))} imediatas${proc.temCadastroReserva ? " + CR" : ""}</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-green"><i class="fa-solid fa-user-check"></i></span><div class="psTileInfo"><div class="psTileValue is-green">${numFmt(contratadosEdital(proc))}</div><div class="psTileLabel">Contratados</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-red"><i class="fa-solid fa-chair"></i></span><div class="psTileInfo"><div class="psTileValue is-red">${numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-blue"><i class="fa-solid fa-award"></i></span><div class="psTileInfo"><div class="psTileValue is-blue">${numFmt(totalAprovadosEdital(proc))}</div><div class="psTileLabel">Aprovados</div></div></div>
     </div>
 
     <div class="psDetalheGrid">

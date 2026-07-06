@@ -371,9 +371,24 @@ function ordenarPorPreferencia(linhas) {
     .map(([r]) => r);
 }
 
+// Ordenação cronológica das colunas de data (dd/mm/aaaa). Sem um sorter próprio, o
+// Tabulator as compararia como TEXTO (ex.: "31/01/2026" viria antes de "01/02/2026").
+// Datas ausentes ("—"/vazio) recebem uma sentinela e se agrupam num extremo.
+const SEM_DATA_TS = -8.64e15;
+function tempoDataBr(v) {
+  const d = dataBr(v);
+  return d && !isNaN(d.getTime()) ? d.getTime() : SEM_DATA_TS;
+}
+// Sorter do Tabulator: retorna a comparação CRESCENTE (mais antiga primeiro); o
+// Tabulator inverte sozinho quando a direção é decrescente.
+function sorterDataBr(a, b) {
+  return tempoDataBr(a) - tempoDataBr(b);
+}
+
 // Definição das colunas. As de status/atendimento e a do nº de processo (ícone de
 // aviso) usam formatador HTML — sempre escapando o texto dinâmico. As demais usam
 // o formatador padrão do Tabulator, que insere o valor como texto (já escapado).
+// As colunas de data usam sorterDataBr para ordenar cronologicamente (não como texto).
 const COLUNAS_GD = [
   { title: "Dias Pendentes", field: "_dias", hozAlign: "center", headerHozAlign: "center",
     sorter: "number", formatter: cell => escapeHtml(diasPendentesLabel(cell.getData())) },
@@ -391,13 +406,13 @@ const COLUNAS_GD = [
   { title: "Trabalhador", field: "trabalhador", widthGrow: 2 },
   { title: "Cargo", field: "cargo" },
   { title: "Polo Base / CASAI", field: "polo" },
-  { title: "Data da Ocorrência", field: "ocorrencia" },
+  { title: "Data da Ocorrência", field: "ocorrencia", sorter: sorterDataBr },
   { title: "Pedido", field: "pedido" },
   { title: "Status da Demanda", field: "status", widthGrow: 3, formatter: cell => badge(cell.getValue(), BADGE_STATUS) },
   { title: "Atendimento", field: "atendimento", formatter: cell => badge(cell.getValue(), BADGE_ATENDIMENTO) },
   { title: "Decisão", field: "_decisao" },
-  { title: "Data de Aplicação da Sanção", field: "dataSancao" },
-  { title: "Data do Pedido", field: "dataPedido" },
+  { title: "Data de Aplicação da Sanção", field: "dataSancao", sorter: sorterDataBr },
+  { title: "Data do Pedido", field: "dataPedido", sorter: sorterDataBr },
   { title: "Responsável", field: "responsavel", hozAlign: "center", headerHozAlign: "center" },
 ];
 
@@ -434,7 +449,7 @@ function criarTabela() {
     maxHeight: "480px",         // cresce com o conteúdo e rola ao atingir o limite (vazia = tamanho mínimo)
     layout: "fitDataStretch",   // larguras próprias; última coluna estica p/ preencher (sem vão) e rola quando passa do container
     columnDefaults: { minWidth: 90 },
-    headerSort: false,          // sem ordenação por cabeçalho: não conflita com mover linhas
+    headerSort: true,           // ordenação por clique no cabeçalho (datas com sorter cronológico); uma ordenação ativa substitui a ordem manual das linhas
     movableColumns: true,
     movableRows: true,
     persistence: { columns: true }, // ordem/largura/visibilidade das colunas (localStorage)

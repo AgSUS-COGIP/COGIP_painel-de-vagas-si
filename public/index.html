@@ -1139,17 +1139,9 @@
                   <h3 class="siTableTitle"><i class="fa-solid fa-table-list"></i> Trabalhadores</h3>
                   <span class="siTableCount" id="mdTabelaCount">—</span>
                 </div>
-                <div class="mdTableWrap">
-                  <table class="siTable mdTable">
-                    <thead>
-                      <tr>
-                        <th>Registro</th><th>Nome</th><th>Cargo</th><th>Situação</th><th>Vínculo</th>
-                        <th>Lotação</th><th>DSEI/CASAI</th><th>UF</th><th>Sexo</th><th>Grau</th><th>Tipo Admissão</th>
-                      </tr>
-                    </thead>
-                    <tbody id="mdTabelaBody"></tbody>
-                  </table>
-                </div>
+                <!-- Grade Tabulator (montada por mapa-dseis.js). Colunas arrastáveis +
+                     ordenação por cabeçalho; a base inteira rola dentro da grade. -->
+                <div id="mdTabelaGrade"></div>
                 <div class="siTableFooter"><span id="mdTabelaRegistros">—</span></div>
               </article>
 
@@ -2271,33 +2263,54 @@
           </div>
 
           <div class="psKpiGrid">
-            <div class="psKpi">
-              <div class="psKpiLabel">Total de Editais</div>
-              <div class="psKpiValue" id="psKpiTotal">0</div>
+            <div class="psKpi is-primary">
+              <span class="psKpiIcone"><i class="fa-solid fa-file-lines"></i></span>
+              <div class="psKpiInfo">
+                <div class="psKpiLabel">Total de Editais</div>
+                <div class="psKpiValue" id="psKpiTotal">0</div>
+              </div>
             </div>
-            <div class="psKpi">
-              <div class="psKpiLabel">Em Andamento</div>
-              <div class="psKpiValue is-orange" id="psKpiAndamento">0</div>
+            <div class="psKpi is-orange">
+              <span class="psKpiIcone"><i class="fa-solid fa-hourglass-half"></i></span>
+              <div class="psKpiInfo">
+                <div class="psKpiLabel">Em Andamento</div>
+                <div class="psKpiValue" id="psKpiAndamento">0</div>
+              </div>
             </div>
-            <div class="psKpi">
-              <div class="psKpiLabel">Concluídos</div>
-              <div class="psKpiValue is-green" id="psKpiConcluido">0</div>
+            <div class="psKpi is-green">
+              <span class="psKpiIcone"><i class="fa-solid fa-circle-check"></i></span>
+              <div class="psKpiInfo">
+                <div class="psKpiLabel">Concluídos</div>
+                <div class="psKpiValue" id="psKpiConcluido">0</div>
+              </div>
             </div>
-            <div class="psKpi">
-              <div class="psKpiLabel">Encerrando em Breve</div>
-              <div class="psKpiValue is-amber" id="psKpiEncerrando">0</div>
+            <div class="psKpi is-amber">
+              <span class="psKpiIcone"><i class="fa-solid fa-clock"></i></span>
+              <div class="psKpiInfo">
+                <div class="psKpiLabel">Encerrando em Breve</div>
+                <div class="psKpiValue" id="psKpiEncerrando">0</div>
+              </div>
             </div>
-            <div class="psKpi">
-              <div class="psKpiLabel">Vencidos</div>
-              <div class="psKpiValue is-vencido" id="psKpiVencido">0</div>
+            <div class="psKpi is-vencido">
+              <span class="psKpiIcone"><i class="fa-solid fa-calendar-xmark"></i></span>
+              <div class="psKpiInfo">
+                <div class="psKpiLabel">Vencidos</div>
+                <div class="psKpiValue" id="psKpiVencido">0</div>
+              </div>
             </div>
-            <div class="psKpi">
-              <div class="psKpiLabel">Cancelados</div>
-              <div class="psKpiValue is-red" id="psKpiCancelado">0</div>
+            <div class="psKpi is-red">
+              <span class="psKpiIcone"><i class="fa-solid fa-circle-xmark"></i></span>
+              <div class="psKpiInfo">
+                <div class="psKpiLabel">Cancelados</div>
+                <div class="psKpiValue" id="psKpiCancelado">0</div>
+              </div>
             </div>
-            <div class="psKpi">
-              <div class="psKpiLabel">Vagas Previstas</div>
-              <div class="psKpiValue is-muted" id="psKpiVagas">0</div>
+            <div class="psKpi is-blue">
+              <span class="psKpiIcone"><i class="fa-solid fa-user-group"></i></span>
+              <div class="psKpiInfo">
+                <div class="psKpiLabel">Vagas Previstas</div>
+                <div class="psKpiValue" id="psKpiVagas">0</div>
+              </div>
             </div>
           </div>
 
