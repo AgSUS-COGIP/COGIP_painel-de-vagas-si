@@ -25,11 +25,10 @@ import { apiGet } from "./api.js";
 
 const COMPETENCIA = "Mai/2024";
 const NIVEL_EDITOR = 2;
+const NIVEL_ADMIN = 3;
 function podeEditarEscala() { return nivelModulo("escalaTrabalho") >= NIVEL_EDITOR; }
-
-// Máximo de linhas exibidas nos detalhamentos (amostra) — os dados de escala são
-// mock; mostrar milhares não agrega. O total real vai no contador do cartão.
-const DETALHE_MAX = 40;
+// Administrador do módulo (nível 3): vê o alerta de inconformidade de escala.
+function ehAdminEscala() { return nivelModulo("escalaTrabalho") >= NIVEL_ADMIN; }
 
 // Paginação da tabela principal (mesmo modelo da aba Entrega de Crachá).
 const PAGE_SIZE_OPCOES = [10, 25, 50, 100];
@@ -128,6 +127,9 @@ let estado = "idle";         // idle | carregando | ok | erro
 let erroMsg = "";
 let pageSize = 10;           // registros por página (ajustável pelo usuário)
 let paginaAtual = 1;
+// Paginação própria de cada detalhamento (mesmo modelo do rodapé principal).
+let pageSizePlant = 10, pagePlant = 1;
+let pageSizeTerr = 10, pageTerr = 1;
 // Opções de filtro vindas do servidor.
 let opcoesFiltro = { dseis: [], cargos: [], polos: [], situacoes: [] };
 let polosPorDsei = {};       // { dsei: [polos] } — para a cascata
@@ -295,6 +297,41 @@ function trabalhaNoDia(r, dataStr) {
   return diaTrabalhado(r.alternancia, dataStr);
 }
 
+// Dias efetivamente trabalhados no mês (números): os marcados na edição, ou o
+// padrão da escala quando ainda não houve edição.
+function diasTrabalhadosDoMes(r) {
+  return Array.isArray(r.diasMarcados)
+    ? r.diasMarcados.map(Number)
+    : [...diasPadraoEscala(r.escala, r.alternancia)];
+}
+
+// Detecta inconformidade da escala registrada vs. a regra do tipo de escala.
+// Retorna uma descrição do problema (para o alerta de administrador) ou null.
+//  · Diarista → não deve trabalhar em fim de semana (Sáb/Dom).
+//  · Plantonista PAR → só em dias pares (qualquer dia ímpar é inconformidade).
+//  · Plantonista ÍMPAR → só em dias ímpares (qualquer dia par é inconformidade).
+function inconformidadeEscala(r) {
+  if (r.semEscala || !r.escala || r.escala === "territorio") return null;
+  const dias = diasTrabalhadosDoMes(r);
+  if (!dias.length) return null;
+  if (r.escala === "diarista") {
+    const fds = dias.filter(n => {
+      const dow = DOW_ABREV[new Date(2024, 4, n).getDay()];
+      return dow === "Sáb" || dow === "Dom";
+    });
+    if (fds.length) return `Diarista escalado em ${fds.length} dia(s) de fim de semana (Sáb/Dom).`;
+  } else if (r.escala === "diurno" || r.escala === "noturno") {
+    if (r.alternancia === "par") {
+      const impares = dias.filter(n => n % 2 !== 0);
+      if (impares.length) return `Alternância PAR, mas escalado em ${impares.length} dia(s) ímpar(es).`;
+    } else if (r.alternancia === "impar") {
+      const pares = dias.filter(n => n % 2 === 0);
+      if (pares.length) return `Alternância ÍMPAR, mas escalado em ${pares.length} dia(s) par(es).`;
+    }
+  }
+  return null;
+}
+
 function periodoCelula(r) {
   if (r.escala === "territorio") {
     return `<span class="etPeriodoTerr">Ida: <b>${escapeHtml(r.ida || "—")}</b> · Retorno: <b>${escapeHtml(r.retorno || "—")}</b></span>`;
@@ -413,32 +450,35 @@ function renderTabela() {
   renderPaginacao(totalPaginas);
 }
 
-// Controles de página (mesmo layout/lógica da aba Entrega de Crachá).
-function renderPaginacao(totalPaginas) {
-  const wrap = $("etPagination");
-  if (!wrap) return;
-  if (totalPaginas <= 1) { wrap.innerHTML = ""; return; }
-
+// Monta o HTML dos controles de página (mesmo layout/lógica da aba Entrega de
+// Crachá). `attr` é o data-* usado nos botões (permite rodapés independentes).
+function paginacaoHtml(pagina, totalPaginas, attr) {
+  if (totalPaginas <= 1) return "";
   const janela = 2;
-  let ini = Math.max(1, paginaAtual - janela);
-  let fim = Math.min(totalPaginas, paginaAtual + janela);
-  if (paginaAtual <= janela) fim = Math.min(totalPaginas, 1 + janela * 2);
-  if (paginaAtual > totalPaginas - janela) ini = Math.max(1, totalPaginas - janela * 2);
+  let ini = Math.max(1, pagina - janela);
+  let fim = Math.min(totalPaginas, pagina + janela);
+  if (pagina <= janela) fim = Math.min(totalPaginas, 1 + janela * 2);
+  if (pagina > totalPaginas - janela) ini = Math.max(1, totalPaginas - janela * 2);
 
-  let html = `<button class="etPageBtn etPageNav" data-et-pagina="prev" ${paginaAtual === 1 ? "disabled" : ""} title="Anterior"><i class="fa-solid fa-angle-left"></i></button>`;
+  let html = `<button class="etPageBtn etPageNav" ${attr}="prev" ${pagina === 1 ? "disabled" : ""} title="Anterior"><i class="fa-solid fa-angle-left"></i></button>`;
   if (ini > 1) {
-    html += `<button class="etPageBtn" data-et-pagina="1">1</button>`;
+    html += `<button class="etPageBtn" ${attr}="1">1</button>`;
     if (ini > 2) html += `<span class="etPageEllipsis">…</span>`;
   }
   for (let p = ini; p <= fim; p++) {
-    html += `<button class="etPageBtn${p === paginaAtual ? " is-ativo" : ""}" data-et-pagina="${p}">${p}</button>`;
+    html += `<button class="etPageBtn${p === pagina ? " is-ativo" : ""}" ${attr}="${p}">${p}</button>`;
   }
   if (fim < totalPaginas) {
     if (fim < totalPaginas - 1) html += `<span class="etPageEllipsis">…</span>`;
-    html += `<button class="etPageBtn" data-et-pagina="${totalPaginas}">${totalPaginas}</button>`;
+    html += `<button class="etPageBtn" ${attr}="${totalPaginas}">${totalPaginas}</button>`;
   }
-  html += `<button class="etPageBtn etPageNav" data-et-pagina="next" ${paginaAtual === totalPaginas ? "disabled" : ""} title="Próxima"><i class="fa-solid fa-angle-right"></i></button>`;
-  wrap.innerHTML = html;
+  html += `<button class="etPageBtn etPageNav" ${attr}="next" ${pagina === totalPaginas ? "disabled" : ""} title="Próxima"><i class="fa-solid fa-angle-right"></i></button>`;
+  return html;
+}
+
+function renderPaginacao(totalPaginas) {
+  const wrap = $("etPagination");
+  if (wrap) wrap.innerHTML = paginacaoHtml(paginaAtual, totalPaginas, "data-et-pagina");
 }
 
 function irParaPagina(valor) {
@@ -447,6 +487,14 @@ function irParaPagina(valor) {
   else if (valor === "next") paginaAtual = Math.min(totalPaginas, paginaAtual + 1);
   else paginaAtual = Math.min(totalPaginas, Math.max(1, Number(valor) || 1));
   renderTabela();
+}
+
+// Nova página a partir de prev/next/número, respeitando os limites do conjunto.
+function calcPagina(valor, atual, totalItens, tamanho) {
+  const totalPaginas = Math.max(1, Math.ceil(totalItens / tamanho));
+  if (valor === "prev") return Math.max(1, atual - 1);
+  if (valor === "next") return Math.min(totalPaginas, atual + 1);
+  return Math.min(totalPaginas, Math.max(1, Number(valor) || 1));
 }
 
 // ---------- Alerta sem escala (mock) ----------
@@ -472,6 +520,32 @@ function renderAlerta() {
     // livre na linha dos nomes e só quebra para a próxima linha se não couber.
     chips.innerHTML = chipsHtml +
       `<button type="button" class="etBtn etBtnVerTodos" data-et-ver-sem-escala>Ver todos <i class="fa-solid fa-arrow-right"></i></button>`;
+  }
+}
+
+// Alerta EXCLUSIVO de administrador: profissionais cuja escala registrada
+// contraria a regra do tipo (diarista em fim de semana; plantonista fora da
+// alternância). Clicar num nome abre a edição para corrigir.
+function renderConformidade() {
+  const bloco = $("etConformidadeBloco");
+  if (!bloco) return;
+  if (!ehAdminEscala()) { bloco.hidden = true; return; }
+  const problemas = escalas
+    .map(p => ({ p, motivo: inconformidadeEscala(p) }))
+    .filter(x => x.motivo);
+  bloco.hidden = !problemas.length;
+  if (!problemas.length) return;
+  const total = $("etConfTotal");
+  if (total) total.textContent = String(problemas.length);
+  const chips = $("etConfChips");
+  if (chips) {
+    const vis = problemas.slice(0, 12);
+    chips.innerHTML = vis.map(({ p, motivo }) => `
+      <button type="button" class="etChip etChipConf etChipBtn" data-et-editar-alerta="${escapeAttr(p.id)}" title="${escapeAttr(motivo)} — clique para corrigir">
+        <span class="etChipNome">${escapeHtml(p.nome)}</span>
+        <span class="etChipMotivo">${escapeHtml(motivo)}</span>
+      </button>
+    `).join("") + (problemas.length > vis.length ? `<span class="etChipMais">+${problemas.length - vis.length} outros</span>` : "");
   }
 }
 
@@ -602,9 +676,16 @@ function renderPlantonistas() {
   const comp = $("etCompPlant");
   if (comp) comp.textContent = `(${COMPETENCIA})`;
   const todos = filtrarPlantonistas();
-  const amostra = todos.slice(0, DETALHE_MAX);
+  const totalPaginas = Math.max(1, Math.ceil(todos.length / pageSizePlant));
+  if (pagePlant > totalPaginas) pagePlant = totalPaginas;
+  const inicio = (pagePlant - 1) * pageSizePlant;
+  const pagina = todos.slice(inicio, inicio + pageSizePlant);
   const cnt = $("etPlantCount");
-  if (cnt) cnt.textContent = todos.length > amostra.length ? `amostra: ${amostra.length} de ${todos.length}` : `${todos.length} profissionais`;
+  if (cnt) cnt.textContent = `${todos.length} profissionais`;
+  const reg = $("etPlantRegistros");
+  if (reg) reg.textContent = todos.length
+    ? `Mostrando ${inicio + 1} a ${Math.min(inicio + pageSizePlant, todos.length)} de ${todos.length} profissionais`
+    : "Mostrando 0 profissionais";
 
   if (!gradePlantonistas) {
     gradePlantonistas = criarTabelaArrastavel({
@@ -613,7 +694,9 @@ function renderPlantonistas() {
       indexField: "id", altura: "280px", autoResize: false, vazio: "Nenhum plantonista no período.",
     });
   }
-  gradePlantonistas?.render(amostra);
+  gradePlantonistas?.render(pagina);
+  const wrap = $("etPlantPagination");
+  if (wrap) wrap.innerHTML = paginacaoHtml(pagePlant, totalPaginas, "data-et-plant-pagina");
 }
 
 // ---------- Detalhamento território (amostra) ----------
@@ -663,9 +746,16 @@ function filtrarTerritorio() {
 function renderTerritorio() {
   if (!$("etTerritorioBody")) return;
   const todos = filtrarTerritorio();
-  const amostra = todos.slice(0, DETALHE_MAX);
+  const totalPaginas = Math.max(1, Math.ceil(todos.length / pageSizeTerr));
+  if (pageTerr > totalPaginas) pageTerr = totalPaginas;
+  const inicio = (pageTerr - 1) * pageSizeTerr;
+  const pagina = todos.slice(inicio, inicio + pageSizeTerr);
   const cnt = $("etTerrCount");
-  if (cnt) cnt.textContent = todos.length > amostra.length ? `amostra: ${amostra.length} de ${todos.length}` : `${todos.length} em território`;
+  if (cnt) cnt.textContent = `${todos.length} em território`;
+  const reg = $("etTerrRegistros");
+  if (reg) reg.textContent = todos.length
+    ? `Mostrando ${inicio + 1} a ${Math.min(inicio + pageSizeTerr, todos.length)} de ${todos.length} em território`
+    : "Mostrando 0 em território";
 
   if (!gradeTerritorio) {
     gradeTerritorio = criarTabelaArrastavel({
@@ -674,7 +764,9 @@ function renderTerritorio() {
       indexField: "id", altura: "300px", autoResize: false, vazio: "Nenhuma escala de território no período.",
     });
   }
-  gradeTerritorio?.render(amostra);
+  gradeTerritorio?.render(pagina);
+  const wrap = $("etTerrPagination");
+  if (wrap) wrap.innerHTML = paginacaoHtml(pageTerr, totalPaginas, "data-et-terr-pagina");
 }
 
 // ---------- Resumo (KPIs) — renderiza no topo do card de alerta ----------
@@ -806,6 +898,7 @@ async function exportarPlantonistasPdf() {
 
 function renderTudo() {
   renderAlerta();
+  renderConformidade();
   renderTabela();
   renderPlantonistas();
   renderTerritorio();
@@ -892,22 +985,43 @@ export function configurarEscalaTrabalho() {
   }
 
   // ---- Filtros dos DETALHAMENTOS (nome/DSEI/cargo/local · nome/DSEI/cargo/tipo) ----
-  combos.plantDsei = criarMultiCombo("etPlantFDsei", { prefixo: "et", placeholder: "DSEI", ariaLabel: "Filtrar plantonistas por DSEI", onChange: () => { filtrosPlant.dsei = combos.plantDsei.getValues(); renderPlantonistas(); } });
-  combos.plantCargo = criarMultiCombo("etPlantFCargo", { prefixo: "et", placeholder: "Cargo", ariaLabel: "Filtrar plantonistas por cargo", onChange: () => { filtrosPlant.cargo = combos.plantCargo.getValues(); renderPlantonistas(); } });
-  combos.plantLocal = criarMultiCombo("etPlantFLocal", { prefixo: "et", placeholder: "Polo / CASAI", ariaLabel: "Filtrar plantonistas por polo/CASAI", onChange: () => { filtrosPlant.local = combos.plantLocal.getValues(); renderPlantonistas(); } });
-  combos.terrDsei = criarMultiCombo("etTerrFDsei", { prefixo: "et", placeholder: "DSEI", ariaLabel: "Filtrar território por DSEI", onChange: () => { filtrosTerr.dsei = combos.terrDsei.getValues(); renderTerritorio(); } });
-  combos.terrCargo = criarMultiCombo("etTerrFCargo", { prefixo: "et", placeholder: "Cargo", ariaLabel: "Filtrar território por cargo", onChange: () => { filtrosTerr.cargo = combos.terrCargo.getValues(); renderTerritorio(); } });
-  combos.terrTipo = criarMultiCombo("etTerrFTipo", { prefixo: "et", placeholder: "Território", ariaLabel: "Filtrar por tipo de território", onChange: () => { filtrosTerr.tipo = combos.terrTipo.getValues(); renderTerritorio(); } });
+  // Qualquer mudança de filtro do detalhamento volta para a 1ª página do próprio rodapé.
+  combos.plantDsei = criarMultiCombo("etPlantFDsei", { prefixo: "et", placeholder: "DSEI", ariaLabel: "Filtrar plantonistas por DSEI", onChange: () => { filtrosPlant.dsei = combos.plantDsei.getValues(); pagePlant = 1; renderPlantonistas(); } });
+  combos.plantCargo = criarMultiCombo("etPlantFCargo", { prefixo: "et", placeholder: "Cargo", ariaLabel: "Filtrar plantonistas por cargo", onChange: () => { filtrosPlant.cargo = combos.plantCargo.getValues(); pagePlant = 1; renderPlantonistas(); } });
+  combos.plantLocal = criarMultiCombo("etPlantFLocal", { prefixo: "et", placeholder: "Polo / CASAI", ariaLabel: "Filtrar plantonistas por polo/CASAI", onChange: () => { filtrosPlant.local = combos.plantLocal.getValues(); pagePlant = 1; renderPlantonistas(); } });
+  combos.terrDsei = criarMultiCombo("etTerrFDsei", { prefixo: "et", placeholder: "DSEI", ariaLabel: "Filtrar território por DSEI", onChange: () => { filtrosTerr.dsei = combos.terrDsei.getValues(); pageTerr = 1; renderTerritorio(); } });
+  combos.terrCargo = criarMultiCombo("etTerrFCargo", { prefixo: "et", placeholder: "Cargo", ariaLabel: "Filtrar território por cargo", onChange: () => { filtrosTerr.cargo = combos.terrCargo.getValues(); pageTerr = 1; renderTerritorio(); } });
+  combos.terrTipo = criarMultiCombo("etTerrFTipo", { prefixo: "et", placeholder: "Território", ariaLabel: "Filtrar por tipo de território", onChange: () => { filtrosTerr.tipo = combos.terrTipo.getValues(); pageTerr = 1; renderTerritorio(); } });
 
   const buscaPlant = $("etPlantBusca");
-  if (buscaPlant) buscaPlant.addEventListener("input", debounce(() => { filtrosPlant.busca = buscaPlant.value || ""; renderPlantonistas(); }, 200));
+  if (buscaPlant) buscaPlant.addEventListener("input", debounce(() => { filtrosPlant.busca = buscaPlant.value || ""; pagePlant = 1; renderPlantonistas(); }, 200));
   const buscaTerr = $("etTerrBusca");
-  if (buscaTerr) buscaTerr.addEventListener("input", debounce(() => { filtrosTerr.busca = buscaTerr.value || ""; renderTerritorio(); }, 200));
+  if (buscaTerr) buscaTerr.addEventListener("input", debounce(() => { filtrosTerr.busca = buscaTerr.value || ""; pageTerr = 1; renderTerritorio(); }, 200));
+
+  // "Mostrar N por página" dos detalhamentos (rodapés independentes).
+  const ligarPorPagina = (id, setTam, reset, render) => {
+    const sel = $(id);
+    if (!sel) return;
+    sel.innerHTML = PAGE_SIZE_OPCOES.map(n => `<option value="${n}">${n}</option>`).join("");
+    sel.value = "10";
+    sel.addEventListener("change", e => {
+      const n = Number(e.target.value);
+      setTam(PAGE_SIZE_OPCOES.includes(n) ? n : 10);
+      reset();
+      render();
+    });
+  };
+  ligarPorPagina("etPlantPorPagina", n => { pageSizePlant = n; }, () => { pagePlant = 1; }, renderPlantonistas);
+  ligarPorPagina("etTerrPorPagina", n => { pageSizeTerr = n; }, () => { pageTerr = 1; }, renderTerritorio);
 
   // Ações (demonstração): apenas feedback via toast, sem persistência.
   view.addEventListener("click", ev => {
     const pagina = ev.target.closest("[data-et-pagina]");
     if (pagina && !pagina.disabled) { irParaPagina(pagina.dataset.etPagina); return; }
+    const pagPlant = ev.target.closest("[data-et-plant-pagina]");
+    if (pagPlant && !pagPlant.disabled) { pagePlant = calcPagina(pagPlant.dataset.etPlantPagina, pagePlant, filtrarPlantonistas().length, pageSizePlant); renderPlantonistas(); return; }
+    const pagTerr = ev.target.closest("[data-et-terr-pagina]");
+    if (pagTerr && !pagTerr.disabled) { pageTerr = calcPagina(pagTerr.dataset.etTerrPagina, pageTerr, filtrarTerritorio().length, pageSizeTerr); renderTerritorio(); return; }
     const exportar = ev.target.closest("[data-et-exportar]");
     if (exportar) { exportarDetalhe(exportar.dataset.etExportar); return; }
     if (ev.target.closest("[data-et-ver-sem-escala]")) {

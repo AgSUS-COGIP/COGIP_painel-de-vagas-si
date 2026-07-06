@@ -435,6 +435,42 @@
     font-weight: 600;
   }
 
+  /* Bloco de inconformidade (só administradores): tom de alerta vermelho. */
+  #etConformidadeBloco {
+    background: linear-gradient(180deg, #fff5f5, #fdeaea);
+    border-top: 1px solid #f0a8a8;
+    padding: 14px 18px;
+  }
+  #etConformidadeBloco .etAlertaTitulo { color: #b5290a; }
+  #etConformidadeBloco .etAlertaTotal,
+  #etConformidadeBloco .etAlertaSub { color: #9a3a1a; }
+  .etConfTag {
+    text-transform: none;
+    font-size: 10px;
+    font-weight: 800;
+    background: #b5290a;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: .02em;
+  }
+  .etChipConf { border-color: #f0b0a8; }
+  button.etChipConf:hover { border-color: #b5290a; box-shadow: 0 6px 16px rgba(181, 41, 10, .18); }
+  .etChipMotivo {
+    display: block;
+    font-size: 11px;
+    color: #b5290a;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .etChipMais {
+    align-self: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #9a3a1a;
+    padding: 6px 10px;
+  }
+
   .etAlertaCorpo {
     display: flex;
     align-items: center;
