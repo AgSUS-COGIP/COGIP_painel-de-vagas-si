@@ -1,7 +1,7 @@
 import { idSeguroAlerta } from "./alertas.js";
 import { nivelModulo } from "./permissoes.js";
 import { apiGet } from "./api.js";
-import { recarregarTodosOsDados } from "./app.js";
+import { carregarRemanejamentoListaEmSegundoPlano, recarregarTodosOsDados } from "./app.js";
 import { NIVEL, REMANEJAMENTO_EMPTY_OPTION, REMANEJAMENTO_MESES_PADRAO } from "./constants.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
@@ -14,6 +14,31 @@ import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 // Grade Tabulator do histórico (só colunas) e id do remanejamento com detalhe aberto.
 let gradeRem = null;
 let remDetalheAberto = null;
+
+// Polling do histórico: enquanto a aba de remanejamento está aberta, recarrega a
+// lista periodicamente para refletir exclusões/edições/inclusões feitas por OUTROS
+// usuários — sem piscar a tela nem atrapalhar uma ação em andamento. Mesma
+// abordagem do painel de Solicitações (acesso.js). O backend invalida o cache no
+// salvar/excluir (limparCacheDashboard), então cada GET traz dados frescos.
+let pollRemanejamentoTimer = null;
+function podeAtualizarRemanejamento() {
+  const painel = document.getElementById("view-remanejamento");
+  if (!painel || !painel.classList.contains("active")) return false; // só com a aba aberta
+  if (remDetalheAberto != null) return false;                        // detalhe aberto: o re-render o fecharia
+  if (state.remanejamentoEditandoId != null) return false;           // edição em andamento
+  const modal = document.getElementById("acessoModal");
+  if (modal && modal.style.display === "flex") return false;         // modal (confirmar exclusão / aviso) aberto
+  const carregando = document.getElementById("overlayCarregando");
+  if (carregando && carregando.style.display === "flex") return false; // salvando/excluindo
+  if (document.querySelector(".ssMenu")) return false;               // combo pesquisável (Cargo) aberto
+  return true;
+}
+function iniciarPollRemanejamento() {
+  if (pollRemanejamentoTimer) return;
+  pollRemanejamentoTimer = setInterval(() => {
+    if (podeAtualizarRemanejamento()) carregarRemanejamentoListaEmSegundoPlano(true);
+  }, 15000);
+}
 
 export function configurarPainelExterno() {
   const iframe = document.getElementById("iframeDashboardSaudeIndigena");
@@ -114,6 +139,7 @@ function aplicarModoLeituraRemanejamento() {
 export function configurarRemanejamento() {
   state.remanejamentoDetalhePage = 1;
   aplicarModoLeituraRemanejamento();
+  iniciarPollRemanejamento(); // idempotente: o guard interno evita timers duplicados
 
   if (!pageLoadState.remanejamentoCadastro) {
     preencherSelectRemanejamento("remanejamentoDsei", [REMANEJAMENTO_EMPTY_OPTION], item => item.label);
