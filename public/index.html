@@ -4,13 +4,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitoramento de Vagas - Saúde Indígena</title>
+  <title>EGO - UGP - Saúde Indígena</title>
+  <link rel="icon" type="image/png" href="./assets/images/Logo%20AgSUS%20sem%20fundo.png">
+  <link rel="apple-touch-icon" href="./assets/images/Logo%20AgSUS%20sem%20fundo.png">
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="./vendor/tabulator/tabulator.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <!-- Leaflet (mapas da aba "Mapa dos DSEIs"). Servido pelo cdnjs (liberado na CSP);
+       os tiles do mapa são imagens https (liberadas em img-src). -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <link rel="stylesheet" href="./styles.css">
 </head>
 
@@ -241,7 +247,12 @@
     </div>
   </div>
 
-  <div class="app">
+  <!-- Começa OCULTO: só é revelado após a sessão confirmar login+aprovação
+       (iniciarPainelAutenticado/aplicarPermissoesUsuario definem display=""). Sem
+       isso, o painel (Visão Geral) piscava por um instante antes do redirect para
+       o login de quem não está logado. Enquanto a sessão é verificada, o overlay
+       #loading cobre a tela; depois aparece o login (deslogado) ou o painel (logado). -->
+  <div class="app" style="display:none;">
     <aside class="sidebar">
       <div class="brand">
         <img class="brandLogo" src="" data-config-src="logoAgsusUrl" alt="Logo AgSUS">
@@ -282,6 +293,11 @@
           <span>Painel da Força de Trabalho</span>
         </button>
 
+        <button type="button" class="navItem" data-view="mapaDseis">
+          <span class="navIcon"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i></span>
+          <span>Mapa dos DSEIs</span>
+        </button>
+
         <button type="button" class="navItem" data-view="gestaoFerias">
           <span class="navIcon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>
           <span>Gestão de Férias</span>
@@ -302,10 +318,6 @@
         <button type="button" class="navItem" data-view="escalaTrabalho">
           <span class="navIcon"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
           <span>Escala de Trabalho</span>
-        </button>
-        <button type="button" class="navItem" data-view="mapaDseis">
-          <span class="navIcon"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i></span>
-          <span>Mapa dos DSEIs</span>
         </button>
         <button type="button" class="navItem navAdmin" data-view="solicitacoes" style="display:none !important;">
           <span class="navIcon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
@@ -331,7 +343,7 @@
       <h1 id="tituloPagina" class="sr-only">Visão Geral</h1>
       <header class="top">
         <div>
-          <div class="titleSmall">Monitoramento de Vagas</div>
+          <div class="titleSmall">Unidade de Gestão de Pessoas - UGP</div>
           <div class="titleBig">Saúde Indígena</div>
         </div>
 
@@ -952,10 +964,10 @@
 
               <article class="siCard">
                 <div class="siCardHead">
-                  <h3 class="siCardTitle"><i class="fa-solid fa-graduation-cap"></i> Grau de Instrução</h3>
-                  <button type="button" class="siCardExport" data-export="siChartGrau" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
+                  <h3 class="siCardTitle"><i class="fa-solid fa-user-xmark"></i> Tipo de Desligamento</h3>
+                  <button type="button" class="siCardExport" data-export="siChartTipoDeslig" title="Exportar Excel" aria-label="Exportar Excel"><i class="fa-solid fa-file-excel"></i></button>
                 </div>
-                <div class="siChartBox siChartTall"><canvas id="siChartGrau"></canvas></div>
+                <div class="siChartBox siChartTall"><canvas id="siChartTipoDeslig"></canvas></div>
               </article>
 
             </section>
@@ -1011,9 +1023,137 @@
               </div>
             </section>
 
+            <!-- Exportação: relação de trabalhadores ATIVOS por DSEI (colunas
+                 reduzidas) — respeita os filtros aplicados. -->
+            <div class="siExportBar">
+              <button type="button" class="siExportRelacao" id="siBtnExportarAtivos">
+                <i class="fa-solid fa-file-arrow-down"></i> Exportar relação de trabalhadores ao DSEI
+              </button>
+            </div>
+
             <footer class="siFooter">
               <span><i class="fa-solid fa-database"></i> Fonte: UGP/SIP</span>
             </footer>
+          </div>
+        </section>
+
+
+        <!-- ====================== MAPA DOS DSEIs ======================
+             Painel territorial dos DSEIs/CASAIs. Dados reais de /api/mapa-dseis
+             (VW_SAUDE_INDIGENA + TB_LOTACAO_OVERRIDE, join por MATRICULA).
+             Layout no padrão da Saúde Indígena (hero + cards + filtros) com
+             mapas via Leaflet. Lógica em js/mapa-dseis.js.
+        ========================================================== -->
+        <section id="view-mapaDseis" class="viewPanel mdView">
+
+          <!-- Cabeçalho temático (padrão SI) -->
+          <header class="siHero mdHero">
+            <div class="siHeroPattern" aria-hidden="true"></div>
+            <div class="siHeroContent">
+              <div class="siHeroMain">
+                <span class="siHeroKicker"><i class="fa-solid fa-map-location-dot"></i> Painel Territorial</span>
+                <h2 class="siHeroTitle">Mapa dos DSEIs</h2>
+                <p class="siHeroSub">Distritos Sanitários Especiais Indígenas e suas unidades de saúde.</p>
+                <div class="siHeroBadges">
+                  <span class="siChip siChipSus"><i class="fa-solid fa-heart-pulse"></i> A serviço do SUS</span>
+                  <span class="siChip siChipAgsus"><i class="fa-solid fa-people-group"></i> AgSUS · Gestão de Pessoas</span>
+                </div>
+              </div>
+              <div class="siHeroAside">
+                <img class="siHeroLogo" src="/assets/images/Logo AgSUS sem fundo.png" alt="AgSUS" />
+                <img class="siHeroMascote" src="/assets/images/ze-gotinha-indigena.png" alt="" aria-hidden="true" />
+              </div>
+            </div>
+          </header>
+
+          <!-- Barra de filtros -->
+          <div class="siToolbar mdToolbar">
+            <div class="siToolbarHead">
+              <div class="siToolbarTitle"><i class="fa-solid fa-sliders"></i> Filtros</div>
+              <button type="button" class="siBtnLimpar" id="mdBtnLimpar">
+                <i class="fa-solid fa-filter-circle-xmark"></i> Limpar filtros
+              </button>
+            </div>
+
+            <div class="siFilters mdFilters">
+              <div class="siField"><span class="siFieldLabel">DSEI/CASAI</span><div class="siCombo" id="mdFiltroDsei"></div></div>
+              <div class="siField"><span class="siFieldLabel">Unidade / Polo</span><div class="siCombo" id="mdFiltroLotacao"></div></div>
+              <div class="siField"><span class="siFieldLabel"><i class="fa-solid fa-magnifying-glass"></i> Nome</span><div class="siCombo" id="mdFiltroNome"></div></div>
+              <div class="siField"><span class="siFieldLabel">Cargo</span><div class="siCombo" id="mdFiltroCargo"></div></div>
+              <div class="siField"><span class="siFieldLabel">Situação</span><div class="siCombo" id="mdFiltroSituacao"></div></div>
+              <div class="siField"><span class="siFieldLabel">Vínculo com a Agência</span><div class="siCombo" id="mdFiltroVinculo"></div></div>
+              <div class="siField"><span class="siFieldLabel">Tipo de Admissão</span><div class="siCombo" id="mdFiltroTipoAdmissao"></div></div>
+              <div class="siField"><span class="siFieldLabel">Grau de Instrução</span><div class="siCombo" id="mdFiltroGrau"></div></div>
+            </div>
+
+            <div class="siResumoFiltro" id="mdResumoFiltro">—</div>
+          </div>
+
+          <!-- Estado de carregamento / erro -->
+          <div class="siEstado" id="mdEstado" hidden></div>
+
+          <!-- Corpo: mapa do Brasil (esquerda) + detalhe do DSEI (direita) -->
+          <div class="mdGrid" id="mdBody">
+
+            <!-- Coluna esquerda: mapa do Brasil + lista de DSEIs/CASAIs -->
+            <article class="siCard mdCardBrasil">
+              <div class="siCardHead">
+                <h3 class="siCardTitle"><i class="fa-solid fa-earth-americas"></i> DSEIs / CASAIs do Brasil</h3>
+              </div>
+              <div id="mdMapaBrasil" class="mdMapa mdMapaBrasil"></div>
+              <p class="mdListaHint">Clique em um DSEI/CASAI para ver os detalhes.</p>
+              <ul class="mdListaDseis" id="mdListaDseis"></ul>
+            </article>
+
+            <!-- Coluna direita: detalhe do DSEI selecionado -->
+            <div class="mdColDireita">
+
+              <!-- Cabeçalho + KPIs (métricas de trabalhadores) -->
+              <article class="siCard mdCardResumo">
+                <div class="mdDseiTitulo"><span class="mdDot"></span> <span id="mdDseiNome">Selecione um DSEI/CASAI</span></div>
+                <div class="mdKpiRow" id="mdKpiRow"></div>
+              </article>
+
+              <!-- Mapa do DSEI + lista de lotações (unidades/polos) à direita -->
+              <article class="siCard mdCardMapaDsei">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-location-dot"></i> Mapa do <span id="mdMapaDseiNome">DSEI</span></h3>
+                </div>
+                <div class="mdMapaWrap">
+                  <div id="mdMapaDsei" class="mdMapa mdMapaDsei"></div>
+                  <div class="mdMapaUnidades" id="mdMapaUnidades"></div>
+                </div>
+              </article>
+
+              <!-- Resumo por categorias (cargo, situação, grau, tipo de admissão) -->
+              <article class="siCard mdCardInfo">
+                <div class="siCardHead">
+                  <h3 class="siCardTitle"><i class="fa-solid fa-chart-simple"></i> Resumo do <span id="mdInfoDseiNome">DSEI</span></h3>
+                </div>
+                <div class="mdInfoGrid" id="mdInfoGrid"></div>
+              </article>
+
+              <!-- Tabela de trabalhadores -->
+              <article class="siCard mdCardTabela">
+                <div class="siTableHead">
+                  <h3 class="siTableTitle"><i class="fa-solid fa-table-list"></i> Trabalhadores</h3>
+                  <span class="siTableCount" id="mdTabelaCount">—</span>
+                </div>
+                <div class="mdTableWrap">
+                  <table class="siTable mdTable">
+                    <thead>
+                      <tr>
+                        <th>Registro</th><th>Nome</th><th>Cargo</th><th>Situação</th><th>Vínculo</th>
+                        <th>Lotação</th><th>DSEI/CASAI</th><th>UF</th><th>Sexo</th><th>Grau</th><th>Tipo Admissão</th>
+                      </tr>
+                    </thead>
+                    <tbody id="mdTabelaBody"></tbody>
+                  </table>
+                </div>
+                <div class="siTableFooter"><span id="mdTabelaRegistros">—</span></div>
+              </article>
+
+            </div>
           </div>
         </section>
 
@@ -1381,6 +1521,9 @@
                 <span class="ecLoteBadge"><strong id="ecLoteQtd">0</strong> selecionado(s)</span>
                 <span class="ecLoteSub">Preencha os campos que quiser mudar — os demais ficam como estão.</span>
                 <div class="ecLoteHeadAcoes">
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno ecLoteReverterBtn" id="ecLoteReverter">
+                    <i class="fa-solid fa-rotate-left"></i> Reverter alterações
+                  </button>
                   <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecLoteLimpar">
                     <i class="fa-solid fa-eraser"></i> Limpar seleção
                   </button>
@@ -1429,6 +1572,16 @@
                 <select class="ecSelect" id="ecFiltroDsei" data-ec-filtro></select>
                 <select class="ecSelect" id="ecFiltroStatus" data-ec-filtro></select>
                 <select class="ecSelect" id="ecFiltroEscritorio" data-ec-filtro></select>
+                <select class="ecSelect" id="ecFiltroDevolvido" data-ec-filtro aria-label="Crachá Devolvido">
+                  <option value="">Crachá Devolvido (todos)</option>
+                  <option value="sim">Devolvido: Sim</option>
+                  <option value="nao">Devolvido: Não</option>
+                </select>
+                <select class="ecSelect" id="ecFiltroSegundaVia" data-ec-filtro aria-label="Solicitação de 2ª Via">
+                  <option value="">Solicitação 2ª Via (todos)</option>
+                  <option value="sim">2ª Via: Sim</option>
+                  <option value="nao">2ª Via: Não</option>
+                </select>
                 <div class="ecField ecFieldDate">
                   <input class="ecInput" type="date" id="ecFiltroDataInicial" data-ec-filtro aria-label="Data inicial">
                 </div>
@@ -1678,6 +1831,17 @@
               </div>
               <div class="ecImportToolbar">
                 <label class="ecImportSelAll"><input type="checkbox" id="ecImportSelAll"> Selecionar todas</label>
+                <div class="ecImportSelBtns">
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecImportMarcarTodos">
+                    <i class="fa-solid fa-check-double"></i> Marcar todos
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno" id="ecImportDesmarcarTodos">
+                    <i class="fa-regular fa-square"></i> Desmarcar todos
+                  </button>
+                  <button type="button" class="ecBtn ecBtnGhost ecBtnPequeno ecLoteReverterBtn" id="ecImportReverter">
+                    <i class="fa-solid fa-rotate-left"></i> Reverter alterações
+                  </button>
+                </div>
                 <span class="ecImportContador" id="ecImportContador">0 de 0 selecionada(s)</span>
               </div>
               <div class="ecImportAviso" id="ecImportAviso" hidden></div>
@@ -2033,7 +2197,7 @@
                   </button>
                 </div>
                 <div class="gdCoachBubble gdCoachBubble--rows" data-coach="linhas">
-                  <span>Também é possível reordenar as linhas para compará-las lado a lado.</span>
+                  <span>É possível reordenar as linhas para compará-las lado a lado.</span>
                   <button type="button" class="gfBtn gdCoachBtn" data-coach-fechar="linhas">
                     <i class="fa-solid fa-check"></i> Entendi
                   </button>
@@ -2147,7 +2311,7 @@
 
           <section class="psDetalhe" id="psDetalhe" hidden></section>
 
-          <!-- Modal: adicionar novo edital -->
+          <!-- Modal: assistente de edital (3 passos: dados -> anexo -> conferência) -->
           <div class="psModalOverlay" id="psModalEdital" hidden>
             <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalTitulo">
               <div class="psModalHead">
@@ -2156,119 +2320,136 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
-              <form class="psModalBody" id="psFormEdital">
-                <div class="psFormGrid">
-                  <label class="psField psField2">
-                    <span>DSEI/CASAI <i class="psReq">*</i></span>
-                    <select class="psSelect" id="psFormUnidade"><option value="">Selecione o DSEI/CASAI</option></select>
-                  </label>
-                  <label class="psField">
-                    <span>UF <i class="psReq">*</i></span>
-                    <input class="psInput" id="psFormUf" type="text" maxlength="2" autocomplete="off">
-                  </label>
-                  <label class="psField">
-                    <span>Edital <i class="psReq">*</i></span>
-                    <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
-                  </label>
-                  <label class="psField">
-                    <span>Vagas previstas</span>
-                    <input class="psInput" id="psFormVagas" type="number" min="0" placeholder="0">
-                  </label>
-                  <label class="psField psFieldCheck">
-                    <span>Cadastro reserva</span>
-                    <label class="psCheck"><input type="checkbox" id="psFormCadastroReserva"> Possui cadastro reserva (+ CR)</label>
-                  </label>
-                  <label class="psField">
-                    <span>Data de início</span>
-                    <input class="psInput" id="psFormDataInicio" type="date">
-                  </label>
-                  <label class="psField">
-                    <span>Data fim (vigência)</span>
-                    <input class="psInput" id="psFormDataFim" type="date">
-                  </label>
-                  <label class="psField">
-                    <span>Status</span>
-                    <select class="psSelect" id="psFormStatus">
-                      <option value="Andamento">Em Andamento</option>
-                      <option value="Aguardando Convocação">Aguardando Convocação</option>
-                      <option value="Concluído">Concluído</option>
-                      <option value="Cancelado">Cancelado</option>
-                    </select>
-                  </label>
-                  <label class="psField psField3">
-                    <span>Observação</span>
-                    <textarea class="psInput psTextarea" id="psFormObs" rows="3"></textarea>
-                  </label>
+
+              <!-- Passo a passo -->
+              <ol class="psStepper" id="psStepper" aria-label="Etapas do cadastro">
+                <li class="psStep is-atual" data-step="1"><span class="psStepNum">1</span><span class="psStepTxt">Criar edital</span></li>
+                <li class="psStep" data-step="2"><span class="psStepNum">2</span><span class="psStepTxt">Anexar documento</span></li>
+                <li class="psStep" data-step="3"><span class="psStepNum">3</span><span class="psStepTxt">Conferência de dados</span></li>
+              </ol>
+
+              <div class="psModalBody">
+                <!-- PASSO 1: dados do edital -->
+                <form class="psStepPane" data-pane="1" id="psFormEdital">
+                  <div class="psFormGrid">
+                    <label class="psField psField2">
+                      <span>DSEI/CASAI <i class="psReq">*</i></span>
+                      <select class="psSelect" id="psFormUnidade"><option value="">Selecione o DSEI/CASAI</option></select>
+                    </label>
+                    <label class="psField">
+                      <span>UF <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormUf" type="text" maxlength="2" autocomplete="off">
+                    </label>
+                    <label class="psField">
+                      <span>Edital <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
+                    </label>
+                    <label class="psField">
+                      <span>Vagas previstas</span>
+                      <input class="psInput" id="psFormVagas" type="number" min="0" placeholder="0">
+                    </label>
+                    <label class="psField psFieldCheck">
+                      <span>Cadastro reserva</span>
+                      <label class="psCheck"><input type="checkbox" id="psFormCadastroReserva"> Possui cadastro reserva (+ CR)</label>
+                    </label>
+                    <label class="psField">
+                      <span>Data de início <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormDataInicio" type="date" required>
+                    </label>
+                    <label class="psField">
+                      <span>Data fim (previsto) <i class="psReq">*</i></span>
+                      <input class="psInput" id="psFormDataFim" type="date" required>
+                    </label>
+                    <label class="psField">
+                      <span>Status</span>
+                      <select class="psSelect" id="psFormStatus">
+                        <option value="Andamento">Em Andamento</option>
+                        <option value="Aguardando Convocação">Aguardando Convocação</option>
+                        <option value="Concluído">Concluído</option>
+                        <option value="Cancelado">Cancelado</option>
+                      </select>
+                    </label>
+                    <label class="psField psField3">
+                      <span>Observação</span>
+                      <textarea class="psInput psTextarea" id="psFormObs" rows="3"></textarea>
+                    </label>
+                  </div>
+
+                  <div class="psFormSecao">
+                    <div class="psFormSecaoHead">
+                      <h4>Documento do edital</h4>
+                      <small>Informe um link <strong>ou</strong> anexe um PDF</small>
+                    </div>
+                    <div class="psDocToggle" role="radiogroup" aria-label="Tipo de documento do edital">
+                      <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
+                      <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
+                    </div>
+                    <label class="psField psField3" id="psDocLinkWrap">
+                      <span>Link do edital</span>
+                      <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
+                    </label>
+                    <div class="psField psField3" id="psDocAnexoWrap" hidden>
+                      <span>Anexo (PDF)</span>
+                      <input class="psInputFile" id="psFormAnexo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                    </div>
+                  </div>
+
+                  <p class="psModalErro" id="psFormErro" role="alert" aria-live="assertive"></p>
+                </form>
+
+                <!-- PASSO 2: anexar documento de anexos (cronograma + quadro de vagas) -->
+                <div class="psStepPane" data-pane="2" hidden>
+                  <div class="psFormSecao">
+                    <div class="psFormSecaoHead">
+                      <h4>Anexos (cronograma e quadro de vagas)</h4>
+                      <small>Envie o PDF de “Anexos” do edital. Se for um PDF escaneado (imagem), o sistema tenta OCR — os dados são conferidos no próximo passo. Sem documento? Use “Pular etapa”.</small>
+                    </div>
+                    <div class="psField psField3">
+                      <span>Arquivo dos Anexos (PDF)</span>
+                      <input class="psInputFile" id="psFormAnexoDados" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                    </div>
+                    <p class="psAnexoStatus" id="psFormAnexoDadosStatus" hidden></p>
+                    <p class="psModalErro" id="psWizAnexoErro"></p>
+                  </div>
                 </div>
 
-                <div class="psFormSecao">
-                  <div class="psFormSecaoHead">
-                    <h4>Documento do edital</h4>
-                    <small>Informe um link <strong>ou</strong> anexe um PDF</small>
+                <!-- PASSO 3: conferência dos dados extraídos -->
+                <div class="psStepPane" data-pane="3" hidden>
+                  <p class="psAnexoIntro">
+                    Confira e <strong>corrija</strong> os dados lidos do PDF antes de salvar. A leitura
+                    automática (OCR de PDF escaneado) pode errar números e datas — revise principalmente
+                    as <strong>quantidades de vagas</strong> e as <strong>datas</strong>. Use “CR” para
+                    Cadastro Reserva. Linhas/etapas sem nome são descartadas ao salvar.
+                  </p>
+                  <h4 class="psConfSecTitulo"><i class="fa-solid fa-table-list"></i> Quadro de Vagas</h4>
+                  <div class="psConfVagaHead">
+                    <span>Cargo</span><span>AC</span><span>PcD</span><span>P/P</span>
+                    <span>Ind.</span><span>Quil.</span><span></span>
                   </div>
-                  <div class="psDocToggle" role="radiogroup" aria-label="Tipo de documento do edital">
-                    <label class="psCheck"><input type="radio" name="psDocTipo" value="link" checked> Link</label>
-                    <label class="psCheck"><input type="radio" name="psDocTipo" value="anexo"> Anexo (PDF)</label>
+                  <div id="psConfVagasLista" class="psConfVagasLista"></div>
+                  <button type="button" class="psBtn psBtnGhost psBtnSm" id="psConfAddVaga">
+                    <i class="fa-solid fa-plus"></i> Adicionar cargo
+                  </button>
+                  <h4 class="psConfSecTitulo" style="margin-top:18px;"><i class="fa-solid fa-calendar-days"></i> Cronograma</h4>
+                  <div class="psCronoEditHead">
+                    <span>#</span><span>Atividade</span><span>Data</span><span></span>
                   </div>
-                  <label class="psField psField3" id="psDocLinkWrap">
-                    <span>Link do edital</span>
-                    <input class="psInput" id="psFormLink" type="url" placeholder="https://...">
-                  </label>
-                  <div class="psField psField3" id="psDocAnexoWrap" hidden>
-                    <span>Anexo (PDF)</span>
-                    <input class="psInputFile" id="psFormAnexo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
-                  </div>
+                  <div id="psConfCronoLista" class="psCronoEditLista"></div>
+                  <button type="button" class="psBtn psBtnGhost psBtnSm" id="psConfAddCrono">
+                    <i class="fa-solid fa-plus"></i> Adicionar etapa
+                  </button>
+                  <p class="psModalErro" id="psConfErro"></p>
                 </div>
+              </div>
 
-                <div class="psFormSecao">
-                  <div class="psFormSecaoHead">
-                    <h4>Anexos (cronograma e quadro de vagas)</h4>
-                    <small>Insira o documento "Anexos" do edital que contenha os dados do cronograma e do quadro de vagas</small>
-                  </div>
-                  <div class="psField psField3">
-                    <span>Arquivo dos Anexos (PDF)</span>
-                    <input class="psInputFile" id="psFormAnexoDados" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
-                  </div>
-                  <p class="psAnexoStatus" id="psFormAnexoDadosStatus" hidden></p>
-                </div>
-
-                <p class="psModalErro" id="psFormErro" role="alert" aria-live="assertive"></p>
-              </form>
               <div class="psModalFoot">
                 <button type="button" class="psBtn psBtnGhost" id="psModalCancelar">Cancelar</button>
-                <button type="submit" form="psFormEdital" class="psBtn" id="psModalSalvar"><i class="fa-solid fa-check"></i> Salvar edital</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Modal: inserir anexo (extrai vagas e cronograma do PDF) -->
-          <div class="psModalOverlay" id="psModalAnexo" hidden>
-            <div class="psModalCard psModalCardSm" role="dialog" aria-modal="true" aria-labelledby="psModalAnexoTitulo">
-              <div class="psModalHead">
-                <h3 id="psModalAnexoTitulo"><i class="fa-solid fa-file-arrow-up"></i> Inserir anexo do edital</h3>
-                <button type="button" class="psModalClose" id="psModalAnexoFechar" aria-label="Fechar">
-                  <i class="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-              <form class="psModalBody" id="psFormAnexoEdital">
-                <p class="psAnexoIntro">
-                  Envie o PDF de <strong>anexos do edital</strong> (Quadro de Vagas / Cronograma).
-                  Os dados serão lidos diretamente do arquivo para montar as tabelas de
-                  <strong>Cronograma do Edital</strong> e <strong>Vagas Previstas</strong>.
-                  O arquivo é processado na hora e <strong>não é salvo</strong> em lugar nenhum.
-                </p>
-                <div class="psField psField3">
-                  <span>Arquivo PDF <i class="psReq">*</i></span>
-                  <input class="psInputFile" id="psAnexoArquivo" type="file" accept="application/pdf" data-file-input data-fi-botao="Selecionar PDF" data-fi-placeholder="Nenhum arquivo selecionado">
+                <div class="psWizFootAcoes">
+                  <button type="button" class="psBtn psBtnGhost" id="psWizVoltar" hidden><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                  <button type="button" class="psBtn psBtnGhost" id="psWizPular" hidden>Pular etapa</button>
+                  <button type="button" class="psBtn" id="psWizProximo">Próximo <i class="fa-solid fa-arrow-right"></i></button>
+                  <button type="button" class="psBtn" id="psWizConcluir" hidden><i class="fa-solid fa-check"></i> Concluir</button>
                 </div>
-                <div class="psAnexoStatus" id="psAnexoStatus" hidden></div>
-                <p class="psModalErro" id="psAnexoErro"></p>
-              </form>
-              <div class="psModalFoot">
-                <button type="button" class="psBtn psBtnGhost" id="psModalAnexoCancelar">Cancelar</button>
-                <button type="submit" form="psFormAnexoEdital" class="psBtn" id="psAnexoEnviar">
-                  <i class="fa-solid fa-wand-magic-sparkles"></i> Extrair dados
-                </button>
               </div>
             </div>
           </div>
@@ -2298,6 +2479,42 @@
               </div>
             </div>
           </div>
+
+          <!-- Modal: ajustar cronograma (editar atividades e datas manualmente) -->
+          <div class="psModalOverlay" id="psModalCronograma" hidden>
+            <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalCronogramaTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalCronogramaTitulo"><i class="fa-solid fa-calendar-days"></i> Ajustar cronograma</h3>
+                <button type="button" class="psModalClose" id="psModalCronogramaFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormCronograma">
+                <p class="psAnexoIntro">
+                  Edite o texto das <strong>atividades</strong> e das <strong>datas</strong>. Datas incompletas
+                  (ex.: <strong>24/07</strong>) não são reconhecidas — inclua o ano no formato
+                  <strong>dd/mm/aaaa</strong> (ex.: 24/07/2026). Intervalos (“22 a 24/06/2026”) e
+                  listas (“31/07 e 01/08/2026”) também são aceitos. Etapas sem atividade são descartadas.
+                </p>
+                <div class="psCronoEditHead">
+                  <span>#</span>
+                  <span>Atividade</span>
+                  <span>Data</span>
+                  <span></span>
+                </div>
+                <div id="psCronogramaLista" class="psCronoEditLista"></div>
+                <button type="button" class="psBtn psBtnGhost psBtnSm" id="psCronogramaAddLinha">
+                  <i class="fa-solid fa-plus"></i> Adicionar etapa
+                </button>
+                <p class="psModalErro" id="psCronogramaErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalCronogramaCancelar">Cancelar</button>
+                <button type="submit" form="psFormCronograma" class="psBtn" id="psModalCronogramaSalvar"><i class="fa-solid fa-check"></i> Salvar cronograma</button>
+              </div>
+            </div>
+          </div>
+
         </section>
 
 
@@ -2309,36 +2526,28 @@
                 <p>Controle das escalas dos profissionais da Saúde Indígena — diaristas, plantonistas
                   (diurno/noturno) e escalas de território — por DSEI, polo base e unidade.</p>
               </div>
-              <button type="button" class="etBtn etBtnNova" data-et-nova hidden>
-                <i class="fa-solid fa-plus"></i> Nova Escala
-              </button>
-            </div>
-            <div class="etHeaderFiltros">
-              <div class="etField"><span class="etFieldLabel">DSEI</span><select class="etSelect" id="etFDsei" aria-label="Filtrar por DSEI"></select></div>
-              <div class="etField"><span class="etFieldLabel">Polo base / CASAI</span><select class="etSelect" id="etFPolo" aria-label="Filtrar por polo base"></select></div>
-              <div class="etField"><span class="etFieldLabel">UBSI (se houver)</span><select class="etSelect" id="etFUbsi" aria-label="Filtrar por UBSI"></select></div>
-              <div class="etField"><span class="etFieldLabel">Cargo</span><select class="etSelect" id="etFCargo" aria-label="Filtrar por cargo"></select></div>
-              <div class="etField"><span class="etFieldLabel">Escala</span><select class="etSelect" id="etFEscala" aria-label="Filtrar por escala"></select></div>
-              <div class="etField"><span class="etFieldLabel">Situação</span><select class="etSelect" id="etFSituacao" aria-label="Filtrar por situação"></select></div>
-              <div class="etField etFieldBusca">
-                <span class="etFieldLabel">Buscar</span>
-                <div class="etSearchBox">
-                  <i class="fa-solid fa-magnifying-glass"></i>
-                  <input class="etSearch" id="etBusca" type="search" placeholder="Buscar profissional...">
-                </div>
-              </div>
             </div>
           </div>
 
-          <div class="etAlerta" id="etAlerta" hidden>
-            <div class="etAlertaHead">
-              <span class="etAlertaTitulo"><i class="fa-solid fa-triangle-exclamation"></i> Alerta: profissionais sem escala registrada</span>
-              <span class="etAlertaTotal">Total: <strong id="etAlertaTotal">0</strong> profissionais</span>
+          <div class="etAlerta" id="etAlerta">
+            <!-- Indicadores (resumo) primeiro; depois o alerta de sem escala. -->
+            <div class="etResumoGrid etResumoTopo">
+              <article class="etResumo et-r-total"><span class="etResumoLabel">Total de Profissionais</span><span class="etResumoValue" id="etResTotal">0</span></article>
+              <article class="etResumo et-r-com"><span class="etResumoLabel">Com Escala Definida</span><span class="etResumoValue" id="etResCom">0</span></article>
+              <article class="etResumo et-r-sem"><span class="etResumoLabel">Sem Escala Definida</span><span class="etResumoValue" id="etResSem">0</span></article>
+              <article class="etResumo et-r-terr"><span class="etResumoLabel">Em Território hoje</span><span class="etResumoValue" id="etResTerr">0</span></article>
             </div>
-            <p class="etAlertaSub">Os seguintes profissionais ainda não foram inseridos no controle de escala.</p>
-            <div class="etAlertaCorpo">
-              <div class="etAlertaChips" id="etAlertaChips"></div>
-              <button type="button" class="etBtn etBtnVerTodos" data-et-ver-sem-escala>Ver todos <i class="fa-solid fa-arrow-right"></i></button>
+            <div id="etAlertaBloco" hidden>
+              <div class="etAlertaHead">
+                <span class="etAlertaTitulo"><i class="fa-solid fa-triangle-exclamation"></i> Alerta: profissionais sem escala registrada</span>
+                <span class="etAlertaTotal">Total: <strong id="etAlertaTotal">0</strong> profissionais</span>
+              </div>
+              <p class="etAlertaSub">Os seguintes profissionais ainda não foram inseridos no controle de escala.</p>
+              <div class="etAlertaCorpo">
+                <!-- Chips + botão "Ver todos" fluem juntos (o botão vai no fim da mesma
+                     linha dos nomes, indo para a linha de baixo só se não couber). -->
+                <div class="etAlertaChips" id="etAlertaChips"></div>
+              </div>
             </div>
           </div>
 
@@ -2347,86 +2556,91 @@
               <h3 class="etCardTitle">Profissionais e Escalas</h3>
               <span class="etCardCount" id="etTabelaCount" aria-live="polite">—</span>
             </div>
+            <div class="etHeaderFiltros">
+              <div class="etField"><span class="etFieldLabel">DSEI</span><div class="etCombo" id="etFDsei"></div></div>
+              <div class="etField"><span class="etFieldLabel">Polo base / CASAI</span><div class="etCombo" id="etFPolo"></div></div>
+              <div class="etField"><span class="etFieldLabel">UBSI (se houver)</span><div class="etCombo" id="etFUbsi"></div></div>
+              <div class="etField"><span class="etFieldLabel">Cargo</span><div class="etCombo" id="etFCargo"></div></div>
+              <div class="etField"><span class="etFieldLabel">Escala</span><div class="etCombo" id="etFEscala"></div></div>
+              <div class="etField"><span class="etFieldLabel">Situação</span><div class="etCombo" id="etFSituacao"></div></div>
+              <div class="etField etFieldBusca">
+                <span class="etFieldLabel">Buscar</span>
+                <div class="etSearchBox">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input class="etSearch" id="etBusca" type="search" placeholder="Buscar profissional...">
+                </div>
+              </div>
+            </div>
             <div id="etTabelaBody" class="etGrid"></div>
+            <div class="etTableFooter">
+              <div class="etRodapeEsq">
+                <span class="etRegistros" id="etRegistros">Mostrando 0 profissionais</span>
+                <label class="etPorPagina">Mostrar
+                  <select class="etSelect etSelectPagina" id="etPorPagina" aria-label="Registros por página"></select>
+                  por página
+                </label>
+              </div>
+              <div class="etPagination" id="etPagination"></div>
+            </div>
           </section>
 
-          <div class="etDuplo">
+          <div class="etEmpilhado">
             <section class="etCard">
               <div class="etCardHead">
-                <h3 class="etCardTitle">Detalhamento — Plantonistas <span class="etCardComp" id="etCompPlant">—</span></h3>
+                <h3 class="etCardTitle">Detalhamento Escala - Plantonista/Diarista <span class="etCardComp" id="etCompPlant">—</span></h3>
+                <span class="etCardCount" id="etPlantCount"></span>
+              </div>
+              <div class="etDetalheBar">
+                <div class="etDetalheFiltros">
+                  <div class="etDetalheBusca"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="etDetalheSearch" id="etPlantBusca" type="search" placeholder="Nome do profissional..."></div>
+                  <div class="etCombo etComboSm" id="etPlantFDsei"></div>
+                  <div class="etCombo etComboSm" id="etPlantFCargo"></div>
+                  <div class="etCombo etComboSm" id="etPlantFLocal"></div>
+                </div>
+                <button type="button" class="etBtn etBtnExportar" data-et-exportar="plantonistas"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
               </div>
               <div id="etPlantBody" class="etGrid etGridPlant"></div>
               <div class="etPlantLegenda">
                 <span class="etPlantLeg"><i class="fa-solid fa-sun etIconDia"></i> Plantonista Diurno</span>
                 <span class="etPlantLeg"><i class="fa-solid fa-moon etIconNoite"></i> Plantonista Noturno</span>
                 <span class="etPlantLeg"><span class="etFolga">—</span> Folga</span>
+                <span class="etPlantLeg"><span class="etAfast is-ferias">F</span> Férias</span>
+                <span class="etPlantLeg"><span class="etAfast is-atestado">AT</span> Atestado</span>
+                <span class="etPlantLeg"><span class="etAfast is-afast">A</span> Afastamento</span>
               </div>
             </section>
 
             <section class="etCard">
               <div class="etCardHead">
                 <h3 class="etCardTitle">Detalhamento — Escalas de Território</h3>
+                <span class="etCardCount" id="etTerrCount"></span>
+              </div>
+              <div class="etDetalheBar">
+                <div class="etDetalheFiltros">
+                  <div class="etDetalheBusca"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="etDetalheSearch" id="etTerrBusca" type="search" placeholder="Nome do profissional..."></div>
+                  <div class="etCombo etComboSm" id="etTerrFDsei"></div>
+                  <div class="etCombo etComboSm" id="etTerrFCargo"></div>
+                  <div class="etCombo etComboSm" id="etTerrFTipo"></div>
+                </div>
+                <button type="button" class="etBtn etBtnExportar" data-et-exportar="territorio"><i class="fa-solid fa-file-arrow-down"></i> Exportar</button>
               </div>
               <div id="etTerritorioBody" class="etGrid"></div>
             </section>
           </div>
 
-          <div class="etDuplo">
-            <section class="etCard">
-              <div class="etCardHead">
-                <h3 class="etCardTitle">Resumo da Escala <span class="etCardComp" id="etCompResumo">—</span></h3>
-              </div>
-              <div class="etResumoGrid">
-                <article class="etResumo et-r-total"><span class="etResumoLabel">Total de Profissionais</span><span class="etResumoValue" id="etResTotal">0</span></article>
-                <article class="etResumo et-r-com"><span class="etResumoLabel">Com Escala Definida</span><span class="etResumoValue" id="etResCom">0</span></article>
-                <article class="etResumo et-r-sem"><span class="etResumoLabel">Sem Escala Definida</span><span class="etResumoValue" id="etResSem">0</span></article>
-                <article class="etResumo et-r-terr"><span class="etResumoLabel">Em Território hoje</span><span class="etResumoValue" id="etResTerr">0</span></article>
-              </div>
-            </section>
-
-            <section class="etCard">
-              <div class="etCardHead">
-                <h3 class="etCardTitle">Legenda de Escalas</h3>
-              </div>
-              <div class="etLegendaGrid">
+          <section class="etCard">
+            <div class="etCardHead">
+              <h3 class="etCardTitle">Legenda de Escalas</h3>
+            </div>
+            <div class="etLegendaGrid">
                 <div class="etLegItem et-l-diarista"><span class="etLegNome">Diarista</span><span class="etLegDesc">Atuação diária</span></div>
                 <div class="etLegItem et-l-diurno"><span class="etLegNome">Plantonista Diurno</span><span class="etLegDesc">Plantão no período diurno</span></div>
                 <div class="etLegItem et-l-noturno"><span class="etLegNome">Plantonista Noturno</span><span class="etLegDesc">Plantão no período noturno</span></div>
                 <div class="etLegItem et-l-territorio"><span class="etLegNome">Território</span><span class="etLegDesc">Escalas de território (1x1, 2x1, 30x20x10, etc.)</span></div>
               </div>
             </section>
-          </div>
 
           <div class="etToast" id="etToast"></div>
-        </section>
-
-
-        <section id="view-mapaDseis" class="viewPanel mapaDseisView">
-          <div class="mapaHeader">
-            <div>
-              <h2 class="mapaTitulo">Mapa dos DSEIs</h2>
-              <p class="mapaSub">Rede de estabelecimentos (CNES) posicionada por latitude/longitude sobre o mapa do Brasil. Clique num estado para dar zoom e ver os estabelecimentos dele.</p>
-            </div>
-            <label class="mapaFiltro">
-              <span>Estado</span>
-              <select id="mapaDseisFiltro"><option value="">Todos os estados</option></select>
-            </label>
-          </div>
-
-          <div class="mapaKpis" id="mapaKpis"></div>
-
-          <div class="mapaCorpo">
-            <div class="mapaMapaCol">
-              <div class="mapaMapaWrap" id="mapaDseisMapa"><div class="mapaVazio">Carregando mapa…</div></div>
-              <div class="mapaLegenda" id="mapaLegenda"></div>
-            </div>
-            <aside class="mapaDetalhe" id="mapaDetalhe">
-              <div class="mapaDetalheVazio">
-                <i class="fa-solid fa-hand-pointer" aria-hidden="true"></i>
-                <p>Clique num estado do mapa (ou escolha no filtro) para dar zoom e ver os estabelecimentos: CASAI, UBSI e os DSEIs presentes.</p>
-              </div>
-            </aside>
-          </div>
         </section>
 
 

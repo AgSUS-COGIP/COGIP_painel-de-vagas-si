@@ -142,6 +142,8 @@ function obterGradeVagas(id, modo, colunas, persistBase) {
       // modo, pois os dados são recalculados (ordenação é por coluna). Persistir a
       // ordem brigaria com o sort por cabeçalho, então fica só visual.
       movableRows: true,
+      // Só linhas: mover COLUNAS fica desativado (a ordem das colunas é fixa).
+      movableColumns: false,
       // fitColumns: as colunas se ajustam à LARGURA DO CONTAINER (cabem todas na
       // tela já no 1º acesso) e a tabela nunca estica o card para fora — se o
       // usuário alargar uma coluna além do que cabe, a rolagem é interna.

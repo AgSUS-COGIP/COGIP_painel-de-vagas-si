@@ -15,15 +15,17 @@ import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const $ = id => document.getElementById(id);
 
-// Paleta base azul (SUS) — tons frios (azul/teal/verde).
+// Paleta "Saúde Indígena": azul SUS + tons de terra (urucum, ocre, terra) e
+// mata/rio (verde/teal). As 8 primeiras foram validadas (banda de luminosidade,
+// piso de croma e separação para daltonismo) para tema claro.
 const PALETA = [
-  "#007de0", "#0a66b0", "#1F7A8C", "#2E8B57", "#0053a7", "#5b9bd5",
-  "#3A6B7E", "#1f8a53", "#6aa9d6", "#2C6E76", "#88b8e0", "#4C9A6A",
-  "#00b5d8", "#155e6e", "#3d8fd6", "#5aa0a8"
+  "#007de0", "#E2872E", "#2E8B57", "#C8472B", "#0f8fa3",
+  "#C08A1E", "#9C4221", "#0a66b0", "#6aa9d6", "#1f8a53",
+  "#5aa0a8", "#88b8e0"
 ];
-const COR_INDIGENA = "#1F7A8C"; // teal — destaque dos indígenas no gráfico de raça
+const COR_INDIGENA = "#1F7A8C"; // teal (rio) — destaque dos indígenas no gráfico de raça
 const COR_SUS_AZUL = "#0a66b0";
-const COR_SUS_VERDE = "#1f8a53";
+const COR_SUS_VERDE = "#2E8B57";
 const TEXTO = "#1f3a5f";
 
 // Raças/cores (ordem e cores fixas) para os gráficos empilhados — tons frios.
@@ -51,8 +53,10 @@ function afastamentoExcluido(situacao) {
 
 // ---------- Estado da view ----------
 let dados = null;
-let carregado = false;
-let carregando = false;
+let carregado = false;      // base buscada + decodificada (em memória)
+let carregando = false;     // busca em andamento
+let renderizado = false;    // selects/gráficos/tabela já montados no DOM (aba visível)
+let promessaCargaSI = null; // compartilha a mesma requisição entre prefetch e abertura
 let configurado = false;
 
 const chartsSI = {};
@@ -188,22 +192,50 @@ function criarCombo(containerId, rotuloTodos, onChange, opts) {
 }
 
 // ---------- Carregamento ----------
-async function carregar() {
-  if (carregando || carregado) return;
-  carregando = true;
-  mostrarEstado("Carregando dados da Saúde Indígena…");
-  try {
-    const payload = await apiGet("/api/saude-indigena");
-    dados = decodificar(payload);
-    carregado = true;
-    esconderEstado();
-    preencherSelects();
-    render();
-  } catch (e) {
-    mostrarEstado(e && e.message ? e.message : "Falha ao carregar os dados.", true);
-  } finally {
-    carregando = false;
+// Busca + decodifica a base (~20k) SEM renderizar. Idempotente e reusa a mesma
+// requisição em voo (compartilhada entre o prefetch em segundo plano e a abertura
+// da aba). NÃO monta tabela/gráficos aqui: o Tabulator não mede a altura com a aba
+// oculta (a tabela ficava vazia), então o render fica para carregar() — aba visível.
+function garantirDadosSI() {
+  if (carregado) return Promise.resolve(true);
+  if (!promessaCargaSI) {
+    carregando = true;
+    promessaCargaSI = apiGet("/api/saude-indigena")
+      .then(payload => { dados = decodificar(payload); carregado = true; return true; })
+      .catch(e => {
+        console.warn("[saude-indigena] falha ao carregar a base:", e && e.message ? e.message : e);
+        promessaCargaSI = null; // libera nova tentativa ao reabrir a aba
+        return false;
+      })
+      .finally(() => { carregando = false; });
   }
+  return promessaCargaSI;
+}
+
+// Abre a aba: garante os dados e monta selects/gráficos/tabela UMA vez, já com a
+// aba VISÍVEL (o Tabulator precisa medir a altura). Reabertura só recalcula o layout.
+async function carregar() {
+  if (renderizado) { setTimeout(() => gradeSI?.redraw(true), 60); return; }
+  mostrarEstado("Carregando dados da Saúde Indígena…");
+  const ok = await garantirDadosSI();
+  if (!ok) { mostrarEstado("Falha ao carregar os dados.", true); return; }
+  if (renderizado) return; // outra chamada já renderizou enquanto aguardávamos
+  esconderEstado();
+  preencherSelects();
+  render();
+  renderizado = true;
+}
+
+// Ao ABRIR a aba (disparado pelo registro central de views em filtros.js).
+export function renderSaudeIndigenaAoMostrar() {
+  carregar();
+}
+
+// Prefetch em segundo plano (idle): SÓ busca+decodifica a base, para a 1ª abertura
+// não esperar a rede. O render (selects/gráficos/tabela) fica para a abertura, com
+// a aba visível — montar o Tabulator escondido deixava a tabela geral sem popular.
+export function prefetchSaudeIndigena() {
+  garantirDadosSI();
 }
 
 function decodificar(payload) {
@@ -479,9 +511,11 @@ function render() {
   barH("siChartSituacao", situ.map(d => d[0]), situ.map(d => d[1]), PALETA[4]);
   regExport("siChartSituacao", "Situação", "trabalhadores_por_situacao", situ);
 
-  const grau = topN(contar(rows, "grauInstrucao"));
-  barH("siChartGrau", grau.map(d => d[0]), grau.map(d => d[1]), PALETA[6]);
-  regExport("siChartGrau", "Grau de instrução", "trabalhadores_por_grau_instrucao", grau);
+  // Tipo de desligamento (DESC_AFASTAMENTO): só quem tem o tipo informado
+  // (ativos/sem informação — valor "—" — ficam de fora).
+  const deslig = topN(contar(rows.filter(r => r.tipoDesligamento && r.tipoDesligamento !== "—"), "tipoDesligamento"));
+  barH("siChartTipoDeslig", deslig.map(d => d[0]), deslig.map(d => d[1]), PALETA[3]);
+  regExport("siChartTipoDeslig", "Tipo de desligamento", "trabalhadores_por_tipo_desligamento", deslig);
 
   const raca = topN(contar(rows, "raca"));
   rosca("siChartRaca", raca.map(d => d[0]), raca.map(d => d[1]),
@@ -655,6 +689,24 @@ function exportarExcel() {
 
   const csv = "\uFEFF" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
   baixarArquivoCsv(csv, "trabalhadores_saude_indigena.csv");
+}
+
+// Exporta\u00E7\u00E3o reduzida: rela\u00E7\u00E3o de trabalhadores ATIVOS por DSEI (respeita os
+// filtros). Colunas: Nome, Admiss\u00E3o, Cargo, Situa\u00E7\u00E3o, Data Afast./Deslig., T\u00E9rmino.
+function exportarAtivosDsei() {
+  if (!carregado || !dados) return;
+  const rows = aplicarFiltros().filter(r => r.ativo);
+  if (!rows.length) { abrirAviso({ titulo: "Exporta\u00E7\u00E3o", msg: "Nenhum trabalhador ativo para exportar com os filtros atuais.", perigo: true }); return; }
+
+  const headers = ["Nome", "Admiss\u00E3o", "Cargo", "Situa\u00E7\u00E3o", "Data Afastamento / Desligamento", "T\u00E9rmino Afastamento"];
+  const linhas = [headers];
+  rows.forEach(r => {
+    linhas.push([
+      r.nome, fData(r.dataAdmissao), r.cargo, r.situacao,
+      fData(r.dataDesligamento || r.situacaoDataInicio), fData(r.situacaoDataFim)
+    ]);
+  });
+  baixarCsv(linhas, "trabalhadores_ativos_dsei.csv");
 }
 
 function badgeSituacao(r) {
@@ -843,14 +895,9 @@ export function configurarSaudeIndigena() {
   // Fecha qualquer combo ao clicar fora.
   document.addEventListener("click", () => fecharTodosCombos(null));
 
-  // Carregamento sob demanda ao abrir a aba.
-  const navItem = document.querySelector('.navItem[data-view="painelSaudeIndigena"]');
-  if (navItem) navItem.addEventListener("click", () => {
-    if (!carregado && !carregando) carregar();
-    // Já carregado: a grade pode ter sido medida com a aba oculta; recalcula o
-    // layout/virtualização agora que voltou a ficar visível.
-    else if (carregado) setTimeout(() => gradeSI?.redraw(true), 60);
-  });
+  // Carregamento sob demanda ao ABRIR a aba: disparado pelo registro central de
+  // views (filtros.js -> REGISTRO_VIEWS.painelSaudeIndigena -> renderSaudeIndigenaAoMostrar).
+  // O fallback abaixo cobre o deep-link direto na aba.
   if (state.activeView === "painelSaudeIndigena") carregar();
 
   // Períodos por data (reagem na digitação): debounced (~250ms) para não
@@ -861,6 +908,7 @@ export function configurarSaudeIndigena() {
 
   $("siBtnLimpar")?.addEventListener("click", limparFiltros);
   $("siBtnExportar")?.addEventListener("click", exportarExcel);
+  $("siBtnExportarAtivos")?.addEventListener("click", exportarAtivosDsei);
 
   // Exportação por gráfico (botões com data-export).
   raiz.addEventListener("click", e => {

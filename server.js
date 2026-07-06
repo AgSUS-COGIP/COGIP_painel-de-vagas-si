@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const path = require("path");
+const zlib = require("zlib");
 const { spawn } = require("child_process");
 const express = require("express");
 const rateLimit = require("express-rate-limit");
@@ -8,21 +9,23 @@ const multer = require("multer");
 const { DASH_CONFIG, resolverPortaAplicacao } = require("./lib/config");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
-const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
+const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
 const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, garantirEscopoPedidoComConn, garantirEscopoAnexoComConn, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
-const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn } = require("./lib/escopo");
+const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn, obterEscopoUsuarioComConn } = require("./lib/escopo");
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { listarDseisCasaiComConn } = require("./lib/dsei-casai");
 const {
   listarEditaisComConn, criarEditalComConn, atualizarEditalComConn, excluirEditalComConn,
-  substituirAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
+  substituirAnexoComConn, removerAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
 } = require("./lib/processos-seletivos");
+const { getMapaDseisData, getRedeCnes } = require("./lib/mapa-dseis");
 const { getFeriasData } = require("./lib/ferias");
+const { getEscalaData } = require("./lib/escala");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
 const app = express();
 app.disable("x-powered-by"); // não revela o framework/versão
@@ -38,20 +41,33 @@ const MIME_ANEXO_BLOQUEADOS = new Set([
   "text/xml"
 ]);
 
+function anexoFileFilter(req, file, cb) {
+  const mime = String(file.mimetype || "").toLowerCase();
+  if (MIME_ANEXO_BLOQUEADOS.has(mime)) {
+    const erro = new Error("Tipo de arquivo não permitido para anexo.");
+    erro.status = 400;
+    erro.expose = true;
+    cb(erro);
+    return;
+  }
+  cb(null, true);
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const mime = String(file.mimetype || "").toLowerCase();
-    if (MIME_ANEXO_BLOQUEADOS.has(mime)) {
-      const erro = new Error("Tipo de arquivo não permitido para anexo.");
-      erro.status = 400;
-      erro.expose = true;
-      cb(erro);
-      return;
-    }
-    cb(null, true);
-  }
+  fileFilter: anexoFileFilter
+});
+
+// Anexos do edital (quadro de vagas + cronograma) costumam ser PDFs ESCANEADOS,
+// bem maiores que os demais uploads — usam um limite próprio (30MB) só na rota de
+// extração, para que o OCR consiga processá-los. (Nota: em produção na Vercel, o
+// corpo da função serverless é limitado a ~4,5MB; este limite maior vale sobretudo
+// no ambiente local, onde o extrator roda via CLI.)
+const uploadEditalAnexo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 },
+  fileFilter: anexoFileFilter
 });
 
 // O multer (via busboy) decodifica o nome do arquivo do multipart como latin1, o
@@ -278,15 +294,37 @@ app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirPer
   res.json(await getSaudeIndigenaData(req.usuario.escopo));
 }));
 
+// ---- Mapa dos DSEIs (VW_SAUDE_INDIGENA + TB_LOTACAO_OVERRIDE) ----
+// Mesma base/permissão do Painel da Força de Trabalho (painelSaudeIndigena).
+app.get("/api/mapa-dseis", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  res.json(await getMapaDseisData(req.usuario.escopo));
+}));
+
+// Rede CNES (estabelecimentos por DSEI: lat/lng + município), para os mapas.
+app.get("/api/mapa-dseis/rede", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  res.json(getRedeCnes());
+}));
+
 // ---- Gestão de Férias (análise — somente leitura) ----
 app.get("/api/ferias", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("gestaoFerias", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getFeriasData(req.usuario.escopo));
 }));
 
+// ---- Escala de Trabalho (roster: identidade + polo base por matrícula) ----
+// Payload grande (~16k linhas): comprime com gzip quando o cliente aceita, para
+// não trafegar ~2MB por request (a leitura da view é cacheada em lib/escala.js).
+app.get("/api/escala", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("escalaTrabalho", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  responderJsonTalvezComprimido(req, res, await getEscalaData(req.usuario.escopo));
+}));
+
 // ---- Entrega de Crachá ----
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
-  res.json(await getCrachaData(forcar, req.usuario.escopo));
+  // CPF é dado sensível: só vai no payload para ADMINISTRADORES (nível 3);
+  // Editor (2) e Leitor (1) recebem sem CPF (não basta esconder a coluna no front).
+  const incluirCpf = Number((req.permissoesMapa || {}).entregaCracha || 0) >= DASH_CONFIG.NIVEL_SUPERADMIN;
+  res.set("Cache-Control", "no-store"); // evita o navegador servir dados antigos após alterações
+  res.json(await getCrachaData(forcar, req.usuario.escopo, incluirCpf));
 }));
 
 // Editar overlay manual (datas / observação) — escrita: administradores.
@@ -451,6 +489,22 @@ app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMid
   }
 }));
 
+// Reverter em LOTE: desfaz a última alteração de várias matrículas de uma vez.
+app.post("/api/cracha/reverter-lote", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try {
+    const matriculas = (req.body || {}).matriculas;
+    await garantirEscopoMatriculasComConn(conn, matriculas, req.usuario.escopo);
+    const { registros, erros } = await reverterLoteComConn(conn, matriculas);
+    limparCacheDashboard();
+    res.json({ ok: true, registros, erros });
+  } catch (err) {
+    res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao reverter em lote." });
+  } finally {
+    await fecharJdbc(conn);
+  }
+}));
+
 app.get("/api/remanejamento/lista", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoListaData(req.usuario.escopo));
 }));
@@ -584,6 +638,9 @@ app.get("/api/sessao", apiLimiter, autenticarMiddleware, asyncHandler(async (req
     }
     // Permissões por módulo (sem mais nível global: módulo sem linha = sem acesso).
     usuario.permissoes = usuario.aprovado ? await obterMapaPermissoesComConn(conn, usuario.email) : {};
+    // Escopo de DSEI: enviado para o front detectar mudança e recarregar (o
+    // heartbeat compara com o snapshot anterior, igual às permissões de aba).
+    usuario.escopo = usuario.aprovado ? await obterEscopoUsuarioComConn(conn, usuario.email) : { todos: true, dseis: [] };
     res.json({ usuario });
   } finally {
     await fecharJdbc(conn);
@@ -745,14 +802,24 @@ app.post("/api/acesso/usuario/excluir", apiLimiter, autenticarFrescoMiddleware, 
 // existir. Todo acesso é definido por módulo na matriz (/api/acesso/perfis/permissao).
 
 // Enriquece o objeto de usuário (devolvido no login) com os overrides de
-// permissão por módulo. Best-effort: uma falha aqui não impede o login.
+// permissão por módulo E o escopo de DSEI. Assim o snapshot inicial casa com o
+// que o /api/sessao devolve, evitando um recarregamento espúrio no 1º heartbeat.
+// Best-effort: uma falha aqui não impede o login.
 async function anexarPermissoesUsuario(usuario) {
-  if (!usuario || !usuario.aprovado) { if (usuario) usuario.permissoes = {}; return; }
+  if (!usuario || !usuario.aprovado) {
+    if (usuario) { usuario.permissoes = {}; usuario.escopo = { todos: true, dseis: [] }; }
+    return;
+  }
   const conn = await getMysqlConnection();
   try {
     usuario.permissoes = await obterMapaPermissoesComConn(conn, usuario.email);
   } catch (e) {
     usuario.permissoes = {};
+  }
+  try {
+    usuario.escopo = await obterEscopoUsuarioComConn(conn, usuario.email);
+  } catch (e) {
+    usuario.escopo = { todos: true, dseis: [] };
   } finally {
     await fecharJdbc(conn);
   }
@@ -1145,6 +1212,12 @@ async function extrairAnexoViaHttp(buffer, req) {
   }
 }
 
+// Timeout do extrator local (ms). Um PDF escaneado passa pelo OCR, que faz
+// cold-start do modelo (~150MB) e leva ~5s/página (até 12 páginas) — 90s era
+// apertado e estourava com editais escaneados inteiros. Padrão 4 min; ajuste com
+// EXTRATOR_TIMEOUT_MS. (No caminho da Vercel a função HTTP tem seu próprio limite.)
+const EXTRATOR_TIMEOUT_MS = Number(process.env.EXTRATOR_TIMEOUT_MS) || 240000;
+
 // Local (dev): pipe do PDF pelo stdin do CLI Python e lê o JSON no stdout.
 function extrairAnexoViaPython(buffer) {
   return new Promise((resolve, reject) => {
@@ -1154,7 +1227,7 @@ function extrairAnexoViaPython(buffer) {
     const timer = setTimeout(() => {
       py.kill("SIGKILL");
       reject(new Error("Tempo excedido ao ler o PDF (o arquivo pode ser muito grande)."));
-    }, 90000);
+    }, EXTRATOR_TIMEOUT_MS);
 
     py.stdout.on("data", d => { out += d.toString("utf8"); });
     py.stderr.on("data", d => { err += d.toString("utf8"); });
@@ -1240,6 +1313,14 @@ app.post("/api/processos-seletivos/editais/:id/anexo", ...psEscrita, asyncHandle
   finally { await fecharJdbc(conn); }
 }));
 
+// Remove o anexo do edital (cronograma, quadro de vagas e aprovados). Destrutivo:
+// exige nível admin, como as demais exclusões do módulo.
+app.delete("/api/processos-seletivos/editais/:id/anexo", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+  const conn = await getMysqlConnection();
+  try { await removerAnexoComConn(conn, Number(req.params.id)); res.json({ ok: true }); }
+  finally { await fecharJdbc(conn); }
+}));
+
 app.post("/api/processos-seletivos/vagas/:vagaId/aprovados", ...psEscrita, asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try { res.json({ ok: true, id: String(await criarAprovadoComConn(conn, Number(req.params.vagaId), req.body || {})) }); }
@@ -1263,7 +1344,7 @@ app.post(
   apiLimiter,
   autenticarFrescoMiddleware,
   exigirPermissaoModuloMiddleware("processosSeletivos", DASH_CONFIG.NIVEL_ADMIN),
-  comNomesUtf8(upload.single("anexo")),
+  comNomesUtf8(uploadEditalAnexo.single("anexo")),
   asyncHandler(async (req, res) => {
     if (!req.file || !req.file.buffer || !req.file.buffer.length) {
       res.status(400).json({ error: "Envie um arquivo PDF no campo 'anexo'." });
@@ -1307,7 +1388,16 @@ app.use((err, req, res, next) => {
   // Só devolve a mensagem real quando for um erro "seguro" (validação/operacional);
   // erros internos (500) retornam mensagem genérica para não vazar detalhes.
   const podeExpor = !!(err && err.expose) || status < 500 || ehMulter;
-  const message = podeExpor && err && err.message ? err.message : "Erro interno. Tente novamente mais tarde.";
+  let message = podeExpor && err && err.message ? err.message : "Erro interno. Tente novamente mais tarde.";
+  // Mensagens do multer vêm em inglês (ex.: "File too large") — traduz p/ o usuário.
+  if (ehMulter) {
+    const msgsMulter = {
+      LIMIT_FILE_SIZE: "Arquivo muito grande. Envie um PDF menor.",
+      LIMIT_FILE_COUNT: "Foram enviados arquivos demais.",
+      LIMIT_UNEXPECTED_FILE: "Campo de arquivo inesperado."
+    };
+    message = msgsMulter[err.code] || "Não foi possível processar o arquivo enviado.";
+  }
   res.status(status).json({ error: message });
 });
 
@@ -1388,6 +1478,25 @@ function asyncHandler(fn) {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
+}
+
+// Envia um objeto como JSON, comprimindo com gzip quando o cliente aceita e o
+// corpo é grande o suficiente para compensar (o app não usa middleware global de
+// compressão). Fallback para JSON puro em erro/corpo pequeno.
+function responderJsonTalvezComprimido(req, res, obj) {
+  const json = JSON.stringify(obj);
+  res.type("application/json");
+  res.setHeader("Vary", "Accept-Encoding");
+  const aceitaGzip = /\bgzip\b/i.test(String(req.headers["accept-encoding"] || ""));
+  if (!aceitaGzip || Buffer.byteLength(json) < 2048) {
+    res.send(json);
+    return;
+  }
+  zlib.gzip(json, (err, buf) => {
+    if (err || res.headersSent) { res.send(json); return; }
+    res.setHeader("Content-Encoding", "gzip");
+    res.send(buf);
+  });
 }
 
 Object.assign(module.exports, {

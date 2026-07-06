@@ -375,7 +375,8 @@ function ordenarPorPreferencia(linhas) {
 // aviso) usam formatador HTML — sempre escapando o texto dinâmico. As demais usam
 // o formatador padrão do Tabulator, que insere o valor como texto (já escapado).
 const COLUNAS_GD = [
-  { title: "Dias Pendentes", field: "_dias", hozAlign: "center", headerHozAlign: "center" },
+  { title: "Dias Pendentes", field: "_dias", hozAlign: "center", headerHozAlign: "center",
+    sorter: "number", formatter: cell => escapeHtml(diasPendentesLabel(cell.getData())) },
   {
     title: "Nº Processo SEI", field: "processo", widthGrow: 2,
     formatter: cell => {
@@ -405,7 +406,7 @@ const COLUNAS_GD = [
 function dadosTabela() {
   return ordenarPorPreferencia(registrosFiltrados()).map(r => ({
     ...r,
-    _dias: diasPendentesLabel(r),
+    _dias: diasPendentes(r),
     _decisao: tipoSancaoDisplay(r),
     responsavel: r.responsavel || "—",
   }));
@@ -1522,6 +1523,14 @@ function aplicarModoLeituraDisciplinar() {
   if (raiz) raiz.classList.toggle("gd-readonly", nivelModulo("gestaoDisciplinar") < 2);
 }
 
+// Ao ABRIR a aba (disparado pelo registro central de views em filtros.js):
+// recarrega os pedidos a cada abertura (reflete mudanças de outro admin/ETL) e
+// recalcula o layout da grade (que pode ter sido montada com a aba oculta).
+export function renderGestaoDisciplinarAoMostrar() {
+  if (!carregandoPedidos) carregarPedidos();
+  if (tabela) tabela.redraw(true);
+}
+
 export function configurarGestaoDisciplinar() {
   if (gestaoDisciplinarConfigurada) return;
   const raiz = $("view-gestaoDisciplinar");
@@ -1531,18 +1540,12 @@ export function configurarGestaoDisciplinar() {
 
   aplicarVisibilidadeCardsDisciplinar();
 
-  // Carregamento sob demanda: busca os pedidos ao ABRIR a aba (recarregando a
-  // cada abertura, para refletir mudanças feitas por outro admin/ETL). NÃO pode
-  // ser eager no init(): configurarGestaoDisciplinar() roda ANTES de
-  // verificarSessaoInicial(), então no 1º login a sessão ainda não existe e o
-  // GET /api/disciplinar volta vazio (antes exigia recarregar a página). Mesmo
-  // padrão da Entrega de Crachá.
-  const navItem = document.querySelector('.navItem[data-view="gestaoDisciplinar"]');
-  if (navItem) navItem.addEventListener("click", () => {
-    if (!carregandoPedidos) carregarPedidos();
-    // Recalcula o layout caso a tabela tenha sido construída com a aba oculta.
-    if (tabela) tabela.redraw(true);
-  });
+  // Carregamento sob demanda ao ABRIR a aba: disparado pelo registro central de
+  // views (filtros.js -> REGISTRO_VIEWS.gestaoDisciplinar -> renderGestaoDisciplinarAoMostrar),
+  // recarregando a cada abertura para refletir mudanças de outro admin/ETL. NÃO
+  // pode ser eager no init(): configurarGestaoDisciplinar() roda ANTES de
+  // verificarSessaoInicial(), então no 1º login a sessão ainda não existe e o GET
+  // /api/disciplinar voltaria vazio. O fallback abaixo cobre o deep-link direto.
   if (state.activeView === "gestaoDisciplinar") carregarPedidos();
 
   // Filtros reagem na hora.

@@ -18,7 +18,8 @@ import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const PAGE_SIZE_OPCOES = [10, 25, 50, 100];
 let pageSize = 10; // registros por página (ajustável pelo usuário)
-const NIVEL_ADMIN = 2;
+const NIVEL_ADMIN = 2;         // Editor+ (pode editar)
+const NIVEL_ADMINISTRADOR = 3; // Administrador (nível máximo) — ex.: ver CPF
 
 // Funil de status (rótulos amigáveis; o de-para para o banco é feito no backend).
 let STATUS_LISTA = [
@@ -63,17 +64,24 @@ function podeEditar() {
   return nivelModulo("entregaCracha") >= NIVEL_ADMIN;
 }
 
+// Só o Administrador (nível 3); Editor (2) não. Usado para dados sensíveis (CPF).
+function ehAdministrador() {
+  return nivelModulo("entregaCracha") >= NIVEL_ADMINISTRADOR;
+}
+
 // ---------- Estado da view ----------
 let solicitacoes = [];
 let carregado = false;
 let carregando = false;
 let erroCarregamento = "";
 
-let filtros = { dsei: "", status: "", escritorio: "", dataIni: "", dataFim: "", nome: "", cargo: "" };
+let filtros = { dsei: "", status: "", escritorio: "", devolvido: "", segundaVia: "", dataIni: "", dataFim: "", nome: "", cargo: "" };
 let paginaAtual = 1;
 let detalheId = null;
 let gradeEc = null;             // grade Tabulator da tabela principal (só colunas)
 const selecionados = new Set(); // matrículas marcadas para ação em lote
+let _preservarScrollTabela = false; // manter a rolagem no próximo render (ações em linha)
+let _scrollTabelaSalvo = 0;         // posição de rolagem capturada antes do re-render
 
 const $ = id => document.getElementById(id);
 
@@ -134,6 +142,58 @@ function ecEsconderLoading() {
 // síncrono pesado (o navegador só repinta ao ceder o thread).
 const proximoFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+// ---------- Desfazer importação (snackbar suspenso, 7s) ----------
+let _desfazerEl = null;
+let _desfazerTimer = null;
+const DESFAZER_MS = 7000;
+
+function mostrarDesfazerImport(matriculas) {
+  const lista = (matriculas || []).filter(Boolean);
+  if (!lista.length) return;
+  if (!_desfazerEl) {
+    _desfazerEl = document.createElement("div");
+    _desfazerEl.className = "ecDesfazerBar";
+    _desfazerEl.innerHTML =
+      `<span class="ecDesfazerMsg"><i class="fa-solid fa-circle-check"></i> Importação concluída.</span>
+       <button type="button" class="ecDesfazerBtn"><i class="fa-solid fa-rotate-left"></i> Desfazer</button>
+       <button type="button" class="ecDesfazerFechar" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>`;
+    document.body.appendChild(_desfazerEl);
+    _desfazerEl.querySelector(".ecDesfazerBtn").addEventListener("click", () => {
+      const mats = _desfazerEl._matriculas || [];
+      esconderDesfazerImport();
+      desfazerImportacao(mats);
+    });
+    _desfazerEl.querySelector(".ecDesfazerFechar").addEventListener("click", esconderDesfazerImport);
+  }
+  _desfazerEl._matriculas = lista;
+  _desfazerEl.classList.add("is-visivel");
+  if (_desfazerTimer) clearTimeout(_desfazerTimer);
+  _desfazerTimer = setTimeout(esconderDesfazerImport, DESFAZER_MS);
+}
+
+function esconderDesfazerImport() {
+  if (_desfazerEl) _desfazerEl.classList.remove("is-visivel");
+  if (_desfazerTimer) { clearTimeout(_desfazerTimer); _desfazerTimer = null; }
+}
+
+// Desfaz a importação revertendo (undo de 1 nível) as matrículas importadas ao
+// estado imediatamente anterior. Recarrega os dados ao final.
+async function desfazerImportacao(matriculas) {
+  const lista = (matriculas || []).filter(Boolean);
+  if (!lista.length) return;
+  ecMostrarLoading("Desfazendo importação…", `Revertendo ${lista.length} registro(s). Isso pode levar alguns instantes.`);
+  try {
+    const resp = await apiPost("/api/cracha/reverter-lote", { matriculas: lista });
+    await carregarDados(true);
+    const n = (resp.registros || []).length;
+    ecToast(n ? `Importação desfeita em ${n} registro(s).` : "Nada a desfazer.", n ? "ok" : "erro");
+  } catch (e) {
+    ecToast(e && e.message ? e.message : "Falha ao desfazer a importação.", "erro");
+  } finally {
+    ecEsconderLoading();
+  }
+}
+
 // Situações funcionais (SITUACAO_DETALHADA_DESC) que caracterizam trabalhador
 // desligado. Normalizadas (sem acento/caixa) para comparação robusta.
 const SITUACOES_DESLIGADO = new Set([
@@ -172,6 +232,8 @@ function lerFiltros() {
     dsei: $("ecFiltroDsei")?.value || "",
     status: $("ecFiltroStatus")?.value || "",
     escritorio: $("ecFiltroEscritorio")?.value || "",
+    devolvido: $("ecFiltroDevolvido")?.value || "",
+    segundaVia: $("ecFiltroSegundaVia")?.value || "",
     dataIni: $("ecFiltroDataInicial")?.value || "",
     dataFim: $("ecFiltroDataFinal")?.value || "",
     nome: ($("ecBuscaNome")?.value || "").trim().toLowerCase(),
@@ -189,6 +251,8 @@ function aplicarFiltros(ignorarStatus) {
     if (filtros.dsei && s.dsei !== filtros.dsei) return false;
     if (!ignorarStatus && filtros.status && s.status !== filtros.status) return false;
     if (filtros.escritorio && escritorioDoDsei(s.dsei) !== filtros.escritorio) return false;
+    if (filtros.devolvido && (s.devolvido ? "sim" : "nao") !== filtros.devolvido) return false;
+    if (filtros.segundaVia && (s.segundaVia ? "sim" : "nao") !== filtros.segundaVia) return false;
     if (filtros.nome && !(s.nome || "").toLowerCase().includes(filtros.nome) && !(s.matricula || "").toLowerCase().includes(filtros.nome)) return false;
     if (filtros.cargo && !(s.cargo || "").toLowerCase().includes(filtros.cargo)) return false;
     if (iniT !== null || fimT !== null) {
@@ -204,6 +268,13 @@ function aplicarFiltros(ignorarStatus) {
 // ---------- Tabela + paginação ----------
 function celulaData(valor) {
   return valor ? escapeHtml(valor) : "—";
+}
+
+// Formata CPF (###.###.###-##) quando tiver 11 dígitos; senão devolve como veio.
+function formatarCpf(valor) {
+  const d = (valor || "").toString().replace(/\D/g, "");
+  if (d.length !== 11) return (valor || "").toString();
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
 // Colunas da tabela principal (Tabulator, só colunas). Os botões de ação e os
@@ -233,6 +304,8 @@ const EC_COLS = [
   { title: "Matrícula", field: "matricula", minWidth: 110, formatter: c => celulaData(c.getValue()) },
   { title: "DSEI", field: "dsei", minWidth: 120, formatter: c => escapeHtml(c.getValue() || "—") },
   { title: "Nome", field: "nome", minWidth: 180, formatter: c => escapeHtml(c.getValue() || "—") },
+  // CPF: só administradores enxergam (a visibilidade é alternada em render()).
+  { title: "CPF", field: "cpf", minWidth: 130, formatter: c => { const v = formatarCpf(c.getValue()); return v ? escapeHtml(v) : "—"; } },
   { title: "Cargo", field: "cargo", minWidth: 150, formatter: c => escapeHtml(c.getValue() || "—") },
   { title: "Possui Foto", field: "possuiFoto", hozAlign: "center", minWidth: 90,
     formatter: c => c.getValue() ? '<span class="ecFotoSim">Sim</span>' : '<span class="ecFotoNao">Não</span>' },
@@ -282,6 +355,29 @@ function render() {
     });
   }
   gradeEc?.render(pagina, placeholder);
+  // Coluna CPF só é visível para ADMINISTRADORES (nível 3); Editor (2) não vê.
+  // Mostra/oculta a cada render, pois o nível do usuário passa a valer após o login.
+  try {
+    const colCpf = gradeEc?.tabela?.getColumn?.("cpf");
+    if (colCpf) (ehAdministrador() ? colCpf.show() : colCpf.hide());
+  } catch (e) { /* grade ainda montando */ }
+  // O Tabulator às vezes não pinta as linhas após substituir os dados (só ao
+  // rolar). Um redraw no próximo frame força o redesenho das linhas visíveis.
+  // Cobre todos os caminhos (reverter, lote, filtro, paginação, "por página").
+  // Quando a ação é "em cima de uma linha" (desfazer/aplicar/etapa), preserva a
+  // posição de rolagem em torno do redraw — assim o usuário não é jogado ao topo.
+  const manterScroll = _preservarScrollTabela;
+  _preservarScrollTabela = false;
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => {
+      gradeEc?.redraw();
+      // Restaura a rolagem capturada antes do re-render (após o redraw, que a reseta).
+      if (manterScroll) {
+        const holder = document.querySelector("#ecTabelaBody .tabulator-tableholder");
+        if (holder) holder.scrollTop = _scrollTabelaSalvo;
+      }
+    });
+  }
 
   sincronizarSelecaoUI(pagina);
 
@@ -296,6 +392,16 @@ function render() {
   }
 
   renderPaginacao(totalPaginas);
+}
+
+// Re-renderiza mantendo a posição de rolagem da tabela (para ações sobre uma
+// linha: desfazer, aplicar em lote — não joga o usuário ao topo). Captura a
+// rolagem AGORA (antes do re-render) e restaura após o redraw.
+function renderMantendoScroll() {
+  const holder = document.querySelector("#ecTabelaBody .tabulator-tableholder");
+  _scrollTabelaSalvo = holder ? holder.scrollTop : 0;
+  _preservarScrollTabela = true;
+  render();
 }
 
 function renderPaginacao(totalPaginas) {
@@ -439,13 +545,46 @@ async function aplicarStatusLote() {
     const falhas = (resp.erros || []).length;
     selecionados.clear();
     resetarPainelLote();
-    render();
+    renderMantendoScroll();
     if (detalheId && solicitacoes.some(r => r.id === detalheId)) abrirDetalhe(detalheId);
     ecToast(falhas
       ? `${(resp.registros || []).length} atualizado(s); ${falhas} falharam.`
       : `${(resp.registros || []).length} trabalhador(es) atualizado(s).`, falhas ? "erro" : "ok");
   } catch (e) {
     ecToast(e && e.message ? e.message : "Falha ao aplicar as alterações em lote.", "erro");
+  }
+}
+
+// Reverte a última alteração de TODOS os selecionados de uma vez. Os que não têm
+// alteração a desfazer são simplesmente ignorados (entram em `erros`).
+async function reverterLote() {
+  if (!podeEditar()) return;
+  const matriculas = [...selecionados];
+  if (!matriculas.length) { ecToast("Nenhum trabalhador selecionado.", "erro"); return; }
+  const conf = await abrirConfirmacao({
+    titulo: "Reverter alterações",
+    msg: `Desfazer a última alteração de ${matriculas.length} trabalhador(es) selecionado(s)? Quem não tiver alteração a desfazer será ignorado.`,
+    confirmarTexto: "Reverter"
+  });
+  if (!conf.ok) return;
+
+  try {
+    const resp = await apiPost("/api/cracha/reverter-lote", { matriculas });
+    (resp.registros || []).forEach(aplicarRegistro);
+    const revertidos = (resp.registros || []).length;
+    const semAlteracao = (resp.erros || []).length;
+    selecionados.clear();
+    renderMantendoScroll();
+    if (detalheId && solicitacoes.some(r => r.id === detalheId)) abrirDetalhe(detalheId);
+    if (!revertidos) {
+      ecToast("Nenhum dos selecionados tinha alteração para desfazer.", "erro");
+    } else {
+      ecToast(semAlteracao
+        ? `${revertidos} revertido(s); ${semAlteracao} sem alteração para desfazer.`
+        : `${revertidos} trabalhador(es) revertido(s).`);
+    }
+  } catch (e) {
+    ecToast(e && e.message ? e.message : "Falha ao reverter em lote.", "erro");
   }
 }
 
@@ -822,7 +961,7 @@ async function salvarModal() {
     aplicarRegistro(registro);
     ecToast("Crachá atualizado.");
     fecharModal();
-    render();
+    renderMantendoScroll(); // mantém a posição na tabela após editar
     if (detalheId === s.id) abrirDetalhe(s.id);
   } catch (e) {
     if (erro) erro.textContent = e && e.message ? e.message : "Falha ao salvar.";
@@ -840,7 +979,7 @@ async function reverterSolicitacao(matricula) {
     const resp = await apiPost("/api/cracha/reverter", { matricula });
     aplicarRegistro(resp.registro);
     ecToast("Última alteração desfeita.");
-    render();
+    renderMantendoScroll();
     if (detalheId === matricula) abrirDetalhe(matricula);
   } catch (e) {
     ecToast(e && e.message ? e.message : "Falha ao desfazer.", "erro");
@@ -865,7 +1004,7 @@ function preencherSelects() {
 }
 
 function limparFiltros() {
-  ["ecFiltroDsei", "ecFiltroStatus", "ecFiltroEscritorio", "ecFiltroDataInicial", "ecFiltroDataFinal", "ecBuscaNome", "ecBuscaCargo"]
+  ["ecFiltroDsei", "ecFiltroStatus", "ecFiltroEscritorio", "ecFiltroDevolvido", "ecFiltroSegundaVia", "ecFiltroDataInicial", "ecFiltroDataFinal", "ecBuscaNome", "ecBuscaCargo"]
     .forEach(id => { const el = $(id); if (el) el.value = ""; });
   lerFiltros();
   paginaAtual = 1;
@@ -883,11 +1022,13 @@ function exportarExcel() {
     return;
   }
 
+  const admin = ehAdministrador(); // CPF só entra na planilha para Administrador
   const rows = lista.map(s => ({
     "Matrícula": s.matricula || "",
     "DSEI": s.dsei || "",
     "Escritório": escritorioDoDsei(s.dsei),
     "Nome": s.nome || "",
+    ...(admin ? { "CPF": s.cpf ? formatarCpf(s.cpf) : "" } : {}),
     "Cargo": s.cargo || "",
     "Situação Funcional": s.situacaoDetalhada || "",
     "Possui Foto": s.possuiFoto ? "Sim" : "Não",
@@ -916,22 +1057,25 @@ function baixarCsv(conteudo, nomeArquivo) {
 
 // ---------- Importa\u00E7\u00E3o de planilha (CSV) ----------
 // Colunas do modelo (cabe\u00E7alho amig\u00E1vel -> campo enviado \u00E0 API). `bool`: Sim/N\u00E3o.
+// `w` = largura fixa da coluna (px). Necess\u00E1ria para table-layout: fixed, que
+// mant\u00E9m as colunas est\u00E1veis com a virtualiza\u00E7\u00E3o (sen\u00E3o elas "pulam" ao rolar,
+// pois o auto-layout redimensiona conforme o conte\u00FAdo das linhas vis\u00EDveis).
 const IMPORT_COLS = [
-  { header: "Matr\u00EDcula", key: "matricula" },
-  { header: "Nome", key: "nome" },
-  { header: "DSEI", key: "dsei" },
-  { header: "Cargo", key: "cargo" },
-  { header: "Situa\u00E7\u00E3o Funcional", key: "situacaoDetalhada" },
-  { header: "Status", key: "status" },
-  { header: "Data da Solicita\u00E7\u00E3o", key: "dataSolicitacao" },
-  { header: "Data de Envio \u00E0 Gr\u00E1fica", key: "dataEnvio" },
-  { header: "Data de Confec\u00E7\u00E3o", key: "dataConfeccao" },
-  { header: "Receb. Escrit\u00F3rio", key: "dataRecebEscritorio" },
-  { header: "Receb. Trabalhador", key: "dataRecebTrabalhador" },
-  { header: "Crach\u00E1 Devolvido", key: "devolvido", bool: true },
-  { header: "Solicita\u00E7\u00E3o 2\u00AA Via", key: "segundaVia", bool: true },
-  { header: "Motivo da 2\u00AA Via", key: "motivoSegundaVia" },
-  { header: "Observa\u00E7\u00E3o", key: "observacao" }
+  { header: "Matr\u00EDcula", key: "matricula", w: 90 },
+  { header: "Nome", key: "nome", w: 220 },
+  { header: "DSEI", key: "dsei", w: 180 },
+  { header: "Cargo", key: "cargo", w: 180 },
+  { header: "Situa\u00E7\u00E3o Funcional", key: "situacaoDetalhada", w: 150 },
+  { header: "Status", key: "status", w: 170 },
+  { header: "Data da Solicita\u00E7\u00E3o", key: "dataSolicitacao", w: 140 },
+  { header: "Data de Envio \u00E0 Gr\u00E1fica", key: "dataEnvio", w: 140 },
+  { header: "Data de Confec\u00E7\u00E3o", key: "dataConfeccao", w: 140 },
+  { header: "Receb. Escrit\u00F3rio", key: "dataRecebEscritorio", w: 140 },
+  { header: "Receb. Trabalhador", key: "dataRecebTrabalhador", w: 140 },
+  { header: "Crach\u00E1 Devolvido", key: "devolvido", bool: true, w: 130 },
+  { header: "Solicita\u00E7\u00E3o 2\u00AA Via", key: "segundaVia", bool: true, w: 130 },
+  { header: "Motivo da 2\u00AA Via", key: "motivoSegundaVia", w: 150 },
+  { header: "Observa\u00E7\u00E3o", key: "observacao", w: 180 }
 ];
 
 const MARCA_EXEMPLO = "EXEMPLO - REMOVA ESTA LINHA";
@@ -1026,6 +1170,10 @@ async function importarPlanilha(file) {
   try { buffer = await file.arrayBuffer(); } catch (e) { ecToast("N\u00E3o foi poss\u00EDvel ler o arquivo.", "erro"); return; }
   const bytes = new Uint8Array(buffer);
 
+  // Cronômetro do processamento cliente (leitura + montagem do preview). O tempo
+  // aparece no Console do navegador (F12) ao final.
+  const t0 = performance.now();
+
   // Planilhas grandes travam o thread no parse/render: mostra o loading e cede
   // um frame para ele pintar antes do trabalho síncrono pesado abaixo.
   ecMostrarLoading("Lendo arquivo importado…", "Processando os registros do arquivo. Isso pode levar alguns instantes.");
@@ -1078,6 +1226,11 @@ async function importarPlanilha(file) {
   // Em vez de importar direto, abre a pr\u00E9-visualiza\u00E7\u00E3o do lote para o usu\u00E1rio
   // marcar/desmarcar quais linhas ser\u00E3o de fato enviadas.
   abrirPreviewImport(linhas);
+  // Espera o pr\u00F3ximo frame (ap\u00F3s layout+paint) para o tempo refletir quando o
+  // usu\u00E1rio realmente v\u00EA o preview, e n\u00E3o s\u00F3 quando o JS terminou.
+  await proximoFrame();
+  const segundos = ((performance.now() - t0) / 1000).toFixed(1);
+  console.log(`[Crach\u00E1] Pr\u00E9-visualiza\u00E7\u00E3o vis\u00EDvel: ${linhas.length.toLocaleString("pt-BR")} registros em ${segundos}s`);
   } finally {
     ecEsconderLoading();
   }
@@ -1085,35 +1238,52 @@ async function importarPlanilha(file) {
 
 // ---------- Pr\u00E9-visualiza\u00E7\u00E3o do lote de importa\u00E7\u00E3o ----------
 let importLinhas = [];
+let importLinhasOriginais = []; // c\u00F3pia dos valores do CSV (p/ "reverter altera\u00E7\u00F5es")
 const importSelecionadas = new Set(); // \u00EDndices marcados para importar
 
 function abrirPreviewImport(linhas) {
   importLinhas = linhas;
+  // Guarda uma c\u00F3pia dos valores originais (do arquivo) para permitir reverter as
+  // altera\u00E7\u00F5es feitas no preview (edi\u00E7\u00E3o de c\u00E9lula / aplicar em lote).
+  importLinhasOriginais = linhas.map(l => ({ ...l }));
   importSelecionadas.clear();
   linhas.forEach((_, i) => importSelecionadas.add(i)); // tudo marcado por padr\u00E3o
   const erro = $("ecImportErro");
   if (erro) erro.textContent = "";
   montarPainelLoteImport();
-  renderPreviewImport();
   const modal = $("ecImportModal");
   if (modal) {
     ajustarLayoutModalCheio(modal, "ec-import-aberto");
     modal.hidden = false;
   }
+  renderPreviewImport(); // ap\u00F3s exibir o modal (a virtualiza\u00E7\u00E3o precisa da altura vis\u00EDvel)
 }
 
 // Faz um modal ocupar a tela toda (ocultando o cabeçalho da página via classeBody)
 // porém respeitando a largura do menu lateral — começa após ele. Usado tanto pelo
 // preview de importação quanto pelo modal de edição. Revertido ao fechar.
-function ajustarLayoutModalCheio(modal, classeBody) {
-  if (classeBody) document.body.classList.add(classeBody);
-  // Mede a largura atual da sidebar (cobre os estados expandido/recolhido). Em
-  // telas estreitas ela vira barra no topo (ocupa a largura toda): nesse caso
-  // não desloca o modal para a direita.
+// Largura atual da sidebar (cobre expandido/recolhido). Em telas estreitas ela
+// vira barra no topo (ocupa a largura toda) => offset 0 (não desloca o modal).
+function medirOffsetSidebar() {
   const sb = document.querySelector(".sidebar");
   const r = sb ? sb.getBoundingClientRect() : null;
-  const offset = r && r.right < window.innerWidth * 0.5 ? Math.ceil(r.right) : 0;
-  modal.style.setProperty("--ec-sidebar-w", `${offset}px`);
+  return r && r.right < window.innerWidth * 0.5 ? Math.ceil(r.right) : 0;
+}
+
+// Atualiza o offset esquerdo dos modais de crachá ABERTOS — chamado ao abrir e
+// sempre que a sidebar muda de largura (recolher/expandir), para o modal
+// acompanhar e preencher o espaço.
+function atualizarOffsetSidebarModais() {
+  const offset = medirOffsetSidebar();
+  ["ecImportModal", "ecModal"].forEach(id => {
+    const m = $(id);
+    if (m && !m.hidden) m.style.setProperty("--ec-sidebar-w", `${offset}px`);
+  });
+}
+
+function ajustarLayoutModalCheio(modal, classeBody) {
+  if (classeBody) document.body.classList.add(classeBody);
+  modal.style.setProperty("--ec-sidebar-w", `${medirOffsetSidebar()}px`);
 }
 
 // IDs dos controles do painel "Aplicar aos selecionados".
@@ -1131,6 +1301,17 @@ function montarPainelLoteImport() {
       + STATUS_LISTA.map(s => `<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join("");
   }
   IMPORT_LOTE_CONTROLES.forEach(id => { const el = $(id); if (el) el.value = ""; });
+}
+
+// Limpa os campos do painel "Aplicar aos selecionados" (após aplicar).
+function limparCamposLoteImport() {
+  IMPORT_LOTE_CONTROLES.forEach(id => { const el = $(id); if (el) el.value = ""; });
+}
+
+// Há valores preenchidos no painel de lote que ainda NÃO foram aplicados às
+// linhas (o usuário preencheu mas não clicou em "Aplicar aos selecionados").
+function loteImportPendente() {
+  return IMPORT_LOTE_CONTROLES.some(id => ($(id)?.value || "").trim() !== "");
 }
 
 // Aplica os campos preenchidos no painel de lote a TODAS as linhas selecionadas.
@@ -1175,15 +1356,41 @@ function aplicarLoteImport() {
     Object.keys(mudancas).forEach(k => { linha[k] = mudancas[k]; });
   });
 
-  renderPreviewImport(); // reflete nas c\u00E9lulas e recalcula pend\u00EAncias
+  // Re-desenha s\u00F3 a janela vis\u00EDvel (reflete os novos valores) + recalcula pend\u00EAncias.
+  if (_previewDesenhar) { _previewDesenhar(true); atualizarPreviewContador(); }
+  else renderPreviewImport();
+  limparCamposLoteImport(); // aplicado: zera o painel (evita reaplicar/importar sem querer)
   ecToast(`Lote aplicado a ${importSelecionadas.size} linha(s).`);
+}
+
+// Reverte as alterações (edição de célula / aplicar em lote) das linhas
+// SELECIONADAS, restaurando os valores originais do arquivo importado.
+function reverterLoteImport() {
+  const erro = $("ecImportErro");
+  if (!importSelecionadas.size) {
+    if (erro) erro.textContent = "Selecione ao menos uma linha para reverter.";
+    return;
+  }
+  if (erro) erro.textContent = "";
+  let revertidas = 0;
+  importSelecionadas.forEach(i => {
+    if (importLinhasOriginais[i]) { importLinhas[i] = { ...importLinhasOriginais[i] }; revertidas++; }
+  });
+  if (_previewDesenhar) { _previewDesenhar(true); atualizarPreviewContador(); }
+  else renderPreviewImport();
+  ecToast(`Alterações revertidas em ${revertidas} linha(s).`);
 }
 
 function fecharPreviewImport() {
   const modal = $("ecImportModal");
   if (modal) modal.hidden = true;
   document.body.classList.remove("ec-import-aberto"); // restaura o cabeçalho da página
+  // Remove o listener de scroll da virtualização (evita vazamento entre aberturas).
+  const wrap = $("ecImportTbody")?.closest(".ecImportTableWrap");
+  if (wrap && _previewScrollHandler) wrap.removeEventListener("scroll", _previewScrollHandler);
+  _previewScrollHandler = null;
   importLinhas = [];
+  importLinhasOriginais = [];
   importSelecionadas.clear();
 }
 
@@ -1246,21 +1453,87 @@ function celulaPreview(linha, key, idx) {
   return `<td><input type="text" class="ecImportEdit ecImportEditText" ${attr} value="${escapeAttr(val || "")}"></td>`;
 }
 
+function linhaPreviewHtml(linha, i) {
+  const marcado = importSelecionadas.has(i);
+  const cels = IMPORT_COLS.map(c => celulaPreview(linha, c.key, i)).join("");
+  return `<tr class="${marcado ? "" : "is-off"}">
+      <td class="ecImportColCheck"><input type="checkbox" class="ecImportCheck" data-import-idx="${i}"${marcado ? " checked" : ""}></td>
+      <td>${i + 1}</td>${cels}</tr>`;
+}
+
+// Virtualização: só as linhas VISÍVEIS (+ um buffer) ficam no DOM; o resto vira
+// dois "espaçadores" (linhas vazias altas) que preservam a altura/rolagem. Assim,
+// independentemente do tamanho da planilha (ex.: 20 mil linhas), há sempre ~poucas
+// dezenas de elementos — carrega instantâneo e a edição fica fluida. Renderiza de
+// novo (só a janela) conforme o usuário rola. O modelo (importLinhas /
+// importSelecionadas) é a fonte de verdade, então edições e seleção persistem.
+const PREVIEW_ROW_H = 44;   // altura fixa de cada linha (px) — casa com o CSS
+const PREVIEW_BUFFER = 10;  // linhas extras acima/abaixo da janela visível
+let _previewScrollHandler = null;
+let _previewDesenhar = null; // redesenha a janela visível atual (sem reconstruir tudo)
+
+function prepararColgroupImport(tbody) {
+  const table = tbody.closest("table");
+  if (!table) return;
+  let cg = table.querySelector("colgroup.ecImportColgroup");
+  if (!cg) {
+    cg = document.createElement("colgroup");
+    cg.className = "ecImportColgroup";
+    table.insertBefore(cg, table.querySelector("thead") || table.firstChild);
+  }
+  cg.innerHTML = `<col style="width:40px"><col style="width:56px">`
+    + IMPORT_COLS.map(c => `<col style="width:${c.w}px">`).join("");
+}
+
 function renderPreviewImport() {
   const thead = $("ecImportThead");
   const tbody = $("ecImportTbody");
   if (!thead || !tbody) return;
+  const wrap = tbody.closest(".ecImportTableWrap");
+  const ncols = IMPORT_COLS.length + 2; // seleção + # + colunas
 
   thead.innerHTML = `<tr><th class="ecImportColCheck"></th><th>#</th>${IMPORT_COLS.map(c => `<th>${escapeHtml(c.header)}</th>`).join("")}</tr>`;
+  prepararColgroupImport(tbody);
 
-  tbody.innerHTML = importLinhas.map((linha, i) => {
-    const marcado = importSelecionadas.has(i);
-    const cels = IMPORT_COLS.map(c => celulaPreview(linha, c.key, i)).join("");
-    return `<tr class="${marcado ? "" : "is-off"}">
-      <td class="ecImportColCheck"><input type="checkbox" class="ecImportCheck" data-import-idx="${i}"${marcado ? " checked" : ""}></td>
-      <td>${i + 1}</td>${cels}</tr>`;
-  }).join("");
+  const total = importLinhas.length;
+  let ultimoIni = -1, ultimoFim = -1;
 
+  // Desenha apenas a faixa visível de linhas, com espaçadores em cima/embaixo.
+  const desenhar = (forcar) => {
+    const alturaVisivel = (wrap && wrap.clientHeight) || 800;
+    const scrollTop = wrap ? wrap.scrollTop : 0;
+    let ini = Math.floor(scrollTop / PREVIEW_ROW_H) - PREVIEW_BUFFER;
+    let fim = Math.ceil((scrollTop + alturaVisivel) / PREVIEW_ROW_H) + PREVIEW_BUFFER;
+    ini = Math.max(0, ini);
+    fim = Math.min(total, fim);
+    // Nada mudou (ex.: rolagem horizontal) → não re-renderiza (não perde edição em foco).
+    if (!forcar && ini === ultimoIni && fim === ultimoFim) return;
+    ultimoIni = ini; ultimoFim = fim;
+
+    const espacoTopo = ini * PREVIEW_ROW_H;
+    const espacoBase = Math.max(0, total - fim) * PREVIEW_ROW_H;
+    let html = "";
+    if (espacoTopo > 0) html += `<tr class="ecImportSpacer" style="height:${espacoTopo}px"><td colspan="${ncols}"></td></tr>`;
+    for (let i = ini; i < fim; i++) html += linhaPreviewHtml(importLinhas[i], i);
+    if (espacoBase > 0) html += `<tr class="ecImportSpacer" style="height:${espacoBase}px"><td colspan="${ncols}"></td></tr>`;
+    tbody.innerHTML = html;
+  };
+  _previewDesenhar = desenhar;
+
+  // Re-desenha ao rolar (limitado a 1x por frame).
+  if (wrap && _previewScrollHandler) wrap.removeEventListener("scroll", _previewScrollHandler);
+  if (wrap) {
+    let agendado = false;
+    _previewScrollHandler = () => {
+      if (agendado) return;
+      agendado = true;
+      requestAnimationFrame(() => { agendado = false; desenhar(); });
+    };
+    wrap.addEventListener("scroll", _previewScrollHandler);
+    wrap.scrollTop = 0; // volta ao topo ao (re)abrir
+  }
+
+  desenhar();
   atualizarPreviewContador();
 }
 
@@ -1355,7 +1628,9 @@ function alternarLinhaPreview(i, marcado) {
 function alternarTodasPreview(marcado) {
   importSelecionadas.clear();
   if (marcado) importLinhas.forEach((_, i) => importSelecionadas.add(i));
-  renderPreviewImport();
+  // Re-desenha só a janela visível (sem resetar a rolagem) e atualiza o contador.
+  if (_previewDesenhar) { _previewDesenhar(true); atualizarPreviewContador(); }
+  else renderPreviewImport();
 }
 
 async function confirmarImportacao() {
@@ -1363,6 +1638,13 @@ async function confirmarImportacao() {
   const erro = $("ecImportErro");
   if (!linhas.length) {
     if (erro) erro.textContent = "Selecione ao menos uma linha para importar.";
+    return;
+  }
+  // Impede importar com alterações pendentes no painel de lote (preenchidas mas
+  // não aplicadas) — evitava salvar sem as mudanças que o usuário achava que fez.
+  if (loteImportPendente()) {
+    if (erro) erro.textContent = 'Há campos preenchidos em "Aplicar aos selecionados" que não foram aplicados. Clique em "Aplicar aos selecionados" (ou limpe os campos) antes de importar.';
+    $("ecImpBulkAplicar")?.focus();
     return;
   }
 
@@ -1385,9 +1667,11 @@ async function confirmarImportacao() {
   );
   try {
     const resp = await apiPost("/api/cracha/importar", { linhas });
+    const matriculasImportadas = linhas.map(l => l.matricula).filter(Boolean);
     fecharPreviewImport();
-    await carregarDados();             // re-busca: inclui trabalhadores rec\u00E9m-criados
+    await carregarDados(true);         // for\u00E7a (fura cache do servidor E do navegador) p/ refletir a importa\u00E7\u00E3o
     mostrarResultadoImport(resp);
+    mostrarDesfazerImport(matriculasImportadas); // bot\u00E3o suspenso "Desfazer" (7s)
   } catch (e) {
     if (erro) erro.textContent = e && e.message ? e.message : "Falha ao importar a planilha.";
   } finally {
@@ -1399,7 +1683,7 @@ async function confirmarImportacao() {
 // ---------- Carregamento dos dados reais ----------
 // forcar=true ignora o cache do servidor (botão "Atualizar"): reflete na hora as
 // mudanças vindas do ETL e da tabela manual feitas fora do app.
-async function carregarDados(forcar = false) {
+async function carregarDados(forcar = false, comToast = false) {
   if (carregando) return;
   carregando = true;
   erroCarregamento = "";
@@ -1411,21 +1695,25 @@ async function carregarDados(forcar = false) {
       STATUS_LISTA = payload.statusFunil;
     }
     carregado = true;
-    if (forcar) ecToast("Dados atualizados.");
+    if (comToast) ecToast("Dados atualizados.");
   } catch (e) {
     erroCarregamento = e && e.message ? e.message : "Falha ao carregar os dados de crachás.";
   } finally {
     carregando = false;
     preencherSelects();
-    render();
+    render(); // render() já dispara o redraw no próximo frame
   }
 }
 
 // A grade Tabulator não monta com a aba oculta (largura 0). Ao navegar para a
-// aba, re-renderiza (monta na 1ª vez) e recalcula o layout.
+// aba, re-renderiza (render() já dispara o redraw no próximo frame — mesmo padrão
+// da aba Solicitações/Perfis — para o Tabulator medir a aba já visível).
+// Ao ABRIR a aba (disparado pelo registro central de views em filtros.js):
+// mostra a tabela atual de imediato e recarrega do servidor (força/fura o cache)
+// para refletir mudanças feitas fora desta sessão (outro admin, ETL, banco).
 export function renderEntregaCrachaAoMostrar() {
   render();
-  gradeEc?.redraw();
+  if (!carregando) carregarDados(true);
 }
 
 // ---------- Inicialização ----------
@@ -1442,14 +1730,11 @@ export function configurarEntregaCracha() {
   preencherSelects();
   render();
 
-  // Carregamento sob demanda: a base tem ~18k linhas; só busca quando a aba é
-  // aberta pela primeira vez (evita baixar tudo em todo load do painel).
-  // Recarrega ao abrir a aba: reflete mudanças feitas fora desta sessão (outro
-  // admin, ETL, banco). Em recargas seguintes a tabela atual fica na tela até os
-  // dados novos chegarem (sem "piscar" o loading).
-  const navItem = document.querySelector('.navItem[data-view="entregaCracha"]');
-  if (navItem) navItem.addEventListener("click", () => { if (!carregando) carregarDados(); });
-  if (state.activeView === "entregaCracha") carregarDados();
+  // Carregamento sob demanda: a base tem ~18k linhas; só busca ao ABRIR a aba
+  // (evita baixar tudo em todo load do painel). Disparado pelo registro central de
+  // views (filtros.js -> REGISTRO_VIEWS.entregaCracha -> renderEntregaCrachaAoMostrar),
+  // que recarrega a cada abertura. O fallback abaixo cobre o deep-link direto.
+  if (state.activeView === "entregaCracha") carregarDados(true);
 
   ecBindFiltros(raiz);
   ecBindToolbar();
@@ -1459,6 +1744,13 @@ export function configurarEntregaCracha() {
   ecBindModal();
   ecBindFoto();
   ecBindDelegacao(raiz);
+
+  // Ao recolher/expandir o menu lateral com um modal (preview/edição) aberto,
+  // recalcula o offset esquerdo para o modal acompanhar e preencher o espaço.
+  const sidebar = document.querySelector(".sidebar");
+  if (sidebar && typeof ResizeObserver === "function") {
+    new ResizeObserver(() => atualizarOffsetSidebarModais()).observe(sidebar);
+  }
 }
 
 // Filtros: selects/datas reagem na hora (change); a busca textual é debounced
@@ -1487,7 +1779,7 @@ function ecBindFiltros(raiz) {
 
 // Barra de ações: atualizar, limpar, exportar e abrir o seletor de importação.
 function ecBindToolbar() {
-  $("ecBtnAtualizar")?.addEventListener("click", () => { if (!carregando) carregarDados(true); });
+  $("ecBtnAtualizar")?.addEventListener("click", () => { if (!carregando) carregarDados(true, true); });
   $("ecBtnLimpar")?.addEventListener("click", limparFiltros);
   $("ecBtnExportar")?.addEventListener("click", exportarExcel);
   $("ecBtnImportar")?.addEventListener("click", () => $("ecInputImport")?.click());
@@ -1504,6 +1796,9 @@ function ecBindImportPreview() {
   $("ecImportCancelar")?.addEventListener("click", fecharPreviewImport);
   $("ecImportConfirmar")?.addEventListener("click", confirmarImportacao);
   $("ecImportSelAll")?.addEventListener("change", e => alternarTodasPreview(e.target.checked));
+  $("ecImportMarcarTodos")?.addEventListener("click", () => alternarTodasPreview(true));
+  $("ecImportDesmarcarTodos")?.addEventListener("click", () => alternarTodasPreview(false));
+  $("ecImportReverter")?.addEventListener("click", reverterLoteImport);
   $("ecImpBulkAplicar")?.addEventListener("click", aplicarLoteImport);
   $("ecImportTbody")?.addEventListener("change", e => {
     const cb = e.target.closest(".ecImportCheck");
@@ -1528,6 +1823,7 @@ function ecBindDetalhe() {
 // delegação em ecBindDelegacao — não há binding direto aqui.)
 function ecBindLote() {
   $("ecLoteAplicar")?.addEventListener("click", aplicarStatusLote);
+  $("ecLoteReverter")?.addEventListener("click", reverterLote);
   $("ecLoteLimpar")?.addEventListener("click", limparSelecao);
   $("ecLoteLimparCampos")?.addEventListener("click", resetarPainelLote);
   $("ecLoteToggle")?.addEventListener("click", () => $("ecLoteBar")?.classList.toggle("is-recolhido"));

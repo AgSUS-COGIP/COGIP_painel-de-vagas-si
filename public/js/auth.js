@@ -260,8 +260,10 @@ async function verificarMudancaSessao() {
   const anterior = state.painelLoginUsuario || {};
   const mudouAprovacao = !!usuario.aprovado !== !!anterior.aprovado;
   const mudouPermissoes = JSON.stringify(usuario.permissoes || {}) !== JSON.stringify(anterior.permissoes || {});
-  if (mudouAprovacao || mudouPermissoes) {
-    // Status ou permissões mudaram (ex.: aprovado enquanto esperava, ganhou/perdeu acesso a abas).
+  // Escopo de DSEI (acesso por unidade) também deve refletir na hora, como as abas.
+  const mudouEscopo = JSON.stringify(usuario.escopo || {}) !== JSON.stringify(anterior.escopo || {});
+  if (mudouAprovacao || mudouPermissoes || mudouEscopo) {
+    // Status, permissões de aba ou escopo de DSEI mudaram: recarrega para refletir.
     state.painelLoginUsuario = usuario;
     window.location.reload();
   }

@@ -61,8 +61,9 @@ let gradePs = null;           // grade Tabulator da tabela principal (só coluna
 // por id de edital: { cargos: [...], cronograma: [...] }. Apenas em memória
 // (não persiste; some ao recarregar a página).
 const anexosExtraidos = new Map();
-let anexoProcessoId = null; // edital alvo do modal "Inserir anexo"
-let editandoId = null;      // edital em edição no modal (null = novo cadastro)
+let editandoId = null;      // edital em edição no assistente (null = novo cadastro)
+let wizardPasso = 1;        // passo atual do assistente (1..3)
+let wizardModo = "edital";  // "edital" (criar/editar) | "anexo" (só inserir anexo)
 
 // ---------- Aprovados por vaga (protótipo em memória) ----------
 // dadosAprovados.get(editalId) = {
@@ -77,6 +78,7 @@ const CONFIG_PADRAO = { mostrarPosicoes: true, intervaloCota: 0 };
 let vagaSelecionada = null;  // nome do cargo com o painel de aprovados aberto
 let cronoExpandido = false;  // widget "Etapa atual": true = mostra o cronograma completo
 let gradeAprovados = null;   // grade Tabulator dos aprovados (edição inline por célula)
+let gradeVagas = null;       // grade Tabulator do quadro de vagas (para atualizar sem reconstruir)
 let aprovadoFocoId = null;   // id do aprovado recém-criado: abre a edição do Nome ao montar
 let configEditalId = null;   // edital alvo do modal de configuração
 
@@ -166,34 +168,18 @@ export function obterBloqueiosRemanejamentoPSS() {
 }
 
 // ---------- Helpers ----------
-// Status "efetivo": a data fim (vigência) SOBREPÕE o status original. Quando ela
-// já passou, o edital vira "Vencido"; quando falta até 30 dias, "Encerrando em
-// Breve". Cancelado nunca é sobreposto (edital cancelado não tem vigência ativa).
-// É o valor usado no badge (tabela + detalhe), nos KPIs e no filtro de status —
-// assim status e KPIs sempre batem. O campo bruto `status` é preservado (o
-// bloqueio de remanejamento por PSS em andamento continua lendo o status real).
-// Status "base" derivado do cronograma: após a ÚLTIMA data do cronograma o
-// edital fica "Concluído"; antes disso mantém o status cadastrado (Andamento,
-// Aguardando Convocação…). Cancelado nunca é sobreposto.
-function statusBaseEdital(proc) {
-  if (proc.status === "Cancelado") return "Cancelado";
-  const ultima = ultimaDataCronograma(cronogramaDoEdital(proc));
-  if (ultima && hojeZerado() > ultima) return "Concluído";
-  return proc.status || "Andamento";
-}
-
-// Status efetivo (exibido): a vigência sobrepõe tudo — "Vencido" quando a data
-// fim já passou e "Encerrando em Breve" (apenas visual) quando falta ≤30 dias;
-// senão, usa o status base derivado do cronograma.
+// Status efetivo (exibido): o status é definido pelo USUÁRIO (campo `status`) —
+// NÃO é derivado automaticamente do cronograma nem da vigência. A única
+// sobreposição automática é o aviso visual "Encerrando em Breve", quando faltam
+// ≤30 dias para a data fim (vigência). "Cancelado" tem prioridade e nunca é
+// sobreposto. É o valor usado no badge (tabela + detalhe), nos KPIs e no filtro
+// de status — assim status e KPIs sempre batem.
 function statusEfetivo(proc) {
   if (!proc) return "—";
   if (proc.status === "Cancelado") return "Cancelado";
   const dias = diasAteVigencia(proc.dataEncerramento);
-  if (dias !== null) {
-    if (dias < 0) return "Vencido";
-    if (dias <= 30) return "Encerrando em Breve";
-  }
-  return statusBaseEdital(proc);
+  if (dias !== null && dias >= 0 && dias <= 30) return "Encerrando em Breve";
+  return proc.status || "Andamento";
 }
 
 function badgeStatus(status) {
@@ -430,7 +416,7 @@ function renderQuadroVagas(proc) {
 // coluna "Fila" = nº de aprovados da vaga (sem field, lê a linha no formatter).
 function montarQuadroVagas(proc) {
   const cargos = cargosDoEdital(proc);
-  if (!cargos.length || !$("psVagasTab")) return;
+  if (!cargos.length || !$("psVagasTab")) { gradeVagas = null; return; }
   const colunas = COLUNAS_VAGAS.filter(c => cargos.some(cargo => !celulaVazia(cargo[c.campo])));
   const ehNumerica = campo => campo !== "lotacao";
   const cols = [
@@ -440,12 +426,21 @@ function montarQuadroVagas(proc) {
       } },
     ...colunas.map(col => ({
       title: col.rotulo, field: col.campo, hozAlign: ehNumerica(col.campo) ? "center" : "left",
-      formatter: c => escapeHtml(celulaVazia(c.getValue()) ? "—" : c.getValue())
+      // Cota sem vaga imediata (valor 0) é Cadastro Reserva: mostra "CR" no lugar
+      // do 0. Célula em branco continua "—"; texto (ex.: Lotação) não é afetado.
+      formatter: c => {
+        const v = c.getValue();
+        if (celulaVazia(v)) return "—";
+        if (ehNumerica(col.campo) && Number(v) === 0) return "CR";
+        return escapeHtml(v);
+      }
     })),
-    { title: "Fila", hozAlign: "center", minWidth: 70,
+    { title: "Cadastro Reserva Vigente", field: "reservaVigente", hozAlign: "center", minWidth: 70,
+      // field só para localizar a célula em atualizações no lugar (o valor vem do
+      // formatter, não dos dados). Ver atualizarAprovadoEmLinha.
       formatter: c => String(filaDoCargo(proc.id, c.getRow().getData().cargo)) }
   ];
-  criarTabelaArrastavel({
+  gradeVagas = criarTabelaArrastavel({
     elemento: "psVagasTab",
     colunas: cols,
     persistID: "psVagas",
@@ -493,16 +488,6 @@ function parseDatasCronograma(texto) {
   return { inicio: datas[0], fim: datas[datas.length - 1] };
 }
 
-// Última data (máxima) de todo o cronograma — marca a "conclusão" do processo.
-function ultimaDataCronograma(cronograma) {
-  let ultima = null;
-  (cronograma || []).forEach(e => {
-    const { fim } = parseDatasCronograma(e.data);
-    if (fim && (!ultima || fim > ultima)) ultima = fim;
-  });
-  return ultima;
-}
-
 // Índice da etapa atual: a de maior data de INÍCIO que já começou (início <= hoje).
 // Uma etapa com intervalo vale durante o intervalo; com data única, vale a partir
 // dela até a próxima começar. Retorna -1 se nenhuma começou.
@@ -516,15 +501,21 @@ function indiceEtapaAtual(cronograma) {
   return idx;
 }
 
-// Data de divulgação do resultado final: a ÚLTIMA data do cronograma do edital
-// (última etapa com data preenchida). O cronograma só existe quando um anexo PDF
-// foi extraído nesta sessão — sem anexo, retorna "" e a coluna mostra "—". A data
-// é a string crua do PDF (mesmo texto exibido na tabela do cronograma).
+// Data de divulgação do resultado final: a data da etapa do cronograma cuja
+// ATIVIDADE é o "Resultado Final do Processo Seletivo". Antes usávamos a última
+// data do cronograma, mas etapas posteriores (homologação, convocação, posse…)
+// resultavam numa data tarde demais. O casamento é por texto normalizado (sem
+// acento/caixa): primeiro a frase completa; como reserva, qualquer "resultado
+// final" (pega a ÚLTIMA ocorrência, para não cair em recurso/preliminar antes).
+// Sem etapa correspondente (ou sem anexo), retorna "" e a coluna mostra "—" — aí
+// basta usar "Ajustar cronograma" para nomear/ajustar a etapa. A data é a string
+// crua do PDF (mesmo texto exibido na tabela do cronograma).
 function dataDivulgacaoResultado(proc) {
   const etapas = cronogramaDoEdital(proc);
+  const exato = etapas.find(e => normChave(e?.atividade).includes("resultado final do processo seletivo"));
+  if (exato) return String(exato.data || "").trim();
   for (let i = etapas.length - 1; i >= 0; i--) {
-    const d = String(etapas[i]?.data || "").trim();
-    if (d) return d;
+    if (normChave(etapas[i]?.atividade).includes("resultado final")) return String(etapas[i].data || "").trim();
   }
   return "";
 }
@@ -603,9 +594,15 @@ function renderEtapaAtual(proc) {
   const viaAnexo = extra && extra.cronograma && extra.cronograma.length
     ? ` <span class="psBlocoFonte"><i class="fa-solid fa-file-arrow-up"></i> via anexo</span>`
     : "";
+  // "Ajustar cronograma" fica junto do próprio cronograma (só ao expandir): editor
+  // e desde que haja dados extraídos (anexo) para corrigir/complementar.
+  const podeAjustarCrono = podeEditarProcessos() && anexosExtraidos.has(proc?.id);
   const corpo = cronoExpandido
     ? `<div class="psEtapaCorpo">
-         ${etapas.length ? `<div class="psEtapaMeta">${etapas.length} etapa(s)${viaAnexo}</div>` : ""}
+         <div class="psEtapaBarra">
+           <span class="psEtapaMeta">${etapas.length ? `${etapas.length} etapa(s)${viaAnexo}` : ""}</span>
+           ${podeAjustarCrono ? `<button type="button" class="psBtn psBtnGhost psBtnSm" data-ps-cronograma="${escapeAttr(proc.id)}"><i class="fa-solid fa-calendar-days"></i> Ajustar cronograma</button>` : ""}
+         </div>
          ${cronogramaTabelaHtml(proc)}
        </div>`
     : "";
@@ -655,9 +652,13 @@ function renderDetalhe() {
         <button type="button" class="psBtn psBtnGhost psBtnExcluir" data-ps-excluir="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-trash"></i> Excluir
         </button>
-        <button type="button" class="psBtn psBtnGhost" data-ps-anexo="${escapeAttr(proc.id)}">
+        <button type="button" class="psBtn psBtnGhost psBtnEditar" data-ps-anexo="${escapeAttr(proc.id)}">
           <i class="fa-solid fa-file-arrow-up"></i> Inserir anexo
-        </button>` : ""}
+        </button>
+        ${anexosExtraidos.has(proc.id) ? `
+        <button type="button" class="psBtn psBtnGhost psBtnExcluir" data-ps-remover-anexo="${escapeAttr(proc.id)}">
+          <i class="fa-solid fa-file-circle-xmark"></i> Remover anexo
+        </button>` : ""}` : ""}
         <button type="button" class="psBtn psBtnGhost" data-ps-detalhe="${escapeAttr(proc.id)}">
           Recolher detalhes <i class="fa-solid fa-chevron-up"></i>
         </button>
@@ -785,17 +786,25 @@ function atualizarTipoDoc() {
   if (anexoWrap) anexoWrap.hidden = tipo !== "anexo";
 }
 
-// Abre o modal em modo "novo" (sem id) ou "edição" (com o id do edital).
-async function abrirModalEdital(id) {
+// Abre o assistente. `opts.modo`: "edital" (criar/editar, padrão) ou "anexo"
+// (só inserir anexo num edital existente — começa no passo 2). `opts.passo`:
+// passo inicial. Sem id => novo edital; com id => edição/anexo do edital.
+async function abrirModalEdital(id, opts) {
   const modal = $("psModalEdital");
   if (!modal) return;
+  opts = opts || {};
+  wizardModo = opts.modo === "anexo" ? "anexo" : "edital";
+
   $("psFormEdital")?.reset();
   $("psFormAnexo")?._fi?.render();      // re-sincroniza o componente de arquivo após o reset
-  $("psFormAnexoDados")?._fi?.render(); // idem para o anexo dos dados (cronograma/vagas)
+  // O anexo (passo 2) fica FORA do form, então reset() não o limpa: zera na mão.
+  const faDados = $("psFormAnexoDados");
+  if (faDados) { faDados.value = ""; faDados._fi?.render(); }
   const stAnx = $("psFormAnexoDadosStatus");
   if (stAnx) { stAnx.hidden = true; stAnx.innerHTML = ""; }
-  const erro = $("psFormErro");
-  if (erro) erro.textContent = "";
+  ["psFormErro", "psWizAnexoErro", "psConfErro"].forEach(idErr => { const e = $(idErr); if (e) e.textContent = ""; });
+  const vl = $("psConfVagasLista"); if (vl) vl.innerHTML = "";
+  const cl = $("psConfCronoLista"); if (cl) cl.innerHTML = "";
 
   editandoId = typeof id === "string" ? id : null;
   const proc = editandoId ? processos.find(p => p.id === editandoId) : null;
@@ -805,21 +814,16 @@ async function abrirModalEdital(id) {
   await carregarDseisForm();
   popularSelectDsei(proc?.unidade);
 
-  // Ajusta título e botão conforme o modo.
   const titulo = $("psModalTitulo");
   if (titulo) {
-    titulo.innerHTML = proc
-      ? `<i class="fa-solid fa-pen-to-square"></i> Editar edital`
-      : `<i class="fa-solid fa-file-circle-plus"></i> Adicionar edital`;
-  }
-  const btnSalvar = $("psModalSalvar");
-  if (btnSalvar) {
-    btnSalvar.innerHTML = proc
-      ? `<i class="fa-solid fa-check"></i> Salvar alterações`
-      : `<i class="fa-solid fa-check"></i> Salvar edital`;
+    titulo.innerHTML = wizardModo === "anexo"
+      ? `<i class="fa-solid fa-file-arrow-up"></i> Inserir anexo do edital`
+      : proc
+        ? `<i class="fa-solid fa-pen-to-square"></i> Editar edital`
+        : `<i class="fa-solid fa-file-circle-plus"></i> Adicionar edital`;
   }
 
-  // Em edição, preenche os campos com os dados atuais do edital.
+  // Em edição/anexo, preenche os campos com os dados atuais do edital.
   if (proc) {
     const set = (campo, valor) => { const el = $(campo); if (el) el.value = valor ?? ""; };
     set("psFormUnidade", proc.unidade);
@@ -840,9 +844,10 @@ async function abrirModalEdital(id) {
   }
 
   atualizarTipoDoc();
+  irParaPasso(opts.passo || (wizardModo === "anexo" ? 2 : 1));
   modal.hidden = false;
   document.body.style.overflow = "hidden";
-  setTimeout(() => $("psFormUnidade")?.focus(), 40);
+  if (wizardModo !== "anexo") setTimeout(() => $("psFormUnidade")?.focus(), 40);
 }
 
 function fecharModalEdital() {
@@ -850,6 +855,8 @@ function fecharModalEdital() {
   if (!modal) return;
   modal.hidden = true;
   editandoId = null;
+  wizardModo = "edital";
+  wizardPasso = 1;
   document.body.style.overflow = "";
 }
 
@@ -859,84 +866,191 @@ function valorNum(id) {
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-async function salvarEdital(event) {
-  event.preventDefault();
+// ---------- Assistente de edital: navegação e gravação ----------
+function irParaPasso(n) {
+  wizardPasso = n;
+  document.querySelectorAll("#psModalEdital .psStepPane").forEach(p => {
+    p.hidden = Number(p.dataset.pane) !== n;
+  });
+  document.querySelectorAll("#psStepper .psStep").forEach(li => {
+    const s = Number(li.dataset.step);
+    li.classList.toggle("is-atual", s === n);
+    // No modo anexo o passo 1 já está "concluído" (edital existe).
+    li.classList.toggle("is-feito", s < n || (wizardModo === "anexo" && s === 1));
+  });
+  atualizarBotoesWizard();
+}
+
+function atualizarBotoesWizard() {
+  const show = (idBtn, v) => { const el = $(idBtn); if (el) el.hidden = !v; };
+  const anexo = wizardModo === "anexo";
+  show("psWizVoltar", wizardPasso > 1 && !(anexo && wizardPasso === 2));
+  show("psWizPular", wizardPasso === 2 && !anexo);  // pular a etapa de anexo (só ao criar/editar)
+  show("psWizProximo", wizardPasso < 3);
+  show("psWizConcluir", wizardPasso === 3);
+}
+
+// Passo 1: DSEI/UF/Edital + datas (obrigatórias) precisam estar preenchidos.
+function validarPasso1() {
   const erro = $("psFormErro");
-  if (erro) erro.textContent = "";
-
+  const set = m => { if (erro) erro.textContent = m; };
   const unidade = ($("psFormUnidade")?.value || "").trim();
-  const uf = ($("psFormUf")?.value || "").trim().toUpperCase();
+  const uf = ($("psFormUf")?.value || "").trim();
   const edital = ($("psFormEditalNum")?.value || "").trim();
-  if (!unidade || !uf || !edital) {
-    if (erro) erro.textContent = "Preencha os campos obrigatórios: DSEI/CASAI, UF e Edital.";
-    return;
-  }
+  const di = $("psFormDataInicio")?.value || "";
+  const df = $("psFormDataFim")?.value || "";
+  if (!unidade || !uf || !edital) { set("Preencha os campos obrigatórios: DSEI/CASAI, UF e Edital."); return false; }
+  if (!di || !df) { set("Informe a Data de início e a Data fim (previsto)."); return false; }
+  set("");
+  return true;
+}
 
-  // "Anexos" do edital: se um PDF foi selecionado, extrai o cronograma + quadro
-  // de vagas ANTES de salvar. Se a extração falhar, mostra o erro e mantém o
-  // modal aberto (o cadastro só conclui com o anexo lido, ou sem anexo nenhum).
-  const arquivoAnexo = $("psFormAnexoDados")?.files?.[0] || null;
-  let dadosAnexo = null;
-  if (arquivoAnexo) {
-    const statusAnx = $("psFormAnexoDadosStatus");
-    const btnSalvar = $("psModalSalvar");
-    if (statusAnx) { statusAnx.hidden = false; statusAnx.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF dos Anexos e extraindo os dados…`; }
-    if (btnSalvar) btnSalvar.disabled = true;
-    try {
-      dadosAnexo = await extrairDadosAnexo(arquivoAnexo);
-    } catch (e) {
-      if (statusAnx) statusAnx.hidden = true;
-      if (erro) erro.textContent = e.message || "Não foi possível ler o PDF dos Anexos.";
-      if (btnSalvar) btnSalvar.disabled = false;
-      return;
-    }
-    if (statusAnx) statusAnx.hidden = true;
-    if (btnSalvar) btnSalvar.disabled = false;
-  }
-
-  // Datas são obrigatórias (colunas DATE NOT NULL no banco).
-  const dataInicio = $("psFormDataInicio")?.value || "";
-  const dataEncerramento = $("psFormDataFim")?.value || "";
-  if (!dataInicio || !dataEncerramento) {
-    if (erro) erro.textContent = "Informe a Data de início e a Data fim (vigência).";
-    return;
-  }
-
-  // Documento: por ora só o LINK é persistido (o PDF do documento é blob, adiado).
-  // Na edição, mantém o link atual se o usuário não informar um novo.
+function coletarDadosEdital() {
+  // Documento: só o LINK é persistido (o PDF do documento é blob, adiado). Na
+  // edição, mantém o link atual se o usuário não informar um novo.
   const tipoDoc = document.querySelector('input[name="psDocTipo"]:checked')?.value || "link";
   const procAtual = editandoId ? processos.find(p => p.id === editandoId) : null;
   let linkEdital = procAtual ? (procAtual.linkEdital || "") : "";
   if (tipoDoc === "link") linkEdital = ($("psFormLink")?.value || "").trim();
-
-  const dados = {
-    unidade, uf, edital,
-    vagasPrevistas: valorNum("psFormVagas"),                       // número escolhido pelo usuário
-    temCadastroReserva: !!$("psFormCadastroReserva")?.checked,     // "+ CR"
-    dataInicio,
-    dataEncerramento,
+  return {
+    unidade: ($("psFormUnidade")?.value || "").trim(),
+    uf: ($("psFormUf")?.value || "").trim().toUpperCase(),
+    edital: ($("psFormEditalNum")?.value || "").trim(),
+    vagasPrevistas: valorNum("psFormVagas"),
+    temCadastroReserva: !!$("psFormCadastroReserva")?.checked,
+    dataInicio: $("psFormDataInicio")?.value || "",
+    dataEncerramento: $("psFormDataFim")?.value || "",
     status: normalizarStatus($("psFormStatus")?.value || "Andamento"),
     observacoes: ($("psFormObs")?.value || "").trim(),
     linkEdital
   };
-  if (dadosAnexo) dados.anexo = dadosAnexo; // { cargos, cronograma } extraídos do PDF
+}
 
-  const btnSalvar = $("psModalSalvar");
-  if (btnSalvar) btnSalvar.disabled = true;
+// Preenche as listas da conferência (passo 3) com o que foi extraído do PDF.
+function popularConferencia(dados) {
+  const vagasEl = $("psConfVagasLista");
+  if (vagasEl) {
+    vagasEl.innerHTML = "";
+    const cargos = (dados && dados.cargos) || [];
+    (cargos.length ? cargos : [{}]).forEach(c => vagasEl.appendChild(criarLinhaVaga(c)));
+  }
+  const cronoEl = $("psConfCronoLista");
+  if (cronoEl) {
+    cronoEl.innerHTML = "";
+    const et = (dados && dados.cronograma) || [];
+    (et.length ? et : [{ atividade: "", data: "" }]).forEach(e => cronoEl.appendChild(criarLinhaCronograma(e.atividade, e.data)));
+    renumerarLinhasCronograma(cronoEl);
+  }
+}
+
+// Lê as edições da conferência -> { cargos, cronograma }. Descarta linhas vazias.
+function lerConferencia() {
+  const vagaRows = [...($("psConfVagasLista")?.querySelectorAll("[data-vaga-row]") || [])];
+  const val = (row, k) => (row.querySelector(`[data-vaga-${k}]`)?.value || "").trim();
+  const cargos = vagaRows.map(row => ({
+    cargo: val(row, "cargo"),
+    ampla: val(row, "ampla"),
+    pcd: val(row, "pcd"),
+    pretosPardos: val(row, "pretosPardos"),
+    indigenas: val(row, "indigenas"),
+    quilombolas: val(row, "quilombolas"),
+  })).filter(c => c.cargo);
+  const cronoRows = [...($("psConfCronoLista")?.querySelectorAll("[data-crono-row]") || [])];
+  const cronograma = cronoRows.map(row => ({
+    atividade: (row.querySelector("[data-crono-ativ]")?.value || "").trim(),
+    data: (row.querySelector("[data-crono-data]")?.value || "").trim()
+  })).filter(e => e.atividade);
+  return { cargos, cronograma };
+}
+
+function wizardVoltar() {
+  if (wizardPasso > 1) irParaPasso(wizardPasso - 1);
+}
+
+async function wizardProximo() {
+  if (wizardPasso === 1) {
+    if (validarPasso1()) irParaPasso(2);
+  } else if (wizardPasso === 2) {
+    await wizardAnalisarAnexo();
+  }
+}
+
+// Passo 2 -> 3: lê o PDF (com OCR se for escaneado) e abre a conferência.
+async function wizardAnalisarAnexo() {
+  const erro = $("psWizAnexoErro");
+  if (erro) erro.textContent = "";
+  const arquivo = $("psFormAnexoDados")?.files?.[0];
+  if (!arquivo) {
+    if (erro) erro.textContent = wizardModo === "anexo"
+      ? "Selecione um arquivo PDF."
+      : "Selecione um PDF ou use “Pular etapa”.";
+    return;
+  }
+  const status = $("psFormAnexoDadosStatus");
+  const btn = $("psWizProximo");
+  if (status) { status.hidden = false; status.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF e extraindo os dados…`; }
+  if (btn) btn.disabled = true;
+  try {
+    const dados = await extrairDadosAnexo(arquivo);
+    popularConferencia(dados);
+    irParaPasso(3);
+  } catch (e) {
+    if (erro) erro.textContent = e.message || "Não foi possível ler o PDF.";
+  } finally {
+    // Some com o "Lendo o PDF…" em qualquer desfecho (sucesso ou erro).
+    if (status) { status.hidden = true; status.innerHTML = ""; }
+    if (btn) btn.disabled = false;
+  }
+}
+
+// "Pular etapa" (passo 2, ao criar/editar): salva o edital sem anexo.
+async function wizardPular() {
+  if (wizardModo === "anexo") { fecharModalEdital(); return; }
+  await gravarWizard({ semAnexo: true, botao: "psWizPular" });
+}
+
+// "Concluir" (passo 3): salva com os dados conferidos/corrigidos.
+async function wizardConcluir() {
+  const { cargos, cronograma } = lerConferencia();
+  await gravarWizard({ cargos, cronograma, botao: "psWizConcluir" });
+}
+
+async function gravarWizard({ cargos, cronograma, semAnexo, botao } = {}) {
+  const btn = botao ? $(botao) : null;
+  const mostrarErro = m => {
+    const idErr = wizardPasso === 3 ? "psConfErro" : (wizardPasso === 2 ? "psWizAnexoErro" : "psFormErro");
+    const e = $(idErr); if (e) e.textContent = m;
+  };
+
+  // Modo "anexo": grava só o anexo no edital existente (não altera os campos).
+  if (wizardModo === "anexo") {
+    if (btn) btn.disabled = true;
+    try {
+      await psApi("POST", `/api/processos-seletivos/editais/${encodeURIComponent(editandoId)}/anexo`, { cargos, cronograma });
+    } catch (e) { mostrarErro(e.message || "Não foi possível salvar o anexo."); if (btn) btn.disabled = false; return; }
+    if (btn) btn.disabled = false;
+    fecharModalEdital();
+    await recarregar();
+    psToast("Anexo salvo.");
+    return;
+  }
+
+  // Modo "edital": valida os campos e cria/atualiza o edital (com anexo, se houver).
+  if (!validarPasso1()) { irParaPasso(1); return; }
+  const dados = coletarDadosEdital();
+  if (!semAnexo && ((cargos && cargos.length) || (cronograma && cronograma.length))) {
+    dados.anexo = { cargos: cargos || [], cronograma: cronograma || [] };
+  }
+  if (btn) btn.disabled = true;
   try {
     if (editandoId) await psApi("PUT", `/api/processos-seletivos/editais/${encodeURIComponent(editandoId)}`, dados);
     else await psApi("POST", "/api/processos-seletivos/editais", dados);
-  } catch (e) {
-    if (erro) erro.textContent = e.message || "Não foi possível salvar o edital.";
-    if (btnSalvar) btnSalvar.disabled = false;
-    return;
-  }
-  if (btnSalvar) btnSalvar.disabled = false;
-
+  } catch (e) { mostrarErro(e.message || "Não foi possível salvar o edital."); if (btn) btn.disabled = false; return; }
+  if (btn) btn.disabled = false;
   if (!editandoId) paginaAtual = 1;
   fecharModalEdital();
   await recarregar();
-  psToast(dadosAnexo ? "Edital salvo e Anexos extraídos." : "Edital salvo.");
+  psToast(dados.anexo ? "Edital salvo e anexo lido." : "Edital salvo.");
 }
 
 // Exclui um edital (protótipo em memória): confirma e remove da lista, junto do
@@ -964,10 +1078,34 @@ async function excluirEdital(id) {
   await recarregar();
 }
 
-// ---------- Inserir anexo (extrai vagas + cronograma do PDF) ----------
+// Remove o anexo do edital (cronograma + quadro de vagas e, por consequência,
+// TODOS os aprovados). Ação destrutiva: confirma com aviso do que será apagado.
+async function removerAnexo(id) {
+  if (!podeEditarProcessos()) return;
+  const proc = processos.find(p => p.id === id);
+  if (!proc) return;
+  const r = await abrirModal({
+    titulo: "Remover anexo",
+    msg: `Isto vai apagar o cronograma, o quadro de vagas e TODOS os aprovados cadastrados do edital ${proc.edital ? `"${escapeHtml(proc.edital)}" ` : ""}de ${escapeHtml(proc.unidade || "—")}. Esta ação não pode ser desfeita. Deseja continuar?`,
+    confirmarTexto: "Remover anexo",
+    perigo: true
+  });
+  if (!r.ok) return;
+  try {
+    await psApi("DELETE", `/api/processos-seletivos/editais/${encodeURIComponent(id)}/anexo`);
+  } catch (e) {
+    psToast(e.message || "Não foi possível remover o anexo.");
+    return;
+  }
+  vagaSelecionada = null;
+  psToast("Anexo removido.");
+  await recarregar();
+}
+
+// ---------- Extração do anexo (PDF -> { cargos, cronograma }) ----------
 // Envia o PDF ao extrator e devolve { cargos, cronograma }. Lança erro (mensagem
-// amigável) se o servidor falhar ou se nada for localizado no PDF. Reutilizada
-// pelo modal "Inserir anexo" e pelo próprio formulário de cadastro/edição.
+// amigável) se o servidor falhar ou se nada for localizado no PDF. Usada no
+// passo 2 do assistente (analisar anexo).
 async function extrairDadosAnexo(arquivo) {
   const fd = new FormData();
   fd.append("anexo", arquivo);
@@ -984,63 +1122,6 @@ async function extrairDadosAnexo(arquivo) {
     throw new Error("Não foi possível localizar o quadro de vagas nem o cronograma neste PDF.");
   }
   return { cargos, cronograma };
-}
-
-function abrirModalAnexo(id) {
-  anexoProcessoId = id;
-  const modal = $("psModalAnexo");
-  if (!modal) return;
-  $("psFormAnexoEdital")?.reset();
-  $("psAnexoArquivo")?._fi?.render(); // re-sincroniza o componente de arquivo após o reset
-  const erro = $("psAnexoErro");
-  if (erro) erro.textContent = "";
-  const status = $("psAnexoStatus");
-  if (status) { status.hidden = true; status.innerHTML = ""; }
-  const botao = $("psAnexoEnviar");
-  if (botao) botao.disabled = false;
-  modal.hidden = false;
-  document.body.style.overflow = "hidden";
-}
-
-function fecharModalAnexo() {
-  const modal = $("psModalAnexo");
-  if (!modal) return;
-  modal.hidden = true;
-  document.body.style.overflow = "";
-}
-
-async function enviarAnexo(event) {
-  event.preventDefault();
-  const erro = $("psAnexoErro");
-  const status = $("psAnexoStatus");
-  const botao = $("psAnexoEnviar");
-  if (erro) erro.textContent = "";
-
-  const arquivo = $("psAnexoArquivo")?.files?.[0];
-  if (!arquivo) {
-    if (erro) erro.textContent = "Selecione um arquivo PDF.";
-    return;
-  }
-
-  if (status) {
-    status.hidden = false;
-    status.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Lendo o PDF e extraindo os dados…`;
-  }
-  if (botao) botao.disabled = true;
-
-  try {
-    const { cargos, cronograma } = await extrairDadosAnexo(arquivo);
-    // Persiste o cronograma + quadro de vagas no edital e recarrega do banco.
-    await psApi("POST", `/api/processos-seletivos/editais/${encodeURIComponent(anexoProcessoId)}/anexo`, { cargos, cronograma });
-    fecharModalAnexo();
-    await recarregar();
-    renderDetalhe();
-  } catch (e) {
-    if (status) status.hidden = true;
-    if (erro) erro.textContent = e.message || "Erro ao processar o anexo.";
-  } finally {
-    if (botao) botao.disabled = false;
-  }
 }
 
 // =========================================================
@@ -1065,9 +1146,10 @@ function aprovadosDoCargo(editalId, nomeCargo) {
   return d.aprovadosPorCargo.get(chave);
 }
 
-// Fila = todos os aprovados cadastrados na vaga (decisão do produto).
+// Cadastro Reserva Vigente = aprovados ainda disponíveis na vaga. Quem já foi
+// contratado sai da reserva (não conta mais); os demais status permanecem.
 function filaDoCargo(editalId, nomeCargo) {
-  return aprovadosDoCargo(editalId, nomeCargo).length;
+  return aprovadosDoCargo(editalId, nomeCargo).filter(c => c.status !== "Contratado").length;
 }
 
 // "Aprovados" do edital = soma dos aprovados de todas as vagas (contagem real).
@@ -1275,7 +1357,9 @@ function montarAprovados(proc) {
     movableColumns: false,
     movableRows: false,
     aoFormatarLinha: row => {
-      if (row.getData().status === "Desistiu") row.getElement().classList.add("is-desistiu");
+      // toggle (não só add): ao re-alimentar a grade sem reconstruir (edição
+      // inline), uma linha que deixou de ser "Desistiu" precisa perder a classe.
+      row.getElement().classList.toggle("is-desistiu", row.getData().status === "Desistiu");
     },
     dados
   });
@@ -1291,10 +1375,117 @@ function montarAprovados(proc) {
   }
 }
 
-// Seleciona/deseleciona a vaga e re-renderiza o detalhamento.
+// Re-renderiza o detalhe preservando a rolagem da PÁGINA (para não "subir ao
+// topo"). O innerHTML pesado faz as grades remontarem com build assíncrono: por um
+// instante os containers ficam com altura ~0, o documento encolhe e o navegador
+// clampa a rolagem para cima. Seguramos a altura atual do painel até as grades
+// reassentarem (2 frames) e reaplicamos o scrollY — a tela fica onde estava.
+function renderDetalheMantendoScroll() {
+  const painel = $("psDetalhe");
+  const alturaAtual = painel ? painel.offsetHeight : 0;
+  const y = window.scrollY || window.pageYOffset || 0;
+  if (painel && alturaAtual) painel.style.minHeight = `${alturaAtual}px`;
+  renderDetalhe();
+  window.scrollTo(0, y);
+  if (typeof requestAnimationFrame !== "function") { if (painel) painel.style.minHeight = ""; return; }
+  requestAnimationFrame(() => {
+    window.scrollTo(0, y);
+    requestAnimationFrame(() => { if (painel) painel.style.minHeight = ""; window.scrollTo(0, y); });
+  });
+}
+
+// Atualiza uma alteração inline de aprovado SEM reconstruir o painel — mesma ideia
+// da Entrega de Crachá: re-alimenta as grades no lugar (replaceData preserva a
+// rolagem e a instância, então nada de "pulo" na página) e atualiza só os números
+// derivados. Serve para editar célula, anexar documento, adicionar e excluir.
+// `focoId` (opcional) = id da linha recém-criada: abre a edição do Nome dela.
+// O innerHTML pesado do detalhe fica reservado às mudanças estruturais (trocar
+// edital/vaga, criar o 1º aprovado ou excluir o último), aí feito preservando a
+// rolagem via renderDetalheMantendoScroll.
+function atualizarAprovadoEmLinha(focoId) {
+  const proc = processos.find(p => p.id === processoExpandido);
+  const lista = (proc && vagaSelecionada) ? aprovadosDoCargo(proc.id, vagaSelecionada) : [];
+  // Sem grade viva, ou a lista ficou vazia (o painel passa a mostrar a mensagem
+  // "nenhum aprovado", que não é uma grade): precisa do render estrutural — feito
+  // preservando a rolagem da página.
+  if (!proc || !vagaSelecionada || !$("psAprovadosTab") || !gradeAprovados?.tabela || !lista.length) {
+    if (focoId) aprovadoFocoId = focoId; // montarAprovados abre a edição no build
+    renderDetalheMantendoScroll();
+    return;
+  }
+  const config = getConfig(proc.id);
+  const dados = classificar(lista, config).map(({ candidato, posicao, reservado }) =>
+    ({ ...candidato, _posicao: posicao, _reservado: reservado }));
+  const y = window.scrollY || window.pageYOffset || 0; // rolagem da página antes de re-alimentar
+  gradeAprovados.render(dados);              // reordena/atualiza sem resetar a rolagem
+  // "Cadastro Reserva Vigente": atualiza SÓ o texto da célula de cada cargo, direto
+  // no DOM. Re-renderizar a tabela de vagas inteira (replaceData) reflowava o
+  // layout e, com ela acima da vista, puxava a tela pra cima. Texto direto não
+  // reflowa nada.
+  try {
+    gradeVagas?.tabela?.getRows().forEach(row => {
+      const cell = row.getCell("reservaVigente");
+      if (cell) cell.getElement().textContent = String(filaDoCargo(proc.id, row.getData().cargo));
+    });
+  } catch { /* grade de vagas em (re)construção */ }
+  const painel = $("psDetalhe");
+  if (painel) {
+    // Contagem "N aprovado(s)" (muda ao adicionar) e tiles derivados do status.
+    const regra = config.intervaloCota > 0
+      ? ` · regra: 1 cotista a cada ${config.intervaloCota} de ampla concorrência` : "";
+    const meta = painel.querySelector(".psAprovadosPainel .psBlocoMeta");
+    if (meta) meta.textContent = `${lista.length} aprovado(s)${regra}`;
+    const set = (sel, v) => { const el = painel.querySelector(sel); if (el) el.textContent = v; };
+    set(".psTileValue.is-green", numFmt(contratadosEdital(proc)));
+    set(".psTileValue.is-red", numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc))));
+    set(".psTileValue.is-blue", numFmt(totalAprovadosEdital(proc)));
+  }
+  // Linha nova: abre a edição do Nome (replaceData não dispara o tableBuilt, então
+  // fazemos aqui, no próximo frame, quando as linhas já estão no DOM). Rolar até a
+  // linha nova é desejável, então NÃO restauramos a rolagem neste caso.
+  if (focoId && typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => {
+      try { gradeAprovados.tabela.getRows().find(r => r.getData().id === focoId)?.getCell("nome")?.edit(true); }
+      catch { /* grade recriada durante a edição */ }
+    });
+    return;
+  }
+  // Edição de célula: re-alimentar as grades pode reflowar o layout (a tabela de
+  // vagas fica acima) e "levar a tela pra cima". Reaplica a rolagem da página —
+  // agora (reflow síncrono) e no próximo frame (reflow do re-render das grades) —
+  // para a tela ficar exatamente onde estava.
+  window.scrollTo(0, y);
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
+// Seleciona/deseleciona a vaga. Reconstruir o painel inteiro faria a tabela de
+// vagas "piscar" (o Tabulator é recriado do zero). Em vez disso, atualiza no lugar
+// e apenas o bloco de aprovados abaixo do quadro é trocado — a tabela de vagas não
+// se move, então também não "pula". Cai no render estrutural (preservando a
+// rolagem) se a grade ainda não existir.
+//
+// IMPORTANTE: NÃO usar gradeVagas.redraw() aqui. O redraw(true) do Tabulator, com o
+// DOM em volta mudando (o bloco de aprovados é removido/inserido), entra em laço do
+// ResizeObserver (redraw → tableEmpty → _showPlaceholder → adjustTableSize →
+// tableResized → redraw…), estourando a pilha e travando a página. Como só mudam o
+// realce e o chevron (dependem de vagaSelecionada, não dos dados), basta alternar
+// as classes direto no DOM — sem redraw, sem resize, sem loop.
 function selecionarVaga(nomeCargo) {
   vagaSelecionada = (normChave(vagaSelecionada) === normChave(nomeCargo)) ? null : nomeCargo;
-  renderDetalhe();
+  const proc = processos.find(p => p.id === processoExpandido);
+  const bloco = $("psVagasTab")?.closest(".psBloco");
+  if (!proc || !gradeVagas?.tabela || !bloco) { renderDetalheMantendoScroll(); return; }
+  gradeVagas.marcarSelecionada(); // realce da linha (só alterna classes)
+  try {
+    gradeVagas.tabela.getRows().forEach(row => {
+      const aberto = !!vagaSelecionada && normChave(row.getData().cargo) === normChave(vagaSelecionada);
+      row.getElement().querySelector(".psRowChevron")?.classList.toggle("is-aberto", aberto);
+    });
+  } catch { /* grade em (re)construção */ }
+  bloco.querySelector(".psAprovadosPainel")?.remove();
+  const html = renderPainelAprovados(proc);
+  if (html) bloco.insertAdjacentHTML("beforeend", html);
+  montarAprovados(proc);
 }
 
 // ---------- Aprovados: inserção e edição inline (sem modal) ----------
@@ -1316,8 +1507,10 @@ async function adicionarAprovadoInline(cargoNome) {
   }
   aprovadosDoCargo(processoExpandido, cargoNome).push(
     { id: novoId, nome: "", nota: null, tipo: "AMPLA_CONCORRENCIA", status: "Aguardando", docDesistencia: null });
-  aprovadoFocoId = novoId; // montarAprovados abre a edição do Nome desta linha
-  renderDetalhe();
+  // Insere a linha no lugar e abre a edição do Nome, sem reconstruir o painel
+  // (preserva a rolagem — sem "pulo"). Se for o 1º aprovado da vaga, a própria
+  // função cai no render estrutural para criar a tabela.
+  atualizarAprovadoEmLinha(novoId);
 }
 
 // Persiste a linha inteira do aprovado (PUT). Silencioso; avisa só em falha.
@@ -1347,9 +1540,10 @@ function editarCampoAprovado(candId, campo, valor) {
   persistirAprovado(cand);
   if (campo === "nome") return; // nome não reordena a classificação: só atualiza a célula
   // Nota/Tipo/Status mudam a ordem da classificação (e o status muda a coluna
-  // Documento, o realce da linha e a contagem de Contratados): re-renderiza no
-  // próximo tick para não colidir com a finalização interna da edição do Tabulator.
-  setTimeout(renderDetalhe, 0);
+  // Documento, o realce da linha e a contagem de Contratados): atualiza no próximo
+  // tick, sem reconstruir o painel (preserva a rolagem — sem "pulo"), para não
+  // colidir com a finalização interna da edição do Tabulator.
+  setTimeout(atualizarAprovadoEmLinha, 0);
 }
 
 // Anexa (ou troca) o PDF de desistência pela própria linha — abre o seletor de
@@ -1366,7 +1560,7 @@ function anexarDocDesistencia(candId) {
     if (!arquivo) return;
     cand.docDesistencia = { url: URL.createObjectURL(arquivo), nome: arquivo.name };
     psToast("Documento de desistência anexado.");
-    renderDetalhe();
+    atualizarAprovadoEmLinha(); // atualiza a coluna Documento sem reconstruir o painel
   });
   input.click();
 }
@@ -1392,7 +1586,9 @@ async function excluirAprovado(candId) {
   const i = lista.findIndex(c => c.id === candId);
   if (i >= 0) lista.splice(i, 1);
   psToast("Aprovado excluído.");
-  renderDetalhe();
+  // Remove a linha no lugar (sem reconstruir → sem "pulo"); se era o último
+  // aprovado, a função cai no render estrutural preservando a rolagem.
+  atualizarAprovadoEmLinha();
 }
 
 // ---------- Modal de configuração da classificação (por edital) ----------
@@ -1434,6 +1630,143 @@ function salvarConfig(event) {
   psToast("Configuração de classificação salva.");
 }
 
+// ---------- Modal: ajustar cronograma (editar atividades/datas manualmente) ----------
+// O cronograma extraído do PDF às vezes traz datas incompletas (ex.: "24/07" sem
+// ano) que parseDatasCronograma() não reconhece. Este modal permite corrigir o
+// texto das atividades e das datas e salvar. Reaproveita o endpoint do anexo
+// enviando só o cronograma — sem `cargos`, o upsert de vagas é no-op, então o
+// quadro de vagas e os aprovados são preservados.
+let cronogramaEditId = null;
+
+function abrirModalCronograma(editalId) {
+  if (!editalId || !podeEditarProcessos()) return;
+  cronogramaEditId = editalId;
+  const modal = $("psModalCronograma");
+  if (!modal) return;
+  const erro = $("psCronogramaErro");
+  if (erro) erro.textContent = "";
+  const proc = processos.find(p => p.id === editalId);
+  const etapas = cronogramaDoEdital(proc);
+  const lista = $("psCronogramaLista");
+  if (lista) {
+    lista.innerHTML = "";
+    (etapas.length ? etapas : [{ atividade: "", data: "" }])
+      .forEach(e => lista.appendChild(criarLinhaCronograma(e.atividade, e.data)));
+    renumerarLinhasCronograma();
+  }
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function fecharModalCronograma() {
+  const modal = $("psModalCronograma");
+  if (!modal) return;
+  modal.hidden = true;
+  cronogramaEditId = null;
+  document.body.style.overflow = "";
+}
+
+// Monta uma linha editável (atividade + data) com o selo de leitura da data.
+function criarLinhaCronograma(atividade, data) {
+  const row = document.createElement("div");
+  row.className = "psCronoEditRow";
+  row.dataset.cronoRow = "";
+  row.innerHTML = `
+    <span class="psCronoEditColNum" data-crono-num></span>
+    <input class="psInput" data-crono-ativ type="text" placeholder="Atividade" maxlength="255">
+    <div class="psCronoEditColData">
+      <input class="psInput" data-crono-data type="text" placeholder="dd/mm/aaaa" maxlength="120">
+      <span class="psCronoDataHint" data-crono-hint></span>
+    </div>
+    <button type="button" class="psIconBtn" data-crono-remover title="Remover etapa"><i class="fa-solid fa-trash"></i></button>`;
+  row.querySelector("[data-crono-ativ]").value = atividade || "";
+  row.querySelector("[data-crono-data]").value = data || "";
+  atualizarHintData(row);
+  return row;
+}
+
+// Atualiza o selo de leitura da data: verde com a(s) data(s) reconhecida(s) ou
+// vermelho quando o texto não vira uma data válida (mesma regra da tabela/KPIs).
+function atualizarHintData(row) {
+  const valor = (row.querySelector("[data-crono-data]")?.value || "").trim();
+  const hint = row.querySelector("[data-crono-hint]");
+  if (!hint) return;
+  if (!valor) { hint.className = "psCronoDataHint"; hint.textContent = ""; return; }
+  const { inicio, fim } = parseDatasCronograma(valor);
+  if (!inicio) {
+    hint.className = "psCronoDataHint is-erro";
+    hint.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> não reconhecida — inclua o ano`;
+  } else {
+    const txt = fim && fim.getTime() !== inicio.getTime()
+      ? `${inicio.toLocaleDateString("pt-BR")} a ${fim.toLocaleDateString("pt-BR")}`
+      : inicio.toLocaleDateString("pt-BR");
+    hint.className = "psCronoDataHint is-ok";
+    hint.innerHTML = `<i class="fa-solid fa-check"></i> ${escapeHtml(txt)}`;
+  }
+}
+
+function renumerarLinhasCronograma(lista) {
+  lista = lista || $("psCronogramaLista");
+  if (!lista) return;
+  [...lista.querySelectorAll("[data-crono-row]")].forEach((row, i) => {
+    const num = row.querySelector("[data-crono-num]");
+    if (num) num.textContent = String(i + 1);
+  });
+}
+
+async function salvarCronograma(event) {
+  event.preventDefault();
+  if (!cronogramaEditId || !podeEditarProcessos()) { fecharModalCronograma(); return; }
+  const lista = $("psCronogramaLista");
+  const rows = lista ? [...lista.querySelectorAll("[data-crono-row]")] : [];
+  // Etapas sem atividade são descartadas (mesmo critério do servidor).
+  const cronograma = rows.map(row => ({
+    atividade: (row.querySelector("[data-crono-ativ]")?.value || "").trim(),
+    data: (row.querySelector("[data-crono-data]")?.value || "").trim()
+  })).filter(e => e.atividade);
+
+  const btn = $("psModalCronogramaSalvar");
+  if (btn) btn.disabled = true;
+  try {
+    // Só `cronograma`: sem `cargos`, o upsert de vagas não altera nada (quadro de
+    // vagas e aprovados ficam intactos).
+    await psApi("POST", `/api/processos-seletivos/editais/${encodeURIComponent(cronogramaEditId)}/anexo`, { cronograma });
+  } catch (e) {
+    const erro = $("psCronogramaErro");
+    if (erro) erro.textContent = e.message || "Não foi possível salvar o cronograma.";
+    if (btn) btn.disabled = false;
+    return;
+  }
+  if (btn) btn.disabled = false;
+  fecharModalCronograma();
+  psToast("Cronograma atualizado.");
+  await recarregar();
+}
+
+// ---------- Conferência (passo 3 do assistente): linha do quadro de vagas ----------
+// Linha editável do quadro de vagas: cargo + 5 cotas (AC/PcD/P-P/Ind/Quil).
+// Aceita número ou "CR". Total é derivado no back — não entra aqui.
+function criarLinhaVaga(c) {
+  c = c || {};
+  const row = document.createElement("div");
+  row.className = "psConfVagaRow";
+  row.dataset.vagaRow = "";
+  row.innerHTML = `
+    <input class="psInput psConfCargo" data-vaga-cargo type="text" placeholder="Nome do cargo" maxlength="150">
+    <input class="psInput" data-vaga-ampla type="text" maxlength="8" title="Ampla Concorrência">
+    <input class="psInput" data-vaga-pcd type="text" maxlength="8" title="PcD">
+    <input class="psInput" data-vaga-pretosPardos type="text" maxlength="8" title="Pretos/Pardos">
+    <input class="psInput" data-vaga-indigenas type="text" maxlength="8" title="Indígenas">
+    <input class="psInput" data-vaga-quilombolas type="text" maxlength="8" title="Quilombolas">
+    <button type="button" class="psIconBtn" data-vaga-remover title="Remover cargo"><i class="fa-solid fa-trash"></i></button>`;
+  row.querySelector("[data-vaga-cargo]").value = c.cargo || "";
+  ["ampla", "pcd", "pretosPardos", "indigenas", "quilombolas"].forEach(k => {
+    const v = c[k];
+    row.querySelector(`[data-vaga-${k}]`).value = (v === undefined || v === null) ? "" : String(v);
+  });
+  return row;
+}
+
 // ---------- Inicialização ----------
 let processosConfigurado = false;
 
@@ -1443,21 +1776,30 @@ export function configurarProcessosSeletivos() {
   if (!raiz) return;
   processosConfigurado = true;
 
-  renderTudo();       // estrutura inicial (vazia) enquanto carrega
-  recarregar(true);   // carrega os editais do banco (silencioso: roda p/ todos no init)
+  // Estrutura inicial (vazia). Os dados NÃO são buscados no init: o GET dos
+  // editais roda ao ABRIR a aba (renderProcessosSeletivosAoMostrar -> recarregar),
+  // e a lista de DSEIs do formulário é carregada sob demanda em abrirModalEdital
+  // (carregarDseisForm tem cache próprio). Evita fetch eager para todo usuário no
+  // boot — inclusive para quem nunca abre esta aba.
+  renderTudo();
 
   $("psFiltroUnidade")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psFiltroStatus")?.addEventListener("change", () => { paginaAtual = 1; renderTabela(); });
   $("psBusca")?.addEventListener("input", debounce(() => { paginaAtual = 1; renderTabela(); }, 250));
 
-  // Modal de cadastro/edição de edital.
+  // Assistente de edital (3 passos: dados -> anexo -> conferência).
   $("psBtnAddEdital")?.addEventListener("click", () => abrirModalEdital());
   $("psModalFechar")?.addEventListener("click", fecharModalEdital);
   $("psModalCancelar")?.addEventListener("click", fecharModalEdital);
-  $("psFormEdital")?.addEventListener("submit", salvarEdital);
-  $("psModalEdital")?.addEventListener("click", event => {
-    if (event.target.id === "psModalEdital") fecharModalEdital();
-  });
+  // Enter no formulário do passo 1 = avançar (não submete/grava direto).
+  $("psFormEdital")?.addEventListener("submit", event => { event.preventDefault(); wizardProximo(); });
+  // NÃO fecha ao clicar fora (evita perder o preenchimento do assistente por
+  // engano): só fecha pelo X, "Cancelar" ou ao concluir/salvar.
+  // Botões de navegação do assistente.
+  $("psWizVoltar")?.addEventListener("click", wizardVoltar);
+  $("psWizProximo")?.addEventListener("click", wizardProximo);
+  $("psWizPular")?.addEventListener("click", wizardPular);
+  $("psWizConcluir")?.addEventListener("click", wizardConcluir);
   document.querySelectorAll('input[name="psDocTipo"]').forEach(radio =>
     radio.addEventListener("change", atualizarTipoDoc));
   // Ao escolher o DSEI/CASAI, traz a UF principal automaticamente.
@@ -1466,15 +1808,8 @@ export function configurarProcessosSeletivos() {
     const el = $("psFormUf");
     if (uf && el) el.value = uf;
   });
-  carregarDseisForm(); // aquece o cache da lista de DSEIs (não bloqueia o init)
-
-  // Modal de inserção de anexo (extração de vagas/cronograma do PDF).
-  $("psModalAnexoFechar")?.addEventListener("click", fecharModalAnexo);
-  $("psModalAnexoCancelar")?.addEventListener("click", fecharModalAnexo);
-  $("psFormAnexoEdital")?.addEventListener("submit", enviarAnexo);
-  $("psModalAnexo")?.addEventListener("click", event => {
-    if (event.target.id === "psModalAnexo") fecharModalAnexo();
-  });
+  // A lista de DSEIs/CASAIs do formulário é carregada sob demanda em
+  // abrirModalEdital (carregarDseisForm, com cache) — não é aquecida no init.
 
   // Aprovados: sem modal — inserção/edição inline na própria tabela.
 
@@ -1482,8 +1817,46 @@ export function configurarProcessosSeletivos() {
   $("psModalConfigFechar")?.addEventListener("click", fecharModalConfig);
   $("psModalConfigCancelar")?.addEventListener("click", fecharModalConfig);
   $("psFormConfig")?.addEventListener("submit", salvarConfig);
-  $("psModalConfig")?.addEventListener("click", event => {
-    if (event.target.id === "psModalConfig") fecharModalConfig();
+
+  // Modal de ajuste do cronograma (edição manual de atividades/datas).
+  $("psModalCronogramaFechar")?.addEventListener("click", fecharModalCronograma);
+  $("psModalCronogramaCancelar")?.addEventListener("click", fecharModalCronograma);
+  $("psFormCronograma")?.addEventListener("submit", salvarCronograma);
+  $("psCronogramaAddLinha")?.addEventListener("click", () => {
+    const lista = $("psCronogramaLista");
+    if (!lista) return;
+    lista.appendChild(criarLinhaCronograma("", ""));
+    renumerarLinhasCronograma();
+  });
+  // Remover etapa e revalidar o selo da data ao digitar (delegação na lista).
+  $("psCronogramaLista")?.addEventListener("click", event => {
+    const rem = event.target.closest("[data-crono-remover]");
+    if (rem) { rem.closest("[data-crono-row]")?.remove(); renumerarLinhasCronograma(); }
+  });
+  $("psCronogramaLista")?.addEventListener("input", event => {
+    if (event.target.matches("[data-crono-data]")) atualizarHintData(event.target.closest("[data-crono-row]"));
+  });
+
+  // Conferência (passo 3 do assistente): adicionar/remover cargos e etapas.
+  $("psConfAddVaga")?.addEventListener("click", () => {
+    $("psConfVagasLista")?.appendChild(criarLinhaVaga({}));
+  });
+  $("psConfVagasLista")?.addEventListener("click", event => {
+    const rem = event.target.closest("[data-vaga-remover]");
+    if (rem) rem.closest("[data-vaga-row]")?.remove();
+  });
+  $("psConfAddCrono")?.addEventListener("click", () => {
+    const lista = $("psConfCronoLista");
+    if (!lista) return;
+    lista.appendChild(criarLinhaCronograma("", ""));
+    renumerarLinhasCronograma(lista);
+  });
+  $("psConfCronoLista")?.addEventListener("click", event => {
+    const rem = event.target.closest("[data-crono-remover]");
+    if (rem) { const l = $("psConfCronoLista"); rem.closest("[data-crono-row]")?.remove(); renumerarLinhasCronograma(l); }
+  });
+  $("psConfCronoLista")?.addEventListener("input", event => {
+    if (event.target.matches("[data-crono-data]")) atualizarHintData(event.target.closest("[data-crono-row]"));
   });
 
   // Delegação para os elementos gerados dinamicamente (tabela + detalhe).
@@ -1495,7 +1868,13 @@ export function configurarProcessosSeletivos() {
     if (excluir) { excluirEdital(excluir.dataset.psExcluir); return; }
 
     const anexo = event.target.closest("[data-ps-anexo]");
-    if (anexo) { abrirModalAnexo(anexo.dataset.psAnexo); return; }
+    if (anexo) { abrirModalEdital(anexo.dataset.psAnexo, { modo: "anexo", passo: 2 }); return; }
+
+    const remAnexo = event.target.closest("[data-ps-remover-anexo]");
+    if (remAnexo) { removerAnexo(remAnexo.dataset.psRemoverAnexo); return; }
+
+    const ajCrono = event.target.closest("[data-ps-cronograma]");
+    if (ajCrono) { abrirModalCronograma(ajCrono.dataset.psCronograma); return; }
 
     const det = event.target.closest("[data-ps-detalhe]");
     if (det) { alternarDetalhe(det.dataset.psDetalhe); return; }

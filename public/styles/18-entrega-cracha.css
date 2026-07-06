@@ -59,7 +59,7 @@
 }
 
 .ecKpi {
-  flex: 0 1 calc((100% - 70px) / 6); /* 6 por linha (5 espaços de 14px) */
+  flex: 0 1 calc((100% - 70px) / 5); /* 6 por linha (5 espaços de 14px) */
   min-width: 0; /* permite encolher para caber 6 por linha (senão o conteúdo mínimo empurra p/ 5) */
   display: flex;
   align-items: flex-start;
@@ -81,6 +81,14 @@
 }
 @media (max-width: 560px) {
   .ecKpi { flex-basis: calc((100% - 14px) / 2); } /* 2 por linha */
+}
+
+/* Telas largas: linha 1 com 5 métricas (resumo + indicadores) e linha 2 com as
+   6 do funil. Os 5 primeiros ocupam 1/5 (enchem a 1ª linha e empurram o funil
+   p/ baixo); os 6 seguintes ocupam 1/6 (cabem juntos na 2ª linha). */
+@media (min-width: 1181px) {
+  .ecKpi:nth-child(-n+5) { flex-basis: calc((100% - 56px) / 5); } /* 5 na 1ª linha */
+  .ecKpi:nth-child(n+6)  { flex-basis: calc((100% - 70px) / 6); } /* 6 na 2ª linha */
 }
 
 .ecKpiIcone {
@@ -584,6 +592,13 @@ select.ecInput {
   gap: 8px;
   margin-left: auto;
 }
+
+/* Botão de reverter em lote: leve destaque (ação destrutiva de desfazer). */
+.ecLoteReverterBtn {
+  color: #c0392b;
+  border-color: rgba(192, 57, 43, .35);
+}
+.ecLoteReverterBtn:hover { background: rgba(192, 57, 43, .06); }
 .ecLoteToggle {
   display: inline-flex;
   align-items: center;
@@ -994,6 +1009,59 @@ select.ecInput {
 .ecLoadingSub { color: #64789c; font-size: 12px; font-weight: 600; line-height: 1.35; }
 .ecLoadingSub[hidden] { display: none; }
 
+/* ---------- Snackbar "Desfazer importação" (suspenso, 7s) ---------- */
+.ecDesfazerBar {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 100060; /* acima de tudo (modais/loading) */
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(560px, 92vw);
+  padding: 12px 14px 12px 18px;
+  background: #0b2a4a;
+  color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 24, 61, .45);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.ecDesfazerBar.is-visivel {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.ecDesfazerMsg { font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 8px; }
+.ecDesfazerMsg i { color: #4fd18b; }
+.ecDesfazerBtn {
+  border: none;
+  border-radius: 9px;
+  background: #1f8de6;
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 8px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.ecDesfazerBtn:hover { background: #1477c9; }
+.ecDesfazerFechar {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, .7);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.ecDesfazerFechar:hover { color: #fff; }
+
 .ecModalBox {
   width: min(560px, 100%);
   background: #fff;
@@ -1315,6 +1383,14 @@ body.ec-import-aberto .top { visibility: hidden; }
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+/* Botões "Marcar todos" / "Desmarcar todos" ao lado do "Selecionar todas". */
+.ecImportSelBtns {
+  display: flex;
+  gap: 8px;
+  margin-right: auto; /* empurra o contador para a direita */
 }
 
 .ecImportSelAll {
@@ -1343,6 +1419,9 @@ body.ec-import-aberto .top { visibility: hidden; }
   width: max-content;
   min-width: 100%;
   font-size: 11.5px;
+  /* Colunas de largura fixa (colgroup): estabiliza a tabela com a virtualização
+     (senão as colunas "pulam" ao rolar, conforme o conteúdo das linhas visíveis). */
+  table-layout: fixed;
 }
 
 .ecImportTable th,
@@ -1350,8 +1429,19 @@ body.ec-import-aberto .top { visibility: hidden; }
   padding: 7px 10px;
   border-bottom: 1px solid rgba(0, 83, 166, .10);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: left;
 }
+
+/* Altura de linha FIXA — a virtualização calcula as posições por índice × altura,
+   então cada linha precisa ter exatamente esta altura. */
+.ecImportTable tbody tr:not(.ecImportSpacer) { height: 44px; }
+
+/* Espaçadores (linhas vazias que representam as linhas fora da janela visível):
+   só ocupam altura, sem conteúdo/borda. */
+.ecImportSpacer td { padding: 0; border: none; }
+.ecImportSpacer:hover { background: none; }
 
 .ecImportTable thead th {
   position: sticky;
