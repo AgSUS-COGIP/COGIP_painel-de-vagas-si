@@ -14,7 +14,7 @@
 // =========================================================
 import { apiGet } from "./api.js";
 import { state } from "./state.js";
-import { formatNumber, formatPercent, escapeHtml, escapeAttr } from "./utils.js";
+import { formatNumber, escapeHtml, escapeAttr } from "./utils.js";
 import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
 const $ = id => document.getElementById(id);
@@ -101,6 +101,31 @@ function geoDoDsei(desc) {
   return best ? dseiGeo[best] : null;
 }
 
+// ---- Base territorial indígena (mock/dados_indigenas.json, via API) ----
+// Índice por chave normalizada do DSEI (mesma chaveGeo dos mapas): permite
+// cruzar UNIDADE_ORCAMENTARIA_DESC ("DSEI CEARA") com o campo DSEI do arquivo
+// ("CEARA"). Regra 5/6 do pedido: vínculo por DSEI, com nomes normalizados.
+let territorioIndex = {};
+function construirTerritorio(lista) {
+  territorioIndex = {};
+  (lista || []).forEach(t => {
+    const k = chaveGeo(t.dsei);
+    if (k) territorioIndex[k] = t;
+  });
+}
+// Território de um UNIDADE_ORCAMENTARIA_DESC, com inclusão parcial (CASAI cai no
+// DSEI de mesmo nome). Retorna o registro territorial ou null.
+function territorioDoDsei(desc) {
+  const k = chaveGeo(desc);
+  if (!k) return null;
+  if (territorioIndex[k]) return territorioIndex[k];
+  let best = null;
+  for (const key of Object.keys(territorioIndex)) {
+    if ((k.includes(key) || key.includes(k)) && (!best || key.length > best.length)) best = key;
+  }
+  return best ? territorioIndex[best] : null;
+}
+
 // Coordenada de um DSEI/CASAI: 1º o centroide dos estabelecimentos (rede_cnes);
 // senão a tabela fixa; senão o centro da UF; senão o centro do Brasil.
 function coordDsei(desc, uf) {
@@ -123,12 +148,19 @@ let carregado = false, carregando = false, configurado = false;
 let mapasIniciados = false, mapaBrasil = null, mapaDsei = null;
 let camadaBrasil = null, camadaDsei = null, mascaraCarregada = false;
 let dseiSelecionado = "";
+let poloSelecionado = "";  // lotação (unidade/polo) em detalhe, via clique
+let polosVerTodas = false;  // "Ver todas" na lista de polos
+let ultimasRows = [];      // últimas linhas renderizadas (p/ os toggles)
 
 const combos = {};
 let filtros = vazio();
 function vazio() {
-  return { dsei: [], lotacao: [], nome: [], cargo: [], situacao: [], vinculo: [], tipoAdmissao: [], grau: [] };
+  return { dsei: [], lotacao: [] };
 }
+
+// Regra 1/2 do pedido: em TODA a aba (mapas, cards, listas, contadores) só
+// entram trabalhadores ativos. Aplicado na base, antes de qualquer cálculo.
+const ehAtivo = r => r.vinculo === "Ativo";
 
 // ---------- Combobox pesquisável de múltipla seleção (mesmo visual do SI) ----------
 function fecharTodosCombos(exceto) {
@@ -226,12 +258,14 @@ async function carregar() {
   carregando = true;
   mostrarEstado("Carregando dados dos DSEIs…");
   try {
-    const [payload, rede] = await Promise.all([
+    const [payload, rede, territorio] = await Promise.all([
       apiGet("/api/mapa-dseis"),
-      apiGet("/api/mapa-dseis/rede").catch(() => [])
+      apiGet("/api/mapa-dseis/rede").catch(() => []),
+      apiGet("/api/mapa-dseis/territorio").catch(() => [])
     ]);
     dados = decodificar(payload);
     construirGeo(rede);
+    construirTerritorio(territorio);
     carregado = true;
     esconderEstado();
     preencherFiltros();
@@ -264,44 +298,33 @@ function esconderEstado() { const el = $("mdEstado"); if (el) el.hidden = true; 
 
 // ---------- Filtros ----------
 const ordenar = arr => [...arr].sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+// Só linhas ativas alimentam filtros/contagens (a aba é 100% "ativos").
+const linhasAtivas = () => dados.rows.filter(ehAtivo);
 function contagem(chave) {
   const m = new Map();
-  dados.rows.forEach(r => { const k = r[chave]; m.set(k, (m.get(k) || 0) + 1); });
+  linhasAtivas().forEach(r => { const k = r[chave]; m.set(k, (m.get(k) || 0) + 1); });
   return m;
 }
 function comTotal(valores, mapa) {
   return ordenar(valores).map(v => ({ value: v, label: `${v} (${formatNumber(mapa.get(v) || 0)})` }));
 }
 function preencherFiltros() {
-  const distintos = ch => [...new Set(dados.rows.map(r => r[ch]).filter(Boolean))];
+  const distintos = ch => [...new Set(linhasAtivas().map(r => r[ch]).filter(Boolean))];
   combos.mdFiltroDsei?.setOptions(comTotal(distintos("dsei"), contagem("dsei")));
   combos.mdFiltroLotacao?.setOptions(comTotal(distintos("lotacao"), contagem("lotacao")));
-  combos.mdFiltroNome?.setOptions(ordenar(distintos("nome")));
-  combos.mdFiltroCargo?.setOptions(comTotal(distintos("cargo"), contagem("cargo")));
-  combos.mdFiltroSituacao?.setOptions(comTotal(distintos("situacao"), contagem("situacao")));
-  combos.mdFiltroVinculo?.setOptions(comTotal(["Ativo", "Desligado"], contagem("vinculo")));
-  combos.mdFiltroTipoAdmissao?.setOptions(comTotal(distintos("tipoAdmissao"), contagem("tipoAdmissao")));
-  combos.mdFiltroGrau?.setOptions(comTotal(distintos("grauInstrucao"), contagem("grauInstrucao")));
 }
 function lerFiltros() {
   const cv = id => combos[id] ? combos[id].getValues() : [];
   filtros = {
-    dsei: cv("mdFiltroDsei"), lotacao: cv("mdFiltroLotacao"), nome: cv("mdFiltroNome"),
-    cargo: cv("mdFiltroCargo"), situacao: cv("mdFiltroSituacao"), vinculo: cv("mdFiltroVinculo"),
-    tipoAdmissao: cv("mdFiltroTipoAdmissao"), grau: cv("mdFiltroGrau")
+    dsei: cv("mdFiltroDsei"), lotacao: cv("mdFiltroLotacao")
   };
 }
-// Aplica todos os filtros EXCETO o de DSEI (o DSEI é a "dimensão" do mapa/lista).
+// Base de render: SEMPRE só ativos (regra 1/2), depois os filtros do usuário.
 function aplicarFiltrosBase() {
   const f = filtros;
   return dados.rows.filter(r => {
+    if (!ehAtivo(r)) return false;
     if (f.lotacao.length && !f.lotacao.includes(r.lotacao)) return false;
-    if (f.nome.length && !f.nome.includes(r.nome)) return false;
-    if (f.cargo.length && !f.cargo.includes(r.cargo)) return false;
-    if (f.situacao.length && !f.situacao.includes(r.situacao)) return false;
-    if (f.vinculo.length && !f.vinculo.includes(r.vinculo)) return false;
-    if (f.tipoAdmissao.length && !f.tipoAdmissao.includes(r.tipoAdmissao)) return false;
-    if (f.grau.length && !f.grau.includes(r.grauInstrucao)) return false;
     if (f.dsei.length && !f.dsei.includes(r.dsei)) return false;
     return true;
   });
@@ -309,12 +332,15 @@ function aplicarFiltrosBase() {
 function limparFiltros() {
   Object.values(combos).forEach(c => c.clear());
   filtros = vazio();
+  poloSelecionado = "";
   render();
 }
 
 // ---------- Render ----------
 function render() {
   if (!carregado || !dados) return;
+  // Um novo render (mudança de filtro/seleção) recolhe as listas "Ver todas".
+  polosVerTodas = false;
   const rows = aplicarFiltrosBase();
 
   // Agrega por DSEI/CASAI.
@@ -329,7 +355,14 @@ function render() {
   // A seleção do detalhe é derivada 100% do filtro de DSEI: exatamente 1 DSEI
   // filtrado => detalhe daquele DSEI; 0 (ou vários) => considera TODOS. Clicar
   // num DSEI (mapa/lista) apenas marca esse DSEI no filtro (ver selecionarDsei).
-  dseiSelecionado = filtros.dsei.length === 1 ? filtros.dsei[0] : "";
+  // 1 DSEI no filtro => detalhe dele; senão, se os filtros resolverem para um
+  // único DSEI, foca nele também; caso contrário, "Brasil".
+  dseiSelecionado = filtros.dsei.length === 1 ? filtros.dsei[0]
+    : (listaDseis.length === 1 ? listaDseis[0].nome : "");
+  // Polo em detalhe só faz sentido se ainda estiver entre as lotações filtradas.
+  if (poloSelecionado && filtros.lotacao.length && !filtros.lotacao.includes(poloSelecionado)) {
+    poloSelecionado = "";
+  }
 
   renderResumoFiltro(rows.length, listaDseis.length);
   renderLista(listaDseis);
@@ -342,6 +375,10 @@ function render() {
 function selecionarDseiPorClique(nome) {
   const c = combos.mdFiltroDsei;
   if (c) c.definir([nome]);
+  // Trocar de DSEI zera o polo em detalhe e seu filtro de lotação (evita
+  // interseção vazia entre um polo antigo e o novo DSEI).
+  poloSelecionado = "";
+  combos.mdFiltroLotacao?.definir([]);
   lerFiltros();
   render();
 }
@@ -349,12 +386,10 @@ function selecionarDseiPorClique(nome) {
 function renderResumoFiltro(totalPessoas, totalDseis) {
   const p = [];
   const arr = (nome, lista) => { if (lista.length) p.push(lista.length <= 2 ? lista.join(", ") : `${lista.length} ${nome}`); };
-  arr("DSEIs", filtros.dsei); arr("unidades", filtros.lotacao); arr("nomes", filtros.nome);
-  arr("cargos", filtros.cargo); arr("situações", filtros.situacao); arr("vínculos", filtros.vinculo);
-  arr("tipos de admissão", filtros.tipoAdmissao); arr("graus", filtros.grau);
-  const resumo = p.length ? p.join(" · ") : "Todos os trabalhadores";
+  arr("DSEIs", filtros.dsei); arr("unidades", filtros.lotacao);
+  const resumo = p.length ? p.join(" · ") : "Todos os ativos";
   const el = $("mdResumoFiltro");
-  if (el) el.textContent = `${formatNumber(totalPessoas)} trabalhadores · ${formatNumber(totalDseis)} DSEIs/CASAIs · ${resumo}`;
+  if (el) el.textContent = `${formatNumber(totalPessoas)} trabalhadores ativos · ${formatNumber(totalDseis)} DSEIs/CASAIs · ${resumo}`;
 }
 
 function renderLista(listaDseis) {
@@ -380,28 +415,42 @@ function kpiCard(icone, rotulo, valor, hint) {
       </div>
     </div>`;
 }
-function topN(rows, chave, n) {
-  const m = new Map();
-  rows.forEach(r => { const k = r[chave] || "Não informado"; m.set(k, (m.get(k) || 0) + 1); });
-  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
+// ---------- Rede de saúde indígena (rede_cnes) ----------
+// Categoriza cada estabelecimento pelo nome (o campo `grupo` só separa CASAI de
+// "u"). Cada categoria tem cor/ícone da identidade SI, usados nos contadores,
+// na lista e nos pinos do mapa do DSEI.
+const CAT_ESTAB = [
+  { chave: "casai", rotulo: "CASAI", cor: "#C8472B", icone: "fa-house-medical", re: /casai|casa de saude|casa de apoio/ },
+  { chave: "polo", rotulo: "Polo Base", cor: "#E2872E", icone: "fa-house-chimney", re: /polo base/ },
+  { chave: "ubsi", rotulo: "UBSI", cor: "#2E8B57", icone: "fa-hospital", re: /unidade basica|ubsi/ },
+  { chave: "usi", rotulo: "Unidade de Saúde", cor: "#1F7A8C", icone: "fa-briefcase-medical", re: /unidade de saude|unidade indigena|usfi|posto de saude|saude indigena|saude do indio/ },
+  { chave: "outro", rotulo: "Outros", cor: "#64748b", icone: "fa-location-dot", re: /.*/ }
+];
+function catEstab(nome) {
+  const s = (nome || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return CAT_ESTAB.find(c => c.re.test(s)) || CAT_ESTAB[CAT_ESTAB.length - 1];
 }
-function blocoResumo(titulo, icone, pares) {
-  const linhas = pares.length
-    ? pares.map(([l, v]) => `<li><span>${escapeHtml(l)}</span><strong>${formatNumber(v)}</strong></li>`).join("")
-    : `<li class="mdVazio">Sem dados</li>`;
-  return `<div class="mdInfoBloco"><h4 class="mdInfoTitulo"><i class="fa-solid ${icone}"></i> ${escapeHtml(titulo)}</h4><ul class="mdInfoLista">${linhas}</ul></div>`;
+
+// Estabelecimentos do DSEI selecionado, ou de todos (Brasil).
+function estabsDoContexto() {
+  if (dseiSelecionado) {
+    const g = geoDoDsei(dseiSelecionado);
+    return g ? g.estabs : [];
+  }
+  const todos = [];
+  Object.values(dseiGeo).forEach(g => todos.push(...g.estabs));
+  return todos;
 }
 
 function renderDetalhe(rowsBase) {
   // Sem DSEI selecionado: mostra o agregado de TODOS os dados (filtrados).
+  // `rowsBase` já é só ativos (aplicarFiltrosBase), então total == ativos.
   const rows = dseiSelecionado ? rowsBase.filter(r => r.dsei === dseiSelecionado) : rowsBase;
+  ultimasRows = rows;
   $("mdDseiNome").textContent = dseiSelecionado || "Todos os DSEIs / CASAIs";
   $("mdMapaDseiNome").textContent = dseiSelecionado || "Brasil";
-  $("mdInfoDseiNome").textContent = dseiSelecionado || "Brasil";
 
   const total = rows.length;
-  const ativos = rows.filter(r => r.vinculo === "Ativo").length;
-  const desligados = total - ativos;
   const lotacoes = new Set(rows.map(r => r.lotacao)).size;
 
   // Métricas geográficas (rede_cnes): municípios e estabelecimentos do DSEI
@@ -418,97 +467,215 @@ function renderDetalhe(rowsBase) {
   }
 
   $("mdKpiRow").innerHTML =
-    kpiCard("fa-users", "Total de trabalhadores", formatNumber(total)) +
-    kpiCard("fa-user-check", "Ativos", formatNumber(ativos), total ? `${formatPercent(ativos / total * 100)} do total` : "") +
-    kpiCard("fa-user-xmark", "Desligados", formatNumber(desligados)) +
-    kpiCard("fa-sitemap", "Lotações", formatNumber(lotacoes)) +
+    kpiCard("fa-user-check", "Trabalhadores ativos", formatNumber(total)) +
+    kpiCard("fa-sitemap", "Unidades / Polos", formatNumber(lotacoes)) +
     kpiCard("fa-city", "Municípios", formatNumber(municipios)) +
     kpiCard("fa-hospital", "Estabelecimentos", formatNumber(estabs));
 
+  renderResumoTerritorial();
   renderMapaUnidades(rows);
-
-  $("mdInfoGrid").innerHTML =
-    blocoResumo("Top cargos", "fa-id-badge", topN(rows, "cargo", 6)) +
-    blocoResumo("Situação", "fa-notes-medical", topN(rows, "situacao", 6)) +
-    blocoResumo("Grau de instrução", "fa-graduation-cap", topN(rows, "grauInstrucao", 6)) +
-    blocoResumo("Tipo de admissão", "fa-file-signature", topN(rows, "tipoAdmissao", 6));
-
-  renderTabela(rows);
+  renderPoloDetalhe(rowsBase);
+  renderRede();
   renderMapaDsei(rows);
 }
 
+// ---------- Resumo territorial (base indígena por DSEI) ----------
+// Regra 5/6: cruza por DSEI normalizado. Só os campos existentes na base atual
+// (população indígena, terras indígenas, aldeias). Os demais campos pedidos
+// (etnias, extensão, modais, população atendida) não constam na fonte.
+function renderResumoTerritorial() {
+  const grid = $("mdTerritorioGrid");
+  if (!grid) return;
+  const nomeEl = $("mdTerritorioNome");
+  if (nomeEl) nomeEl.textContent = dseiSelecionado || "Brasil";
+  let popInd = 0, terras = 0, aldeias = 0;
+  let semDado = false;
+  if (dseiSelecionado) {
+    const t = territorioDoDsei(dseiSelecionado);
+    if (t) { popInd = t.populacaoIndigena; terras = t.qtdTerrasIndigenas; aldeias = t.qtdAldeias; }
+    else semDado = true;
+  } else {
+    Object.values(territorioIndex).forEach(t => {
+      popInd += t.populacaoIndigena || 0; terras += t.qtdTerrasIndigenas || 0; aldeias += t.qtdAldeias || 0;
+    });
+  }
+  grid.innerHTML =
+    kpiCard("fa-people-group", "População indígena", formatNumber(popInd)) +
+    kpiCard("fa-mountain-sun", "Terras indígenas", formatNumber(terras)) +
+    kpiCard("fa-house-chimney", "Aldeias", formatNumber(aldeias));
+  const nota = $("mdTerritorioNota");
+  if (nota) {
+    nota.textContent = semDado
+      ? `Sem dados territoriais para ${dseiSelecionado}.`
+      : "Etnias, extensão territorial, modais de transporte e população atendida não constam na base territorial atual.";
+  }
+}
+
+// ---------- Rede de saúde indígena (contadores por categoria + tabela) ----------
+// Traz TODOS os campos do rede_cnes que os mapas não usavam: categoria (do
+// grupo/nome), município/UF e CNES. Contadores sempre; a tabela (Tabulator)
+// lista os estabelecimentos do DSEI selecionado — ou de todos (Brasil).
+
+// Colunas da grade de Unidades (padrão Tabulator do painel: cabeçalho azul,
+// ordenável, colunas arrastáveis).
+const uniCel = v => (v || v === 0) ? escapeHtml(String(v)) : "—";
+const UNI_COLS = [
+  { title: "Tipo", field: "tipo", minWidth: 150, formatter: c => {
+      const d = c.getRow().getData();
+      return `<span class="mdUniTipo"><span class="mdCatDot" style="background:${d.cor}"></span><span class="mdCatNome" style="color:${d.cor}">${uniCel(d.tipo)}</span></span>`;
+    } },
+  { title: "Unidade", field: "unidade", minWidth: 240, formatter: c => uniCel(c.getValue()) },
+  { title: "Localização", field: "localizacao", minWidth: 160, formatter: c => uniCel(c.getValue()) },
+  { title: "CNES", field: "cnes", minWidth: 110, formatter: c => uniCel(c.getValue()) },
+];
+let gradeUnidades = null;
+
+function renderRede() {
+  const cont = $("mdRedeContadores");
+  if (!cont) return;
+  const nomeEl = $("mdRedeNome");
+  if (nomeEl) nomeEl.textContent = dseiSelecionado || "Brasil";
+
+  const estabs = estabsDoContexto();
+  const porCat = new Map(CAT_ESTAB.map(c => [c.chave, 0]));
+  estabs.forEach(e => { const c = catEstab(e.nome); porCat.set(c.chave, (porCat.get(c.chave) || 0) + 1); });
+
+  cont.innerHTML = CAT_ESTAB
+    .filter(c => (porCat.get(c.chave) || 0) > 0)
+    .map(c => `
+      <div class="mdContador" style="--md-c:${c.cor}">
+        <div class="mdContadorIcon"><i class="fa-solid ${c.icone}"></i></div>
+        <span class="mdContadorValor">${formatNumber(porCat.get(c.chave))}</span>
+        <span class="mdContadorRotulo">${escapeHtml(c.rotulo)}</span>
+      </div>`).join("") +
+    `<div class="mdContador mdContadorTotal" style="--md-c:var(--si-azul, #007de0)">
+        <div class="mdContadorIcon"><i class="fa-solid fa-hospital"></i></div>
+        <span class="mdContadorValor">${formatNumber(estabs.length)}</span>
+        <span class="mdContadorRotulo">Total</span>
+      </div>`;
+
+  const countEl = $("mdUnidadesCount");
+  if (countEl) countEl.textContent = `${formatNumber(estabs.length)} unidades`;
+
+  // Dados da grade (ordenados por categoria e nome).
+  const dados = [...estabs].sort((a, b) => {
+    const ia = CAT_ESTAB.findIndex(c => c.chave === catEstab(a.nome).chave);
+    const ib = CAT_ESTAB.findIndex(c => c.chave === catEstab(b.nome).chave);
+    return ia !== ib ? ia - ib : String(a.nome).localeCompare(String(b.nome), "pt-BR");
+  }).map((e, i) => {
+    const c = catEstab(e.nome);
+    return {
+      id: `${e.cnes || e.nome}#${i}`,
+      tipo: c.rotulo, cor: c.cor,
+      unidade: e.nome,
+      localizacao: e.municipio ? `${e.municipio}${e.uf ? ` – ${e.uf}` : ""}` : "",
+      cnes: e.cnes || ""
+    };
+  });
+
+  if (!$("mdRedeLista")) return;
+  if (!gradeUnidades) {
+    gradeUnidades = criarTabelaArrastavel({
+      elemento: "mdRedeLista",
+      colunas: UNI_COLS,
+      persistID: "mdUnidadesRede",
+      indexField: "id",
+      movableRows: false,   // tabela de consulta (ordena por cabeçalho)
+      headerSort: true,
+      alturaFixa: true,
+      altura: "460px",
+      vazio: "Nenhuma unidade da rede para os filtros selecionados."
+    });
+  }
+  gradeUnidades?.render(dados);
+}
+
+// Categoria inferida do nome da lotação (a base não tem coluna de categoria).
+function categoriaPolo(nome) {
+  const s = norm(nome);
+  if (/casai/.test(s)) return "CASAI";
+  if (/ubsi|unidade b[aá]sica/.test(s)) return "UBSI";
+  if (/polo/.test(s)) return "Polo Base";
+  if (/sede|escrit[oó]rio/.test(s)) return "Sede / Escritório";
+  if (/dsei|distrito/.test(s)) return "DSEI";
+  if (/sem lota/.test(s)) return "Sem lotação";
+  return "Unidade";
+}
+
+// Detalhe do Polo Base selecionado (clique na lista de unidades). Regra 5.
+function renderPoloDetalhe(rowsBase) {
+  const el = $("mdPoloDetalhe");
+  if (!el) return;
+  if (!poloSelecionado) { el.hidden = true; el.innerHTML = ""; return; }
+  const doPolo = rowsBase.filter(r => r.lotacao === poloSelecionado);
+  const ativos = doPolo.length; // rowsBase já é só ativos
+  const dseis = [...new Set(doPolo.map(r => r.dsei).filter(Boolean))];
+  const dseiRel = dseis.length === 1 ? dseis[0]
+    : (dseiSelecionado || (dseis.length ? `${dseis.length} DSEIs` : "—"));
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="mdPoloHead">
+      <i class="fa-solid fa-location-dot"></i>
+      <span class="mdPoloNome" title="${escapeAttr(poloSelecionado)}">${escapeHtml(poloSelecionado)}</span>
+      <button type="button" class="mdPoloClose" id="mdPoloClose" title="Fechar detalhe" aria-label="Fechar">&times;</button>
+    </div>
+    <ul class="mdPoloLista">
+      <li><span>Categoria</span><strong>${escapeHtml(categoriaPolo(poloSelecionado))}</strong></li>
+      <li><span>DSEI relacionado</span><strong>${escapeHtml(dseiRel)}</strong></li>
+      <li><span>Trabalhadores ativos vinculados</span><strong>${formatNumber(ativos)}</strong></li>
+      <li><span>População atendida</span><strong class="mdNd">Não disponível na base</strong></li>
+    </ul>`;
+  $("mdPoloClose")?.addEventListener("click", () => selecionarPoloPorClique(poloSelecionado));
+}
+
+// Clique num Polo Base: filtra a aba por aquela lotação e abre o detalhe.
+// Clicar de novo no mesmo polo desmarca (toggle).
+function selecionarPoloPorClique(nome) {
+  const desmarcar = poloSelecionado === nome;
+  poloSelecionado = desmarcar ? "" : nome;
+  const c = combos.mdFiltroLotacao;
+  if (c) c.definir(desmarcar ? [] : [nome]);
+  lerFiltros();
+  render();
+}
+
 // Painel lateral do mapa do DSEI: lotações (unidade/polo) com contagem.
+const POLOS_CAP = 16;  // quantos polos antes do "Ver todas"
 function renderMapaUnidades(rows) {
   const m = new Map();
   rows.forEach(r => { const k = r.lotacao || "SEM LOTAÇÃO"; m.set(k, (m.get(k) || 0) + 1); });
   const lista = [...m.entries()].sort((a, b) => b[1] - a[1]);
   const el = $("mdMapaUnidades");
   if (!el) return;
-  el.innerHTML = `<div class="mdUniTitulo"><i class="fa-solid fa-list-ul"></i> Unidades / Polos <span>${formatNumber(lista.length)}</span></div>` +
-    (lista.length
-      ? lista.map(([nome, val]) => `
-        <div class="mdUniRow">
-          <span class="mdUniIcon"><i class="fa-solid fa-location-dot"></i></span>
-          <span class="mdUniLabel" title="${escapeAttr(nome)}">${escapeHtml(nome)}</span>
-          <span class="mdUniValor">${formatNumber(val)}</span>
-        </div>`).join("")
-      : `<div class="mdVazio">Sem lotações para os filtros.</div>`);
-}
-
-// ---------- Tabela (grade Tabulator via helper compartilhado) ----------
-const cel = v => (v || v === 0) ? escapeHtml(String(v)) : "—";
-
-// Colunas da grade de Trabalhadores. Registro é numérico (ordena como número); as
-// demais são texto. Vínculo vira um selo (ativo/desligado). O Tabulator virtualiza
-// as linhas, então a base inteira é exibida por rolagem (sem o antigo limite de 300).
-const MD_COLS = [
-  { title: "Registro", field: "registro", sorter: "number", minWidth: 90, formatter: c => cel(c.getValue()) },
-  { title: "Nome", field: "nome", cssClass: "mdTdNome", minWidth: 180, formatter: c => cel(c.getValue()) },
-  { title: "Cargo", field: "cargo", minWidth: 160, formatter: c => cel(c.getValue()) },
-  { title: "Situação", field: "situacao", minWidth: 120, formatter: c => cel(c.getValue()) },
-  { title: "Vínculo", field: "vinculo", minWidth: 110, formatter: c => {
-      const v = c.getValue();
-      return `<span class="mdBadge ${v === "Ativo" ? "is-ativo" : "is-deslig"}">${cel(v)}</span>`;
-    } },
-  { title: "Lotação", field: "lotacao", minWidth: 150, formatter: c => cel(c.getValue()) },
-  { title: "DSEI/CASAI", field: "dsei", minWidth: 150, formatter: c => cel(c.getValue()) },
-  { title: "UF", field: "uf", minWidth: 70, formatter: c => cel(c.getValue()) },
-  { title: "Sexo", field: "sexo", minWidth: 80, formatter: c => cel(c.getValue()) },
-  { title: "Grau", field: "grauInstrucao", minWidth: 120, formatter: c => cel(c.getValue()) },
-  { title: "Tipo Admissão", field: "tipoAdmissao", minWidth: 130, formatter: c => cel(c.getValue()) },
-];
-
-let gradeMapa = null;
-
-function renderTabela(rows) {
-  const total = formatNumber(rows.length);
-  const setTxt = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
-  setTxt("mdTabelaCount", `${total} trabalhadores`);
-  setTxt("mdTabelaRegistros", rows.length ? `${total} trabalhadores` : "Nenhum registro");
-
-  if (!$("mdTabelaGrade")) return;
-  if (!gradeMapa) {
-    gradeMapa = criarTabelaArrastavel({
-      elemento: "mdTabelaGrade",
-      colunas: MD_COLS,
-      persistID: "mdTrabalhadores",
-      indexField: "registro",
-      movableRows: false,   // tabela de consulta: sem reordenar linhas à mão
-      headerSort: true,     // ordenação por clique (Registro numérico; demais texto)
-      alturaFixa: true,     // base grande → DOM virtual garantido, rola dentro da grade
-      altura: "420px",
-      vazio: "Nenhum trabalhador para os filtros selecionados."
-    });
-  }
-  gradeMapa.render(rows);
+  const titulo = `<div class="mdUniTitulo"><i class="fa-solid fa-people-roof"></i> Polos e unidades <span>${formatNumber(lista.length)}</span></div>`;
+  if (!lista.length) { el.innerHTML = titulo + `<div class="mdVazio">Sem lotações para os filtros.</div>`; return; }
+  const cap = polosVerTodas ? lista.length : POLOS_CAP;
+  const itens = lista.slice(0, cap).map(([nome, val]) => `
+    <div class="mdUniRow${nome === poloSelecionado ? " is-ativo" : ""}" data-md-lotacao="${escapeAttr(nome)}" role="button" tabindex="0" title="Ver detalhe de ${escapeAttr(nome)}">
+      <span class="mdUniIcon"><i class="fa-solid fa-location-dot"></i></span>
+      <span class="mdUniText">
+        <span class="mdUniLabel">${escapeHtml(nome)}</span>
+        <span class="mdUniCat">${escapeHtml(categoriaPolo(nome))}</span>
+      </span>
+      <span class="mdUniValor">${formatNumber(val)}<small>ativos</small></span>
+    </div>`).join("");
+  const mais = lista.length > cap
+    ? `<button type="button" class="mdVerTodas mdVerTodasPolos" data-alvo="polos">Ver todas <i class="fa-solid fa-chevron-right"></i></button>`
+    : "";
+  el.innerHTML = titulo + itens + mais;
 }
 
 // ---------- Mapas (Leaflet) ----------
 function tileLayer() {
   return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" });
 }
-function pinEstab() {
-  return L.divIcon({ className: "", html: `<span class="mdEstabPin"><i class="fa-solid fa-location-dot"></i></span>`, iconSize: [22, 28], iconAnchor: [11, 26], popupAnchor: [0, -24] });
+// Pino de estabelecimento colorido pela categoria (CASAI/Polo/UBSI/…).
+function pinEstabCat(cat) {
+  return L.divIcon({
+    className: "",
+    html: `<span class="mdEstabPin" style="background:${cat.cor}"><i class="fa-solid ${cat.icone}"></i></span>`,
+    iconSize: [22, 28], iconAnchor: [11, 26], popupAnchor: [0, -24]
+  });
 }
 
 // Desenha a máscara "mundo com buraco no Brasil" (cobre os países vizinhos) +
@@ -568,17 +735,89 @@ function marcadorContagem(total, ativo) {
     iconSize: [30, 30], iconAnchor: [15, 15]
   });
 }
+// Tooltip do pino de um DSEI: trabalhadores ativos + dados territoriais
+// (população indígena, terras indígenas, aldeias), quando houver.
+function tooltipDsei(nome, ativos) {
+  const t = territorioDoDsei(nome);
+  const linha = (lbl, val) => `<div class="mdTipRow"><span>${escapeHtml(lbl)}</span><b>${escapeHtml(formatNumber(val))}</b></div>`;
+  let html = `<div class="mdTip"><div class="mdTipTitulo">${escapeHtml(nome)}</div>`;
+  html += linha("Trabalhadores ativos", ativos);
+  if (t) {
+    html += `<div class="mdTipSep">Território</div>`;
+    html += linha("População indígena", t.populacaoIndigena);
+    html += linha("Terras indígenas", t.qtdTerrasIndigenas);
+    html += linha("Aldeias", t.qtdAldeias);
+  }
+  return html + `</div>`;
+}
 function renderMapaBrasil(listaDseis) {
   if (!mapaBrasil || !camadaBrasil) return;
   camadaBrasil.clearLayers();
   listaDseis.forEach(d => {
     const [lat, lng] = coordDsei(d.nome, d.uf);
+    // DSEIs ao norte (topo do mapa) abrem o balão para BAIXO, senão ele é cortado
+    // pela borda superior do mapa; os demais abrem para cima (padrão).
+    const paraBaixo = lat > -8;
     L.marker([lat, lng], { icon: marcadorContagem(d.total, d.nome === dseiSelecionado) })
       .addTo(camadaBrasil)
-      .bindTooltip(`<strong>${escapeHtml(d.nome)}</strong><br>${formatNumber(d.total)} trabalhadores`)
+      .bindTooltip(tooltipDsei(d.nome, d.total), {
+        className: "mdTipWrap",
+        direction: paraBaixo ? "bottom" : "top",
+        offset: paraBaixo ? [0, 12] : [0, -12]
+      })
       .on("click", () => selecionarDseiPorClique(d.nome));
   });
+  // Com um DSEI selecionado, delimita a área das unidades dele também no Brasil.
+  if (dseiSelecionado) desenharAreaDsei(pontosEstabsDoDsei(dseiSelecionado), camadaBrasil);
+  // Recalcula o tamanho e reenquadra no Brasil — sem isto, quando o container
+  // muda de largura (layout em grade), o Leaflet mantém um zoom errado e o mapa
+  // "abre" para o mundo inteiro.
+  setTimeout(() => {
+    if (!mapaBrasil) return;
+    mapaBrasil.invalidateSize();
+    const bounds = brasilGeo ? L.geoJSON(brasilGeo).getBounds() : L.latLngBounds([[5.8, -74.5], [-34.0, -33.5]]);
+    mapaBrasil.fitBounds(bounds);
+  }, 80);
 }
+// Envoltório convexo (monotone chain) de pontos [lat,lng] — usado para desenhar
+// o contorno da área coberta pelas unidades do DSEI. Retorna os vértices na borda.
+function envoltorioConvexo(pontos) {
+  const p = pontos.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const baixo = [];
+  for (const pt of p) {
+    while (baixo.length >= 2 && cross(baixo[baixo.length - 2], baixo[baixo.length - 1], pt) <= 0) baixo.pop();
+    baixo.push(pt);
+  }
+  const cima = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    const pt = p[i];
+    while (cima.length >= 2 && cross(cima[cima.length - 2], cima[cima.length - 1], pt) <= 0) cima.pop();
+    cima.push(pt);
+  }
+  baixo.pop(); cima.pop();
+  return baixo.concat(cima);
+}
+
+// Desenha o contorno (linha) da área coberta pelas unidades do DSEI selecionado,
+// na camada informada (mapa do DSEI ou mapa do Brasil).
+function desenharAreaDsei(pts, camada) {
+  if (!pts.length || !camada) return;
+  const estilo = { color: "#0a66b0", weight: 2, dashArray: "6 5", fillColor: "#007de0", fillOpacity: 0.07, interactive: false };
+  if (pts.length >= 3) {
+    const hull = envoltorioConvexo(pts);
+    if (hull.length >= 3) L.polygon(hull, estilo).addTo(camada);
+  } else if (pts.length === 2) {
+    L.polyline(pts, { color: "#0a66b0", weight: 2, dashArray: "6 5", interactive: false }).addTo(camada);
+  }
+}
+// Pontos [lat,lng] dos estabelecimentos de um DSEI (para o contorno).
+function pontosEstabsDoDsei(nome) {
+  const g = geoDoDsei(nome);
+  return g && g.estabs ? g.estabs.map(e => [e.lat, e.lng]) : [];
+}
+
 function renderMapaDsei(rows) {
   if (!mapaDsei || !camadaDsei) return;
   camadaDsei.clearLayers();
@@ -587,13 +826,16 @@ function renderMapaDsei(rows) {
 
   const g = geoDoDsei(dseiSelecionado);
   if (g && g.estabs.length) {
-    // Plota os estabelecimentos (CNES) do DSEI com coordenadas reais.
+    // Plota os estabelecimentos (CNES) do DSEI, com pino colorido por categoria.
     const pts = [];
     g.estabs.forEach(e => {
-      L.marker([e.lat, e.lng], { icon: pinEstab() }).addTo(camadaDsei)
-        .bindTooltip(`<strong>${escapeHtml(e.nome)}</strong>${e.municipio ? `<br>${escapeHtml(e.municipio)}` : ""}`);
+      const cat = catEstab(e.nome);
+      L.marker([e.lat, e.lng], { icon: pinEstabCat(cat) }).addTo(camadaDsei)
+        .bindTooltip(`<strong>${escapeHtml(e.nome)}</strong><br><span style="color:${cat.cor}">${escapeHtml(cat.rotulo)}</span>${e.municipio ? ` · ${escapeHtml(e.municipio)}` : ""}${e.cnes ? `<br>CNES ${escapeHtml(e.cnes)}` : ""}`);
       pts.push([e.lat, e.lng]);
     });
+    // Contorno delimitando a área coberta pelas unidades (CASAI, Polo Base, UBSI…).
+    desenharAreaDsei(pts, camadaDsei);
     if (pts.length > 1) mapaDsei.fitBounds(L.latLngBounds(pts).pad(0.3));
     else mapaDsei.setView(pts[0], 8);
     setTimeout(() => mapaDsei.invalidateSize(), 60);
@@ -620,12 +862,6 @@ export function configurarMapaDseis() {
   const onFiltro = debounce(() => { lerFiltros(); render(); }, 140);
   criarCombo("mdFiltroDsei", "Todos os DSEIs/CASAIs", onFiltro, { searchPlaceholder: "Buscar DSEI/CASAI…" });
   criarCombo("mdFiltroLotacao", "Todas as unidades/polos", onFiltro, { searchPlaceholder: "Buscar lotação…" });
-  criarCombo("mdFiltroNome", "Todos os trabalhadores", onFiltro, { searchPlaceholder: "Digite o nome…", maxRender: 80 });
-  criarCombo("mdFiltroCargo", "Todos os cargos", onFiltro);
-  criarCombo("mdFiltroSituacao", "Todas as situações", onFiltro);
-  criarCombo("mdFiltroVinculo", "Todos os vínculos", onFiltro);
-  criarCombo("mdFiltroTipoAdmissao", "Todos os tipos de admissão", onFiltro);
-  criarCombo("mdFiltroGrau", "Todos os graus", onFiltro);
 
   document.addEventListener("click", () => fecharTodosCombos(null));
   $("mdBtnLimpar")?.addEventListener("click", limparFiltros);
@@ -634,6 +870,20 @@ export function configurarMapaDseis() {
   $("mdListaDseis")?.addEventListener("click", e => {
     const li = e.target.closest("[data-md-dsei]");
     if (li) selecionarDseiPorClique(li.dataset.mdDsei);
+  });
+
+  // Clique (ou Enter/Espaço) num Polo Base abre o detalhe e filtra a aba.
+  // "Ver todas" expande a lista de polos sem recarregar o resto.
+  const uni = $("mdMapaUnidades");
+  uni?.addEventListener("click", e => {
+    if (e.target.closest(".mdVerTodas")) { polosVerTodas = true; renderMapaUnidades(ultimasRows); return; }
+    const row = e.target.closest("[data-md-lotacao]");
+    if (row) selecionarPoloPorClique(row.dataset.mdLotacao);
+  });
+  uni?.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const row = e.target.closest("[data-md-lotacao]");
+    if (row) { e.preventDefault(); selecionarPoloPorClique(row.dataset.mdLotacao); }
   });
 
   if (state.activeView === "mapaDseis") { carregar(); }
@@ -646,7 +896,7 @@ export function configurarMapaDseis() {
 export function renderMapaDseisAoMostrar() {
   if (!carregado && !carregando) carregar();
   else garantirMapas();
-  // Redesenha a grade ao reexibir a aba (montada oculta mede colunas erradas) e
-  // recalcula o tamanho dos mapas do Leaflet.
-  setTimeout(() => { mapaBrasil && mapaBrasil.invalidateSize(); mapaDsei && mapaDsei.invalidateSize(); gradeMapa?.redraw(); }, 120);
+  // Recalcula o tamanho dos mapas do Leaflet e redesenha a grade de unidades ao
+  // reexibir a aba (montados ocultos medem 0 e ficam cinza/errados sem isto).
+  setTimeout(() => { mapaBrasil && mapaBrasil.invalidateSize(); mapaDsei && mapaDsei.invalidateSize(); gradeUnidades?.redraw(); }, 120);
 }

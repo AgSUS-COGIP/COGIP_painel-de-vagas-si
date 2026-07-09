@@ -544,6 +544,7 @@
 .si-k-indigena { --k: var(--si-rio); }
 .si-k-afast { --k: var(--ciano); }
 .si-k-ferias { --k: var(--si-amarelo); }
+.si-k-admprog { --k: #4f46e5; }
 .si-k-deslig { --k: #7a8aa0; }
 
 /* Cards por tipo de atuação */
@@ -850,8 +851,18 @@
   white-space: nowrap;
 }
 
-.siBadge.is-ativo { background: rgba(46, 139, 87, .14); color: #1f6b43; }
-.siBadge.is-deslig { background: rgba(0, 83, 166, .12); color: #0a4a86; }
+/* Cores por tipo de situação (coluna SITUAÇÃO). */
+.siBadge.is-ativo,
+.siBadge.is-normal      { background: rgba(46, 139, 87, .16); color: #1f6b43; }   /* Normal — verde */
+.siBadge.is-deslig      { background: rgba(220, 38, 38, .13); color: #b91c1c; }   /* Desligado — vermelho */
+.siBadge.is-ferias      { background: rgba(37, 99, 235, .13); color: #1d4ed8; }   /* Férias — azul */
+.siBadge.is-atestado    { background: rgba(226, 135, 46, .18); color: #b45309; }  /* Atestado — âmbar */
+.siBadge.is-doenca      { background: rgba(124, 58, 237, .14); color: #6d28d9; }  /* Auxílio/doença — roxo */
+.siBadge.is-maternidade { background: rgba(219, 39, 119, .13); color: #be185d; }  /* Maternidade/licença — rosa */
+.siBadge.is-suspensao   { background: rgba(100, 116, 139, .18); color: #475569; } /* Suspensão — cinza */
+.siBadge.is-afast       { background: rgba(31, 122, 140, .16); color: #156673; }  /* Afastamento — azul-petróleo */
+.siBadge.is-outros      { background: rgba(0, 83, 166, .10); color: #0a4a86; }    /* Outros — neutro */
+.siBadge.is-admprog     { background: rgba(79, 70, 229, .13); color: #4338ca; }   /* Admissão Programada — índigo */
 
 .siTableFooter {
   display: flex;

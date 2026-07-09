@@ -13,6 +13,7 @@ import { configurarGestaoFerias } from "./gestao-ferias.js";
 import { configurarEntregaCracha } from "./entrega-cracha.js";
 import { configurarSaudeIndigena, prefetchSaudeIndigena } from "./saude-indigena.js";
 import { configurarMapaDseis } from "./mapa-dseis.js";
+import { configurarControleEstabilidade } from "./controle-estabilidade.js";
 import { configurarGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { configurarProcessosSeletivos } from "./processos-seletivos.js";
 import { configurarEscalaTrabalho } from "./escala-trabalho.js";
@@ -50,6 +51,7 @@ export async function init() {
   configurarEntregaCracha();
   configurarSaudeIndigena();
   configurarMapaDseis();
+  configurarControleEstabilidade();
   configurarGestaoDisciplinar();
   configurarProcessosSeletivos();
   configurarEscalaTrabalho();
