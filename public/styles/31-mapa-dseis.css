@@ -432,3 +432,271 @@
   .mdFilters { grid-template-columns: 1fr; }
   .mdKpiRow, .mdInfoGrid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   Ajustes 2026-07 — Mapa do Brasil maior, cards de unidades/polos
+   mais visíveis e responsivos (sem cortes), resumo territorial e
+   detalhe do Polo Base. Bloco no fim do arquivo: vence na cascata.
+   ============================================================ */
+
+/* ---- Mapa do Brasil maior e mais visível (escala com a viewport) ---- */
+.mdMapa.mdMapaBrasil {
+  height: clamp(460px, 56vh, 640px);
+}
+.mdMapa.mdMapaDsei {
+  height: clamp(360px, 42vh, 500px);
+}
+
+/* ---- Lista de DSEIs (coluna esquerda) ----
+   Limita a altura para não esticar junto com a coluna direita (que é alta):
+   rola dentro de si mesma em vez de virar uma lista gigante. */
+.mdCardBrasil .mdListaDseis {
+  flex: 0 1 auto;
+  max-height: clamp(240px, 34vh, 380px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* ---- Painel de unidades/polos ao lado do mapa do DSEI ----
+   Card próprio (separado do mapa), com altura limitada e rolagem interna —
+   não "gruda" no mapa nem estica a página quando há muitos polos. */
+.mdMapaWrap { gap: 18px; align-items: flex-start; }
+.mdMapaWrap .mdMapaUnidades {
+  flex: 0 0 clamp(230px, 27%, 310px);
+  align-self: stretch;
+  justify-content: flex-start;
+  max-height: clamp(360px, 42vh, 500px);   /* mesma faixa do mapa ao lado */
+  overflow-y: auto;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--si-borda, #cfe0f3);
+  border-radius: 14px;
+  background: rgba(0, 125, 224, .03);
+}
+.mdMapaWrap .mdUniTitulo { padding-top: 2px; background: #f2f8fe; }
+.mdMapaWrap .mdUniRow {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  padding: 9px 11px;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background .12s, border-color .12s, transform .05s;
+}
+.mdMapaWrap .mdUniRow:hover { background: rgba(37, 99, 235, .07); border-color: var(--si-azul, #007de0); }
+.mdMapaWrap .mdUniRow:active { transform: translateY(1px); }
+.mdMapaWrap .mdUniRow:focus-visible { outline: 2px solid var(--si-azul, #007de0); outline-offset: 1px; }
+.mdMapaWrap .mdUniRow.is-ativo {
+  background: rgba(37, 99, 235, .14);
+  border-color: var(--si-azul, #007de0);
+}
+.mdMapaWrap .mdUniIcon {
+  width: 28px; height: 28px; align-self: start;
+  border-radius: 50%; display: grid; place-items: center;
+  background: var(--si-azul, #007de0); color: #fff; font-size: 12px;
+}
+/* Nome completo, sem reticências nem corte */
+.mdMapaWrap .mdUniLabel {
+  font-size: 12.5px; font-weight: 700; line-height: 1.25;
+  color: var(--si-azul-prof, #0a2a4d);
+  white-space: normal; overflow-wrap: anywhere; overflow: visible; text-overflow: clip;
+}
+.mdMapaWrap .mdUniValor { font-size: 15px; font-weight: 900; align-self: start; }
+
+/* Empilha o painel sob o mapa em telas médias/pequenas (sem espremer) */
+@media (max-width: 900px) {
+  .mdMapaWrap { flex-direction: column; }
+  .mdMapaWrap .mdMapaUnidades {
+    flex-basis: auto;
+    max-height: 260px;
+    flex-direction: row; flex-wrap: wrap;   /* vira grade de chips roláveis */
+  }
+  .mdMapaWrap .mdUniRow { flex: 1 1 220px; }
+}
+
+/* ---- Resumo territorial (reaproveita os KPIs, tom terroso do painel SI) ---- */
+.mdTerritorioGrid { grid-template-columns: repeat(3, 1fr); }
+.mdCardTerritorio .mdKpiIcon { background: var(--si-terra, #9C4221); }
+.mdCardTerritorio .mdKpi { background: rgba(156, 66, 33, .06); }
+.mdTerritorioNota {
+  margin: 10px 2px 0;
+  font-size: 11.5px; line-height: 1.45; color: #64748b; font-style: italic;
+}
+@media (max-width: 620px) { .mdTerritorioGrid { grid-template-columns: 1fr; } }
+
+/* ---- Detalhe do Polo Base (clique na lista de unidades) ---- */
+.mdPoloDetalhe {
+  margin-top: 14px;
+  border: 1px solid var(--si-borda, #cfe0f3);
+  border-left: 4px solid var(--si-azul, #007de0);
+  border-radius: 12px;
+  background: rgba(0, 125, 224, .04);
+  padding: 12px 14px;
+}
+.mdPoloHead {
+  display: flex; align-items: center; gap: 9px;
+  margin-bottom: 8px;
+  color: var(--si-azul-prof, #0a2a4d);
+}
+.mdPoloHead > i { color: var(--si-azul, #007de0); }
+.mdPoloNome { font-size: 14px; font-weight: 900; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.mdPoloClose {
+  flex: 0 0 auto; border: none; background: none; cursor: pointer;
+  font-size: 22px; line-height: 1; color: #94a3b8; padding: 0 4px;
+}
+.mdPoloClose:hover { color: var(--si-urucum, #C8472B); }
+.mdPoloLista { list-style: none; margin: 0; padding: 0; }
+.mdPoloLista li {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 6px 0; border-bottom: 1px solid rgba(0, 0, 0, .05);
+  font-size: 12.5px; color: var(--si-azul-prof, #0a2a4d);
+}
+.mdPoloLista li:last-child { border-bottom: none; }
+.mdPoloLista li > span { color: #64748b; }
+.mdPoloLista li > strong { font-weight: 800; text-align: right; overflow-wrap: anywhere; }
+.mdPoloLista .mdNd { font-weight: 700; font-style: italic; color: #94a3b8; }
+
+/* ---- Polos/unidades: chip de categoria + rótulo "ativos" no valor ---- */
+.mdMapaWrap .mdUniRow { grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; }
+.mdMapaWrap .mdUniText { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mdUniCat {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px;
+  color: var(--si-azul, #007de0);
+}
+.mdMapaWrap .mdUniValor {
+  display: flex; flex-direction: column; align-items: flex-end; line-height: 1;
+  font-size: 15px; font-weight: 900; color: var(--si-azul-prof, #0a2a4d);
+}
+.mdMapaWrap .mdUniValor small { font-size: 8.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .3px; margin-top: 2px; }
+
+/* ---- Legenda de categorias sob o mapa do DSEI ---- */
+.mdCardMapaDsei .mdLegenda { margin-top: 12px; padding-top: 10px; gap: 12px 16px; }
+.mdCardMapaDsei .mdLegItem .mdPin { width: 11px; height: 11px; box-shadow: 0 0 0 3px rgba(0, 0, 0, .05); }
+
+/* ============================================================
+   Rede de saúde indígena (rede_cnes): contadores por categoria + lista
+   completa (nome, categoria, município, CNES). Identidade SI (tons terra).
+   ============================================================ */
+.mdCardRede .mdContadores { margin-bottom: 4px; }
+.mdContadorTotal { outline: 1px dashed var(--si-borda, #cfe0f3); }
+
+.mdRedeLista {
+  margin-top: 12px;
+  max-height: clamp(260px, 40vh, 460px);
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+  padding-right: 4px;
+}
+.mdRedeHint {
+  margin: 8px 2px; font-size: 12.5px; color: #64748b; line-height: 1.5;
+  display: flex; align-items: center; gap: 8px;
+}
+.mdRedeHint i { color: var(--si-azul, #007de0); }
+.mdEstabRow {
+  display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: start; gap: 10px;
+  padding: 8px 10px; border-radius: 10px;
+  border: 1px solid var(--si-borda, #cfe0f3); background: #fff;
+}
+.mdEstabCatDot { width: 11px; height: 11px; border-radius: 50%; margin-top: 4px; box-shadow: 0 0 0 3px rgba(0, 0, 0, .04); }
+.mdEstabText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mdEstabNome { font-size: 12.5px; font-weight: 700; color: var(--si-azul-prof, #0a2a4d); line-height: 1.25; overflow-wrap: anywhere; }
+.mdEstabMeta { font-size: 11px; color: #64748b; line-height: 1.3; overflow-wrap: anywhere; }
+.mdEstabCat { font-weight: 800; text-transform: uppercase; letter-spacing: .2px; }
+.mdEstabMeta i { font-size: 9px; }
+
+/* ============================================================
+   Reposicionamento 2026-07 (conforme referência): grade de 2 colunas
+   (KPIs full-width; Territorial|Rede-totais; Mapa Brasil|Mapa Polos;
+   Rede-resumo|Tabela de unidades). Mapas mais largos/altos. Bloco final.
+   ============================================================ */
+/* Layout: KPIs em faixa de largura total no topo; abaixo, mapa do Brasil à
+   esquerda + coluna de detalhe à direita. */
+.mdGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  align-items: start;
+}
+.mdFullRow { grid-column: 1 / -1; }
+/* Linha 3: cards de mapa lado a lado, cada um na sua altura natural (sem
+   esticar até a altura do outro — evita vazão em branco embaixo do mapa). */
+.mdCardBrasil, .mdCardMapaDsei { display: flex; flex-direction: column; align-self: start; }
+
+/* Linha 2: Resumo territorial e Rede (totais) com a MESMA altura. */
+.mdCardTerritorio, .mdCardRedeTotais { align-self: stretch; height: 100%; display: flex; flex-direction: column; }
+.mdCardTerritorio .mdTerritorioGrid { flex: 1 1 auto; align-content: center; }
+.mdCardRedeTotais .mdContadores { flex: 1 1 auto; align-content: center; }
+
+/* KPIs: 4 colunas fixas (não empilha nem deixa vazão). */
+.mdCardResumo.mdFullRow .mdKpiRow { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) { .mdCardResumo.mdFullRow .mdKpiRow { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .mdCardResumo.mdFullRow .mdKpiRow { grid-template-columns: 1fr; } }
+
+/* Mapas com a MESMA altura, lado a lado (o do Brasil não abre pro mundo). */
+.mdMapa.mdMapaBrasil { height: clamp(440px, 54vh, 620px); }
+.mdMapa.mdMapaDsei   { height: clamp(440px, 54vh, 620px); }
+/* A lista de polos/unidades vai só até a altura do mapa (rola por dentro; não
+   pode ficar mais alta que o mapa, senão infla a linha e cria vazão em branco). */
+.mdMapaWrap .mdMapaUnidades { max-height: clamp(440px, 54vh, 620px); align-self: stretch; }
+
+/* Botão "Ver todas" (polos e tabela de unidades). */
+.mdVerTodas {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 12px 2px 2px; padding: 7px 13px;
+  border: 1px solid var(--si-borda, #cfe0f3); border-radius: 999px;
+  background: #fff; color: var(--si-azul, #007de0);
+  font-size: 12px; font-weight: 800; cursor: pointer; transition: background .12s;
+}
+.mdVerTodas:hover { background: rgba(0, 125, 224, .08); }
+.mdVerTodasPolos { width: 100%; justify-content: center; }
+
+/* Cabeçalho de card com contagem à direita. */
+.mdCardHeadFlex { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mdCardCount {
+  font-size: 12px; font-weight: 800; color: var(--si-azul-prof, #0a2a4d);
+  background: rgba(0, 125, 224, .1); border-radius: 999px; padding: 3px 12px;
+}
+
+/* Tabela "Unidades da rede de saúde indígena": Tipo · Unidade · Localização · CNES. */
+.mdUnidadesTabela { margin-top: 6px; }
+.mdUniTableWrap {
+  max-height: clamp(300px, 48vh, 560px); overflow-y: auto;
+  border: 1px solid var(--si-borda, #cfe0f3); border-radius: 12px;
+}
+.mdUniTable { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.mdUniTable thead th {
+  position: sticky; top: 0; z-index: 1; background: #f2f8fe; color: var(--si-azul, #007de0);
+  text-align: left; font-size: 10.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .3px;
+  padding: 9px 12px; border-bottom: 1px solid var(--si-borda, #cfe0f3);
+}
+.mdUniTable tbody td {
+  padding: 8px 12px; border-bottom: 1px solid rgba(0, 0, 0, .05);
+  color: var(--si-azul-prof, #0a2a4d); vertical-align: middle;
+}
+.mdUniTable tbody tr:last-child td { border-bottom: none; }
+.mdUniTable tbody tr:hover { background: rgba(37, 99, 235, .05); }
+.mdUniTipo { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.mdCatDot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(0, 0, 0, .04); }
+.mdCatNome { font-weight: 800; text-transform: uppercase; font-size: 11px; letter-spacing: .2px; }
+.mdUniNomeCel { font-weight: 700; overflow-wrap: anywhere; }
+.mdUniCnes { color: #64748b; white-space: nowrap; }
+
+/* Tooltip rico dos pinos do mapa do Brasil (dados do DSEI ao passar o mouse). */
+.mdTipWrap { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+.mdTipWrap .leaflet-tooltip-tip { display: none; }
+.mdTip {
+  min-width: 208px; background: #fff; color: var(--si-azul-prof, #0a2a4d);
+  border: 1px solid var(--si-borda, #cfe0f3); border-top: 4px solid var(--si-azul, #007de0);
+  border-radius: 12px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 50, 113, .22);
+}
+.mdTipTitulo { font-size: 13.5px; font-weight: 900; margin-bottom: 6px; }
+.mdTipSep {
+  font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--si-azul, #007de0); margin: 7px 0 3px; padding-top: 5px;
+  border-top: 1px dashed var(--si-borda, #cfe0f3);
+}
+.mdTipRow { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; padding: 2px 0; }
+.mdTipRow span { color: #64748b; }
+.mdTipRow b { font-weight: 800; }
+
+@media (max-width: 1100px) {
+  .mdGrid { grid-template-columns: 1fr; }
+}
