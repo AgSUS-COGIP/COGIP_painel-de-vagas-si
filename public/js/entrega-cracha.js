@@ -330,6 +330,13 @@ const EC_COLS = [
   { title: "Receb. Trabalhador", field: "dataRecebTrabalhador", minWidth: 120, formatter: c => celulaData(c.getValue()) }
 ];
 
+// Mostra/oculta a coluna CPF conforme o escopo (só SEDE vê). Só deve ser chamada
+// com a grade PRONTA (tableBuilt), senão getColumn não encontra a coluna ainda.
+function aplicarVisibilidadeCpf() {
+  const colCpf = gradeEc?.tabela?.getColumn?.("cpf");
+  if (colCpf) (ehSede() ? colCpf.show() : colCpf.hide());
+}
+
 function render() {
   // Reavalia a permissão a cada render: no init o usuário ainda não está
   // logado (nível 0); após o login/carregamento isto reflete o nível real.
@@ -360,17 +367,18 @@ function render() {
       indexField: "id",
       movableRows: false,
       idSelecionado: () => detalheId,
+      // Aplica a visibilidade do CPF assim que a grade termina de construir (as
+      // colunas já existem — evita o "No matching column found: cpf").
+      aoConstruir: aplicarVisibilidadeCpf,
       vazio: "Nenhum registro encontrado para os filtros selecionados."
     });
   }
   gradeEc?.render(pagina, placeholder);
   // Coluna CPF: a única trava é ser da SEDE (escopo = todos os DSEIs). Qualquer
   // nível da sede vê; usuário restrito a DSEI/escritório não (o backend também
-  // não manda o CPF nesse caso). Reavalia a cada render (o escopo vale após login).
-  try {
-    const colCpf = gradeEc?.tabela?.getColumn?.("cpf");
-    if (colCpf) (ehSede() ? colCpf.show() : colCpf.hide());
-  } catch (e) { /* grade ainda montando */ }
+  // não manda o CPF nesse caso). Reavalia a cada render (o escopo vale após login);
+  // só toca a coluna com a grade PRONTA — no 1º render o aoConstruir cobre.
+  if (gradeEc?.pronta) aplicarVisibilidadeCpf();
   // O Tabulator às vezes não pinta as linhas após substituir os dados (só ao
   // rolar). Um redraw no próximo frame força o redesenho das linhas visíveis.
   // Cobre todos os caminhos (reverter, lote, filtro, paginação, "por página").

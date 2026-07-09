@@ -306,6 +306,10 @@ export function criarTabelaArrastavel(opts) {
     tabela.on("tableBuilt", () => {
       pronta = true;
       if (coach) atualizarVisibilidadeCoach(coach);
+      // Gancho pós-build: ajustes que dependem das colunas já registradas (ex.:
+      // mostrar/ocultar coluna por permissão). Chamar getColumn antes do build
+      // gera "No matching column found". Roda 1x, com a tabela pronta.
+      if (typeof opts.aoConstruir === "function") { try { opts.aoConstruir(tabela); } catch { /* callback do chamador */ } }
       if (pendente !== null) { const p = pendente; pendente = null; aplicarDados(p); }
       // Alguns navegadores montam a grade com o CORPO vazio (só cabeçalho) até um
       // relayout — o conteúdo "some" e só aparece ao rolar/redimensionar. Um redraw
@@ -366,6 +370,9 @@ export function criarTabelaArrastavel(opts) {
 
   return {
     get tabela() { return tabela; },
+    // tableBuilt já disparou? Chamadas que tocam colunas (getColumn, etc.) só são
+    // seguras quando pronta === true; antes disso o Tabulator ainda registra a grade.
+    get pronta() { return pronta; },
     // render(linhas[, placeholder]): o 2º argumento (opcional) troca a mensagem
     // do estado vazio antes de aplicar os dados (ex.: "Carregando…"/erro).
     render(linhas, placeholder) {

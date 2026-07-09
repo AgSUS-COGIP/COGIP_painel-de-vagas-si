@@ -310,6 +310,7 @@ let editandoDados = false;
 
 // Instância única do Tabulator (criada na 1ª renderização, com a aba já visível).
 let tabela = null;
+let tabelaPronta = false;  // tableBuilt já disparou? redraw antes disso = "Table Not Initialized"
 
 // Persistência da ORDEM DAS LINHAS arrastadas. O Tabulator já persiste sozinho a
 // ordem/largura das COLUNAS (opção `persistence`), mas não a de linhas movidas à
@@ -452,6 +453,11 @@ function criarTabela() {
     headerSort: true,           // ordenação por clique no cabeçalho (datas com sorter cronológico); uma ordenação ativa substitui a ordem manual das linhas
     movableColumns: true,
     movableRows: true,
+    // autoResize usa ResizeObserver e entra em laço de redimensionamento vazia +
+    // maxHeight ("Maximum call stack size exceeded": tableResized -> redraw ->
+    // tableEmpty -> _showPlaceholder -> muda a altura -> repete). Redesenhamos à
+    // mão ao abrir a aba (renderGestaoDisciplinarAoMostrar) e no columnResized.
+    autoResize: false,
     persistence: { columns: true }, // ordem/largura/visibilidade das colunas (localStorage)
     persistenceID: "gdPedidosV2",   // V2: descarta o layout corrompido salvo antes do CSS carregar
     placeholder: "Nenhum registro para os filtros selecionados.",
@@ -478,7 +484,7 @@ function criarTabela() {
   tabela.on("columnResized", () => { try { tabela.redraw(true); } catch { /* construindo */ } });
 
   // Com a grade já montada (cabeçalho posicionado), exibe a dica de uso 1x.
-  tabela.on("tableBuilt", mostrarCoachmarks);
+  tabela.on("tableBuilt", () => { tabelaPronta = true; mostrarCoachmarks(); });
 }
 
 function renderTabela() {
@@ -1543,7 +1549,13 @@ function aplicarModoLeituraDisciplinar() {
 // recalcula o layout da grade (que pode ter sido montada com a aba oculta).
 export function renderGestaoDisciplinarAoMostrar() {
   if (!carregandoPedidos) carregarPedidos();
-  if (tabela) tabela.redraw(true);
+  // Só redesenha depois do tableBuilt e com o container visível: redraw antes da
+  // construção gera "Table Not Initialized"; com clientWidth=0 (aba oculta) o
+  // Tabulator entra em laço no adjustTableSize.
+  const el = $("gdTabela");
+  if (tabela && tabelaPronta && el && el.clientWidth) {
+    try { tabela.redraw(true); } catch { /* recém-montada/destruída */ }
+  }
 }
 
 export function configurarGestaoDisciplinar() {
