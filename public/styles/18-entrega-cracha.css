@@ -84,11 +84,11 @@
 }
 
 /* Telas largas: linha 1 com 5 métricas (resumo + indicadores) e linha 2 com as
-   6 do funil. Os 5 primeiros ocupam 1/5 (enchem a 1ª linha e empurram o funil
-   p/ baixo); os 6 seguintes ocupam 1/6 (cabem juntos na 2ª linha). */
+   7 do funil. Os 5 primeiros ocupam 1/5 (enchem a 1ª linha e empurram o funil
+   p/ baixo); os 7 seguintes ocupam 1/7 (cabem juntos na 2ª linha). */
 @media (min-width: 1181px) {
   .ecKpi:nth-child(-n+5) { flex-basis: calc((100% - 56px) / 5); } /* 5 na 1ª linha */
-  .ecKpi:nth-child(n+6)  { flex-basis: calc((100% - 70px) / 6); } /* 6 na 2ª linha */
+  .ecKpi:nth-child(n+6)  { flex-basis: calc((100% - 84px) / 7); } /* 7 na 2ª linha */
 }
 
 .ecKpiIcone {
@@ -141,6 +141,7 @@
 .ecKpiIcone.is-cyan { background: linear-gradient(135deg, #1fb0e6, #0d8ec2); }
 .ecKpiIcone.is-lilac { background: linear-gradient(135deg, #8b6fd6, #6a4fc0); }
 .ecKpiIcone.is-yellow { background: linear-gradient(135deg, #f1b53b, #d99a10); }
+.ecKpiIcone.is-rose { background: linear-gradient(135deg, #e0518a, #c02f6b); }
 
 /* ---------- Barra de filtros e ações ---------- */
 .ecToolbar {
@@ -378,6 +379,7 @@ select.ecInput {
 }
 
 .ecBadge.is-foto { background: #ffdcd7; color: #b5281a; }
+.ecBadge.is-foto-reprovada { background: #ffd6e6; color: #a01050; }
 .ecBadge.is-grafica { background: #fff2d6; color: #8a5a00; }
 .ecBadge.is-confeccao { background: #d6ecff; color: #0a5bb0; }
 .ecBadge.is-aguardando { background: #d3f0ef; color: #0a7470; }

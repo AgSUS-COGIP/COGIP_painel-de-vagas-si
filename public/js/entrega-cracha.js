@@ -23,12 +23,13 @@ const NIVEL_ADMINISTRADOR = 3; // Administrador (nível máximo)
 
 // Funil de status (rótulos amigáveis; o de-para para o banco é feito no backend).
 let STATUS_LISTA = [
-  "Foto Pendente de Envio", "Envio à Gráfica Pendente", "Crachás em Confecção",
+  "Foto Pendente de Envio", "Foto Reprovada", "Envio à Gráfica Pendente", "Crachás em Confecção",
   "Crachá Confeccionado", "Entregue ao Escritório", "Entregue ao Trabalhador"
 ];
 
 const STATUS_CLASSE = {
   "Foto Pendente de Envio": "is-foto",
+  "Foto Reprovada": "is-foto-reprovada",
   "Envio à Gráfica Pendente": "is-grafica",
   "Crachás em Confecção": "is-confeccao",
   "Crachá Confeccionado": "is-confeccionado",
@@ -222,6 +223,7 @@ function renderKpis(lista) {
   set("ecKpiDesligados", desligados.length);
 
   set("ecKpiFoto", porStatusAtivos("Foto Pendente de Envio"));
+  set("ecKpiFotoReprovada", porStatusAtivos("Foto Reprovada"));
   set("ecKpiGrafica", porStatusAtivos("Envio à Gráfica Pendente"));
   set("ecKpiConfeccao", porStatusAtivos("Crachás em Confecção"));
   set("ecKpiConfeccionado", porStatusAtivos("Crachá Confeccionado"));
