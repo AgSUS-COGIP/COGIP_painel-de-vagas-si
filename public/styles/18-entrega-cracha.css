@@ -83,12 +83,12 @@
   .ecKpi { flex-basis: calc((100% - 14px) / 2); } /* 2 por linha */
 }
 
-/* Telas largas: linha 1 com 5 métricas (resumo + indicadores) e linha 2 com as
-   7 do funil. Os 5 primeiros ocupam 1/5 (enchem a 1ª linha e empurram o funil
-   p/ baixo); os 7 seguintes ocupam 1/7 (cabem juntos na 2ª linha). */
+/* Telas largas: 6 métricas por linha (linha 1 = resumo + "Foto Pendente de Envio";
+   linha 2 = as demais 6 do funil). Dividir em 6/6 evita a 2ª linha lotada com 7
+   cards espremidos. Ambas as linhas ocupam 1/6 da largura. */
 @media (min-width: 1181px) {
-  .ecKpi:nth-child(-n+5) { flex-basis: calc((100% - 56px) / 5); } /* 5 na 1ª linha */
-  .ecKpi:nth-child(n+6)  { flex-basis: calc((100% - 84px) / 7); } /* 7 na 2ª linha */
+  .ecKpi:nth-child(-n+6) { flex-basis: calc((100% - 70px) / 6); } /* 6 na 1ª linha */
+  .ecKpi:nth-child(n+7)  { flex-basis: calc((100% - 70px) / 6); } /* 6 na 2ª linha */
 }
 
 .ecKpiIcone {

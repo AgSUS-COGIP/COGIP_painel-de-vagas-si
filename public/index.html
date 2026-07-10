@@ -1582,6 +1582,11 @@
                   <option value="sim">2ª Via: Sim</option>
                   <option value="nao">2ª Via: Não</option>
                 </select>
+                <select class="ecSelect" id="ecFiltroSituacao" data-ec-filtro aria-label="Situação (Ativos/Desligados)">
+                  <option value="">Situação (todos)</option>
+                  <option value="ativos">Somente ativos</option>
+                  <option value="desligados">Somente desligados</option>
+                </select>
                 <div class="ecField ecFieldDate">
                   <input class="ecInput" type="date" id="ecFiltroDataInicial" data-ec-filtro aria-label="Data inicial">
                 </div>
@@ -1595,9 +1600,6 @@
                   title="Recarregar dados do banco (ETL e alterações manuais)">
                   <i class="fa-solid fa-rotate"></i> Atualizar
                 </button>
-              </div>
-
-              <div class="ecToolbarLinha">
                 <div class="ecField ecFieldSearch">
                   <i class="fa-solid fa-magnifying-glass"></i>
                   <input class="ecInput" type="search" id="ecBuscaNome" data-ec-filtro
