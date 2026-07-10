@@ -846,7 +846,8 @@ export function alterarMesRemanejamento() {
 }
 
 export function adicionarLinhaRemanejamento(tipo) {
-  if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não edita o formulário
+  // Leitor PODE montar o formulário para simular o impacto financeiro (não salva:
+  // o botão Salvar e o bloco 5 seguem ocultos e o backend bloqueia o POST).
   state.remanejamentoLinhas[tipo] = state.remanejamentoLinhas[tipo] || [];
   state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO }));
   renderLinhasRemanejamento(tipo);
@@ -854,7 +855,7 @@ export function adicionarLinhaRemanejamento(tipo) {
 }
 
 export function removerLinhaRemanejamento(tipo, id) {
-  if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não edita o formulário
+  // Leitor PODE ajustar as linhas do formulário para simular (ver adicionarLinhaRemanejamento).
   state.remanejamentoLinhas[tipo] = (state.remanejamentoLinhas[tipo] || []).filter(item => item.id !== id);
   if (!state.remanejamentoLinhas[tipo].length) {
     state.remanejamentoLinhas[tipo].push(criarLinhaRemanejamento(tipo, { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO }));
