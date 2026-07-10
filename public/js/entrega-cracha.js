@@ -23,12 +23,13 @@ const NIVEL_ADMINISTRADOR = 3; // Administrador (nível máximo)
 
 // Funil de status (rótulos amigáveis; o de-para para o banco é feito no backend).
 let STATUS_LISTA = [
-  "Foto Pendente de Envio", "Envio à Gráfica Pendente", "Crachás em Confecção",
+  "Foto Pendente de Envio", "Foto Reprovada", "Envio à Gráfica Pendente", "Crachás em Confecção",
   "Crachá Confeccionado", "Entregue ao Escritório", "Entregue ao Trabalhador"
 ];
 
 const STATUS_CLASSE = {
   "Foto Pendente de Envio": "is-foto",
+  "Foto Reprovada": "is-foto-reprovada",
   "Envio à Gráfica Pendente": "is-grafica",
   "Crachás em Confecção": "is-confeccao",
   "Crachá Confeccionado": "is-confeccionado",
@@ -201,13 +202,17 @@ async function desfazerImportacao(matriculas) {
   }
 }
 
-// Situações funcionais (SITUACAO_DETALHADA_DESC) que caracterizam trabalhador
-// desligado. Normalizadas (sem acento/caixa) para comparação robusta.
-const SITUACOES_DESLIGADO = new Set([
-  "aviso indenizado", "desligado", "aviso trabalhado", "desligamento sem rescisao"
-]);
+// Padrões de SITUACAO_DETALHADA_DESC que caracterizam trabalhador desligado.
+// Comparados por CONTEÚDO (substring), sem acento/caixa, para serem robustos a
+// variações do texto vindo do ETL. Cobrem: Desligado, Desligamento (sem rescisão,
+// programado), Aviso Indenizado, Aviso Trabalhado e Demissão (por iniciativa do
+// empregado/empresa). Nenhuma situação de ativo contém esses trechos.
+const PADROES_DESLIGADO = ["deslig", "aviso indeniz", "aviso trabalh", "demiss"];
 const normSituacao = v => (v || "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
-const ehDesligado = s => SITUACOES_DESLIGADO.has(normSituacao(s.situacaoDetalhada));
+const ehDesligado = s => {
+  const v = normSituacao(s.situacaoDetalhada);
+  return !!v && PADROES_DESLIGADO.some(p => v.includes(p));
+};
 
 // ---------- KPIs (total, ativos e um por status do funil) ----------
 function renderKpis(lista) {
@@ -222,6 +227,7 @@ function renderKpis(lista) {
   set("ecKpiDesligados", desligados.length);
 
   set("ecKpiFoto", porStatusAtivos("Foto Pendente de Envio"));
+  set("ecKpiFotoReprovada", porStatusAtivos("Foto Reprovada"));
   set("ecKpiGrafica", porStatusAtivos("Envio à Gráfica Pendente"));
   set("ecKpiConfeccao", porStatusAtivos("Crachás em Confecção"));
   set("ecKpiConfeccionado", porStatusAtivos("Crachá Confeccionado"));
@@ -241,6 +247,7 @@ function lerFiltros() {
     escritorio: $("ecFiltroEscritorio")?.value || "",
     devolvido: $("ecFiltroDevolvido")?.value || "",
     segundaVia: $("ecFiltroSegundaVia")?.value || "",
+    situacao: $("ecFiltroSituacao")?.value || "",
     dataIni: $("ecFiltroDataInicial")?.value || "",
     dataFim: $("ecFiltroDataFinal")?.value || "",
     nome: ($("ecBuscaNome")?.value || "").trim().toLowerCase(),
@@ -260,6 +267,11 @@ function aplicarFiltros(ignorarStatus) {
     if (filtros.escritorio && escritorioDoDsei(s.dsei) !== filtros.escritorio) return false;
     if (filtros.devolvido && (s.devolvido ? "sim" : "nao") !== filtros.devolvido) return false;
     if (filtros.segundaVia && (s.segundaVia ? "sim" : "nao") !== filtros.segundaVia) return false;
+    if (filtros.situacao) {
+      const desligado = ehDesligado(s);
+      if (filtros.situacao === "ativos" && desligado) return false;
+      if (filtros.situacao === "desligados" && !desligado) return false;
+    }
     if (filtros.nome && !(s.nome || "").toLowerCase().includes(filtros.nome) && !(s.matricula || "").toLowerCase().includes(filtros.nome)) return false;
     if (filtros.cargo && !(s.cargo || "").toLowerCase().includes(filtros.cargo)) return false;
     if (iniT !== null || fimT !== null) {
@@ -328,6 +340,13 @@ const EC_COLS = [
   { title: "Receb. Trabalhador", field: "dataRecebTrabalhador", minWidth: 120, formatter: c => celulaData(c.getValue()) }
 ];
 
+// Mostra/oculta a coluna CPF conforme o escopo (só SEDE vê). Só deve ser chamada
+// com a grade PRONTA (tableBuilt), senão getColumn não encontra a coluna ainda.
+function aplicarVisibilidadeCpf() {
+  const colCpf = gradeEc?.tabela?.getColumn?.("cpf");
+  if (colCpf) (ehSede() ? colCpf.show() : colCpf.hide());
+}
+
 function render() {
   // Reavalia a permissão a cada render: no init o usuário ainda não está
   // logado (nível 0); após o login/carregamento isto reflete o nível real.
@@ -358,17 +377,18 @@ function render() {
       indexField: "id",
       movableRows: false,
       idSelecionado: () => detalheId,
+      // Aplica a visibilidade do CPF assim que a grade termina de construir (as
+      // colunas já existem — evita o "No matching column found: cpf").
+      aoConstruir: aplicarVisibilidadeCpf,
       vazio: "Nenhum registro encontrado para os filtros selecionados."
     });
   }
   gradeEc?.render(pagina, placeholder);
   // Coluna CPF: a única trava é ser da SEDE (escopo = todos os DSEIs). Qualquer
   // nível da sede vê; usuário restrito a DSEI/escritório não (o backend também
-  // não manda o CPF nesse caso). Reavalia a cada render (o escopo vale após login).
-  try {
-    const colCpf = gradeEc?.tabela?.getColumn?.("cpf");
-    if (colCpf) (ehSede() ? colCpf.show() : colCpf.hide());
-  } catch (e) { /* grade ainda montando */ }
+  // não manda o CPF nesse caso). Reavalia a cada render (o escopo vale após login);
+  // só toca a coluna com a grade PRONTA — no 1º render o aoConstruir cobre.
+  if (gradeEc?.pronta) aplicarVisibilidadeCpf();
   // O Tabulator às vezes não pinta as linhas após substituir os dados (só ao
   // rolar). Um redraw no próximo frame força o redesenho das linhas visíveis.
   // Cobre todos os caminhos (reverter, lote, filtro, paginação, "por página").
@@ -1012,7 +1032,7 @@ function preencherSelects() {
 }
 
 function limparFiltros() {
-  ["ecFiltroDsei", "ecFiltroStatus", "ecFiltroEscritorio", "ecFiltroDevolvido", "ecFiltroSegundaVia", "ecFiltroDataInicial", "ecFiltroDataFinal", "ecBuscaNome", "ecBuscaCargo"]
+  ["ecFiltroDsei", "ecFiltroStatus", "ecFiltroEscritorio", "ecFiltroDevolvido", "ecFiltroSegundaVia", "ecFiltroSituacao", "ecFiltroDataInicial", "ecFiltroDataFinal", "ecBuscaNome", "ecBuscaCargo"]
     .forEach(id => { const el = $(id); if (el) el.value = ""; });
   lerFiltros();
   paginaAtual = 1;
@@ -1040,6 +1060,7 @@ function exportarExcel() {
     "Cargo": s.cargo || "",
     "Situação Funcional": s.situacaoDetalhada || "",
     "Possui Foto": s.possuiFoto ? "Sim" : "Não",
+    "Link da Foto": s.linkFotos || "",
     "Status": s.status || "",
     "Crachá Devolvido": s.devolvido ? "Sim" : "Não",
     "Solicitação 2ª Via": s.segundaVia ? "Sim" : "Não",
@@ -1080,7 +1101,7 @@ function camposModeloGrafica(s) {
     nomeVerso: nome,                                // Nome (Verso) = completo
     admissao: s.dataAdmissao || "",                 // Admissão (Verso)
     cpf: s.cpf ? formatarCpf(s.cpf) : "",           // CPF (Verso) — vazio se não vier
-    foto: [s.dsei, nome].filter(Boolean).join(" - ") // FOTO (FRENTE) = "DSEI - Nome completo"
+    foto: s.linkFotos || ""                         // FOTO (FRENTE) = link da foto (coluna LINK_FOTOS)
   };
 }
 
@@ -1161,7 +1182,8 @@ const IMPORT_COLS = [
   { header: "Crach\u00E1 Devolvido", key: "devolvido", bool: true, w: 130 },
   { header: "Solicita\u00E7\u00E3o 2\u00AA Via", key: "segundaVia", bool: true, w: 130 },
   { header: "Motivo da 2\u00AA Via", key: "motivoSegundaVia", w: 150 },
-  { header: "Observa\u00E7\u00E3o", key: "observacao", w: 180 }
+  { header: "Observa\u00E7\u00E3o", key: "observacao", w: 180 },
+  { header: "Link da Foto", key: "linkFotos", w: 220 }
 ];
 
 const MARCA_EXEMPLO = "EXEMPLO - REMOVA ESTA LINHA";
@@ -1173,7 +1195,8 @@ function baixarModelo() {
     matricula: "123456", nome: MARCA_EXEMPLO, dsei: "DSEI EXEMPLO", cargo: "Ex Enfermeiro",
     situacaoDetalhada: "Normal", status: "Status do cracha", dataSolicitacao: "ex 01/06/2026",
     dataEnvio: "ex 05/06/2026", dataConfeccao: "ex 05/06/2026", dataRecebEscritorio: "ex 05/06/2026", dataRecebTrabalhador: "ex 05/06/2026",
-    devolvido: "Caso aplicavel, se nao deixe em branco", segundaVia: "Caso aplicavel, se nao deixe em branco", motivoSegundaVia: "Caso aplicavel, se nao deixe em branco", observacao: "Linha de exemplo \u2014 apague antes de importar"
+    devolvido: "Caso aplicavel, se nao deixe em branco", segundaVia: "Caso aplicavel, se nao deixe em branco", motivoSegundaVia: "Caso aplicavel, se nao deixe em branco", observacao: "Linha de exemplo \u2014 apague antes de importar",
+    linkFotos: "https://... (link da foto, caso aplicavel)"
   };
   const headers = IMPORT_COLS.map(c => c.header);
   const linhas = [headers, IMPORT_COLS.map(c => exemplo[c.key] || "")];
@@ -1493,7 +1516,8 @@ const IMPORT_EDIT = {
   devolvido: "bool",
   segundaVia: "bool",
   motivoSegundaVia: "text",
-  observacao: "text"
+  observacao: "text",
+  linkFotos: "text"
 };
 
 function celulaPreview(linha, key, idx) {
