@@ -12,10 +12,10 @@ const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVaga
 const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
 const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/db");
-const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn } = require("./lib/acesso");
+const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn, unidadeEscopoDaSolicitacao } = require("./lib/acesso");
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, garantirEscopoPedidoComConn, garantirEscopoAnexoComConn, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
-const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn, obterEscopoUsuarioComConn, resolverIdUnidadePorNomeComConn } = require("./lib/escopo");
+const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn, obterEscopoUsuarioComConn, resolverIdsUnidadePorDescComConn } = require("./lib/escopo");
 const { autenticarUsuario, autenticarUsuarioGoogle, registrarUsuarioLocal, obterUsuarioAtualComConn, autenticarMiddleware, autenticarFrescoMiddleware, autenticarOpcionalMiddleware, garantirTabelaUsuarios } = require("./lib/auth");
 const { getSaudeIndigenaData } = require("./lib/saude-indigena");
 const { listarDseisCasaiComConn } = require("./lib/dsei-casai");
@@ -801,11 +801,12 @@ app.get("/api/acesso/solicitacoes", apiLimiter, autenticarFrescoMiddleware, exig
     for (const p of dados.pendentes || []) {
       p.permissoes = await obterMapaPermissoesComConn(conn, p.EMAIL);
       p.escopo = await obterEscopoUsuarioComConn(conn, p.EMAIL);
-      // Sugestão de DSEI/CASAI a partir da unidade que o solicitante informou no
-      // pedido — para o modal de DSEIs já abrir com ela pré-marcada.
-      const unidadeNome = p.DSEI || p.CASAI || "";
-      const idSugerido = unidadeNome ? await resolverIdUnidadePorNomeComConn(conn, unidadeNome) : null;
-      if (idSugerido) p.unidadeSugerida = { id: idSugerido, nome: unidadeNome };
+      // Sugestão de escopo a partir da unidade que o solicitante informou no
+      // pedido — para o modal de DSEIs já abrir com ela pré-marcada. Para
+      // escritório, sugere o próprio escritório E o DSEI-território dele.
+      const uni = unidadeEscopoDaSolicitacao(p);
+      const idsSugeridos = uni.restringir ? await resolverIdsUnidadePorDescComConn(conn, uni.nomes) : [];
+      if (idsSugeridos.length) p.unidadeSugerida = { ids: idsSugeridos, nome: p.DSEI || p.CASAI || "" };
     }
     res.json(dados);
   } finally {

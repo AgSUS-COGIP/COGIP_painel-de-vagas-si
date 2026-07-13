@@ -41,9 +41,11 @@ const CARGOS_DISTRITAL = [
   "COORDENADOR DE REGIONAL",
 ];
 
-// Escritórios exibidos na aba "Escritórios Distritais" (lista fixa, não vem do banco).
+// Escritórios exibidos na aba "Escritórios Distritais" (lista fixa, não vem do
+// banco): os 34 escritórios DISTRITAIS do PDF, cada um mapeado 1:1 a um DSEI
+// (ver ESCRITORIO_PARA_DSEI em lib/acesso.js). Regionais não entram — não têm
+// mapeamento 1:1 com DSEI.
 const ESCRITORIOS_DISTRITAL = [
-  "ESCRITORIO CUIABA/MT (CUIABA) - REGIONAL",
   "ESCRITORIO DISTRITAL ALTAMIRA/PA (ALTAMIRA)",
   "ESCRITORIO DISTRITAL ATALAIA DO NORTE/AM (VALE DO JAVARI)",
   "ESCRITORIO DISTRITAL BARRA DO GARCAS/MT (XAVANTE)",
@@ -78,14 +80,6 @@ const ESCRITORIOS_DISTRITAL = [
   "ESCRITORIO DISTRITAL SAO LUIS/MA (MARANHAO)",
   "ESCRITORIO DISTRITAL TABATINGA/AM (ALTO RIO SOLIMOES)",
   "ESCRITORIO DISTRITAL TEFE/AM (MEDIO RIO SOLIMOES)",
-  "ESCRITORIO REGIONAL DA BAHIA",
-  "ESCRITORIO REGIONAL DE PERNAMBUCO",
-  "ESCRITORIO REGIONAL DE RORAIMA",
-  "ESCRITORIO REGIONAL DE SAO PAULO",
-  "ESCRITORIO REGIONAL DO AMAZONAS",
-  "ESCRITORIO REGIONAL DO CENTRO-OESTE",
-  "ESCRITORIO REGIONAL DO PARA",
-  "ESCRITORIO REGIONAL DO PARANA",
 ];
 
 // Cargos e unidades vindos do banco (usados nas abas DSEI/SESAI e Sede AgSUS).
@@ -735,8 +729,8 @@ async function onClickAdmin(ev) {
     // Se o escopo ainda não foi definido (padrão "todos", sem DSEIs) e o pedido
     // trouxe uma unidade reconhecida, abre já restrito e com ela marcada — o admin
     // confere/ajusta antes de aprovar.
-    if (p && p.unidadeSugerida && escopoInicial.todos !== false && !(escopoInicial.dseis || []).length) {
-      escopoInicial = { todos: false, dseis: [p.unidadeSugerida.id] };
+    if (p && p.unidadeSugerida && (p.unidadeSugerida.ids || []).length && escopoInicial.todos !== false && !(escopoInicial.dseis || []).length) {
+      escopoInicial = { todos: false, dseis: p.unidadeSugerida.ids.slice() };
     }
     abrirEscopoDsei(alvo, {
       nome: p ? p.NOME : "",

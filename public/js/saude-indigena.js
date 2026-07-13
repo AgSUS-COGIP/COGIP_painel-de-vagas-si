@@ -295,8 +295,6 @@ function esconderEstado() {
 const ordenar = arr => [...arr].sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
 
 function preencherSelects() {
-  const dim = dados.dim;
-
   // Nome: combobox pesquisável com os nomes distintos (a busca refina a lista).
   const nomes = ordenar([...new Set(dados.rows.map(r => r.nome).filter(Boolean))]);
   combos.siFiltroNome?.setOptions(nomes);
@@ -310,24 +308,28 @@ function preencherSelects() {
   ]);
 
   // Demais filtros: cada opção mostra o total (REGISTRO distinto) na frente.
+  // As opções saem das LINHAS já filtradas pelo escopo (não do dicionário global
+  // dim.*), para que um usuário restrito não veja no filtro territórios/cargos/UFs
+  // de DSEIs fora do seu escopo. (Mesmo padrão de Gestão de Férias.)
   const contagem = chave => {
     const m = new Map();
     dados.rows.forEach(r => { const k = r[chave]; m.set(k, (m.get(k) || 0) + 1); });
     return m;
   };
+  const unicos = chave => ordenar([...new Set(dados.rows.map(r => r[chave]).filter(v => v != null && v !== ""))]);
   const comTotal = (valores, mapa) => ordenar(valores).map(v => ({
     value: v,
     label: `${v === "—" ? "Sem informação" : v} (${formatNumber(mapa.get(v) || 0)})`
   }));
 
   combos.siFiltroVinculo?.setOptions(comTotal(["Ativo", "Desligado"], contagem("vinculo")));
-  combos.siFiltroSituacao?.setOptions(comTotal(dim.situacao, contagem("situacao")));
-  combos.siFiltroCargo?.setOptions(comTotal(dim.cargo, contagem("cargo")));
-  combos.siFiltroCentro?.setOptions(comTotal(dim.centroCusto, contagem("centroCusto")));
-  combos.siFiltroUf?.setOptions(comTotal(dim.uf, contagem("uf")));
-  combos.siFiltroTerritorio?.setOptions(comTotal(dim.localTrabalho, contagem("localTrabalho")));
-  combos.siFiltroAtuacao?.setOptions(comTotal(dim.tipoAtuacao, contagem("tipoAtuacao")));
-  combos.siFiltroTipoAdmissao?.setOptions(comTotal(dim.tipoAdmissao, contagem("tipoAdmissao")));
+  combos.siFiltroSituacao?.setOptions(comTotal(unicos("situacao"), contagem("situacao")));
+  combos.siFiltroCargo?.setOptions(comTotal(unicos("cargo"), contagem("cargo")));
+  combos.siFiltroCentro?.setOptions(comTotal(unicos("centroCusto"), contagem("centroCusto")));
+  combos.siFiltroUf?.setOptions(comTotal(unicos("uf"), contagem("uf")));
+  combos.siFiltroTerritorio?.setOptions(comTotal(unicos("localTrabalho"), contagem("localTrabalho")));
+  combos.siFiltroAtuacao?.setOptions(comTotal(unicos("tipoAtuacao"), contagem("tipoAtuacao")));
+  combos.siFiltroTipoAdmissao?.setOptions(comTotal(unicos("tipoAdmissao"), contagem("tipoAdmissao")));
 
   // Tipo de Desligamento: só conta quem realmente foi desligado (vínculo =
   // Desligado). Pessoa ativa não tem desligamento, então fica de fora — inclusive

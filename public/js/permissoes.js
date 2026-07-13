@@ -562,7 +562,13 @@ export function abrirEscopoDsei(email, opcoes = {}) {
     const btn = ev.target.closest("[data-esc-concluir]");
     if (!btn) return;
     const todos = modoEhTodos();
-    const dseis = todos ? [] : Array.from(overlay.querySelectorAll(".escDseiCheck:checked")).map(c => Number(c.value));
+    const marcados = Array.from(overlay.querySelectorAll(".escDseiCheck:checked")).map(c => Number(c.value));
+    // Preserva ids do escopo atual que não têm checkbox na lista (ex.: UOs de
+    // escritório, que não constam da lista de DSEIs da VW) — senão editar o
+    // escopo de um usuário de escritório descartaria o vínculo do escritório.
+    const idsListados = new Set(dseisDisponiveis.map(d => Number(d.id)));
+    const ocultosPreservados = (escAtual.dseis || []).map(Number).filter(id => id && !idsListados.has(id));
+    const dseis = todos ? [] : Array.from(new Set([...marcados, ...ocultosPreservados]));
     if (!todos && !dseis.length) {
       if (status) { status.textContent = "Selecione ao menos um DSEI ou escolha \"Todos\"."; status.className = "permPendStatus is-erro"; }
       return;
