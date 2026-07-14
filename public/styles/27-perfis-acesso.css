@@ -357,6 +357,7 @@
    de ação/escrita em qualquer profundidade. Os <select> da matriz NÃO são
    escondidos (são a visualização dos níveis) — eles já ficam desabilitados. */
 .perfis-readonly [data-perm-escopo],
+.perfis-readonly [data-perm-escopo-esc],
 .perfis-readonly [data-perm-limpar],
 .perfis-readonly [data-perm-pendente],
 .perfis-readonly [data-acesso-aprovar],

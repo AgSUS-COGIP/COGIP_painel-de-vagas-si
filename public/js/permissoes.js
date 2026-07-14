@@ -116,6 +116,7 @@ let perfisCache = [];
 let filtroBusca = "";
 // DSEIs disponíveis para o seletor de escopo (vêm do GET /api/acesso/perfis).
 let dseisDisponiveis = [];
+let escritoriosDisponiveis = [];
 
 function mesmoUsuarioLogado(email) {
   const meu = String((state.painelLoginUsuario || {}).email || "").trim().toLowerCase();
@@ -171,12 +172,28 @@ function selectPermHtml(usuario, modulo) {
             data-ss-skip${desabilita} title="${escapeHtml(titulo)}">${opcoes}</select>`;
 }
 
-// Resumo textual do escopo de DSEI do usuário ("Todos os DSEIs" ou "N DSEI(s)").
+// Conta quantos ids do escopo pertencem a uma lista de unidades (DSEI/CASAI ou
+// escritórios). O escopo é uma lista única de ids que mistura as duas categorias.
+function contarEscopoNaLista(usuario, lista) {
+  const esc = usuario.escopo || {};
+  if (esc.todos !== false) return null; // "todos" => sem restrição
+  const ids = new Set((lista || []).map(d => Number(d.id)));
+  return (esc.dseis || []).map(Number).filter(id => ids.has(id)).length;
+}
+
+// Resumo textual do escopo de DSEI ("Todos os DSEIs" ou "N DSEI(s)"). Conta só
+// ids de DSEI/CASAI (ignora ids de escritório, que têm coluna própria).
 function resumoEscopo(usuario) {
-  const esc = usuario.escopo || { todos: true, dseis: [] };
-  if (esc.todos !== false) return "Todos os DSEIs";
-  const n = (esc.dseis || []).length;
+  const n = contarEscopoNaLista(usuario, dseisDisponiveis);
+  if (n === null) return "Todos os DSEIs";
   return n ? `${n} DSEI(s)` : "Nenhum DSEI";
+}
+
+// Resumo do escopo de Escritório ("Todos" ou "N escritório(s)").
+function resumoEscopoEscritorio(usuario) {
+  const n = contarEscopoNaLista(usuario, escritoriosDisponiveis);
+  if (n === null) return "Todos";
+  return n ? `${n} escritório(s)` : "Nenhum";
 }
 
 // Conteúdo da célula "Escopo (DSEI)" (sem <td>: vai num formatter do Tabulator).
@@ -191,6 +208,19 @@ function escopoCelulaHtml(usuario) {
     return `<span class="permEscopoChip ${classe}">${resumo}</span>`;
   }
   return `<button type="button" class="permEscopoBtn ${classe}" data-perm-escopo="${email}" title="Definir os DSEIs que este usuário pode acessar"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${resumo}</button>`;
+}
+
+// Conteúdo da célula "Escopo (Escritório)" — espelha a de DSEI, mas restrita aos
+// escritórios (data-perm-escopo-esc → onClickPerfis).
+function escopoEscritorioCelulaHtml(usuario) {
+  const email = escapeHtml(usuario.email || "");
+  const resumo = escapeHtml(resumoEscopoEscritorio(usuario));
+  const restrito = usuario.escopo && usuario.escopo.todos === false;
+  const classe = restrito ? "permEscopoRestrito" : "permEscopoTodos";
+  if (!podeEditarPerfis() || !usuario.email) {
+    return `<span class="permEscopoChip ${classe}">${resumo}</span>`;
+  }
+  return `<button type="button" class="permEscopoBtn ${classe}" data-perm-escopo-esc="${email}" title="Definir os escritórios que este usuário pode acessar"><i class="fa-solid fa-building" aria-hidden="true"></i> ${resumo}</button>`;
 }
 
 // Grade Tabulator (modo SÓ-ESTILO: sem arrastar colunas/linhas). 1ª coluna
@@ -219,6 +249,13 @@ function colsPerfis() {
       title: "Escopo (DSEI)", field: "_escopo", width: 150, hozAlign: "center", headerHozAlign: "center", cssClass: "permEscopoCell",
       titleFormatter: () => `<span class="permHeadIcon"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></span><span class="permHeadTxt">Escopo (DSEI)</span>`,
       formatter: c => escopoCelulaHtml(c.getData()),
+    },
+    // Escopo (Escritório): mesma ideia da coluna de DSEI, mas restrita aos
+    // escritórios distritais (data-perm-escopo-esc → onClickPerfis).
+    {
+      title: "Escopo (Escritório)", field: "_escopoEsc", width: 170, hozAlign: "center", headerHozAlign: "center", cssClass: "permEscopoCell",
+      titleFormatter: () => `<span class="permHeadIcon"><i class="fa-solid fa-building" aria-hidden="true"></i></span><span class="permHeadTxt">Escopo (Escritório)</span>`,
+      formatter: c => escopoEscritorioCelulaHtml(c.getData()),
     },
   ];
   if (podeEditarPerfis()) cols.push({
@@ -285,6 +322,7 @@ export async function carregarPerfisAcesso(silencioso) {
   }
   perfisCache = dados.usuarios || [];
   dseisDisponiveis = dados.dseisDisponiveis || [];
+  escritoriosDisponiveis = dados.escritoriosDisponiveis || [];
   renderMatriz();
 }
 
@@ -326,6 +364,8 @@ async function onChangePerfis(ev) {
 async function onClickPerfis(ev) {
   const escopoBtn = ev.target.closest("[data-perm-escopo]");
   if (escopoBtn) { abrirEscopoDsei(escopoBtn.dataset.permEscopo); return; }
+  const escEscBtn = ev.target.closest("[data-perm-escopo-esc]");
+  if (escEscBtn) { abrirEscopoEscritorio(escEscBtn.dataset.permEscopoEsc); return; }
   const limpar = ev.target.closest("[data-perm-limpar]");
   if (!limpar) return;
   const email = limpar.dataset.permLimpar;
@@ -494,6 +534,55 @@ function fecharEscopoDsei() {
   if (ov) ov.remove();
 }
 
+// Mapas escritório↔DSEI (bijeção) a partir de escritoriosDisponiveis, que traz
+// { id, nome, dseiId, dseiNome }. Reconstruídos on-demand (o estado recarrega).
+function mapasEscritorioDsei() {
+  const escToDsei = new Map();   // id do escritório -> id do DSEI
+  const dseiToEsc = new Map();   // id do DSEI       -> id do escritório
+  const nomePorId = new Map();
+  (escritoriosDisponiveis || []).forEach(e => {
+    const eid = Number(e.id), did = Number(e.dseiId);
+    if (eid) nomePorId.set(eid, e.nome);
+    if (eid && did) { escToDsei.set(eid, did); dseiToEsc.set(did, eid); }
+    if (did && e.dseiNome) nomePorId.set(did, e.dseiNome);
+  });
+  (dseisDisponiveis || []).forEach(d => { const id = Number(d.id); if (id) nomePorId.set(id, d.nome); });
+  return { escToDsei, dseiToEsc, nomePorId };
+}
+
+// Parceiro vinculado de um id: escritório -> seu DSEI, DSEI -> seu escritório.
+function parceiroEscopo(id, maps) {
+  id = Number(id);
+  if (maps.escToDsei.has(id)) return maps.escToDsei.get(id);
+  if (maps.dseiToEsc.has(id)) return maps.dseiToEsc.get(id);
+  return null;
+}
+
+// Aplica a sincronização escritório↔DSEI ao conjunto final: ao MARCAR um item
+// (nesta categoria) inclui o parceiro; ao DESMARCAR, remove o parceiro (efeito
+// "mudou o escritório -> muda o DSEI correspondente", e vice-versa). Retorna o
+// conjunto ajustado e a lista de ajustes (para a confirmação). `listados` = ids
+// com checkbox neste modal; `antes`/`agora` = seleção da categoria deste modal.
+function sincronizarParesEscopo(base, escAtual, listados, marcados) {
+  const maps = mapasEscritorioDsei();
+  const setFinal = new Set(base.map(Number));
+  const listadosSet = new Set(listados.map(Number));
+  const antes = new Set((escAtual.dseis || []).map(Number).filter(id => listadosSet.has(id)));
+  const agora = new Set(marcados.map(Number));
+  const ajustes = [];
+  for (const id of agora) {          // marcados agora e não antes -> inclui parceiro
+    if (antes.has(id)) continue;
+    const p = parceiroEscopo(id, maps);
+    if (p && !setFinal.has(p)) { setFinal.add(p); ajustes.push({ acao: "add", id: p }); }
+  }
+  for (const id of antes) {          // desmarcados -> remove parceiro
+    if (agora.has(id)) continue;
+    const p = parceiroEscopo(id, maps);
+    if (p && setFinal.has(p)) { setFinal.delete(p); ajustes.push({ acao: "remove", id: p }); }
+  }
+  return { dseis: Array.from(setFinal), ajustes, nome: id => maps.nomePorId.get(Number(id)) || `#${id}` };
+}
+
 // Abre o editor de escopo de DSEI. Para um usuário APROVADO (matriz), acha os
 // dados em perfisCache. Para um PENDENTE, o chamador passa opcoes.{nome, escopo,
 // aoSalvar} — assim funciona sem depender da matriz.
@@ -509,30 +598,41 @@ export function abrirEscopoDsei(email, opcoes = {}) {
   const selecionados = new Set((escAtual.dseis || []).map(Number));
   const todosInicial = escAtual.todos !== false;
 
-  const opcoesDsei = dseisDisponiveis.length
-    ? dseisDisponiveis.map(d =>
+  // Config para reuso entre o escopo de DSEI (padrão) e o de Escritório.
+  const itens = opcoes.itens || dseisDisponiveis;
+  const L = {
+    titulo: opcoes.titulo || "Acesso por DSEI",
+    descricao: opcoes.descricao || `Defina quais DSEIs <b>${escapeHtml(nomeAlvo)}</b> pode acessar. "Todos" libera todas as unidades (sede); "Apenas os selecionados" restringe aos marcados.`,
+    labelTodos: opcoes.labelTodos || "Todos os DSEIs (sede)",
+    labelRestrito: opcoes.labelRestrito || "Apenas os DSEIs selecionados",
+    vazio: opcoes.vazio || "Nenhum DSEI disponível para seleção.",
+    erroVazio: opcoes.erroVazio || 'Selecione ao menos um DSEI ou escolha "Todos".',
+  };
+
+  const opcoesDsei = itens.length
+    ? itens.map(d =>
         `<label class="escDseiItem">
           <input type="checkbox" class="escDseiCheck" value="${Number(d.id)}"${selecionados.has(Number(d.id)) ? " checked" : ""}>
           <span>${escapeHtml(d.nome)}</span>
         </label>`
       ).join("")
-    : `<p class="escDseiVazio">Nenhum DSEI disponível para seleção.</p>`;
+    : `<p class="escDseiVazio">${escapeHtml(L.vazio)}</p>`;
 
   const overlay = document.createElement("div");
   overlay.className = "permPendOverlay";
   overlay.id = "escDseiOverlay";
   overlay.innerHTML = `
-    <div class="permPendBox" role="dialog" aria-modal="true" aria-label="Acesso por DSEI">
+    <div class="permPendBox" role="dialog" aria-modal="true" aria-label="${escapeHtml(L.titulo)}">
       <div class="permPendHead">
         <div>
-          <h3>Acesso por DSEI</h3>
-          <p>Defina quais DSEIs <b>${escapeHtml(nomeAlvo)}</b> pode acessar. "Todos" libera todas as unidades (sede); "Apenas os selecionados" restringe aos marcados.</p>
+          <h3>${escapeHtml(L.titulo)}</h3>
+          <p>${L.descricao}</p>
         </div>
         <button type="button" class="permPendClose" data-esc-fechar aria-label="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <div class="escDseiModo">
-        <label><input type="radio" name="escModo" value="todos"${todosInicial ? " checked" : ""}> Todos os DSEIs (sede)</label>
-        <label><input type="radio" name="escModo" value="restrito"${todosInicial ? "" : " checked"}> Apenas os DSEIs selecionados</label>
+        <label><input type="radio" name="escModo" value="todos"${todosInicial ? " checked" : ""}> ${escapeHtml(L.labelTodos)}</label>
+        <label><input type="radio" name="escModo" value="restrito"${todosInicial ? "" : " checked"}> ${escapeHtml(L.labelRestrito)}</label>
       </div>
       <div class="escDseiLista${todosInicial ? " is-desabilitado" : ""}" id="escDseiLista">${opcoesDsei}</div>
       <div class="permPendFoot">
@@ -563,16 +663,39 @@ export function abrirEscopoDsei(email, opcoes = {}) {
     if (!btn) return;
     const todos = modoEhTodos();
     const marcados = Array.from(overlay.querySelectorAll(".escDseiCheck:checked")).map(c => Number(c.value));
-    // Preserva ids do escopo atual que não têm checkbox na lista (ex.: UOs de
-    // escritório, que não constam da lista de DSEIs da VW) — senão editar o
-    // escopo de um usuário de escritório descartaria o vínculo do escritório.
-    const idsListados = new Set(dseisDisponiveis.map(d => Number(d.id)));
-    const ocultosPreservados = (escAtual.dseis || []).map(Number).filter(id => id && !idsListados.has(id));
-    const dseis = todos ? [] : Array.from(new Set([...marcados, ...ocultosPreservados]));
+    // Preserva ids do escopo atual que não têm checkbox NESTE modal (a outra
+    // categoria: DSEIs vs escritórios) — senão editar uma categoria descartaria
+    // o vínculo da outra, que é gerida no modal irmão.
+    const idsListados = itens.map(d => Number(d.id));
+    const listadosSet = new Set(idsListados);
+    const ocultosPreservados = (escAtual.dseis || []).map(Number).filter(id => id && !listadosSet.has(id));
+    let dseis = todos ? [] : Array.from(new Set([...marcados, ...ocultosPreservados]));
     if (!todos && !dseis.length) {
-      if (status) { status.textContent = "Selecione ao menos um DSEI ou escolha \"Todos\"."; status.className = "permPendStatus is-erro"; }
+      if (status) { status.textContent = L.erroVazio; status.className = "permPendStatus is-erro"; }
       return;
     }
+
+    // Sincroniza escritório↔DSEI: incluir/remover o parceiro do que mudou aqui.
+    // Se houver ajuste, confirma antes num modal explicando o comportamento.
+    if (!todos) {
+      const sync = sincronizarParesEscopo(dseis, escAtual, idsListados, marcados);
+      if (sync.ajustes.length) {
+        const linhas = sync.ajustes.map(a => `${a.acao === "add" ? "• Incluir" : "• Remover"}: ${sync.nome(a.id)}`);
+        const r = await abrirModal({
+          titulo: "Escritório e DSEI andam juntos",
+          msg: "Cada escritório está vinculado ao seu DSEI. Para manter o acesso consistente, o escopo também será ajustado:\n\n" +
+               linhas.join("\n") + "\n\nDeseja aplicar?",
+          confirmarTexto: "Aplicar"
+        });
+        if (!r || !r.ok) return; // cancelou: mantém o modal de escopo aberto p/ ajustar
+        dseis = sync.dseis;
+        if (!dseis.length) {
+          if (status) { status.textContent = "O escopo ficaria vazio. Selecione ao menos uma unidade ou escolha \"Todos\"."; status.className = "permPendStatus is-erro"; }
+          return;
+        }
+      }
+    }
+
     btn.disabled = true;
     if (status) { status.textContent = "Salvando..."; status.className = "permPendStatus"; }
     try {
@@ -585,5 +708,22 @@ export function abrirEscopoDsei(email, opcoes = {}) {
       btn.disabled = false;
       if (status) { status.textContent = (err && err.message) ? err.message : "Falha ao salvar o escopo."; status.className = "permPendStatus is-erro"; }
     }
+  });
+}
+
+// Editor de escopo por ESCRITÓRIO — mesmo modal do DSEI, mas listando os 34
+// escritórios distritais. Edita só a categoria "escritório" do escopo; os ids de
+// DSEI/CASAI são preservados (e vice-versa no modal de DSEI).
+export function abrirEscopoEscritorio(email, opcoes = {}) {
+  const nomeAlvo = escapeHtml(opcoes.nome || (perfisCache.find(x => String(x.email || "").toLowerCase() === String(email).toLowerCase()) || {}).nome || email);
+  return abrirEscopoDsei(email, {
+    ...opcoes,
+    itens: escritoriosDisponiveis,
+    titulo: "Acesso por Escritório",
+    descricao: `Defina quais escritórios <b>${nomeAlvo}</b> pode acessar. "Todos" libera todas as unidades; "Apenas os selecionados" restringe aos marcados.`,
+    labelTodos: "Todos (sem restrição)",
+    labelRestrito: "Apenas os escritórios selecionados",
+    vazio: "Nenhum escritório disponível para seleção.",
+    erroVazio: 'Selecione ao menos um escritório ou escolha "Todos".',
   });
 }

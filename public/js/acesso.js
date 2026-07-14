@@ -7,7 +7,7 @@ import { abrirModal } from "./modal.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
 import { preencherSelect } from "./ui-utils.js";
-import { carregarPerfisAcesso, podeEditarPerfis, abrirPermissoesPendente, abrirEscopoDsei } from "./permissoes.js";
+import { carregarPerfisAcesso, podeEditarPerfis, abrirPermissoesPendente, abrirEscopoDsei, abrirEscopoEscritorio } from "./permissoes.js";
 import { iniciarPainelAutenticado } from "./auth.js";
 import { criarTabelaArrastavel } from "./tabela-arrastavel.js";
 
@@ -545,7 +545,11 @@ function colsPendentes() {
     { title: "Data e hora", field: "CRIADO_EM", formatter: c => escapeHtml(fmtDataHora(c.getValue())) },
   ];
   if (podeEditarPerfis()) cols.push({
-    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center", minWidth: 320,
+    // Largura fixa que comporta os 6 botões numa linha (Permissões · DSEIs ·
+    // Escritórios · Aprovar · Recusar · excluir). Como largura fixa, entra no
+    // cálculo do layout e faz a grade ROLAR na horizontal quando não couber, em
+    // vez de cortar os botões.
+    title: "Ações", field: "_acoes", hozAlign: "center", headerHozAlign: "center", width: 570, minWidth: 570,
     formatter: c => {
       const s = c.getData();
       const id = escapeHtml(String(s.ID_SOLICITACAO));
@@ -553,6 +557,7 @@ function colsPendentes() {
       return `<div class="solPendAcoesBtns">
          <button type="button" class="solBtnMini solBtnPerm" data-perm-pendente="${email}" title="Definir permissões por módulo antes de aprovar"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Permissões</button>
          <button type="button" class="solBtnMini solBtnDseis" data-esc-pendente="${email}" title="Definir/corrigir os DSEIs que este usuário poderá acessar"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> DSEIs</button>
+         <button type="button" class="solBtnMini solBtnDseis" data-esc-pendente-esc="${email}" title="Definir/corrigir os escritórios que este usuário poderá acessar"><i class="fa-solid fa-building" aria-hidden="true"></i> Escritórios</button>
          <button type="button" class="solBtnMini solBtnAprovar" data-acesso-aprovar="${id}"><i class="fa-solid fa-check" aria-hidden="true"></i> Aprovar</button>
          <button type="button" class="solBtnMini solBtnRecusar" data-acesso-recusar="${id}"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Recusar</button>
          <button type="button" class="solExcluirBtn" data-acesso-excluir="${email}" title="Excluir usuário e suas solicitações"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
@@ -569,8 +574,11 @@ function renderPendentes() {
   if (cont) cont.textContent = total ? `${total} ${total > 1 ? "registros" : "registro"}` : "";
   const pag = el("solPendPaginacao");
   if (pag) pag.innerHTML = "";
+  // persistID "solPend2": o layout salvo antigo travava a largura da coluna Ações
+  // (que agora precisa de mais espaço p/ o botão de Escritórios). Novo id descarta
+  // o layout obsoleto para a largura definida nas colunas voltar a valer.
   if (!gradePendentes) gradePendentes = criarTabelaArrastavel({
-    elemento: "solPendTab", colunas: colsPendentes(), persistID: "solPend",
+    elemento: "solPendTab", colunas: colsPendentes(), persistID: "solPend2",
     indexField: "ID_SOLICITACAO", movableRows: false, altura: "420px",
     vazio: "Nenhuma solicitação pendente.",
   });
@@ -720,24 +728,27 @@ async function onClickAdmin(ev) {
     return;
   }
 
-  // Definir/corrigir os DSEIs (escopo de acesso) de um solicitante pendente.
+  // Definir/corrigir o escopo (DSEI ou escritório) de um solicitante pendente.
   const escPend = ev.target.closest("[data-esc-pendente]");
-  if (escPend) {
-    const alvo = String(escPend.dataset.escPendente || "");
+  const escPendEsc = ev.target.closest("[data-esc-pendente-esc]");
+  if (escPend || escPendEsc) {
+    const alvo = String((escPendEsc || escPend).dataset[escPendEsc ? "escPendenteEsc" : "escPendente"] || "");
     const p = pendentesCache.find(x => String(x.EMAIL || "").toLowerCase() === alvo.toLowerCase());
     let escopoInicial = (p && p.escopo) || { todos: true, dseis: [] };
-    // Se o escopo ainda não foi definido (padrão "todos", sem DSEIs) e o pedido
+    // Se o escopo ainda não foi definido (padrão "todos", sem ids) e o pedido
     // trouxe uma unidade reconhecida, abre já restrito e com ela marcada — o admin
     // confere/ajusta antes de aprovar.
     if (p && p.unidadeSugerida && (p.unidadeSugerida.ids || []).length && escopoInicial.todos !== false && !(escopoInicial.dseis || []).length) {
       escopoInicial = { todos: false, dseis: p.unidadeSugerida.ids.slice() };
     }
-    abrirEscopoDsei(alvo, {
+    const opcoes = {
       nome: p ? p.NOME : "",
       escopo: escopoInicial,
       // Mantém o cache do pendente em sincronia (não recarrega a lista à toa).
       aoSalvar: esc => { if (p) p.escopo = esc; }
-    });
+    };
+    if (escPendEsc) abrirEscopoEscritorio(alvo, opcoes);
+    else abrirEscopoDsei(alvo, opcoes);
     return;
   }
 

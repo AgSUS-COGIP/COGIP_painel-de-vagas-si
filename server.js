@@ -12,7 +12,7 @@ const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVaga
 const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
 const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/db");
-const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn, unidadeEscopoDaSolicitacao } = require("./lib/acesso");
+const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn, unidadeEscopoDaSolicitacao, listarEscritoriosEscopoComConn } = require("./lib/acesso");
 const { listarPedidosComConn, listarCategoriasComConn, buscarTrabalhadoresComConn, criarPedidoComConn, atualizarPedidoBaseComConn, atualizarDemandaComConn, atualizarSancaoComConn, definirResponsavelComConn, excluirPedidoComConn, garantirColunaConteudoProva, garantirColunasDatasFasesDemanda, garantirColunaDseiPedidoSancao, garantirEscopoPedidoComConn, garantirEscopoAnexoComConn, obterResponsavelPedidoComConn, responsavelDoAnexoComConn, adicionarAnexosComConn, obterProvaComConn, excluirProvaComConn, definirTermoSancaoComConn, obterTermoSancaoComConn } = require("./lib/disciplinar");
 const { MODULOS: MODULOS_PERMISSAO, garantirTabelaPermissoesModulos, obterMapaPermissoesComConn, listarPerfisAcessoComConn, definirPermissaoModuloComConn, limparPermissoesUsuarioComConn } = require("./lib/permissoes");
 const { garantirEstruturaEscopoDsei, listarDseisComConn, obterEscoposMapaComConn, definirEscopoUsuarioComConn, obterEscopoUsuarioComConn, resolverIdsUnidadePorDescComConn } = require("./lib/escopo");
@@ -897,7 +897,8 @@ app.get("/api/acesso/perfis", apiLimiter, autenticarFrescoMiddleware, exigirAdmi
       u.escopo = escopos[String(u.email || "").trim().toLowerCase()] || { todos: true, dseis: [] };
     }
     const dseisDisponiveis = await listarDseisComConn(conn);
-    res.json({ modulos: MODULOS_PERMISSAO, usuarios, dseisDisponiveis });
+    const escritoriosDisponiveis = await listarEscritoriosEscopoComConn(conn);
+    res.json({ modulos: MODULOS_PERMISSAO, usuarios, dseisDisponiveis, escritoriosDisponiveis });
   } finally {
     await fecharJdbc(conn);
   }
