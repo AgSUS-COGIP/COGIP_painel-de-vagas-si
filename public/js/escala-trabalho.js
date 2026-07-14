@@ -782,8 +782,39 @@ function renderResumo() {
 }
 
 // ---------- Exportação ----------
+// Rótulo legível da escala para o CSV.
+function rotuloEscalaExport(p) {
+  if (p.semEscala || !p.escala) return "Sem escala";
+  if (p.escala === "territorio") return `Território ${p.tipoTerritorio || ""}`.trim();
+  return (ESCALAS[p.escala] || {}).rotulo || p.escala;
+}
+
+// Tabela principal (Profissionais e Escalas) → CSV do conjunto que atende aos
+// filtros atuais (mesma lista da tela, sem paginar).
+function exportarProfissionaisCsv() {
+  const rows = aplicaFiltros(escalas);
+  if (!rows.length) { etToast("Nada para exportar com os filtros atuais.", "erro"); return; }
+  const linhas = [["Matrícula", "Nome do Profissional", "Cargo", "DSEI", "Polo base / CASAI", "UBSI", "Escala", "Alternância", "Dias no mês", "Dias trabalhados", "Situação"]];
+  rows.forEach(p => {
+    const terr = p.escala === "territorio";
+    const dias = (!p.semEscala && p.escala && !terr) ? diasTrabalhadosDoMes(p) : [];
+    const periodo = terr ? `Ida ${p.ida || "—"} / Retorno ${p.retorno || "—"}` : dias.join(", ");
+    linhas.push([
+      p.matricula, p.nome, p.cargo, p.dsei, p.polo, p.ubsi || "",
+      rotuloEscalaExport(p),
+      p.alternancia ? ((ALTERNANCIAS[p.alternancia] || {}).rotulo || p.alternancia) : "—",
+      terr ? "" : (dias.length ? String(dias.length) : ""),
+      periodo,
+      p.situacao || ""
+    ]);
+  });
+  const csv = "﻿" + linhas.map(l => l.map(valorCsv).join(";")).join("\n");
+  baixarArquivoCsv(csv, "profissionais_escalas");
+}
+
 // Plantonistas → PDF (grade do mês, via janela de impressão). Território → CSV.
 function exportarDetalhe(tipo) {
+  if (tipo === "profissionais") { exportarProfissionaisCsv(); return; }
   if (tipo === "plantonistas") { exportarPlantonistasPdf(); return; }
 
   const rows = filtrarTerritorio();

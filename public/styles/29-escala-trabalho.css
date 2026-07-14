@@ -559,6 +559,15 @@
     font-weight: 700;
   }
 
+  /* Ações à direita do título (contador + Exportar). */
+  .etCardHeadAcoes {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .etCardHeadAcoes .etCardCount { margin-left: 0; }
+
   /* ---------- Grades (Tabulator: colunas/linhas arrastáveis) ---------- */
   /* As tabelas usam o helper criarTabelaArrastavel (tema Tabulator +
      tabela-arrastavel). Aqui só o conteúdo das células (badges, dias, ícones)
