@@ -1,6 +1,6 @@
 // =========================================================
 // Entrega de Crachá
-// Consome os dados reais da tabela UGP_CONTROLE_CRACHAS_SI via API
+// Consome os dados reais da tabela única de crachá (UGP_CRACHAS_CONTROLE_MANUAL) via API
 // (/api/cracha). Funil de status (6 etapas):
 //   Foto Pendente de Envio -> Envio à Gráfica Pendente ->
 //   Crachás em Confecção -> Crachá Confeccionado ->
