@@ -215,8 +215,9 @@ export function montarOpcoesCargosRemanejamento(tipo) {
   let rows = (state.remanejamentoCadastroRows || [])
     .filter(row => !idDsei || String(row.idDseiCasai || "") === idDsei);
 
-  // Bloqueio por PSS afeta apenas o lado reduzido.
-  if (tipo === "reduzido") {
+  // Bloqueio por PSS afeta apenas o lado reduzido — e não se aplica aos ajustes
+  // pontuais (admin), que reduzem/acrescentam qualquer cargo do DSEI sem restrição.
+  if (tipo === "reduzido" && !state.remanejamentoAjusteAtivo) {
     const bloqueio = bloqueioPSSDoDseiSelecionado();
     if (bloqueio) {
       // DSEI ainda bloqueado (admin comum ou super admin sem liberar): nenhuma opção.
@@ -689,9 +690,22 @@ export function atualizarResumoRemanejamento() {
 }
 
 export function atualizarAvisoOciosasRemanejamento() {
-  const erros = validarOciosasReduzidoCliente();
   const aviso = document.getElementById("remOciosasAviso");
   const botao = document.getElementById("remSaveBtn");
+
+  // Modo ajuste (admin): sem bloqueio por ociosas/PSS. Limpa os avisos, reabilita o
+  // botão de salvar e sai — o salvamento do ajuste tem suas próprias regras.
+  if (state.remanejamentoAjusteAtivo) {
+    if (aviso) { aviso.hidden = true; aviso.innerHTML = ""; }
+    const pssAviso = document.getElementById("remPssBloqueioAviso");
+    if (pssAviso) { pssAviso.hidden = true; pssAviso.innerHTML = ""; }
+    const btnAddReduzido = document.querySelector('[data-click="adicionar-linha-rem"][data-tipo="reduzido"]');
+    if (btnAddReduzido) btnAddReduzido.disabled = false;
+    if (botao) { botao.disabled = false; botao.classList.remove("remSaveBtnBloqueado"); botao.title = ""; }
+    return [];
+  }
+
+  const erros = validarOciosasReduzidoCliente();
 
   // Atualiza o banner de PSS e descobre se a redução do DSEI está bloqueada.
   const pssBloqueado = atualizarBloqueioPSSRemanejamento();
@@ -902,9 +916,10 @@ export function renderLinhasRemanejamento(tipo) {
     const selectHtml = `<select data-change="campo-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}" data-campo="idCargoFuncao">${optionsHtml.replace(`value="${escapeAttr(row.idCargoFuncao)}"`, `value="${escapeAttr(row.idCargoFuncao)}" selected`)}</select>`;
 
     // Apenas para o lado reduzido: exibe vagas ociosas disponíveis e sinaliza quando falta.
+    // Em modo ajuste (admin) não há limite de ociosas, então o aviso não aparece.
     let infoOciosas = "";
     let classeLinha = "";
-    if (tipo === "reduzido" && row.idCargoFuncao) {
+    if (tipo === "reduzido" && row.idCargoFuncao && !state.remanejamentoAjusteAtivo) {
       const ociosas = Math.max(0, Math.floor(Number(row.vagasOciosas || 0)));
       const solicitado = Math.max(0, Number(row.quantidade || 0));
       const excede = solicitado > ociosas;
@@ -1086,6 +1101,8 @@ export function limparFormularioRemanejamento() {
 }
 
 export async function salvarRemanejamentoPainel() {
+  // Em modo ajuste (admin), o mesmo botão salva um ajuste pontual (sem processo).
+  if (state.remanejamentoAjusteAtivo) return salvarAjusteRemanejamentoPainel();
   if (nivelUsuarioRemanejamento() < NIVEL.ADMIN) return; // defesa em profundidade: leitor não salva (backend também exige >= 2)
   const idDseiCasai = document.getElementById("remanejamentoDsei")?.value || "";
   const processoSei = document.getElementById("remanejamentoProcessoSei")?.value || "";
@@ -1212,5 +1229,208 @@ async function enviarRemanejamento({ idDseiCasai, processoSei, observacao, anexo
       msg: `Erro ao ${editandoId ? "atualizar" : "salvar"} remanejamento: ${error && error.message ? error.message : error}`,
       perigo: true
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ajustes pontuais (admin nível 3) — movimentações sem processo.
+//
+// Reaproveitam o formulário de reduzir/acrescentar, mas gravam direto em
+// MOVIMENTACAO_REMANEJAMENTO sem ID_PROCESSO_REMANEJAMENTO, sem validação de
+// ociosas/impacto/PSS e sem exigir os dois lados. A seção 5 (documentação) fica
+// bloqueada. Uma janela flutuante lista e permite excluir cada ajuste.
+// ---------------------------------------------------------------------------
+
+// Administrador do módulo (nível 3) — mesmo nível que altera/exclui remanejamentos.
+function ehAdminRemanejamento() {
+  return nivelUsuarioRemanejamento() >= NIVEL.SUPERADMIN;
+}
+
+export function alternarModoAjusteRemanejamento() {
+  if (!ehAdminRemanejamento()) return;
+  const ativar = !state.remanejamentoAjusteAtivo;
+
+  // Ligar o modo ajuste cancela o modo edição (fluxos incompatíveis).
+  if (ativar && state.remanejamentoEditandoId != null) {
+    state.remanejamentoEditandoId = null;
+    aplicarModoEdicaoRemanejamento(false);
+  }
+
+  state.remanejamentoAjusteAtivo = ativar;
+  aplicarModoAjusteRemanejamento(ativar);
+}
+
+export function aplicarModoAjusteRemanejamento(ativo) {
+  const area = document.getElementById("remEditArea");
+  if (area) area.classList.toggle("remAjusteModo", !!ativo);
+
+  const banner = document.getElementById("remAjusteBanner");
+  if (banner) banner.style.display = ativo ? "" : "none";
+
+  const toggle = document.getElementById("remAjusteToggleBtn");
+  if (toggle) toggle.classList.toggle("remAjusteToggleAtivo", !!ativo);
+
+  // Trava os campos da seção 5 (documentação): não se aplicam a ajustes pontuais.
+  const docBox = document.getElementById("remDocBox");
+  if (docBox) docBox.classList.toggle("remDocBloqueado", !!ativo);
+  ["remanejamentoProcessoSei", "remObservacao", "remAnexoArquivo"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !!ativo;
+  });
+
+  const botao = document.getElementById("remSaveBtn");
+  if (botao) botao.textContent = ativo ? "Salvar Ajuste" : "Salvar Remanejamento";
+
+  // Opções/avisos das grades dependem do modo — re-renderiza e recalcula o resumo.
+  renderLinhasRemanejamento("reduzido");
+  renderLinhasRemanejamento("acrescentado");
+  atualizarResumoRemanejamento();
+}
+
+export async function salvarAjusteRemanejamentoPainel() {
+  if (!ehAdminRemanejamento()) return;
+  const idDseiCasai = document.getElementById("remanejamentoDsei")?.value || "";
+  const linhasReduzido = coletarLinhasRemanejamento("reduzido").filter(item => item.idCargoFuncao && item.quantidade > 0);
+  const linhasAcrescentado = coletarLinhasRemanejamento("acrescentado").filter(item => item.idCargoFuncao && item.quantidade > 0);
+
+  if (!idDseiCasai) {
+    await abrirAviso({ titulo: "Ajuste bloqueado", msg: "Selecione o DSEI/CASAI.", perigo: true });
+    return;
+  }
+  if (!linhasReduzido.length && !linhasAcrescentado.length) {
+    await abrirAviso({ titulo: "Ajuste bloqueado", msg: "Informe ao menos um cargo para acrescentar ou reduzir.", perigo: true });
+    return;
+  }
+
+  const dseiNome = document.getElementById("remanejamentoDsei")?.selectedOptions?.[0]?.text || idDseiCasai;
+  const confirmacao = await abrirModal({
+    titulo: "Confirmar ajuste pontual",
+    msg: `Ajuste pontual em ${dseiNome}:\n• ${linhasAcrescentado.length} acréscimo(s)\n• ${linhasReduzido.length} decréscimo(s)\n\nEste ajuste NÃO gera processo SEI e altera diretamente as vagas do DSEI. Confirmar?`,
+    confirmarTexto: "Salvar ajuste"
+  });
+  if (!confirmacao.ok) return;
+
+  mostrarCarregando();
+  try {
+    const response = await fetch("/api/remanejamento/ajuste", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        idDseiCasai,
+        linhasReduzido: JSON.stringify(linhasReduzido),
+        linhasAcrescentado: JSON.stringify(linhasAcrescentado)
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
+
+    // Mantém o modo ajuste; zera as linhas para o próximo ajuste.
+    state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
+    state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
+    // Atualiza vagas ociosas/monitoramento/lista afetados pelo ajuste.
+    await recarregarTodosOsDados();
+    renderLinhasRemanejamento("reduzido");
+    renderLinhasRemanejamento("acrescentado");
+    atualizarResumoRemanejamento();
+    ocultarCarregando();
+    await abrirAviso({ titulo: "Ajuste salvo", msg: "Ajuste pontual registrado com sucesso." });
+  } catch (error) {
+    ocultarCarregando();
+    await abrirAviso({ titulo: "Erro ao salvar ajuste", msg: `Erro ao salvar o ajuste: ${error && error.message ? error.message : error}`, perigo: true });
+  }
+}
+
+export async function abrirJanelaAjustesRemanejamento() {
+  if (!ehAdminRemanejamento()) return;
+  const modal = document.getElementById("remAjustesModal");
+  const body = document.getElementById("remAjustesModalBody");
+  if (!modal || !body) return;
+
+  body.innerHTML = `<div class="remAjustesVazio">Carregando alterações pontuais…</div>`;
+  modal.style.display = "flex";
+
+  try {
+    const dados = await apiGet("/api/remanejamento/ajustes");
+    body.innerHTML = renderJanelaAjustesHtml(dados.rows || []);
+  } catch (error) {
+    body.innerHTML = `<div class="remAjustesVazio">Erro ao carregar alterações pontuais: ${escapeHtml(error && error.message ? error.message : String(error))}</div>`;
+  }
+}
+
+export function fecharJanelaAjustesRemanejamento() {
+  const modal = document.getElementById("remAjustesModal");
+  if (modal) modal.style.display = "none";
+}
+
+// Agrupa os ajustes por DSEI/CASAI (linhas já vêm por data desc do backend).
+function renderJanelaAjustesHtml(rows) {
+  if (!rows.length) {
+    return `<div class="remAjustesVazio">Nenhuma alteração pontual registrada.</div>`;
+  }
+
+  const grupos = new Map();
+  rows.forEach(r => {
+    const chave = r.dseiCasai || `DSEI ${r.idDseiCasai}`;
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave).push(r);
+  });
+
+  return [...grupos.entries()].map(([dsei, itens]) => {
+    const linhas = itens.map(item => {
+      const acr = String(item.tipo).toUpperCase() === "ACRESCIMO";
+      const badge = acr
+        ? `<span class="remAjusteBadge remAjusteBadgeAcr">+ Acréscimo</span>`
+        : `<span class="remAjusteBadge remAjusteBadgeDec">− Decréscimo</span>`;
+      return `
+            <tr>
+              <td>${escapeHtml(item.cargo || "-")}</td>
+              <td>${badge}</td>
+              <td>${formatNumber(item.qtd)}</td>
+              <td>${escapeHtml(item.criadoPor || "-")}</td>
+              <td>${escapeHtml(item.dataInsercaoFormatada || "-")}</td>
+              <td><button type="button" class="remDeleteBtn" title="Excluir ajuste" data-click="excluir-ajuste-rem" data-id="${escapeAttr(item.idMovimentacao)}">🗑</button></td>
+            </tr>`;
+    }).join("");
+
+    return `
+          <div class="remAjustesGrupo">
+            <div class="remAjustesGrupoTitulo">${escapeHtml(dsei)}</div>
+            <div class="remTableWrap">
+              <table class="remTable">
+                <thead>
+                  <tr><th>Cargo</th><th>Tipo</th><th>Qtd.</th><th>Responsável</th><th>Data</th><th>Ações</th></tr>
+                </thead>
+                <tbody>${linhas}</tbody>
+              </table>
+            </div>
+          </div>`;
+  }).join("");
+}
+
+export async function excluirAjusteRemanejamentoPainel(idMovimentacao) {
+  if (!ehAdminRemanejamento()) return;
+  const confirmacao = await abrirModal({
+    titulo: "Excluir ajuste pontual",
+    msg: "Tem certeza que deseja excluir este ajuste? A movimentação será removida e as vagas do DSEI voltarão ao valor anterior. Esta ação não pode ser desfeita.",
+    confirmarTexto: "Excluir",
+    perigo: true
+  });
+  if (!confirmacao.ok) return;
+
+  mostrarCarregando();
+  try {
+    const response = await fetch(`/api/remanejamento/ajuste/${encodeURIComponent(idMovimentacao)}`, { method: "DELETE" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
+
+    // Vagas ociosas/monitoramento voltam ao saldo anterior.
+    await recarregarTodosOsDados();
+    ocultarCarregando();
+    // Recarrega a janela para refletir a remoção (se ainda aberta).
+    const modal = document.getElementById("remAjustesModal");
+    if (modal && modal.style.display !== "none") await abrirJanelaAjustesRemanejamento();
+  } catch (error) {
+    ocultarCarregando();
+    await abrirAviso({ titulo: "Erro ao excluir ajuste", msg: `Erro ao excluir o ajuste: ${error && error.message ? error.message : error}`, perigo: true });
   }
 }

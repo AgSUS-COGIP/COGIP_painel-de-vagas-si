@@ -24,6 +24,9 @@ export const state = {
     acrescentado: []
   },
   remanejamentoEditandoId: null,
+  // Modo "ajustes pontuais" (admin): grava movimentações sem processo, sem as
+  // restrições de ociosas/impacto/PSS e sem exigir os dois lados.
+  remanejamentoAjusteAtivo: false,
 
   // Estado de visualização de vagas
   vagasViewAtual: "dsei",

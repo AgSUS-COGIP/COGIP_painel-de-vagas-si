@@ -1562,6 +1562,9 @@
 .rem-readonly [data-click="editar-rem"],
 .rem-readonly [data-click="excluir-rem"],
 .rem-readonly [data-click="liberar-pss-rem"],
+.rem-readonly [data-click="toggle-ajuste-rem"],
+.rem-readonly [data-click="abrir-ajustes-rem"],
+.rem-readonly [data-click="excluir-ajuste-rem"],
 .rem-readonly #remDocBox { display: none !important; }
 
 /* Modo somente leitura em Alertas (Leitor, nível < 2): esconde os controles de
@@ -1571,3 +1574,142 @@
 .alertas-readonly [data-click="cancelar-obs"],
 .alertas-readonly .alertaObservacaoInput,
 .alertas-readonly .alertaObservacaoActions { display: none !important; }
+
+/* ============================================================================
+   Ajustes pontuais (admin nível 3) — movimentações sem processo.
+   ========================================================================== */
+
+/* Barra de título com os botões de ação alinhados à direita. */
+.remPageTitleBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.remTitleBarAcoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Botão de alternância destacado quando o modo ajuste está ativo. */
+.remAjusteToggleAtivo {
+  background: #6c55d9 !important;
+  color: #fff !important;
+  border-color: #6c55d9 !important;
+}
+
+/* Banner do modo ajuste (roxo, distinto do amarelo do modo edição). */
+.remAjusteBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: rgba(108, 85, 217, .12);
+  border: 1px solid rgba(108, 85, 217, .5);
+  border-radius: 12px;
+  color: #4a3aa0;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+/* Seção 5 (documentação) travada durante o modo ajuste. */
+#remDocBox.remDocBloqueado {
+  opacity: .55;
+}
+
+#remDocBox.remDocBloqueado input,
+#remDocBox.remDocBloqueado textarea {
+  pointer-events: none;
+  background: rgba(0, 83, 166, .05);
+}
+
+/* Janela flutuante das alterações pontuais. Fica ABAIXO do modal central de
+   confirmação (9700) e do overlay de carregamento (9500), para que a confirmação
+   de exclusão e o spinner apareçam por cima dela. */
+.remAjustesModal {
+  position: fixed;
+  inset: 0;
+  z-index: 9400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 24, 51, .55);
+}
+
+.remAjustesModalCard {
+  width: min(920px, 100%);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 33, 71, .35);
+  overflow: hidden;
+}
+
+.remAjustesModalHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #005aa9, var(--azul-card));
+  color: #fff;
+}
+
+.remAjustesModalHead h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.remAjustesModalClose {
+  border: none;
+  background: rgba(255, 255, 255, .18);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.remAjustesModalBody {
+  padding: 18px 20px;
+  overflow: auto;
+  display: grid;
+  gap: 18px;
+}
+
+.remAjustesVazio {
+  padding: 24px;
+  text-align: center;
+  color: #315c8e;
+  font-weight: 800;
+}
+
+.remAjustesGrupoTitulo {
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--azul-escuro);
+  margin-bottom: 8px;
+}
+
+.remAjusteBadge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.remAjusteBadgeAcr { background: rgba(73, 209, 141, .18); color: #1c7a4c; }
+.remAjusteBadgeDec { background: rgba(220, 63, 63, .14); color: #a61b1b; }
