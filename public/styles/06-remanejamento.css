@@ -1564,6 +1564,7 @@
 .rem-readonly [data-click="liberar-pss-rem"],
 .rem-readonly [data-click="toggle-ajuste-rem"],
 .rem-readonly [data-click="abrir-ajustes-rem"],
+.rem-readonly [data-click="editar-ajuste-rem"],
 .rem-readonly [data-click="excluir-ajuste-rem"],
 .rem-readonly #remDocBox { display: none !important; }
 
@@ -1618,15 +1619,24 @@
   font-size: 13px;
 }
 
-/* Seção 5 (documentação) travada durante o modo ajuste. */
-#remDocBox.remDocBloqueado {
-  opacity: .55;
+/* Seção 5 (documentação) travada durante o modo ajuste: apenas os campos de
+   entrada ficam bloqueados (cinza, sem interação). O box e o botão Salvar
+   permanecem opacos/utilizáveis — o mesmo botão salva o ajuste. */
+#remDocBox.remDocBloqueado label {
+  color: #96a2b3;
 }
 
-#remDocBox.remDocBloqueado input,
+#remDocBox.remDocBloqueado input:not([type="file"]),
 #remDocBox.remDocBloqueado textarea {
   pointer-events: none;
-  background: rgba(0, 83, 166, .05);
+  background: #eef1f5;
+  border-color: rgba(0, 36, 82, .12);
+  color: #96a2b3;
+  cursor: not-allowed;
+}
+
+#remDocBox.remDocBloqueado .remanejamentoHint {
+  color: #96a2b3;
 }
 
 /* Janela flutuante das alterações pontuais. Fica ABAIXO do modal central de
