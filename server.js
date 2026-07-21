@@ -7,7 +7,7 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const { DASH_CONFIG, resolverPortaAplicacao } = require("./lib/config");
-const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
+const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, garantirColunaAjusteRemanejamento, salvarAjusteRemanejamentoComConn, getAjustesRemanejamentoData, excluirAjusteRemanejamentoComConn, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
 const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
@@ -597,6 +597,59 @@ app.get("/api/remanejamento/detalhe/:id", apiLimiter, autenticarFrescoMiddleware
 app.get("/api/remanejamento/edicao/:id", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(await getRemanejamentoEdicaoData(req.params.id, req.usuario.escopo));
 }));
+
+// Ajustes pontuais (admin nível 3): grava movimentações SEM processo. Registradas
+// antes do genérico /:id para que os caminhos literais /ajuste e /ajustes não sejam
+// capturados pelo parâmetro. Sem validação de ociosas/impacto/PSS.
+app.post(
+  "/api/remanejamento/ajuste",
+  apiLimiter,
+  autenticarFrescoMiddleware,
+  exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_REMANEJAMENTO_AJUSTE),
+  express.json(),
+  asyncHandler(async (req, res) => {
+    const conn = await getMysqlConnection();
+    try {
+      const body = { ...(req.body || {}), criadoPor: (req.usuario && (req.usuario.email || req.usuario.login)) || "painel" };
+      const resultado = await salvarAjusteRemanejamentoComConn(conn, body, req.usuario.escopo);
+      limparCacheDashboard();
+      res.json({ ok: true, ...resultado });
+    } catch (err) {
+      res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar o ajuste." });
+    } finally {
+      await fecharJdbc(conn);
+    }
+  })
+);
+
+app.get(
+  "/api/remanejamento/ajustes",
+  apiLimiter,
+  autenticarFrescoMiddleware,
+  exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_REMANEJAMENTO_AJUSTE),
+  asyncHandler(async (req, res) => {
+    res.json(await getAjustesRemanejamentoData(req.usuario.escopo));
+  })
+);
+
+app.delete(
+  "/api/remanejamento/ajuste/:id",
+  apiLimiter,
+  autenticarFrescoMiddleware,
+  exigirPermissaoModuloMiddleware("remanejamento", DASH_CONFIG.NIVEL_REMANEJAMENTO_AJUSTE),
+  asyncHandler(async (req, res) => {
+    const conn = await getMysqlConnection();
+    try {
+      await excluirAjusteRemanejamentoComConn(conn, req.params.id, req.usuario.escopo);
+      limparCacheDashboard();
+      res.json({ ok: true });
+    } catch (err) {
+      res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao excluir o ajuste." });
+    } finally {
+      await fecharJdbc(conn);
+    }
+  })
+);
 
 app.put(
   "/api/remanejamento/:id",
@@ -1489,6 +1542,10 @@ if (require.main === module) {
     console.error("Não foi possível garantir a coluna N_MESES do remanejamento:", err && err.message ? err.message : err);
   });
 
+  garantirColunaAjusteRemanejamento().catch(err => {
+    console.error("Não foi possível garantir a coluna CRIADO_POR das movimentações de remanejamento:", err && err.message ? err.message : err);
+  });
+
   garantirTabelaSolicitacoesAcesso().catch(err => {
     console.error("Não foi possível garantir a tabela de solicitações de acesso:", err && err.message ? err.message : err);
   });
@@ -1564,6 +1621,7 @@ function responderJsonTalvezComprimido(req, res, obj) {
 Object.assign(module.exports, {
   _salvarObservacaoAlertaComConn: salvarObservacaoAlertaComConn,
   _salvarRemanejamentoComConn: salvarRemanejamentoComConn,
+  _salvarAjusteRemanejamentoComConn: salvarAjusteRemanejamentoComConn,
   _normalizarLinhasRemanejamentoServidor: normalizarLinhasRemanejamentoServidor,
   _calcularResumoLinhasServidor: calcularResumoLinhasServidor,
   _mapearCargoParaPrevistas: mapearCargoParaPrevistas,

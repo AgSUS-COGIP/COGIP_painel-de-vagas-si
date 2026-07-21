@@ -2809,6 +2809,14 @@
               <h2>REMANEJAMENTO DE VAGAS</h2>
               <p>Reduza e acrescente cargos de forma estratégica, com transparência, controle e histórico.</p>
             </div>
+            <div class="remTitleBarAcoes">
+              <button type="button" class="remSecondaryBtn" id="remAjusteToggleBtn" data-click="toggle-ajuste-rem" style="display:none;">
+                <i class="fa-solid fa-sliders"></i> Ajustes pontuais
+              </button>
+              <button type="button" class="remSecondaryBtn" id="remVerAjustesBtn" data-click="abrir-ajustes-rem" style="display:none;">
+                <i class="fa-solid fa-clock-rotate-left"></i> Ver alterações pontuais
+              </button>
+            </div>
           </div>
 
           <div class="remPageShell" id="remPageShell">
@@ -2817,6 +2825,12 @@
                 <span><i class="fa-solid fa-pen-to-square"></i> Você está <strong>editando</strong> o remanejamento
                   <strong id="remEditandoId"></strong>. As alterações substituirão o registro existente.</span>
                 <button type="button" class="remSecondaryBtn" data-click="cancelar-edicao-rem">Cancelar edição</button>
+              </div>
+              <div id="remAjusteBanner" class="remAjusteBanner" style="display:none;">
+                <span><i class="fa-solid fa-sliders"></i> <strong>Modo ajustes pontuais.</strong> Acrescente e/ou
+                  reduza cargos livremente, sem restrição de vagas ociosas, impacto ou processo seletivo. O ajuste
+                  <strong>não gera processo SEI</strong> e a documentação abaixo fica bloqueada.</span>
+                <button type="button" class="remSecondaryBtn" data-click="toggle-ajuste-rem">Sair do modo ajuste</button>
               </div>
               <div class="remTopGrid">
                 <section class="remBox remDseiBox">
@@ -3058,6 +3072,19 @@
                    (antes era um <tr> inserido na tabela, incompatível com o DOM virtual). -->
               <div id="remDetalhePanel" class="remDetalhePanel" hidden></div>
             </section>
+          </div>
+
+          <!-- Janela flutuante das alterações pontuais (movimentações sem processo). -->
+          <div id="remAjustesModal" class="remAjustesModal" style="display:none;">
+            <div class="remAjustesModalCard" role="dialog" aria-modal="true" aria-labelledby="remAjustesModalTitulo">
+              <div class="remAjustesModalHead">
+                <h3 id="remAjustesModalTitulo"><i class="fa-solid fa-clock-rotate-left"></i> Alterações pontuais</h3>
+                <button type="button" class="remAjustesModalClose" data-click="fechar-ajustes-rem" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <div id="remAjustesModalBody" class="remAjustesModalBody"></div>
+            </div>
           </div>
         </section>
 

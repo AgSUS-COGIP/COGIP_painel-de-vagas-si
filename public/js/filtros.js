@@ -3,7 +3,7 @@ import { ajustarEscalaPainelFixo, carregarRemanejamentoListaEmSegundoPlano, gara
 import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
-import { abrirPainelExterno, abrirPainelFerias, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirRemanejamentoPainel, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
+import { abrirPainelExterno, abrirPainelFerias, abrirJanelaAjustesRemanejamento, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, alternarModoAjusteRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarRemanejamentoPainel, excluirAjusteRemanejamentoPainel, excluirRemanejamentoPainel, fecharJanelaAjustesRemanejamento, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
 import { renderEntregaCrachaAoMostrar } from "./entrega-cracha.js";
 import { renderProcessosSeletivosAoMostrar } from "./processos-seletivos.js";
 import { renderMapaDseisAoMostrar } from "./mapa-dseis.js";
@@ -290,6 +290,10 @@ export function configurarDelegacaoEventos() {
       case "excluir-rem": excluirRemanejamentoPainel(d.id); break;
       case "remover-linha-rem": removerLinhaRemanejamento(d.tipo, d.id); break;
       case "liberar-pss-rem": liberarBloqueioPSSRemanejamento(); break;
+      case "toggle-ajuste-rem": alternarModoAjusteRemanejamento(); break;
+      case "abrir-ajustes-rem": abrirJanelaAjustesRemanejamento(); break;
+      case "fechar-ajustes-rem": fecharJanelaAjustesRemanejamento(); break;
+      case "excluir-ajuste-rem": excluirAjusteRemanejamentoPainel(d.id); break;
     }
   });
 
