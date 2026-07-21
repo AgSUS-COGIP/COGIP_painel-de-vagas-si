@@ -79,6 +79,7 @@ let vagaSelecionada = null;  // nome do cargo com o painel de aprovados aberto
 let cronoExpandido = false;  // widget "Etapa atual": true = mostra o cronograma completo
 let gradeAprovados = null;   // grade Tabulator dos aprovados (edição inline por célula)
 let gradeVagas = null;       // grade Tabulator do quadro de vagas (para atualizar sem reconstruir)
+let lotacaoFiltro = "";      // lotação selecionada no menu do quadro ("" = Todos)
 let aprovadoFocoId = null;   // id do aprovado recém-criado: abre a edição do Nome ao montar
 let configEditalId = null;   // edital alvo do modal de configuração
 
@@ -118,7 +119,7 @@ async function carregarDoBanco() {
     if (cargos.length || cronograma.length) anexosExtraidos.set(e.id, { cargos, cronograma });
     (e.aprovados || []).forEach(a => {
       aprovadosDoCargo(e.id, a.cargo).push({
-        id: a.id, nome: a.nome, nota: a.nota, tipo: a.tipo, status: a.status, docDesistencia: null
+        id: a.id, vagaId: a.vagaId, nome: a.nome, nota: a.nota, tipo: a.tipo, status: a.status, docDesistencia: null
       });
     });
   });
@@ -384,12 +385,27 @@ function celulaVazia(v) {
   return s === "" || s === "-" || s === "—";
 }
 
+// Lotações distintas (não vazias) do edital, ordenadas. Vazio => edital sem lotação.
+function lotacoesDoEdital(proc) {
+  const set = new Set();
+  cargosDoEdital(proc).forEach(c => { const l = String(c.lotacao || "").trim(); if (l) set.add(l); });
+  return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
 function renderQuadroVagas(proc) {
   const cargos = cargosDoEdital(proc);
+  const podeEditar = podeEditarProcessos();
+  const btnConferir = podeEditar && anexosExtraidos.has(proc?.id)
+    ? `<button type="button" class="psBtn psBtnGhost psBtnSm" data-ps-vagas="${escapeAttr(proc.id)}"><i class="fa-solid fa-table-list"></i> Conferir vagas</button>`
+    : "";
+
   if (!cargos.length) {
     return `
       <div class="psBloco psBlocoFull">
-        <h4 class="psBlocoTitulo">Vagas Previstas</h4>
+        <div class="psBlocoHead">
+          <h4 class="psBlocoTitulo">Vagas Previstas</h4>
+          ${btnConferir}
+        </div>
         <p class="psObservacoes"><span class="psSemObs">Quadro de cargos não disponível para este edital. Use “Inserir anexo” para extrair as vagas do PDF.</span></p>
       </div>`;
   }
@@ -399,12 +415,28 @@ function renderQuadroVagas(proc) {
     ? ` · <span class="psBlocoFonte"><i class="fa-solid fa-file-arrow-up"></i> via anexo enviado</span>`
     : "";
 
+  // Menu de navegação por lotação (só quando o edital tem lotações). "Todos" não
+  // filtra e mostra a coluna Lotação; uma lotação específica filtra e a oculta.
+  const lotacoes = lotacoesDoEdital(proc);
+  const menuLotacao = lotacoes.length
+    ? `<label class="psLotacaoNav">Lotação:
+         <select id="psLotacaoFiltro" data-ps-lotacao>
+           <option value=""${lotacaoFiltro ? "" : " selected"}>Todos</option>
+           ${lotacoes.map(l => `<option value="${escapeAttr(l)}"${lotacaoFiltro === l ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}
+         </select>
+       </label>`
+    : "";
+
   return `
     <div class="psBloco psBlocoFull">
       <div class="psBlocoHead">
         <h4 class="psBlocoTitulo">Vagas Previstas</h4>
-        <span class="psBlocoMeta">${cargos.length} cargo(s) no edital${viaAnexo} · selecione uma vaga para gerenciar os aprovados</span>
+        <div class="psBlocoAcoes">
+          ${menuLotacao}
+          ${btnConferir}
+        </div>
       </div>
+      <span class="psBlocoMeta">${cargos.length} vaga(s) no edital${viaAnexo} · selecione uma vaga para gerenciar os aprovados</span>
       <div id="psVagasTab"></div>
       ${renderPainelAprovados(proc)}
     </div>`;
@@ -415,9 +447,20 @@ function renderQuadroVagas(proc) {
 // (abre o painel de aprovados); a vaga selecionada fica destacada. Última
 // coluna "Fila" = nº de aprovados da vaga (sem field, lê a linha no formatter).
 function montarQuadroVagas(proc) {
-  const cargos = cargosDoEdital(proc);
+  let cargos = cargosDoEdital(proc);
   if (!cargos.length || !$("psVagasTab")) { gradeVagas = null; return; }
-  const colunas = COLUNAS_VAGAS.filter(c => cargos.some(cargo => !celulaVazia(cargo[c.campo])));
+  const temLotacao = cargos.some(c => String(c.lotacao || "").trim());
+  // Filtro por lotação (menu). "" = Todos (sem filtro).
+  if (lotacaoFiltro) cargos = cargos.filter(c => String(c.lotacao || "").trim() === lotacaoFiltro);
+  // Chave estável (cargo|lotação): o mesmo cargo pode aparecer em várias lotações,
+  // então "cargo" sozinho não serve de índice único na grade.
+  cargos = cargos.map(c => ({ ...c, _key: `${c.cargo || ""}||${c.lotacao || ""}` }));
+  // A coluna Lotação some quando uma lotação específica está selecionada
+  // (redundante) e quando o edital não tem lotação alguma.
+  const colunas = COLUNAS_VAGAS.filter(c => {
+    if (c.campo === "lotacao" && (lotacaoFiltro || !temLotacao)) return false;
+    return cargos.some(cargo => !celulaVazia(cargo[c.campo]));
+  });
   const ehNumerica = campo => campo !== "lotacao";
   const cols = [
     { title: "Cargo", field: "cargo", cssClass: "psCelNome", minWidth: 200, formatter: c => {
@@ -444,7 +487,7 @@ function montarQuadroVagas(proc) {
     elemento: "psVagasTab",
     colunas: cols,
     persistID: "psVagas",
-    indexField: "cargo",
+    indexField: "_key",
     movableColumns: false,
     movableRows: false,
     aoClicarLinha: row => selecionarVaga(row.cargo),
@@ -730,10 +773,11 @@ export function renderProcessosSeletivosAoMostrar() {
 // ---------- Ações ----------
 function alternarDetalhe(id) {
   processoExpandido = processoExpandido === id ? null : id;
-  // Troca de edital: zera a vaga selecionada e o widget de cronograma para não
-  // vazar a seleção/expansão de um edital para outro.
+  // Troca de edital: zera a vaga selecionada, o widget de cronograma e o filtro de
+  // lotação para não vazar a seleção/expansão de um edital para outro.
   vagaSelecionada = null;
   cronoExpandido = false;
+  lotacaoFiltro = "";
   renderTabela();
   renderDetalhe();
   if (processoExpandido) {
@@ -947,16 +991,7 @@ function popularConferencia(dados) {
 
 // Lê as edições da conferência -> { cargos, cronograma }. Descarta linhas vazias.
 function lerConferencia() {
-  const vagaRows = [...($("psConfVagasLista")?.querySelectorAll("[data-vaga-row]") || [])];
-  const val = (row, k) => (row.querySelector(`[data-vaga-${k}]`)?.value || "").trim();
-  const cargos = vagaRows.map(row => ({
-    cargo: val(row, "cargo"),
-    ampla: val(row, "ampla"),
-    pcd: val(row, "pcd"),
-    pretosPardos: val(row, "pretosPardos"),
-    indigenas: val(row, "indigenas"),
-    quilombolas: val(row, "quilombolas"),
-  })).filter(c => c.cargo);
+  const cargos = lerLinhasVaga($("psConfVagasLista"));
   const cronoRows = [...($("psConfCronoLista")?.querySelectorAll("[data-crono-row]") || [])];
   const cronograma = cronoRows.map(row => ({
     atividade: (row.querySelector("[data-crono-ativ]")?.value || "").trim(),
@@ -1152,6 +1187,16 @@ function aprovadosDoCargo(editalId, nomeCargo) {
 // contratado sai da reserva (não conta mais); os demais status permanecem.
 function filaDoCargo(editalId, nomeCargo) {
   return aprovadosDoCargo(editalId, nomeCargo).filter(c => c.status !== "Contratado").length;
+}
+
+// Total de aprovados vinculados a UMA vaga (por vagaId, todos os status) — mesmo
+// critério do servidor ao bloquear a remoção de uma vaga no editor "Conferir vagas".
+function contarAprovadosVaga(editalId, vagaId) {
+  const d = dadosAprovados.get(editalId);
+  if (!d || !vagaId) return 0;
+  let n = 0;
+  d.aprovadosPorCargo.forEach(lista => lista.forEach(a => { if (String(a.vagaId) === String(vagaId)) n++; }));
+  return n;
 }
 
 // "Aprovados" do edital = soma dos aprovados de todas as vagas (contagem real).
@@ -1753,8 +1798,12 @@ function criarLinhaVaga(c) {
   const row = document.createElement("div");
   row.className = "psConfVagaRow";
   row.dataset.vagaRow = "";
+  // Preserva o id da vaga (quando existente) para reconciliar no salvamento sem
+  // perder os aprovados ao renomear cargo/lotação.
+  if (c.vagaId !== undefined && c.vagaId !== null && c.vagaId !== "") row.dataset.vagaId = String(c.vagaId);
   row.innerHTML = `
     <input class="psInput psConfCargo" data-vaga-cargo type="text" placeholder="Nome do cargo" maxlength="150">
+    <input class="psInput psConfLotacao" data-vaga-lotacao type="text" placeholder="Lotação (opcional)" maxlength="255">
     <input class="psInput" data-vaga-ampla type="text" maxlength="8" title="Ampla Concorrência">
     <input class="psInput" data-vaga-pcd type="text" maxlength="8" title="PcD">
     <input class="psInput" data-vaga-pretosPardos type="text" maxlength="8" title="Pretos/Pardos">
@@ -1762,11 +1811,93 @@ function criarLinhaVaga(c) {
     <input class="psInput" data-vaga-quilombolas type="text" maxlength="8" title="Quilombolas">
     <button type="button" class="psIconBtn" data-vaga-remover title="Remover cargo"><i class="fa-solid fa-trash"></i></button>`;
   row.querySelector("[data-vaga-cargo]").value = c.cargo || "";
+  row.querySelector("[data-vaga-lotacao]").value = c.lotacao || "";
   ["ampla", "pcd", "pretosPardos", "indigenas", "quilombolas"].forEach(k => {
     const v = c[k];
     row.querySelector(`[data-vaga-${k}]`).value = (v === undefined || v === null) ? "" : String(v);
   });
   return row;
+}
+
+// Lê as linhas de vaga de um container (conferência do wizard ou editor). Descarta
+// linhas sem cargo. Mantém o vagaId (do dataset) para a reconciliação no servidor.
+function lerLinhasVaga(listaEl) {
+  const rows = [...(listaEl?.querySelectorAll("[data-vaga-row]") || [])];
+  const val = (row, k) => (row.querySelector(`[data-vaga-${k}]`)?.value || "").trim();
+  return rows.map(row => ({
+    vagaId: row.dataset.vagaId || "",
+    cargo: val(row, "cargo"),
+    lotacao: val(row, "lotacao"),
+    ampla: val(row, "ampla"),
+    pcd: val(row, "pcd"),
+    pretosPardos: val(row, "pretosPardos"),
+    indigenas: val(row, "indigenas"),
+    quilombolas: val(row, "quilombolas")
+  })).filter(c => c.cargo);
+}
+
+// ---------- Editor "Conferir vagas" (edital existente) ----------
+// Mesmo padrão do "Ajustar cronograma": abre um modal com as vagas atuais (cargo,
+// lotação e cotas) editáveis, permite adicionar/remover e salva a lista autoritativa
+// (PUT .../vagas) sem tocar no cronograma.
+let vagasEditId = null;
+
+function abrirModalVagas(editalId) {
+  if (!editalId || !podeEditarProcessos()) return;
+  vagasEditId = editalId;
+  const modal = $("psModalVagas");
+  if (!modal) return;
+  const erro = $("psVagasErro");
+  if (erro) erro.textContent = "";
+  const proc = processos.find(p => p.id === editalId);
+  const cargos = cargosDoEdital(proc);
+  const lista = $("psVagasEditLista");
+  if (lista) {
+    lista.innerHTML = "";
+    (cargos.length ? cargos : [{}]).forEach(c => lista.appendChild(criarLinhaVaga(c)));
+  }
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function fecharModalVagas() {
+  const modal = $("psModalVagas");
+  if (!modal) return;
+  modal.hidden = true;
+  vagasEditId = null;
+  document.body.style.overflow = "";
+}
+
+async function salvarVagas(event) {
+  event.preventDefault();
+  if (!vagasEditId || !podeEditarProcessos()) { fecharModalVagas(); return; }
+  const erroEl = $("psVagasErro");
+  if (erroEl) erroEl.textContent = "";
+  const cargos = lerLinhasVaga($("psVagasEditLista"));
+  // Estado de carregamento no próprio botão: confirma que o clique funcionou e
+  // evita cliques repetidos (o overlay global fica atrás do modal, então não serve).
+  const btn = $("psModalVagasSalvar");
+  const btnHtml = btn ? btn.innerHTML : "";
+  const cancelar = $("psModalVagasCancelar");
+  if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Salvando…`; }
+  if (cancelar) cancelar.disabled = true;
+  const restaurarBotao = () => {
+    if (btn) { btn.disabled = false; btn.innerHTML = btnHtml; }
+    if (cancelar) cancelar.disabled = false;
+  };
+  try {
+    await psApi("PUT", `/api/processos-seletivos/editais/${encodeURIComponent(vagasEditId)}/vagas`, { cargos });
+  } catch (e) {
+    const msg = e.message || "Não foi possível salvar as vagas.";
+    if (erroEl) erroEl.textContent = msg;
+    psToast(msg); // toast sempre visível (o aviso do form pode estar fora da rolagem)
+    restaurarBotao();
+    return;
+  }
+  restaurarBotao();
+  fecharModalVagas();
+  psToast("Vagas atualizadas.");
+  await recarregar();
 }
 
 // ---------- Inicialização ----------
@@ -1839,6 +1970,44 @@ export function configurarProcessosSeletivos() {
     if (event.target.matches("[data-crono-data]")) atualizarHintData(event.target.closest("[data-crono-row]"));
   });
 
+  // Modal "Conferir vagas" (edição manual de cargo/lotação/cotas do edital).
+  $("psModalVagasFechar")?.addEventListener("click", fecharModalVagas);
+  $("psModalVagasCancelar")?.addEventListener("click", fecharModalVagas);
+  // Salvar por clique direto no botão (não depende do submit do form, que é
+  // frágil para um botão fora do <form>) e também por Enter dentro do form.
+  $("psModalVagasSalvar")?.addEventListener("click", salvarVagas);
+  $("psFormVagas")?.addEventListener("submit", salvarVagas);
+  $("psVagasAddLinha")?.addEventListener("click", () => {
+    const erro = $("psVagasErro"); if (erro) erro.textContent = "";
+    $("psVagasEditLista")?.appendChild(criarLinhaVaga({}));
+  });
+  $("psVagasEditLista")?.addEventListener("click", async event => {
+    const rem = event.target.closest("[data-vaga-remover]");
+    if (!rem) return;
+    const row = rem.closest("[data-vaga-row]");
+    if (!row) return;
+    // Vaga com aprovados vinculados (por vagaId, todos os status — mesmo critério do
+    // servidor): pede confirmação, pois eles serão excluídos em cascata ao salvar.
+    const vagaId = row.dataset.vagaId || "";
+    const nApr = (vagasEditId && vagaId) ? contarAprovadosVaga(vagasEditId, vagaId) : 0;
+    if (nApr > 0) {
+      const cargo = (row.querySelector("[data-vaga-cargo]")?.value || "").trim() || "esta vaga";
+      // O modal de confirmação (#acessoModal, z-index 9700) fica abaixo do editor
+      // (.psModalOverlay, 100001): rebaixa o editor durante a confirmação.
+      const modal = $("psModalVagas");
+      if (modal) modal.style.zIndex = "9600";
+      const r = await abrirModal({
+        titulo: "Excluir vaga com aprovados",
+        msg: `Tem certeza? Ao salvar, você vai excluir também ${nApr} aprovado(s)/cadastro reserva vinculado(s) a "${cargo}". Esta ação não pode ser desfeita.`,
+        confirmarTexto: "Excluir vaga e aprovados",
+        perigo: true
+      });
+      if (modal) modal.style.zIndex = "";
+      if (!r.ok) return;
+    }
+    row.remove();
+  });
+
   // Conferência (passo 3 do assistente): adicionar/remover cargos e etapas.
   $("psConfAddVaga")?.addEventListener("click", () => {
     $("psConfVagasLista")?.appendChild(criarLinhaVaga({}));
@@ -1878,6 +2047,9 @@ export function configurarProcessosSeletivos() {
     const ajCrono = event.target.closest("[data-ps-cronograma]");
     if (ajCrono) { abrirModalCronograma(ajCrono.dataset.psCronograma); return; }
 
+    const confVagas = event.target.closest("[data-ps-vagas]");
+    if (confVagas) { abrirModalVagas(confVagas.dataset.psVagas); return; }
+
     const det = event.target.closest("[data-ps-detalhe]");
     if (det) { alternarDetalhe(det.dataset.psDetalhe); return; }
 
@@ -1904,6 +2076,16 @@ export function configurarProcessosSeletivos() {
 
     const pag = event.target.closest("[data-ps-pagina]");
     if (pag) { paginaAtual = Number(pag.dataset.psPagina) || 1; renderTabela(); return; }
+  });
+
+  // Menu de navegação por lotação: filtra o quadro de vagas sem reconstruir o
+  // detalhe inteiro (rebuild só da grade, preservando o próprio select).
+  raiz.addEventListener("change", event => {
+    const sel = event.target.closest("[data-ps-lotacao]");
+    if (!sel) return;
+    lotacaoFiltro = sel.value || "";
+    const proc = processos.find(p => p.id === processoExpandido);
+    if (proc) montarQuadroVagas(proc);
   });
 
   // Acessibilidade: linhas clicáveis também respondem a Enter/Espaço.

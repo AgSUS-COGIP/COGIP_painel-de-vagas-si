@@ -182,45 +182,50 @@ test("remanejamento: campos obrigatórios ausentes são rejeitados", async () =>
 });
 
 // ---------------------------------------------------------------------------
-// 2b) Ajuste pontual (movimentações sem processo)
+// 2b) Ajuste pontual (processo com TP_AJUSTE = 'S')
 // ---------------------------------------------------------------------------
-test("ajuste pontual: grava movimentações SEM processo (ID_PROCESSO_REMANEJAMENTO nulo)", async () => {
-  const conn = fakeConn();
+test("ajuste pontual: cria PROCESSO com TP_AJUSTE='S' e movimentações vinculadas", async () => {
+  const conn = fakeConn({ insertId: 88 });
   const res = await salvarAjuste(conn, {
     idDseiCasai: "3",
+    processoSei: "SEI-9",
     criadoPor: "admin@x",
+    mes: 1,
     linhasReduzido: JSON.stringify([{ idCargoFuncao: 10, quantidade: 2 }]),
     linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }])
-  });
+  }, null);
 
-  const movs = conn.calls.execute.filter(c => /MOVIMENTACAO_REMANEJAMENTO/.test(c.sql));
+  // Processo marcado como ajuste (TP_AJUSTE = 'S').
+  const proc = conn.calls.execute.find(c => /TP_AJUSTE/.test(c.sql));
+  assert.ok(proc, "deve inserir o processo");
+  assert.match(proc.sql, /'S'/);
+  // Movimentações vinculadas ao processo (id 88); params = [proc, dsei, vaga, tipo, qtd, criadoPor].
+  const movs = conn.calls.execute.filter(c => /TIPO_MOVIMENTACAO/.test(c.sql));
   assert.equal(movs.length, 2);
-  // O processo é gravado como NULL literal; params = [dsei, vaga, tipo, qtd, criadoPor].
-  assert.match(movs[0].sql, /VALUES \(NULL,/);
-  assert.deepEqual(movs[0].params, [3, 10, "DECRESCIMO", 2, "admin@x"]);
-  assert.deepEqual(movs[1].params, [3, 20, "ACRESCIMO", 1, "admin@x"]);
+  assert.deepEqual(movs[0].params, [88, 3, 10, "DECRESCIMO", 2, "admin@x"]);
+  assert.deepEqual(movs[1].params, [88, 3, 20, "ACRESCIMO", 1, "admin@x"]);
   assert.deepEqual(conn.calls.tx, ["begin", "commit"]);
-  assert.equal(res.inseridos, 2);
+  assert.equal(res.idProcesso, 88);
 });
 
 test("ajuste pontual: aceita só acréscimo (sem redução) e só decréscimo (sem acréscimo)", async () => {
-  const soAcr = fakeConn();
+  const soAcr = fakeConn({ insertId: 5 });
   await salvarAjuste(soAcr, {
     idDseiCasai: "1", linhasReduzido: "[]",
     linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 4 }])
-  });
-  const mAcr = soAcr.calls.execute.filter(c => /MOVIMENTACAO_REMANEJAMENTO/.test(c.sql));
+  }, null);
+  const mAcr = soAcr.calls.execute.filter(c => /TIPO_MOVIMENTACAO/.test(c.sql));
   assert.equal(mAcr.length, 1);
-  assert.equal(mAcr[0].params[2], "ACRESCIMO");
+  assert.equal(mAcr[0].params[3], "ACRESCIMO");
 
-  const soDec = fakeConn();
+  const soDec = fakeConn({ insertId: 6 });
   await salvarAjuste(soDec, {
     idDseiCasai: "1", linhasAcrescentado: "[]",
     linhasReduzido: JSON.stringify([{ idCargoFuncao: 10, quantidade: 5 }])
-  });
-  const mDec = soDec.calls.execute.filter(c => /MOVIMENTACAO_REMANEJAMENTO/.test(c.sql));
+  }, null);
+  const mDec = soDec.calls.execute.filter(c => /TIPO_MOVIMENTACAO/.test(c.sql));
   assert.equal(mDec.length, 1);
-  assert.equal(mDec[0].params[2], "DECRESCIMO");
+  assert.equal(mDec[0].params[3], "DECRESCIMO");
 });
 
 test("ajuste pontual: sem DSEI ou sem nenhuma linha é rejeitado (nada é gravado)", async () => {
@@ -228,13 +233,13 @@ test("ajuste pontual: sem DSEI ou sem nenhuma linha é rejeitado (nada é gravad
   await assert.rejects(() => salvarAjuste(semDsei, {
     idDseiCasai: "", linhasReduzido: "[]",
     linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }])
-  }), /DSEI/);
+  }, null), /DSEI/);
   assert.equal(semDsei.calls.execute.length, 0);
 
   const semLinhas = fakeConn();
   await assert.rejects(() => salvarAjuste(semLinhas, {
     idDseiCasai: "1", linhasReduzido: "[]", linhasAcrescentado: "[]"
-  }), /ao menos um cargo/);
+  }, null), /ao menos um cargo/);
   assert.equal(semLinhas.calls.execute.length, 0);
 });
 

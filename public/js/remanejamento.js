@@ -1088,8 +1088,9 @@ export function limparFormularioRemanejamento() {
   // Padrão: mês atual (mesmo cálculo já definido).
   setValue("remanejamentoMes", String(new Date().getMonth() + 1));
 
-  // Limpar também encerra o modo de edição, se estiver ativo.
+  // Limpar também encerra o modo de edição (remanejamento normal e ajuste), se ativo.
   state.remanejamentoEditandoId = null;
+  state.remanejamentoAjusteEditandoId = null;
   aplicarModoEdicaoRemanejamento(false);
 
   const anexo = document.getElementById("remAnexoArquivo");
@@ -1233,12 +1234,13 @@ async function enviarRemanejamento({ idDseiCasai, processoSei, observacao, anexo
 }
 
 // ---------------------------------------------------------------------------
-// Ajustes pontuais (admin nível 3) — movimentações sem processo.
+// Ajustes pontuais (admin nível 3) — processo com TP_AJUSTE = 'S'.
 //
-// Reaproveitam o formulário de reduzir/acrescentar, mas gravam direto em
-// MOVIMENTACAO_REMANEJAMENTO sem ID_PROCESSO_REMANEJAMENTO, sem validação de
-// ociosas/impacto/PSS e sem exigir os dois lados. A seção 5 (documentação) fica
-// bloqueada. Uma janela flutuante lista e permite excluir cada ajuste.
+// Reaproveitam o formulário de reduzir/acrescentar SEM as validações de
+// ociosas/impacto/PSS e sem exigir os dois lados. A seção 5 (Nº SEI, observação e
+// anexo) fica LIBERADA — esses campos são opcionais no ajuste. Ao salvar, cria um
+// processo marcado como ajuste (TP_AJUSTE='S'), que aparece na janela de
+// "alterações pontuais" (e não no histórico). A janela lista e exclui cada ajuste.
 // ---------------------------------------------------------------------------
 
 // Administrador do módulo (nível 3) — mesmo nível que altera/exclui remanejamentos.
@@ -1250,14 +1252,24 @@ export function alternarModoAjusteRemanejamento() {
   if (!ehAdminRemanejamento()) return;
   const ativar = !state.remanejamentoAjusteAtivo;
 
-  // Ligar o modo ajuste cancela o modo edição (fluxos incompatíveis).
+  // Ligar o modo ajuste cancela o modo edição de remanejamento normal (incompatíveis).
   if (ativar && state.remanejamentoEditandoId != null) {
     state.remanejamentoEditandoId = null;
     aplicarModoEdicaoRemanejamento(false);
   }
 
   state.remanejamentoAjusteAtivo = ativar;
-  aplicarModoAjusteRemanejamento(ativar);
+
+  if (!ativar) {
+    // Sair do modo ajuste cancela uma edição de ajuste em andamento e limpa o form.
+    const estavaEditando = state.remanejamentoAjusteEditandoId != null;
+    state.remanejamentoAjusteEditandoId = null;
+    aplicarModoAjusteRemanejamento(false);
+    if (estavaEditando) limparFormularioRemanejamento();
+    return;
+  }
+
+  aplicarModoAjusteRemanejamento(true);
 }
 
 export function aplicarModoAjusteRemanejamento(ativo) {
@@ -1270,16 +1282,24 @@ export function aplicarModoAjusteRemanejamento(ativo) {
   const toggle = document.getElementById("remAjusteToggleBtn");
   if (toggle) toggle.classList.toggle("remAjusteToggleAtivo", !!ativo);
 
-  // Trava os campos da seção 5 (documentação): não se aplicam a ajustes pontuais.
+  // A seção 5 (Nº SEI / observação / anexo) permanece EDITÁVEL no ajuste — esses
+  // campos são opcionais aqui (garante que fiquem habilitados mesmo se ficaram
+  // desabilitados por outro fluxo).
   const docBox = document.getElementById("remDocBox");
-  if (docBox) docBox.classList.toggle("remDocBloqueado", !!ativo);
+  if (docBox) docBox.classList.remove("remDocBloqueado");
   ["remanejamentoProcessoSei", "remObservacao", "remAnexoArquivo"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.disabled = !!ativo;
+    if (!el) return;
+    el.disabled = false;
+    el._fi?.render();
   });
 
   const botao = document.getElementById("remSaveBtn");
-  if (botao) botao.textContent = ativo ? "Salvar Ajuste" : "Salvar Remanejamento";
+  if (botao) {
+    botao.textContent = ativo
+      ? (state.remanejamentoAjusteEditandoId ? "Atualizar Ajuste" : "Salvar Ajuste")
+      : "Salvar Remanejamento";
+  }
 
   // Opções/avisos das grades dependem do modo — re-renderiza e recalcula o resumo.
   renderLinhasRemanejamento("reduzido");
@@ -1290,6 +1310,9 @@ export function aplicarModoAjusteRemanejamento(ativo) {
 export async function salvarAjusteRemanejamentoPainel() {
   if (!ehAdminRemanejamento()) return;
   const idDseiCasai = document.getElementById("remanejamentoDsei")?.value || "";
+  const processoSei = document.getElementById("remanejamentoProcessoSei")?.value || "";
+  const observacao = document.getElementById("remObservacao")?.value || "";
+  const anexo = document.getElementById("remAnexoArquivo")?.files?.[0] || null;
   const linhasReduzido = coletarLinhasRemanejamento("reduzido").filter(item => item.idCargoFuncao && item.quantidade > 0);
   const linhasAcrescentado = coletarLinhasRemanejamento("acrescentado").filter(item => item.idCargoFuncao && item.quantidade > 0);
 
@@ -1302,42 +1325,102 @@ export async function salvarAjusteRemanejamentoPainel() {
     return;
   }
 
+  const editandoId = state.remanejamentoAjusteEditandoId;
   const dseiNome = document.getElementById("remanejamentoDsei")?.selectedOptions?.[0]?.text || idDseiCasai;
   const confirmacao = await abrirModal({
-    titulo: "Confirmar ajuste pontual",
-    msg: `Ajuste pontual em ${dseiNome}:\n• ${linhasAcrescentado.length} acréscimo(s)\n• ${linhasReduzido.length} decréscimo(s)\n\nEste ajuste NÃO gera processo SEI e altera diretamente as vagas do DSEI. Confirmar?`,
-    confirmarTexto: "Salvar ajuste"
+    titulo: editandoId ? "Confirmar alteração do ajuste" : "Confirmar ajuste pontual",
+    msg: `${editandoId ? `Você está alterando o ajuste #${editandoId}.\n\n` : ""}Ajuste pontual em ${dseiNome}:\n• ${linhasAcrescentado.length} acréscimo(s)\n• ${linhasReduzido.length} decréscimo(s)\n\n${editandoId ? "As alterações substituirão o ajuste existente." : `Será registrado como AJUSTE (aparece em "Ver alterações pontuais", não no histórico)`} e altera as vagas do DSEI, sem validação de ociosas/impacto. Confirmar?`,
+    confirmarTexto: editandoId ? "Atualizar ajuste" : "Salvar ajuste"
   });
   if (!confirmacao.ok) return;
 
+  const formData = new FormData();
+  formData.append("idDseiCasai", idDseiCasai);
+  formData.append("processoSei", processoSei);
+  formData.append("observacao", observacao);
+  formData.append("mes", String(mesRemanejamentoSelecionado()));
+  formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
+  formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
+  if (anexo) formData.append("anexo", anexo);
+
+  const url = editandoId ? `/api/remanejamento/ajuste/${encodeURIComponent(editandoId)}` : "/api/remanejamento/ajuste";
+  const metodo = editandoId ? "PUT" : "POST";
+
   mostrarCarregando();
   try {
-    const response = await fetch("/api/remanejamento/ajuste", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        idDseiCasai,
-        linhasReduzido: JSON.stringify(linhasReduzido),
-        linhasAcrescentado: JSON.stringify(linhasAcrescentado)
-      })
-    });
+    const response = await fetch(url, { method: metodo, body: formData });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
-    // Mantém o modo ajuste; zera as linhas para o próximo ajuste.
-    state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
-    state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
+    // Encerra a edição, limpa o formulário e re-aplica o modo ajuste (o limpar
+    // reseta o rótulo do botão para "Salvar Remanejamento").
+    state.remanejamentoAjusteEditandoId = null;
+    limparFormularioRemanejamento();
+    aplicarModoAjusteRemanejamento(state.remanejamentoAjusteAtivo);
     // Atualiza vagas ociosas/monitoramento/lista afetados pelo ajuste.
     await recarregarTodosOsDados();
-    renderLinhasRemanejamento("reduzido");
-    renderLinhasRemanejamento("acrescentado");
-    atualizarResumoRemanejamento();
     ocultarCarregando();
-    await abrirAviso({ titulo: "Ajuste salvo", msg: "Ajuste pontual registrado com sucesso." });
+    await abrirAviso({
+      titulo: editandoId ? "Ajuste atualizado" : "Ajuste salvo",
+      msg: editandoId ? "Ajuste pontual atualizado com sucesso." : "Ajuste pontual registrado com sucesso."
+    });
   } catch (error) {
     ocultarCarregando();
-    await abrirAviso({ titulo: "Erro ao salvar ajuste", msg: `Erro ao salvar o ajuste: ${error && error.message ? error.message : error}`, perigo: true });
+    await abrirAviso({ titulo: editandoId ? "Erro ao atualizar ajuste" : "Erro ao salvar ajuste", msg: `Erro ao ${editandoId ? "atualizar" : "salvar"} o ajuste: ${error && error.message ? error.message : error}`, perigo: true });
   }
+}
+
+// Carrega um ajuste (processo TP_AJUSTE='S') no formulário para edição, em modo
+// ajuste (sem validações; seção 5 liberada). Reusa o endpoint de edição comum.
+export async function editarAjusteRemanejamentoPainel(idProcesso) {
+  if (!ehAdminRemanejamento()) return;
+  mostrarCarregando();
+  let dados;
+  try {
+    dados = await apiGet(`/api/remanejamento/edicao/${encodeURIComponent(idProcesso)}`);
+  } catch (error) {
+    ocultarCarregando();
+    await abrirAviso({ titulo: "Erro ao carregar", msg: `Não foi possível carregar o ajuste: ${error && error.message ? error.message : error}`, perigo: true });
+    return;
+  }
+  ocultarCarregando();
+
+  fecharJanelaAjustesRemanejamento();
+
+  // Entra no modo ajuste editando este processo (não é edição de remanejamento normal).
+  state.remanejamentoAjusteAtivo = true;
+  state.remanejamentoEditandoId = null;
+  aplicarModoEdicaoRemanejamento(false);
+  state.remanejamentoAjusteEditandoId = dados.idProcesso;
+
+  // DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo/meses).
+  const dseis = montarOpcoesDseiRemanejamento();
+  preencherSelectRemanejamento("remanejamentoDsei", dseis, item => item.label);
+  setValue("remanejamentoDsei", String(dados.idDseiCasai || ""));
+  sincronizarSelectPesquisavel(document.getElementById("remanejamentoDsei"));
+
+  const mesEl = document.getElementById("remanejamentoMes");
+  if (mesEl) {
+    mesEl.value = String(dados.mes || (new Date().getMonth() + 1));
+    mesEl.dataset.tocado = "1";
+    tornarSelectPesquisavel(mesEl, { placeholder: "Pesquise o mês…" });
+    sincronizarSelectPesquisavel(mesEl);
+  }
+
+  state.remanejamentoLinhas.reduzido = (dados.reduzidos || []).map(item => construirLinhaEdicaoRemanejamento("reduzido", item));
+  state.remanejamentoLinhas.acrescentado = (dados.acrescentados || []).map(item => construirLinhaEdicaoRemanejamento("acrescentado", item));
+  if (!state.remanejamentoLinhas.reduzido.length) state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", {})];
+  if (!state.remanejamentoLinhas.acrescentado.length) state.remanejamentoLinhas.acrescentado = [criarLinhaRemanejamento("acrescentado", {})];
+
+  setValue("remanejamentoProcessoSei", dados.processoSei || "");
+  setValue("remObservacao", dados.observacao || "");
+  const anexo = document.getElementById("remAnexoArquivo");
+  if (anexo) { anexo.value = ""; anexo._fi?.render(); }
+
+  // Aplica o modo ajuste: libera a seção 5, rótula o botão ("Atualizar Ajuste") e re-renderiza.
+  aplicarModoAjusteRemanejamento(true);
+
+  document.getElementById("remPageShell")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 export async function abrirJanelaAjustesRemanejamento() {
@@ -1362,56 +1445,53 @@ export function fecharJanelaAjustesRemanejamento() {
   if (modal) modal.style.display = "none";
 }
 
-// Agrupa os ajustes por DSEI/CASAI (linhas já vêm por data desc do backend).
+// Lista os ajustes (processos TP_AJUSTE='S') — uma linha por processo, como um
+// mini-histórico. As linhas têm a mesma forma da lista de remanejamentos.
 function renderJanelaAjustesHtml(rows) {
   if (!rows.length) {
     return `<div class="remAjustesVazio">Nenhuma alteração pontual registrada.</div>`;
   }
 
-  const grupos = new Map();
-  rows.forEach(r => {
-    const chave = r.dseiCasai || `DSEI ${r.idDseiCasai}`;
-    if (!grupos.has(chave)) grupos.set(chave, []);
-    grupos.get(chave).push(r);
-  });
-
-  return [...grupos.entries()].map(([dsei, itens]) => {
-    const linhas = itens.map(item => {
-      const acr = String(item.tipo).toUpperCase() === "ACRESCIMO";
-      const badge = acr
-        ? `<span class="remAjusteBadge remAjusteBadgeAcr">+ Acréscimo</span>`
-        : `<span class="remAjusteBadge remAjusteBadgeDec">− Decréscimo</span>`;
-      return `
-            <tr>
-              <td>${escapeHtml(item.cargo || "-")}</td>
-              <td>${badge}</td>
-              <td>${formatNumber(item.qtd)}</td>
-              <td>${escapeHtml(item.criadoPor || "-")}</td>
-              <td>${escapeHtml(item.dataInsercaoFormatada || "-")}</td>
-              <td><button type="button" class="remDeleteBtn" title="Excluir ajuste" data-click="excluir-ajuste-rem" data-id="${escapeAttr(item.idMovimentacao)}">🗑</button></td>
-            </tr>`;
-    }).join("");
-
+  const linhas = rows.map(r => {
+    const id = escapeAttr(r.idProcesso);
+    const anexo = r.anexoOficioUrl
+      ? `<a class="remAnexoLink" href="${escapeAttr(safeUrl(r.anexoOficioUrl))}" target="_blank" rel="noopener noreferrer">PDF</a>`
+      : "—";
     return `
-          <div class="remAjustesGrupo">
-            <div class="remAjustesGrupoTitulo">${escapeHtml(dsei)}</div>
-            <div class="remTableWrap">
-              <table class="remTable">
-                <thead>
-                  <tr><th>Cargo</th><th>Tipo</th><th>Qtd.</th><th>Responsável</th><th>Data</th><th>Ações</th></tr>
-                </thead>
-                <tbody>${linhas}</tbody>
-              </table>
-            </div>
-          </div>`;
+          <tr>
+            <td>${escapeHtml(r.dataCriacaoFormatada || r.dataCriacao || "-")}</td>
+            <td>${escapeHtml(r.dseiCasai || "-")}</td>
+            <td>${formatarCargosRemanejamento(r.cargosReduzidos, "reduzido")}</td>
+            <td>${formatarCargosRemanejamento(r.cargosAcrescentados, "acrescentado")}</td>
+            <td>${escapeHtml(r.numeroProcessoSei || "—")}</td>
+            <td>${escapeHtml(r.inseridoPorEmail || r.criadoPor || "-")}</td>
+            <td>${anexo}</td>
+            <td class="remAcoesCell">
+              <button type="button" class="remAcaoBtn remAcaoEditar" title="Editar ajuste" data-click="editar-ajuste-rem" data-id="${id}"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir ajuste" data-click="excluir-ajuste-rem" data-id="${id}"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>`;
   }).join("");
+
+  return `
+        <div class="remTableWrap">
+          <table class="remTable">
+            <thead>
+              <tr>
+                <th>Data</th><th>DSEI</th><th>Vaga Reduzida</th><th>Vaga Acrescentada</th>
+                <th>Processo SEI</th><th>Responsável</th><th>PDF</th><th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>${linhas}</tbody>
+          </table>
+        </div>`;
 }
 
-export async function excluirAjusteRemanejamentoPainel(idMovimentacao) {
+export async function excluirAjusteRemanejamentoPainel(idProcesso) {
   if (!ehAdminRemanejamento()) return;
   const confirmacao = await abrirModal({
     titulo: "Excluir ajuste pontual",
-    msg: "Tem certeza que deseja excluir este ajuste? A movimentação será removida e as vagas do DSEI voltarão ao valor anterior. Esta ação não pode ser desfeita.",
+    msg: "Tem certeza que deseja excluir este ajuste? As movimentações serão removidas e as vagas do DSEI voltarão ao valor anterior. Esta ação não pode ser desfeita.",
     confirmarTexto: "Excluir",
     perigo: true
   });
@@ -1419,7 +1499,7 @@ export async function excluirAjusteRemanejamentoPainel(idMovimentacao) {
 
   mostrarCarregando();
   try {
-    const response = await fetch(`/api/remanejamento/ajuste/${encodeURIComponent(idMovimentacao)}`, { method: "DELETE" });
+    const response = await fetch(`/api/remanejamento/ajuste/${encodeURIComponent(idProcesso)}`, { method: "DELETE" });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
