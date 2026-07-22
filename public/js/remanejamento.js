@@ -825,8 +825,16 @@ export function mesRemanejamentoSelecionado() {
   return v >= 1 && v <= 12 ? v : new Date().getMonth() + 1;
 }
 
-// Meses do mês escolhido até dezembro (mesma regra do servidor: 13 - mês).
+// Quantidade de meses digitada no modo AJUSTE (1..12). Sem valor válido, usa 1.
+export function mesesAjusteInformado() {
+  const q = Number(document.getElementById("remanejamentoMesesAjuste")?.value);
+  return (q >= 1 && q <= 12) ? Math.round(q) : 1;
+}
+
+// Meses que alimentam o custo do período. No modo ajuste é a quantidade digitada
+// diretamente; no remanejamento normal, do mês escolhido até dezembro (13 - mês).
 export function mesesRemanejamentoSelecionado() {
+  if (state.remanejamentoAjusteAtivo) return mesesAjusteInformado();
   return Math.max(1, 13 - mesRemanejamentoSelecionado());
 }
 
@@ -1283,6 +1291,13 @@ export function aplicarModoAjusteRemanejamento(ativo) {
   const toggle = document.getElementById("remAjusteToggleBtn");
   if (toggle) toggle.classList.toggle("remAjusteToggleAtivo", !!ativo);
 
+  // No ajuste, "Mês do remanejamento" dá lugar ao campo de quantidade de meses
+  // (digitada). No remanejamento normal, volta o seletor de mês (→ dezembro).
+  const mesSelectWrap = document.getElementById("remMesSelectWrap");
+  const mesesAjusteWrap = document.getElementById("remMesesAjusteWrap");
+  if (mesSelectWrap) mesSelectWrap.style.display = ativo ? "none" : "";
+  if (mesesAjusteWrap) mesesAjusteWrap.style.display = ativo ? "" : "none";
+
   // A seção 5 (Nº SEI / observação / anexo) permanece EDITÁVEL no ajuste — esses
   // campos são opcionais aqui (garante que fiquem habilitados mesmo se ficaram
   // desabilitados por outro fluxo).
@@ -1340,6 +1355,7 @@ export async function salvarAjusteRemanejamentoPainel() {
   formData.append("processoSei", processoSei);
   formData.append("observacao", observacao);
   formData.append("mes", String(mesRemanejamentoSelecionado()));
+  formData.append("meses", String(mesesAjusteInformado()));
   formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
   formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
   if (anexo) formData.append("anexo", anexo);
@@ -1408,6 +1424,14 @@ export async function editarAjusteRemanejamentoPainel(idProcesso) {
     sincronizarSelectPesquisavel(mesEl);
   }
 
+  // Quantidade de meses do ajuste (N_MESES gravado) para o campo do modo ajuste.
+  const mesesAjusteEl = document.getElementById("remanejamentoMesesAjuste");
+  if (mesesAjusteEl) {
+    const nMeses = Number(dados.meses);
+    mesesAjusteEl.value = String((nMeses >= 1 && nMeses <= 12) ? nMeses : 1);
+    mesesAjusteEl._fi?.render();
+  }
+
   state.remanejamentoLinhas.reduzido = (dados.reduzidos || []).map(item => construirLinhaEdicaoRemanejamento("reduzido", item));
   state.remanejamentoLinhas.acrescentado = (dados.acrescentados || []).map(item => construirLinhaEdicaoRemanejamento("acrescentado", item));
   if (!state.remanejamentoLinhas.reduzido.length) state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", {})];
@@ -1446,8 +1470,16 @@ export function fecharJanelaAjustesRemanejamento() {
   if (modal) modal.style.display = "none";
 }
 
+// Rótulo "N mês(es)" a partir da quantidade gravada (N_MESES). Retorna "—" sem valor.
+function formatarMesesAtivosLabel(meses) {
+  const n = Number(meses);
+  if (!(n >= 1)) return "—";
+  return `${n} ${n === 1 ? "mês" : "meses"}`;
+}
+
 // Lista os ajustes (processos TP_AJUSTE='S') — uma linha por processo, como um
-// mini-histórico. As linhas têm a mesma forma da lista de remanejamentos.
+// mini-histórico. As linhas têm a mesma forma da lista de remanejamentos e cada
+// uma abre um detalhe (processo, observação e meses ativos) sob demanda.
 function renderJanelaAjustesHtml(rows) {
   if (!rows.length) {
     return `<div class="remAjustesVazio">Nenhuma alteração pontual registrada.</div>`;
@@ -1468,9 +1500,13 @@ function renderJanelaAjustesHtml(rows) {
             <td>${escapeHtml(r.inseridoPorEmail || r.criadoPor || "-")}</td>
             <td>${anexo}</td>
             <td class="remAcoesCell">
+              <button type="button" class="remAcaoBtn" title="Ver detalhes" data-click="detalhe-ajuste-rem" data-id="${id}"><i class="fa-solid fa-info"></i></button>
               <button type="button" class="remAcaoBtn remAcaoEditar" title="Editar ajuste" data-click="editar-ajuste-rem" data-id="${id}"><i class="fa-solid fa-pen-to-square"></i></button>
               <button type="button" class="remAcaoBtn remAcaoExcluir" title="Excluir ajuste" data-click="excluir-ajuste-rem" data-id="${id}"><i class="fa-solid fa-trash"></i></button>
             </td>
+          </tr>
+          <tr class="remAjusteDetalheRow" id="remAjusteDetalhe-${id}" hidden>
+            <td colspan="8">${renderDetalheAjusteHtml(r)}</td>
           </tr>`;
   }).join("");
 
@@ -1486,6 +1522,46 @@ function renderJanelaAjustesHtml(rows) {
             <tbody>${linhas}</tbody>
           </table>
         </div>`;
+}
+
+// Detalhe de um ajuste pontual: cargos do processo, quantidade de meses ativos no
+// ano (N_MESES) e a observação. Fica oculto na tabela e é exibido pelo botão
+// "Ver detalhes".
+function renderDetalheAjusteHtml(r) {
+  const temReduzidos = !!(r.cargosReduzidos && String(r.cargosReduzidos).trim());
+  const temAcrescentados = !!(r.cargosAcrescentados && String(r.cargosAcrescentados).trim());
+
+  const blocoReduzidos = temReduzidos ? `
+        <div class="remAjusteDetalheBloco">
+          <div class="remAjusteDetalheLabel">Vagas reduzidas</div>
+          <div class="remAjusteDetalheCargos">${formatarCargosRemanejamento(r.cargosReduzidos, "reduzido")}</div>
+        </div>` : "";
+
+  const blocoAcrescentados = temAcrescentados ? `
+        <div class="remAjusteDetalheBloco">
+          <div class="remAjusteDetalheLabel">Vagas acrescentadas</div>
+          <div class="remAjusteDetalheCargos">${formatarCargosRemanejamento(r.cargosAcrescentados, "acrescentado")}</div>
+        </div>` : "";
+
+  return `
+        <div class="remAjusteDetalheBox">
+          ${blocoReduzidos}
+          ${blocoAcrescentados}
+          <div class="remAjusteDetalheMeta">
+            <div><strong>Meses ativos no ano:</strong> ${formatarMesesAtivosLabel(r.numeroMeses)}</div>
+            <div><strong>Processo SEI:</strong> ${escapeHtml(r.numeroProcessoSei || "—")}</div>
+            <div><strong>Responsável:</strong> ${escapeHtml(r.inseridoPorEmail || r.criadoPor || "-")}</div>
+            <div class="remAjusteDetalheObs"><strong>Observação:</strong> ${escapeHtml(r.observacao || "—")}</div>
+          </div>
+        </div>`;
+}
+
+// Abre/fecha o detalhe de um ajuste (linha oculta logo abaixo da linha principal).
+export function alternarDetalheAjusteRemanejamento(idProcesso) {
+  const row = document.getElementById(`remAjusteDetalhe-${idProcesso}`);
+  if (!row) return;
+  const abrindo = row.hasAttribute("hidden");
+  row.toggleAttribute("hidden", !abrindo);
 }
 
 export async function excluirAjusteRemanejamentoPainel(idProcesso) {
