@@ -206,6 +206,28 @@ export function aplicarPermissoesUsuario() {
   const mesWrap = document.getElementById("remMesWrap");
   if (mesWrap) mesWrap.style.display = nivelRemanejamento >= 3 ? "" : "none";
 
+  // Ajustes pontuais (movimentações sem processo) são exclusivos do Administrador
+  // do módulo (nível 3). Os botões só aparecem para ele.
+  const ehAdminRem = nivelRemanejamento >= 3;
+  const btnAjuste = document.getElementById("remAjusteToggleBtn");
+  const btnVerAjustes = document.getElementById("remVerAjustesBtn");
+  if (btnAjuste) btnAjuste.style.display = ehAdminRem ? "" : "none";
+  if (btnVerAjustes) btnVerAjustes.style.display = ehAdminRem ? "" : "none";
+  // Rebaixado no meio da sessão: garante que o modo ajuste não fique preso ligado.
+  if (!ehAdminRem && state.remanejamentoAjusteAtivo) {
+    state.remanejamentoAjusteAtivo = false;
+    document.getElementById("remEditArea")?.classList.remove("remAjusteModo");
+    const banner = document.getElementById("remAjusteBanner");
+    if (banner) banner.style.display = "none";
+    document.getElementById("remDocBox")?.classList.remove("remDocBloqueado");
+    ["remanejamentoProcessoSei", "remObservacao", "remAnexoArquivo"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = false;
+    });
+    const btnSalvar = document.getElementById("remSaveBtn");
+    if (btnSalvar) btnSalvar.textContent = "Salvar Remanejamento";
+  }
+
   // Processos Seletivos: "Adicionar edital" exige Editor (>= 2). Leitor não vê o
   // botão (os botões Editar/Inserir anexo do detalhe são ocultados no render do
   // módulo; o backend bloqueia a extração de anexo por permissão).

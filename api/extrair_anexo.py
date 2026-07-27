@@ -173,10 +173,136 @@ def extract_borderless(pdf):
     return out_rows, src_page
 
 
+# ----------------------------------------------------------------------------
+# Quadro de vagas COM lotacao (cargo x lotacao) — layouts variados:
+#   • CARGO | AMPLA | PCD | PPIQ | TOTAL | LOTACAO             (valores inteiros)
+#   • VAGA  | AMPLA | PPIQ | TOTAL | MUNICIPIO/LOTACAO         (valores CR / '1 + CR' / '-')
+#   • VAGAS | LOTACAO | AMPLA | PCD | PRETOS E PARDOS | INDIGENAS | QUILOMBOLAS | TOTAL
+# O mesmo cargo se repete em varias lotacoes; a celula do cargo costuma vir
+# mesclada (vazia nas linhas de continuacao) e o nome pode quebrar em 2 linhas.
+# Dirigido pelo cabecalho: a lotacao pode estar em qualquer coluna, os valores
+# podem ser texto e o detalhamento de cotas varia. PPIQ -> primeira cota pretos/pardos.
+# ----------------------------------------------------------------------------
+LOT_VAL_RE = re.compile(r"^(?:\d{1,3}|cr|\d{1,3}\s*\+\s*cr|-)$")
+# map_header (dest) -> chave de armazenamento (estilo do extract_bordered).
+# PPIQ cai em Pretos_Pardos (instrucao do usuario: 1a cota pretos/pardos).
+LOT_VALDEST = {
+    "Ampla_Concorrencia": "Ampla_Concorrencia", "PcD": "PcD", "PPIQ": "Pretos_Pardos",
+    "Pretos_Pardos": "Pretos_Pardos", "Indigenas": "Indigenas",
+    "Quilombolas": "Quilombolas", "Total": "Total",
+}
+# Palavras que so aparecem em cabecalho — nunca sao nome de cargo.
+LOT_HDRWORD = {"cargo", "cargos", "vaga", "vagas", "funcao", "ampla", "concorrencia",
+               "concorren", "cia", "pcd", "ppiq", "total", "lotacao", "municipio",
+               "pretos", "pardos", "indigenas", "quilombolas", "e"}
+LOT_TOTAL = {"total", "total de vagas", "total geral"}
+
+
+def _lot_is_val(s):
+    return bool(LOT_VAL_RE.match(clean_cell(s).lower()))
+
+
+def _lot_col_headers(t, nrows=3):
+    """Rotulo combinado de cada coluna (junta as ~3 primeiras linhas do cabecalho)."""
+    ncols = max((len(r) for r in t[:nrows] if r), default=0)
+    labels = [""] * ncols
+    for r in t[:nrows]:
+        for ci in range(min(len(r), ncols)):
+            c = clean_cell(r[ci])
+            if c:
+                labels[ci] = (labels[ci] + " " + c).strip()
+    return labels, ncols
+
+
+def _lot_papeis(labels):
+    """(cargo_idx, lot_idx, dests) a partir dos rotulos de coluna, na ordem das colunas."""
+    cargo_idx = lot_idx = None
+    dests = []
+    for ci, l in enumerate(labels):
+        n = norm(l)
+        if lot_idx is None and ("lota" in n or "municipio" in n):
+            lot_idx = ci
+            continue
+        if cargo_idx is None and any(k in n for k in VAGA_HDR):
+            cargo_idx = ci
+            continue
+        d = map_header(l)
+        if d in LOT_VALDEST:
+            dests.append(LOT_VALDEST[d])
+    if cargo_idx is None:
+        cargo_idx = 0
+    return cargo_idx, lot_idx, dests
+
+
+def _lot_cargo_junk(cargo):
+    """True quando o 'cargo' e so palavra(s) de cabecalho (ou vazio)."""
+    n = norm(cargo)
+    return (not n) or all(w in LOT_HDRWORD for w in n.split())
+
+
+def _lot_parse_tabela(t, lot_idx, dests, out):
+    """Extrai linhas (cargo x lotacao) de UMA tabela para `out`, com forward-fill do
+    cargo (linha sem cargo herda o anterior) e concatenacao da 'cauda' (nome que
+    quebrou em 2 linhas)."""
+    last = out[-1] if out else None
+    for row in t:
+        cells = [clean_cell(c).replace("\n", " ") for c in row]
+        lot = cells[lot_idx] if (lot_idx is not None and lot_idx < len(cells)) else ""
+        vals = [cells[k] for k in range(len(cells)) if k != lot_idx and _lot_is_val(cells[k])]
+        textos = [cells[k] for k in range(len(cells)) if k != lot_idx and cells[k] and not _lot_is_val(cells[k])]
+        cargo = " ".join(textos).strip()
+        if _lot_cargo_junk(cargo):
+            cargo = ""
+        if vals and lot and norm(lot) not in LOT_TOTAL:
+            rec = {"Cargo": cargo or (last["Cargo"] if last else "")}
+            for nm, v in zip(dests, vals):
+                rec[nm] = v
+            rec["Lotacao"] = lot
+            out.append(rec)
+            last = rec
+        elif cargo and last is not None and not vals:
+            last["Cargo"] = (last["Cargo"] + " " + cargo).strip()
+
+
+def extract_lotacao(pdf):
+    """Quadro de vagas por lotacao (cargo repete em varias lotacoes). Retorna
+    (rows, pagina); cada row usa as chaves do extract_bordered (Cargo, cotas, Lotacao)."""
+    out = []
+    locked = None  # (cargo_idx, lot_idx, dests, ncols)
+    src = None
+    for i, pg in enumerate(pdf.pages):
+        # Achado o quadro, para ao chegar no Anexo III (descricao dos cargos).
+        if locked is not None and any(s in norm(pg.extract_text() or "") for s in OCR_STOP):
+            break
+        for t in pg.extract_tables():
+            if not t or not t[0]:
+                continue
+            labels, ncols = _lot_col_headers(t)
+            hj = norm(" ".join(labels))
+            tem_hdr = "ampla" in hj and ("lota" in hj or "municipio" in hj)
+            if tem_hdr:
+                cargo_idx, lot_idx, dests = _lot_papeis(labels)
+                if lot_idx is None or not dests:
+                    continue
+                locked = (cargo_idx, lot_idx, dests, ncols)
+                if src is None:
+                    src = i + 1
+            elif locked is not None and ncols == locked[3]:
+                lot_idx, dests = locked[1], locked[2]
+            else:
+                continue
+            _lot_parse_tabela(t, lot_idx, dests, out)
+    return (out, src) if out else ([], None)
+
+
 def extract_quadro(pdf_bytes):
     """Retorna (rows, pagina, formato) ou ([], None, '')."""
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            # Formato com lotacao (cargo x lotacao) tem prioridade quando detectado.
+            rows, pg = extract_lotacao(pdf)
+            if rows:
+                return rows, pg, "lotacao"
             rows, pg = extract_bordered(pdf)
             if rows:
                 return rows, pg, "bordered"

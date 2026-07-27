@@ -2548,7 +2548,7 @@
                   </p>
                   <h4 class="psConfSecTitulo"><i class="fa-solid fa-table-list"></i> Quadro de Vagas</h4>
                   <div class="psConfVagaHead">
-                    <span>Cargo</span><span>AC</span><span>PcD</span><span>P/P</span>
+                    <span>Cargo</span><span>Lotação</span><span>AC</span><span>PcD</span><span>P/P</span>
                     <span>Ind.</span><span>Quil.</span><span></span>
                   </div>
                   <div id="psConfVagasLista" class="psConfVagasLista"></div>
@@ -2636,6 +2636,40 @@
               <div class="psModalFoot">
                 <button type="button" class="psBtn psBtnGhost" id="psModalCronogramaCancelar">Cancelar</button>
                 <button type="submit" form="psFormCronograma" class="psBtn" id="psModalCronogramaSalvar"><i class="fa-solid fa-check"></i> Salvar cronograma</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: conferir vagas (editar cargo, lotação e quantidades por tipo de vaga) -->
+          <div class="psModalOverlay" id="psModalVagas" hidden>
+            <div class="psModalCard" role="dialog" aria-modal="true" aria-labelledby="psModalVagasTitulo">
+              <div class="psModalHead">
+                <h3 id="psModalVagasTitulo"><i class="fa-solid fa-table-list"></i> Conferir vagas</h3>
+                <button type="button" class="psModalClose" id="psModalVagasFechar" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <form class="psModalBody" id="psFormVagas">
+                <p class="psAnexoIntro">
+                  Edite o <strong>nome do cargo</strong>, a <strong>lotação</strong> e a
+                  <strong>quantidade</strong> de cada tipo de vaga. Use “CR” ou 0 para Cadastro Reserva.
+                  Um mesmo cargo pode ter várias lotações (uma linha por lotação). Linhas sem cargo são
+                  descartadas ao salvar. Ao remover uma vaga com aprovados vinculados, eles também
+                  serão excluídos (com confirmação).
+                </p>
+                <div class="psConfVagaHead">
+                  <span>Cargo</span><span>Lotação</span><span>AC</span><span>PcD</span><span>P/P</span>
+                  <span>Ind.</span><span>Quil.</span><span></span>
+                </div>
+                <div id="psVagasEditLista" class="psConfVagasLista"></div>
+                <button type="button" class="psBtn psBtnGhost psBtnSm" id="psVagasAddLinha">
+                  <i class="fa-solid fa-plus"></i> Adicionar cargo
+                </button>
+                <p class="psModalErro" id="psVagasErro"></p>
+              </form>
+              <div class="psModalFoot">
+                <button type="button" class="psBtn psBtnGhost" id="psModalVagasCancelar">Cancelar</button>
+                <button type="button" class="psBtn" id="psModalVagasSalvar"><i class="fa-solid fa-check"></i> Salvar vagas</button>
               </div>
             </div>
           </div>
@@ -2806,6 +2840,14 @@
               <h2>REMANEJAMENTO DE VAGAS</h2>
               <p>Reduza e acrescente cargos de forma estratégica, com transparência, controle e histórico.</p>
             </div>
+            <div class="remTitleBarAcoes">
+              <button type="button" class="remSecondaryBtn" id="remAjusteToggleBtn" data-click="toggle-ajuste-rem" style="display:none;">
+                <i class="fa-solid fa-sliders"></i> Ajustes pontuais
+              </button>
+              <button type="button" class="remSecondaryBtn" id="remVerAjustesBtn" data-click="abrir-ajustes-rem" style="display:none;">
+                <i class="fa-solid fa-clock-rotate-left"></i> Ver alterações pontuais
+              </button>
+            </div>
           </div>
 
           <div class="remPageShell" id="remPageShell">
@@ -2815,27 +2857,41 @@
                   <strong id="remEditandoId"></strong>. As alterações substituirão o registro existente.</span>
                 <button type="button" class="remSecondaryBtn" data-click="cancelar-edicao-rem">Cancelar edição</button>
               </div>
+              <div id="remAjusteBanner" class="remAjusteBanner" style="display:none;">
+                <span><i class="fa-solid fa-sliders"></i> <strong>Modo ajustes pontuais.</strong> Acrescente e/ou
+                  reduza cargos livremente, sem restrição de vagas ociosas, impacto ou processo seletivo. Nº SEI,
+                  observação e anexo são <strong>opcionais</strong>. O registro vai para
+                  <strong>"Ver alterações pontuais"</strong>, não para o histórico.</span>
+                <button type="button" class="remSecondaryBtn" data-click="toggle-ajuste-rem">Sair do modo ajuste</button>
+              </div>
               <div class="remTopGrid">
                 <section class="remBox remDseiBox">
                   <h3>1. SELECIONE O DSEI</h3>
                   <label for="remanejamentoDsei">DSEI</label>
                   <select id="remanejamentoDsei" data-change="atualizar-vagas-origem"></select>
                   <div id="remMesWrap" class="remMesWrap" style="display:none;">
-                    <label for="remanejamentoMes">Mês do remanejamento</label>
-                    <select id="remanejamentoMes" data-change="alterar-mes-rem">
-                      <option value="1">Janeiro</option>
-                      <option value="2">Fevereiro</option>
-                      <option value="3">Março</option>
-                      <option value="4">Abril</option>
-                      <option value="5">Maio</option>
-                      <option value="6">Junho</option>
-                      <option value="7">Julho</option>
-                      <option value="8">Agosto</option>
-                      <option value="9">Setembro</option>
-                      <option value="10">Outubro</option>
-                      <option value="11">Novembro</option>
-                      <option value="12">Dezembro</option>
-                    </select>
+                    <div id="remMesSelectWrap">
+                      <label for="remanejamentoMes">Mês do remanejamento</label>
+                      <select id="remanejamentoMes" data-change="alterar-mes-rem">
+                        <option value="1">Janeiro</option>
+                        <option value="2">Fevereiro</option>
+                        <option value="3">Março</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Maio</option>
+                        <option value="6">Junho</option>
+                        <option value="7">Julho</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                      </select>
+                    </div>
+                    <div id="remMesesAjusteWrap" style="display:none;">
+                      <label for="remanejamentoMesesAjuste">Quantidade de meses (ativos no ano)</label>
+                      <input type="number" id="remanejamentoMesesAjuste" data-change="alterar-mes-rem" min="1" max="12" step="1" value="1" inputmode="numeric">
+                      <small class="remMesesAjusteHint">Nº de meses que o cargo ficou ativo. Ex.: abril a junho = 3.</small>
+                    </div>
                   </div>
                 </section>
 
@@ -3055,6 +3111,19 @@
                    (antes era um <tr> inserido na tabela, incompatível com o DOM virtual). -->
               <div id="remDetalhePanel" class="remDetalhePanel" hidden></div>
             </section>
+          </div>
+
+          <!-- Janela flutuante das alterações pontuais (movimentações sem processo). -->
+          <div id="remAjustesModal" class="remAjustesModal" style="display:none;">
+            <div class="remAjustesModalCard" role="dialog" aria-modal="true" aria-labelledby="remAjustesModalTitulo">
+              <div class="remAjustesModalHead">
+                <h3 id="remAjustesModalTitulo"><i class="fa-solid fa-clock-rotate-left"></i> Alterações pontuais</h3>
+                <button type="button" class="remAjustesModalClose" data-click="fechar-ajustes-rem" aria-label="Fechar">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <div id="remAjustesModalBody" class="remAjustesModalBody"></div>
+            </div>
           </div>
         </section>
 
