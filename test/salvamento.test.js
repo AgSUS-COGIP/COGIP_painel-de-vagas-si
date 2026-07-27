@@ -413,3 +413,113 @@ test("excluir usuário: remove das TRÊS tabelas em transação (e-mail normaliz
 test("excluir usuário: e-mail vazio é rejeitado", async () => {
   await assert.rejects(() => excluirUsuario(acessoConn(), "   "), /e-mail/i);
 });
+
+// ---------------------------------------------------------------------------
+// Crachás: importação e reversão em LOTE (chunked), com roster do consolidado.
+// A identidade vem do consolidado (VW_SAUDE_INDIGENA): a importação NÃO cadastra
+// trabalhador — matrícula fora do consolidado é erro por linha.
+// ---------------------------------------------------------------------------
+const { importarCrachasComConn: importarCrachas, reverterLoteComConn: reverterLote } = require("../lib/cracha.js");
+
+// Mock de conexão para o crachá: `consolidado` = matrículas presentes na view;
+// `overlay` = estado atual do controle por matrícula; `prev` = snapshots de
+// desfazer. Distingue as consultas pelo texto do SQL.
+function crachaConn({ consolidado = [], overlay = {}, prev = {} } = {}) {
+  const calls = { query: [], tx: [], inserts: [] };
+  return {
+    calls,
+    async query(sql, params) {
+      calls.query.push({ sql, params });
+      if (/INSERT INTO/.test(sql)) { calls.inserts.push({ sql, params }); return [{ affectedRows: 1 }]; }
+      if (/VW_SAUDE_INDIGENA/.test(sql)) { // identidade no consolidado
+        const rows = (params || []).filter(m => consolidado.includes(String(m)))
+          .map(m => ({ MATRICULA: String(m), NOME: `Nome ${m}`, CPF: null, CARGO: null, DSEI: null, ID_DSEI_CASAI: null, SITUACAO_DETALHADA: null, DATA_ADMISSAO: null }));
+        return [rows];
+      }
+      if (/`PREV_SNAPSHOT`, `PREV_TINHA`/.test(sql)) { // snapshots p/ reverter
+        const rows = (params || []).filter(m => prev[String(m)]).map(m => ({ MATRICULA: String(m), ...prev[String(m)] }));
+        return [rows];
+      }
+      if (/'%Y-%m-%d'/.test(sql)) { // estado atual do controle (leitura em lote do import)
+        const rows = (params || []).filter(m => overlay[String(m)]).map(m => ({ MATRICULA: String(m), ...overlay[String(m)] }));
+        return [rows];
+      }
+      if (/STATUS_EFETIVO/.test(sql)) { // busca final dos registros (controle)
+        const uniq = [...new Set((params || []).map(String))];
+        return [uniq.map(m => ({ MATRICULA: m }))];
+      }
+      return [[]];
+    },
+    async execute(sql, params) { calls.query.push({ sql, params }); return [{}]; },
+    async beginTransaction() { calls.tx.push("begin"); },
+    async commit() { calls.tx.push("commit"); },
+    async rollback() { calls.tx.push("rollback"); }
+  };
+}
+
+test("importar crachás (lote): atualiza quem está no consolidado e coleta erros por linha", async () => {
+  const conn = crachaConn({
+    consolidado: ["1", "2"],
+    overlay: { "1": { STATUS_MANUAL: "FOTO PENDENTE DE ENVIO", DATA_ENVIO: null, DEVOLVIDO: 0, SEGUNDA_VIA: 0 } }
+  });
+  const r = await importarCrachas(conn, [
+    { matricula: "1", status: "Crachás em Confecção" },   // existente: muda status (auto-carimba DATA_ENVIO)
+    { matricula: "2", observacao: "primeiro registro" },  // sem linha de controle ainda: upsert cria
+    { matricula: "", status: "Foto Pendente de Envio" },  // erro: matrícula em branco
+    { matricula: "9", status: "Foto Pendente de Envio" }  // erro: fora do consolidado (não cadastra)
+  ], "op@x");
+
+  assert.equal(r.total, 4);
+  assert.equal(r.criados, 0, "importação nunca cadastra trabalhador");
+  assert.equal(r.atualizados, 2);
+  assert.equal(r.erros.length, 2, "linha em branco + fora do consolidado");
+  assert.ok(r.erros.some(e => /Matrícula em branco/.test(e.erro)));
+  assert.ok(r.erros.some(e => e.matricula === "9" && /Trabalhador Consolidado/.test(e.erro)));
+
+  // Uma única gravação em lote (multi-linha), dentro de transação.
+  assert.equal(conn.calls.inserts.length, 1, "grava em um único INSERT multi-linha");
+  assert.deepEqual(conn.calls.tx, ["begin", "commit"], "gravação atômica");
+  const { sql, params } = conn.calls.inserts[0];
+  assert.match(sql, /ON DUPLICATE KEY UPDATE/);
+  assert.equal(params.length, 2 * 15, "2 linhas válidas x 15 colunas (matrícula + 11 dados + snapshot + tinha + usuário)");
+
+  // Matrícula 1 (tinha controle): auto-carimba DATA_ENVIO=hoje e guarda snapshot (PREV_TINHA=1).
+  const linha1 = params.slice(0, 15);
+  assert.equal(linha1[0], "1");
+  assert.match(String(linha1[3]), /^\d{4}-\d{2}-\d{2}$/, "DATA_ENVIO carimbada (3ª coluna de dados)");
+  assert.equal(linha1[13], 1, "PREV_TINHA=1 (havia registro de controle)");
+  // Matrícula 2 (primeiro registro): nasce sem snapshot (PREV_TINHA=0).
+  const linha2 = params.slice(15, 30);
+  assert.equal(linha2[0], "2");
+  assert.equal(linha2[13], 0, "PREV_TINHA=0 (não havia registro)");
+});
+
+test("importar crachás (lote): sem linhas válidas não grava nada", async () => {
+  const conn = crachaConn();
+  const r = await importarCrachas(conn, [{ matricula: "", status: "x" }], "op@x");
+  assert.equal(r.criados, 0);
+  assert.equal(r.atualizados, 0);
+  assert.equal(r.erros.length, 1);
+  assert.equal(conn.calls.inserts.length, 0, "nada a gravar");
+  assert.deepEqual(conn.calls.tx, [], "não abre transação sem dados");
+});
+
+test("reverter crachás (lote): restaura snapshot e ignora quem não tem o que desfazer", async () => {
+  const conn = crachaConn({
+    consolidado: ["10", "20", "30"],
+    prev: {
+      "10": { PREV_SNAPSHOT: JSON.stringify({ STATUS_MANUAL: "FOTO PENDENTE DE ENVIO", DEVOLVIDO: 0, SEGUNDA_VIA: 0 }), PREV_TINHA: 1 }, // restaura
+      "20": { PREV_SNAPSHOT: null, PREV_TINHA: null }, // nada a desfazer
+      "30": { PREV_SNAPSHOT: null, PREV_TINHA: 0 }     // primeiro registro: sem estado anterior
+    }
+  });
+  const r = await reverterLote(conn, ["10", "20", "30", ""]);
+
+  assert.deepEqual(conn.calls.tx, ["begin", "commit"], "gravação atômica");
+  assert.equal(conn.calls.inserts.length, 1, "um upsert de restauração em lote");
+  assert.equal(conn.calls.inserts[0].params[0], "10", "1ª coluna da tupla restaurada = matrícula");
+  assert.equal(r.erros.length, 2);
+  assert.ok(r.erros.some(e => e.matricula === "20" && /Não há alteração/.test(e.erro)));
+  assert.ok(r.erros.some(e => e.matricula === "30" && /primeiro registro/.test(e.erro)));
+  assert.deepEqual(r.registros.map(x => x.matricula), ["10"], "registros dos revertidos, buscados em lote");
+});

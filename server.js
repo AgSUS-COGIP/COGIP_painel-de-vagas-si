@@ -9,7 +9,7 @@ const multer = require("multer");
 const { DASH_CONFIG, resolverPortaAplicacao } = require("./lib/config");
 const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, garantirColunaAjusteRemanejamento, garantirColunaTpAjusteRemanejamento, salvarAjusteRemanejamentoComConn, atualizarAjusteRemanejamentoComConn, getAjustesRemanejamentoData, excluirAjusteRemanejamentoComConn, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
-const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
+const { getCrachaData, atualizarCacheCracha, limparCacheCracha, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
 const { getMysqlConnection, fecharJdbc, limparCacheDashboard } = require("./lib/db");
 const { garantirTabelaSolicitacoesAcesso, salvarSolicitacaoAcessoComConn, obterListasAcesso, obterSituacaoAcessoComConn, listarSolicitacoesComConn, aprovarSolicitacaoComConn, recusarSolicitacaoComConn, excluirUsuarioComConn, unidadeEscopoDaSolicitacao, listarEscritoriosEscopoComConn } = require("./lib/acesso");
@@ -212,7 +212,10 @@ const loginLimiter = rateLimit({
   message: { error: "Muitas tentativas de login. Aguarde alguns minutos e tente novamente." }
 });
 
-app.use(express.json({ limit: "256kb" })); // limita o corpo JSON (mitiga DoS por payload grande)
+// Sem parser JSON global: cada rota declara o próprio express.json() com o limite
+// adequado (mitiga DoS por payload grande sem sufocar rotas de lote/importação).
+// Um parser global aqui rodaria ANTES das rotas e "comeria" o corpo primeiro,
+// anulando os limites maiores por rota (ex.: 8mb da foto / importação).
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/config", apiLimiter, (req, res) => {
@@ -365,6 +368,23 @@ app.post("/api/escala/remover", apiLimiter, express.json(), autenticarFrescoMidd
 }));
 
 // ---- Entrega de Crachá ----
+
+// Responde JSON comprimido com gzip quando o cliente aceita e o payload compensa.
+// O payload do crachá (~20k linhas) passa de vários MB para uma fração disso;
+// sem middleware global de compressão, o helper fica restrito a quem precisa.
+function responderJsonTalvezComprimido(req, res, obj) {
+  const json = JSON.stringify(obj);
+  res.type("application/json");
+  res.setHeader("Vary", "Accept-Encoding");
+  const aceitaGzip = /\bgzip\b/i.test(String(req.headers["accept-encoding"] || ""));
+  if (!aceitaGzip || Buffer.byteLength(json) < 2048) { res.send(json); return; }
+  zlib.gzip(json, (err, buf) => {
+    if (err || res.headersSent) { res.send(json); return; }
+    res.setHeader("Content-Encoding", "gzip");
+    res.send(buf);
+  });
+}
+
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
   // CPF é dado sensível: a ÚNICA trava é ser da SEDE (escopo = todos os DSEIs).
@@ -373,7 +393,7 @@ app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoMo
   const escopo = req.usuario.escopo;
   const incluirCpf = !escopo || escopo.todos !== false;
   res.set("Cache-Control", "no-store"); // evita o navegador servir dados antigos após alterações
-  res.json(await getCrachaData(forcar, escopo, incluirCpf));
+  responderJsonTalvezComprimido(req, res, await getCrachaData(forcar, escopo, incluirCpf));
 }));
 
 // Editar overlay manual (datas / observação) — escrita: administradores.
@@ -396,7 +416,7 @@ app.post("/api/cracha/salvar", apiLimiter, express.json(), autenticarFrescoMiddl
     if (body.observacao !== undefined) campos.observacao = body.observacao;
     await garantirEscopoMatriculaComConn(conn, body.matricula, req.usuario.escopo);
     const registro = await salvarControleComConn(conn, body.matricula, campos, usuario);
-    limparCacheDashboard();
+    atualizarCacheCracha(registro); // atualização pontual: não derruba os caches dos outros painéis
     res.json({ ok: true, registro });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar o crachá." });
@@ -412,7 +432,7 @@ app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddl
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
     await garantirEscopoMatriculaComConn(conn, (req.body || {}).matricula, req.usuario.escopo);
     const registro = await atualizarStatusCrachaComConn(conn, (req.body || {}).matricula, (req.body || {}).status, usuario);
-    limparCacheDashboard();
+    atualizarCacheCracha(registro);
     res.json({ ok: true, registro });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao atualizar o status." });
@@ -422,14 +442,14 @@ app.post("/api/cracha/status", apiLimiter, express.json(), autenticarFrescoMiddl
 }));
 
 // Atualizar o status de várias matrículas de uma vez (ação em lote) — overlay.
-app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/status-lote", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
     const { matriculas, status } = req.body || {};
     await garantirEscopoMatriculasComConn(conn, matriculas, req.usuario.escopo);
     const { registros, erros } = await atualizarStatusLoteComConn(conn, matriculas, status, usuario);
-    limparCacheDashboard();
+    atualizarCacheCracha(registros);
     res.json({ ok: true, registros, erros });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao atualizar os status em lote." });
@@ -440,14 +460,14 @@ app.post("/api/cracha/status-lote", apiLimiter, express.json(), autenticarFresco
 
 // Aplicar vários campos (status/datas/devolvido/2ª via/motivo/observação) a um
 // lote de matrículas de uma vez — overlay. Escrita: administradores.
-app.post("/api/cracha/lote", apiLimiter, express.json(), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+app.post("/api/cracha/lote", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
     const { matriculas, campos } = req.body || {};
     await garantirEscopoMatriculasComConn(conn, matriculas, req.usuario.escopo);
     const { registros, erros } = await atualizarLoteComConn(conn, matriculas, campos, usuario);
-    limparCacheDashboard();
+    atualizarCacheCracha(registros);
     res.json({ ok: true, registros, erros });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao aplicar as alterações em lote." });
@@ -456,16 +476,18 @@ app.post("/api/cracha/lote", apiLimiter, express.json(), autenticarFrescoMiddlew
   }
 }));
 
-// Importar planilha (JSON com linhas já parseadas no cliente). Atualiza quem
-// existe na base e cria quem não existe (no overlay). Escrita: administradores.
-app.post("/api/cracha/importar", apiLimiter, express.json({ limit: "8mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
+// Importar planilha (JSON com linhas já parseadas no cliente). Atualiza SÓ os
+// campos de controle de quem existe no consolidado — NÃO cadastra trabalhador
+// novo (identidade vem sempre do consolidado). Escrita: administradores.
+app.post("/api/cracha/importar", apiLimiter, express.json({ limit: process.env.CRACHA_IMPORT_MAX || "50mb" }), autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ADMIN), asyncHandler(async (req, res) => {
   const conn = await getMysqlConnection();
   try {
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
     const linhas = (req.body || {}).linhas;
     await garantirEscopoMatriculasComConn(conn, (Array.isArray(linhas) ? linhas : []).map(l => l && l.matricula), req.usuario.escopo);
     const resultado = await importarCrachasComConn(conn, linhas, usuario);
-    limparCacheDashboard();
+    // Importação muda linhas demais para atualização pontual: descarta só o cache do crachá.
+    if (resultado.atualizados > 0) limparCacheCracha();
     res.json({ ok: true, ...resultado });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao importar a planilha." });
@@ -483,7 +505,7 @@ app.post("/api/cracha/foto", apiLimiter, express.json({ limit: "8mb" }), autenti
     await garantirEscopoMatriculaComConn(conn, body.matricula, req.usuario.escopo);
     const { buffer, mime } = decodificarImagemDataUrl(body.dataUrl);
     const registro = await salvarFotoCrachaComConn(conn, body.matricula, buffer, mime, usuario);
-    limparCacheDashboard();
+    atualizarCacheCracha(registro);
     res.json({ ok: true, registro });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao salvar a foto." });
@@ -499,7 +521,7 @@ app.delete("/api/cracha/foto/:matricula", apiLimiter, autenticarFrescoMiddleware
     const usuario = (req.usuario && (req.usuario.email || req.usuario.login)) || "painel";
     await garantirEscopoMatriculaComConn(conn, req.params.matricula, req.usuario.escopo);
     const registro = await removerFotoCrachaComConn(conn, req.params.matricula, usuario);
-    limparCacheDashboard();
+    atualizarCacheCracha(registro);
     res.json({ ok: true, registro });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao remover a foto." });
@@ -529,7 +551,7 @@ app.post("/api/cracha/reverter", apiLimiter, express.json(), autenticarFrescoMid
   try {
     await garantirEscopoMatriculaComConn(conn, (req.body || {}).matricula, req.usuario.escopo);
     const registro = await reverterControleComConn(conn, (req.body || {}).matricula);
-    limparCacheDashboard();
+    atualizarCacheCracha(registro);
     res.json({ ok: true, registro });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao reverter o crachá." });
@@ -545,7 +567,7 @@ app.post("/api/cracha/reverter-lote", apiLimiter, express.json({ limit: "8mb" })
     const matriculas = (req.body || {}).matriculas;
     await garantirEscopoMatriculasComConn(conn, matriculas, req.usuario.escopo);
     const { registros, erros } = await reverterLoteComConn(conn, matriculas);
-    limparCacheDashboard();
+    atualizarCacheCracha(registros);
     res.json({ ok: true, registros, erros });
   } catch (err) {
     res.status((err && err.status) || 400).json({ error: err && err.message ? err.message : "Falha ao reverter em lote." });
@@ -1552,6 +1574,13 @@ if (require.main === module) {
   const port = resolverPortaAplicacao();
   app.listen(port, () => {
     console.log(`Painel disponível em http://localhost:${port}`);
+    // Pré-aquece o cache do crachá (payload completo, com CPF — escopo e
+    // supressão de CPF são aplicados por request, sobre o cache). Best-effort:
+    // se falhar, a primeira requisição reconstrói normalmente.
+    const t0 = Date.now();
+    getCrachaData(false, null, true)
+      .then(d => console.log(`[cracha] cache pré-aquecido: ${d.total} linhas em ${((Date.now() - t0) / 1000).toFixed(1)}s`))
+      .catch(e => console.warn(`[cracha] pré-aquecimento falhou (segue sem cache): ${e && e.message ? e.message : e}`));
   });
   
   garantirTabelaAlertasObservacoes().catch(err => {

@@ -1172,7 +1172,6 @@ const IMPORT_COLS = [
   { header: "Nome", key: "nome", w: 220 },
   { header: "DSEI", key: "dsei", w: 180 },
   { header: "Cargo", key: "cargo", w: 180 },
-  { header: "Situa\u00E7\u00E3o Funcional", key: "situacaoDetalhada", w: 150 },
   { header: "Status", key: "status", w: 170 },
   { header: "Data da Solicita\u00E7\u00E3o", key: "dataSolicitacao", w: 140 },
   { header: "Data de Envio \u00E0 Gr\u00E1fica", key: "dataEnvio", w: 140 },
@@ -1193,7 +1192,7 @@ const normalizarHeader = h => (h || "").normalize("NFD").replace(/[\u0300-\u036F
 function baixarModelo() {
   const exemplo = {
     matricula: "123456", nome: MARCA_EXEMPLO, dsei: "DSEI EXEMPLO", cargo: "Ex Enfermeiro",
-    situacaoDetalhada: "Normal", status: "Status do cracha", dataSolicitacao: "ex 01/06/2026",
+    status: "Status do cracha", dataSolicitacao: "ex 01/06/2026",
     dataEnvio: "ex 05/06/2026", dataConfeccao: "ex 05/06/2026", dataRecebEscritorio: "ex 05/06/2026", dataRecebTrabalhador: "ex 05/06/2026",
     devolvido: "Caso aplicavel, se nao deixe em branco", segundaVia: "Caso aplicavel, se nao deixe em branco", motivoSegundaVia: "Caso aplicavel, se nao deixe em branco", observacao: "Linha de exemplo \u2014 apague antes de importar",
     linkFotos: "https://... (link da foto, caso aplicavel)"
@@ -1203,9 +1202,27 @@ function baixarModelo() {
   baixarCsv("\uFEFF" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n"), "modelo_importacao_crachas.csv");
 }
 
-// Parser CSV tolerante (separador ";", aspas com "" escapado, \r\n ou \n, BOM).
-function parseCsv(texto) {
+// Detecta o separador (";" ou ",") pela 1\u00AA linha (cabe\u00E7alho). Os cabe\u00E7alhos do
+// modelo n\u00E3o cont\u00EAm ";" nem ",", ent\u00E3o a contagem fora de aspas \u00E9 inequ\u00EDvoca.
+// Empate/aus\u00EAncia => ";" (padr\u00E3o do modelo exportado pelo sistema).
+function detectarSeparadorCsv(texto) {
+  const fim = texto.search(/\r?\n/);
+  const cab = fim >= 0 ? texto.slice(0, fim) : texto;
+  let pv = 0, vv = 0, aspas = false;
+  for (let i = 0; i < cab.length; i++) {
+    const c = cab[i];
+    if (c === '"') aspas = !aspas;
+    else if (!aspas && c === ";") pv++;
+    else if (!aspas && c === ",") vv++;
+  }
+  return vv > pv ? "," : ";";
+}
+
+// Parser CSV tolerante: separador ";" ou "," (auto-detectado pelo cabe\u00E7alho, ou
+// for\u00E7ado via `sep`), aspas com "" escapado, \r\n ou \n, BOM.
+function parseCsv(texto, sep) {
   texto = String(texto || "").replace(/^\uFEFF/, "");
+  const delim = sep || detectarSeparadorCsv(texto);
   const linhas = [];
   let campo = "", linha = [], aspas = false;
   for (let i = 0; i < texto.length; i++) {
@@ -1214,7 +1231,7 @@ function parseCsv(texto) {
       if (c === '"') { if (texto[i + 1] === '"') { campo += '"'; i++; } else aspas = false; }
       else campo += c;
     } else if (c === '"') aspas = true;
-    else if (c === ";") { linha.push(campo); campo = ""; }
+    else if (c === delim) { linha.push(campo); campo = ""; }
     else if (c === "\n") { linha.push(campo); linhas.push(linha); linha = []; campo = ""; }
     else if (c !== "\r") campo += c;
   }
@@ -1264,7 +1281,7 @@ function lerLinhasCsv(bytes, encoding) {
 function mostrarResultadoImport(resp) {
   const info = $("ecImportInfo");
   const erros = resp.erros || [];
-  const resumo = `${resp.criados || 0} criado(s), ${resp.atualizados || 0} atualizado(s) de ${resp.total || 0} linha(s).`;
+  const resumo = `${resp.atualizados || 0} atualizado(s) de ${resp.total || 0} linha(s).`;
   ecToast(erros.length ? `${resumo} ${erros.length} com erro.` : resumo, erros.length ? "erro" : "ok");
   if (!info) return;
   if (!erros.length) { info.hidden = true; info.innerHTML = ""; return; }
@@ -1504,9 +1521,9 @@ function fecharPreviewImport() {
 }
 
 // Campos edit\u00E1veis na pr\u00E9-visualiza\u00E7\u00E3o e o tipo de controle de cada um.
-// Os demais (matr\u00EDcula, nome, DSEI, cargo) s\u00E3o identidade e ficam s\u00F3 leitura.
+// Os demais (matr\u00EDcula, nome, DSEI, cargo) s\u00E3o identidade \u2014 v\u00EAm do trabalhador
+// consolidado, ficam s\u00F3 leitura e a importa\u00E7\u00E3o N\u00C3O cadastra trabalhador novo.
 const IMPORT_EDIT = {
-  situacaoDetalhada: "text",
   status: "status",
   dataSolicitacao: "date",
   dataEnvio: "date",
