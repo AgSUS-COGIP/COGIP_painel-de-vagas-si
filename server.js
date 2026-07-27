@@ -368,23 +368,6 @@ app.post("/api/escala/remover", apiLimiter, express.json(), autenticarFrescoMidd
 }));
 
 // ---- Entrega de Crachá ----
-
-// Responde JSON comprimido com gzip quando o cliente aceita e o payload compensa.
-// O payload do crachá (~20k linhas) passa de vários MB para uma fração disso;
-// sem middleware global de compressão, o helper fica restrito a quem precisa.
-function responderJsonTalvezComprimido(req, res, obj) {
-  const json = JSON.stringify(obj);
-  res.type("application/json");
-  res.setHeader("Vary", "Accept-Encoding");
-  const aceitaGzip = /\bgzip\b/i.test(String(req.headers["accept-encoding"] || ""));
-  if (!aceitaGzip || Buffer.byteLength(json) < 2048) { res.send(json); return; }
-  zlib.gzip(json, (err, buf) => {
-    if (err || res.headersSent) { res.send(json); return; }
-    res.setHeader("Content-Encoding", "gzip");
-    res.send(buf);
-  });
-}
-
 app.get("/api/cracha", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("entregaCracha", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   const forcar = String((req.query || {}).atualizar || "") === "1"; // botão "Atualizar": ignora cache
   // CPF é dado sensível: a ÚNICA trava é ser da SEDE (escopo = todos os DSEIs).
