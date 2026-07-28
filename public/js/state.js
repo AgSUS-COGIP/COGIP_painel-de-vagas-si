@@ -29,6 +29,8 @@ export const state = {
   remanejamentoAjusteAtivo: false,
   // Id do ajuste sendo EDITADO (null = criando um novo ajuste).
   remanejamentoAjusteEditandoId: null,
+  // Nível 3 no módulo: pode escolher o mês (normal) / o Nº de meses (ajuste).
+  remanejamentoPodeEscolherMeses: false,
 
   // Estado de visualização de vagas
   vagasViewAtual: "dsei",

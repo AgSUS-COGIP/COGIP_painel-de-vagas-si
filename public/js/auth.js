@@ -4,6 +4,7 @@ import { state } from "./state.js";
 import { mostrarAcessoPendente } from "./acesso.js";
 import { atualizarPermissaoGestaoDisciplinar } from "./gestao-disciplinar.js";
 import { aplicarPermissoesModulos, nivelModulo, podeVerPerfis, temAlgumModuloVisivel } from "./permissoes.js";
+import { aplicarCamposMesesRemanejamento } from "./remanejamento.js";
 
 export function configurarLogin() {
   // Login por usuário/senha (o botão do Google é renderizado à parte em
@@ -201,10 +202,11 @@ export function aplicarPermissoesUsuario() {
     btnSalvar.title = podeSalvarRemanejamento ? "" : "Você não tem permissão para salvar remanejamentos.";
   }
 
-  // "Mês do remanejamento" só aparece para Administrador do módulo (nível 3),
-  // mesmo nível que pode alterar remanejamentos existentes.
-  const mesWrap = document.getElementById("remMesWrap");
-  if (mesWrap) mesWrap.style.display = nivelRemanejamento >= 3 ? "" : "none";
+  // "Mês do remanejamento" (e, no modo ajuste, o "Nº de meses") só aparecem para
+  // Administrador do módulo (nível 3), mesmo nível que pode alterar remanejamentos
+  // existentes. Qual dos dois aparece fica com aplicarCamposMesesRemanejamento, chamada
+  // no fim deste bloco — depois de um eventual rebaixamento desligar o modo ajuste.
+  state.remanejamentoPodeEscolherMeses = nivelRemanejamento >= 3;
 
   // Ajustes pontuais (movimentações sem processo) são exclusivos do Administrador
   // do módulo (nível 3). Os botões só aparecem para ele.
@@ -227,6 +229,7 @@ export function aplicarPermissoesUsuario() {
     const btnSalvar = document.getElementById("remSaveBtn");
     if (btnSalvar) btnSalvar.textContent = "Salvar Remanejamento";
   }
+  aplicarCamposMesesRemanejamento();
 
   // Processos Seletivos: "Adicionar edital" exige Editor (>= 2). Leitor não vê o
   // botão (os botões Editar/Inserir anexo do detalhe são ocultados no render do
