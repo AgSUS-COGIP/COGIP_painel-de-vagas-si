@@ -108,9 +108,7 @@ async function carregarDoBanco() {
     dataInicio: e.dataInicio, dataEncerramento: e.dataEncerramento,
     status: normalizarStatus(e.status), observacoes: e.observacoes || "",
     linkEdital: e.linkEdital || "", etapa: e.etapa || "",
-    vagasImediatas: Number(e.vagasImediatas || 0),   // total do quadro (derivado no back)
-    temCadastroReserva: !!e.temCadastroReserva,      // "+ CR"
-    vagasPrevistas: Number(e.vagasPrevistas || 0)    // número escolhido pelo usuário
+    vagasImediatas: Number(e.vagasImediatas || 0)    // total do quadro (derivado no back)
   }));
   anexosExtraidos.clear();
   dadosAprovados.clear();
@@ -264,7 +262,8 @@ function renderKpis() {
   set("psKpiEncerrando", conta("Encerrando em Breve"));
   set("psKpiVencido", conta("Vencido"));
   set("psKpiCancelado", conta("Cancelado"));
-  set("psKpiVagas", numFmt(processos.reduce((s, p) => s + Number(p.vagasPrevistas || 0), 0)));
+  // Vagas previstas = vagas imediatas do quadro de vagas de cada edital.
+  set("psKpiVagas", numFmt(processos.reduce((s, p) => s + vagasImediatasEdital(p), 0)));
 }
 
 // ---------- Selects de filtro ----------
@@ -358,7 +357,9 @@ function cargosDoEdital(proc) {
   return [];
 }
 
-// Vagas imediatas = total do quadro de vagas (soma das cotas de cada cargo).
+// Vagas imediatas = total do quadro de vagas (soma das cotas de cada cargo). É
+// também o valor de "Vagas Previstas" do edital (não é digitado em nenhum lugar):
+// o quadro vem do anexo, e todo edital tem cadastro reserva ("+ CR").
 function vagasImediatasEdital(proc) {
   return cargosDoEdital(proc).reduce((s, c) =>
     s + (Number(c.ampla) || 0) + (Number(c.pcd) || 0) + (Number(c.pretosPardos) || 0) + (Number(c.indigenas) || 0) + (Number(c.quilombolas) || 0), 0);
@@ -711,9 +712,9 @@ function renderDetalhe() {
     </div>
 
     <div class="psResumoTiles">
-      <div class="psTile"><span class="psTileIcone is-blue"><i class="fa-solid fa-user-group"></i></span><div class="psTileInfo"><div class="psTileValue">${numFmt(proc.vagasPrevistas)}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(vagasImediatasEdital(proc))} imediatas${proc.temCadastroReserva ? " + CR" : ""}</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-blue"><i class="fa-solid fa-user-group"></i></span><div class="psTileInfo"><div class="psTileValue">${numFmt(vagasImediatasEdital(proc))}</div><div class="psTileLabel">Vagas Previstas</div><div class="psTileSub">${numFmt(vagasImediatasEdital(proc))} imediatas + CR</div></div></div>
       <div class="psTile"><span class="psTileIcone is-green"><i class="fa-solid fa-user-check"></i></span><div class="psTileInfo"><div class="psTileValue is-green">${numFmt(contratadosEdital(proc))}</div><div class="psTileLabel">Contratados</div></div></div>
-      <div class="psTile"><span class="psTileIcone is-red"><i class="fa-solid fa-chair"></i></span><div class="psTileInfo"><div class="psTileValue is-red">${numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div></div>
+      <div class="psTile"><span class="psTileIcone is-red"><i class="fa-solid fa-chair"></i></span><div class="psTileInfo"><div class="psTileValue is-red">${numFmt(Math.max(0, vagasImediatasEdital(proc) - contratadosEdital(proc)))}</div><div class="psTileLabel">Vagas Ociosas</div></div></div>
       <div class="psTile"><span class="psTileIcone is-blue"><i class="fa-solid fa-award"></i></span><div class="psTileInfo"><div class="psTileValue is-blue">${numFmt(totalAprovadosEdital(proc))}</div><div class="psTileLabel">Aprovados</div></div></div>
     </div>
 
@@ -875,9 +876,6 @@ async function abrirModalEdital(id, opts) {
     set("psFormUnidade", proc.unidade);
     set("psFormUf", proc.uf);
     set("psFormEditalNum", proc.edital);
-    set("psFormVagas", proc.vagasPrevistas || "");
-    const chkCR = $("psFormCadastroReserva");
-    if (chkCR) chkCR.checked = !!proc.temCadastroReserva;
     set("psFormDataInicio", proc.dataInicio);
     set("psFormDataFim", proc.dataEncerramento);
     set("psFormStatus", proc.status);
@@ -904,12 +902,6 @@ function fecharModalEdital() {
   wizardModo = "edital";
   wizardPasso = 1;
   document.body.style.overflow = "";
-}
-
-// Lê um campo numérico do formulário (>= 0; vazio/ inválido vira 0).
-function valorNum(id) {
-  const v = Number($(id)?.value);
-  return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
 // ---------- Assistente de edital: navegação e gravação ----------
@@ -962,8 +954,8 @@ function coletarDadosEdital() {
     unidade: ($("psFormUnidade")?.value || "").trim(),
     uf: ($("psFormUf")?.value || "").trim().toUpperCase(),
     edital: ($("psFormEditalNum")?.value || "").trim(),
-    vagasPrevistas: valorNum("psFormVagas"),
-    temCadastroReserva: !!$("psFormCadastroReserva")?.checked,
+    // Vagas previstas não vem do formulário: é derivada das vagas imediatas do
+    // quadro de vagas (e todo edital tem cadastro reserva).
     dataInicio: $("psFormDataInicio")?.value || "",
     dataEncerramento: $("psFormDataFim")?.value || "",
     status: normalizarStatus($("psFormStatus")?.value || "Andamento"),
@@ -1484,7 +1476,7 @@ function atualizarAprovadoEmLinha(focoId) {
     if (meta) meta.textContent = `${lista.length} aprovado(s)${regra}`;
     const set = (sel, v) => { const el = painel.querySelector(sel); if (el) el.textContent = v; };
     set(".psTileValue.is-green", numFmt(contratadosEdital(proc)));
-    set(".psTileValue.is-red", numFmt(Math.max(0, Number(proc.vagasPrevistas || 0) - contratadosEdital(proc))));
+    set(".psTileValue.is-red", numFmt(Math.max(0, vagasImediatasEdital(proc) - contratadosEdital(proc))));
     set(".psTileValue.is-blue", numFmt(totalAprovadosEdital(proc)));
   }
   // Linha nova: abre a edição do Nome (replaceData não dispara o tableBuilt, então

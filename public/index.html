@@ -2373,14 +2373,8 @@
                       <span>Edital <i class="psReq">*</i></span>
                       <input class="psInput" id="psFormEditalNum" type="text" autocomplete="off">
                     </label>
-                    <label class="psField">
-                      <span>Vagas previstas</span>
-                      <input class="psInput" id="psFormVagas" type="number" min="0" placeholder="0">
-                    </label>
-                    <label class="psField psFieldCheck">
-                      <span>Cadastro reserva</span>
-                      <label class="psCheck"><input type="checkbox" id="psFormCadastroReserva"> Possui cadastro reserva (+ CR)</label>
-                    </label>
+                    <!-- Vagas previstas não é digitada: vem das vagas imediatas do quadro
+                         de vagas extraído do anexo (e todo edital tem "+ CR"). -->
                     <label class="psField">
                       <span>Data de início <i class="psReq">*</i></span>
                       <input class="psInput" id="psFormDataInicio" type="date" required>
@@ -2773,6 +2767,9 @@
                   <h3>1. SELECIONE O DSEI</h3>
                   <label for="remanejamentoDsei">DSEI</label>
                   <select id="remanejamentoDsei" data-change="atualizar-vagas-origem"></select>
+                  <!-- Mês do remanejamento (Nº de meses das linhas = 13 - mês, nos dois
+                       lados). No modo ajustes pontuais este select dá lugar ao campo
+                       digitado abaixo, que tem exatamente o mesmo papel. -->
                   <div id="remMesWrap" class="remMesWrap" style="display:none;">
                     <div id="remMesSelectWrap">
                       <label for="remanejamentoMes">Mês do remanejamento</label>
@@ -2796,6 +2793,16 @@
                       <input type="number" id="remanejamentoMesesAjuste" data-change="alterar-mes-rem" min="1" max="12" step="1" value="1" inputmode="numeric">
                       <small class="remMesesAjusteHint">Nº de meses que o cargo ficou ativo. Ex.: abril a junho = 3.</small>
                     </div>
+                  </div>
+                  <!-- Só no modo ajustes pontuais: o mês digitado como número. -->
+                  <div id="remMesesWrap" class="remMesWrap" style="display:none;">
+                    <label for="remanejamentoMeses">Mês do ajuste (nº)</label>
+                    <input type="number" id="remanejamentoMeses" min="1" max="12" step="1"
+                           data-input="alterar-meses-rem" data-change="alterar-meses-rem"
+                           title="Mês do ajuste, de 1 a 12.">
+                    <span class="remMesHint">Digite o mês (1 a 12). Nº de Meses:
+                      <strong>reduzido</strong> = 12 − esse número; <strong>acrescentado</strong> = esse
+                      número.</span>
                   </div>
                 </section>
 
@@ -2894,7 +2901,7 @@
                       <div><span>Total Acrescentado (Mensal)</span><strong id="remTotalAcrescentadoMensal"
                           class="remGreen">R$ 0,00</strong></div>
                       <div><span>Impacto Mensal</span><strong id="remImpactoMensal2">R$ 0,00</strong></div>
-                      <div><span>Impacto do Período (<span id="remImpactoPeriodoMeses">0</span> meses)</span><strong
+                      <div><span>Impacto do Período (<span id="remImpactoPeriodoMeses">0</span>)</span><strong
                           id="remImpactoPeriodo2">R$ 0,00</strong></div>
                     </div>
                     <div class="remResumoTableWrap">
