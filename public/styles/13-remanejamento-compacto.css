@@ -56,6 +56,7 @@
 }
 
 .remDseiBox select,
+.remDseiBox input,
 .remTable select,
 .remTable input,
 .remDocBox input,
@@ -71,6 +72,17 @@
   font-weight: 800;
   padding: 7px 9px;
   outline: none;
+}
+
+/* Explicação do Nº de meses (reduzido = digitado, acrescentado = 13 - digitado). */
+.remMesHint {
+  display: block;
+  margin-top: 4px;
+  color: var(--azul-escuro);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  opacity: .75;
 }
 
 .remResumoTopoBox h3,

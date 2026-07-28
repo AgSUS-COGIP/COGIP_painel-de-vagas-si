@@ -240,28 +240,74 @@ def _lot_cargo_junk(cargo):
     return (not n) or all(w in LOT_HDRWORD for w in n.split())
 
 
+def _lot_coluna_lotacao(cells, idx_txt, lot_idx):
+    """Indice da celula de lotacao NESTA linha. Usa a coluna do cabecalho quando ela
+    existe e traz texto aqui; senao, a ULTIMA coluna de texto — nos layouts do quadro
+    a lotacao vem depois do cargo. O fallback e o que salva as tabelas de continuacao
+    (paginas seguintes), que o pdfplumber devolve com outro numero de colunas, deixando
+    o indice do cabecalho fora de lugar (ou fora do range)."""
+    if lot_idx is not None and lot_idx in idx_txt:
+        return lot_idx
+    return idx_txt[-1] if idx_txt else None
+
+
 def _lot_parse_tabela(t, lot_idx, dests, out):
     """Extrai linhas (cargo x lotacao) de UMA tabela para `out`, com forward-fill do
-    cargo (linha sem cargo herda o anterior) e concatenacao da 'cauda' (nome que
-    quebrou em 2 linhas)."""
+    cargo (linha sem cargo herda o anterior) e tratamento das linhas SEM valor, que
+    aparecem em duas formas:
+      • no meio da tabela -> 'cauda': o nome do cargo quebrou em 2 linhas e o resto
+        completa o cargo da linha anterior ('Analista Tecnico de' + 'Saude Indigena');
+      • antes da 1a linha de dados -> cargo NOVO cuja celula esta mesclada para baixo
+        (tipico da tabela de continuacao: a pagina abre com o nome do cargo sozinho e
+        as vagas vem na linha seguinte, com a celula do cargo vazia)."""
     last = out[-1] if out else None
+    pendente = ""      # cargo lido numa linha so dele, aguardando a linha de dados
+    tem_dados = False  # já saiu alguma linha de dados DESTA tabela?
     for row in t:
         cells = [clean_cell(c).replace("\n", " ") for c in row]
-        lot = cells[lot_idx] if (lot_idx is not None and lot_idx < len(cells)) else ""
-        vals = [cells[k] for k in range(len(cells)) if k != lot_idx and _lot_is_val(cells[k])]
-        textos = [cells[k] for k in range(len(cells)) if k != lot_idx and cells[k] and not _lot_is_val(cells[k])]
-        cargo = " ".join(textos).strip()
+        idx_txt = [k for k in range(len(cells)) if cells[k] and not _lot_is_val(cells[k])]
+
+        # Linha sem nenhum valor: nao tem lotacao, todo o texto e candidato a cargo.
+        if not any(_lot_is_val(c) for c in cells):
+            texto = " ".join(cells[k] for k in idx_txt).strip()
+            if not texto or _lot_cargo_junk(texto):
+                continue
+            if tem_dados and last is not None:
+                last["Cargo"] = (last["Cargo"] + " " + texto).strip()
+            else:
+                pendente = (pendente + " " + texto).strip()
+            continue
+
+        li = _lot_coluna_lotacao(cells, idx_txt, lot_idx)
+        lot = cells[li] if li is not None else ""
+        vals = [cells[k] for k in range(len(cells)) if k != li and _lot_is_val(cells[k])]
+        cargo = " ".join(cells[k] for k in idx_txt if k != li).strip()
         if _lot_cargo_junk(cargo):
             cargo = ""
         if vals and lot and norm(lot) not in LOT_TOTAL:
-            rec = {"Cargo": cargo or (last["Cargo"] if last else "")}
+            rec = {"Cargo": cargo or pendente or (last["Cargo"] if last else "")}
             for nm, v in zip(dests, vals):
                 rec[nm] = v
             rec["Lotacao"] = lot
             out.append(rec)
             last = rec
-        elif cargo and last is not None and not vals:
-            last["Cargo"] = (last["Cargo"] + " " + cargo).strip()
+            pendente = ""
+            tem_dados = True
+
+
+def _lot_parece_continuacao(t):
+    """True quando uma tabela SEM cabecalho parece a continuacao do quadro: tem ao
+    menos uma linha com 2+ celulas de valor (as cotas) e uma de texto (a lotacao).
+    Descarta o que o pdfplumber devolve como tabela solta na mesma pagina (celulas de
+    1 coluna com um nome de cargo) e as tabelas de outros anexos (requisitos, salario,
+    jornada), que nao tem duas cotas na mesma linha."""
+    for row in t:
+        cells = [clean_cell(c).replace("\n", " ") for c in row]
+        vals = sum(1 for c in cells if _lot_is_val(c))
+        txts = sum(1 for c in cells if c and not _lot_is_val(c))
+        if vals >= 2 and txts >= 1:
+            return True
+    return False
 
 
 def extract_lotacao(pdf):
@@ -287,7 +333,12 @@ def extract_lotacao(pdf):
                 locked = (cargo_idx, lot_idx, dests, ncols)
                 if src is None:
                     src = i + 1
-            elif locked is not None and ncols == locked[3]:
+            # Continuacao nas paginas seguintes: o cabecalho nao se repete e o
+            # pdfplumber costuma devolver um numero de colunas DIFERENTE do da pagina
+            # do cabecalho (lá as celulas mescladas do titulo criam colunas vazias a
+            # mais). Por isso o criterio nao pode ser a igualdade de colunas: aceita
+            # tambem a tabela cujas linhas tem a cara do quadro.
+            elif locked is not None and (ncols == locked[3] or _lot_parece_continuacao(t)):
                 lot_idx, dests = locked[1], locked[2]
             else:
                 continue

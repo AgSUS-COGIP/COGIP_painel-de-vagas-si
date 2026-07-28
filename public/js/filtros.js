@@ -3,7 +3,7 @@ import { ajustarEscalaPainelFixo, carregarRemanejamentoListaEmSegundoPlano, gara
 import { logoutPainel } from "./auth.js";
 import { exportarAlertas, exportarDistribuicaoVagasOciosas, exportarPdf, exportarProcessoSeletivo, exportarVagas } from "./exportacao.js";
 import { renderAlertasKpis } from "./kpis.js";
-import { abrirPainelExterno, abrirPainelFerias, abrirJanelaAjustesRemanejamento, adicionarLinhaRemanejamento, alterarMesRemanejamento, alternarDetalheRemanejamento, alternarModoAjusteRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarAjusteRemanejamentoPainel, editarRemanejamentoPainel, excluirAjusteRemanejamentoPainel, excluirRemanejamentoPainel, fecharJanelaAjustesRemanejamento, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
+import { abrirPainelExterno, abrirPainelFerias, abrirJanelaAjustesRemanejamento, adicionarLinhaRemanejamento, alterarMesesRemanejamento, alternarDetalheRemanejamento, alternarModoAjusteRemanejamento, atualizarCampoLinhaRemanejamento, atualizarResumoRemanejamento, atualizarVagasOrigemPorDsei, cancelarEdicaoRemanejamento, carregarPainelExternoSobDemanda, carregarPainelFeriasSobDemanda, editarAjusteRemanejamentoPainel, editarRemanejamentoPainel, excluirAjusteRemanejamentoPainel, excluirRemanejamentoPainel, fecharJanelaAjustesRemanejamento, liberarBloqueioPSSRemanejamento, limparFormularioRemanejamento, removerLinhaRemanejamento, renderRemanejamentoLista, salvarRemanejamentoPainel } from "./remanejamento.js";
 import { renderEntregaCrachaAoMostrar } from "./entrega-cracha.js";
 import { renderProcessosSeletivosAoMostrar } from "./processos-seletivos.js";
 import { renderMapaDseisAoMostrar } from "./mapa-dseis.js";
@@ -304,7 +304,10 @@ export function configurarDelegacaoEventos() {
     const d = el.dataset;
     switch (d.change) {
       case "atualizar-vagas-origem": atualizarVagasOrigemPorDsei(); break;
-      case "alterar-mes-rem": alterarMesRemanejamento(); break;
+      // Mês (remanejamento normal) e Nº de meses (ajuste pontual) caem no mesmo
+      // recálculo — a regra por lado é decidida em mesesRemanejamentoPorTipo.
+      case "alterar-mes-rem":
+      case "alterar-meses-rem": alterarMesesRemanejamento(); break;
       case "atualizar-resumo-rem": atualizarResumoRemanejamento(); break;
       case "render-rem-lista": renderRemanejamentoLista(); break;
       case "campo-linha-rem": atualizarCampoLinhaRemanejamento(d.tipo, d.id, d.campo, event.target.value); break;
@@ -320,6 +323,7 @@ export function configurarDelegacaoEventos() {
     const d = el.dataset;
     switch (d.input) {
       case "pesquisa-vagas": pesquisarVagasDebounced(event.target.value); break;
+      case "alterar-meses-rem": alterarMesesRemanejamento(); break;
       case "atualizar-resumo-rem": atualizarResumoRemanejamento(); break;
       case "render-rem-lista": renderRemanejamentoLista(); break;
       case "campo-linha-rem": atualizarCampoLinhaRemanejamento(d.tipo, d.id, d.campo, event.target.value); break;

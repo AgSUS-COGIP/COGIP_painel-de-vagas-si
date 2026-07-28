@@ -806,6 +806,13 @@ export function inicializarFormularioRemanejamento(resetar) {
     sincronizarSelectPesquisavel(mesEl);
   }
 
+  // Padrão do Nº de meses do ajuste = meses decorridos no ano (o mês atual).
+  const mesesEl = document.getElementById("remanejamentoMeses");
+  if (mesesEl && (resetar || !(Number(mesesEl.value) >= 1 && Number(mesesEl.value) <= 12) || !mesesEl.dataset.tocado)) {
+    mesesEl.value = String(new Date().getMonth() + 1);
+    mesesEl.dataset.tocado = "1";
+  }
+
   if (resetar || !state.remanejamentoLinhas.reduzido.length) {
     state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
   }
@@ -819,15 +826,50 @@ export function inicializarFormularioRemanejamento(resetar) {
   atualizarResumoRemanejamentoPainel();
 }
 
-// Mês escolhido no formulário (1..12). Sem seleção válida, usa o mês atual.
+// Mostra o campo de período conforme o modo: "Mês do remanejamento" (select) no
+// remanejamento normal e "Nº de meses do ajuste" (digitado) no modo ajustes pontuais.
+// Ambos só aparecem para o Administrador do módulo (nível 3) — ver auth.js.
+export function aplicarCamposMesesRemanejamento() {
+  const podeEscolher = !!state.remanejamentoPodeEscolherMeses;
+  const ajuste = !!state.remanejamentoAjusteAtivo;
+  const mesWrap = document.getElementById("remMesWrap");
+  const mesesWrap = document.getElementById("remMesesWrap");
+  if (mesWrap) mesWrap.style.display = podeEscolher && !ajuste ? "" : "none";
+  if (mesesWrap) mesesWrap.style.display = podeEscolher && ajuste ? "" : "none";
+}
+
+// Mês escolhido no select (1..12). Sem seleção válida, usa o mês atual.
 export function mesRemanejamentoSelecionado() {
   const v = Number(document.getElementById("remanejamentoMes")?.value);
   return v >= 1 && v <= 12 ? v : new Date().getMonth() + 1;
 }
 
-// Meses do mês escolhido até dezembro (mesma regra do servidor: 13 - mês).
+// Mês digitado no modo ajustes pontuais (1..12) — mesmo papel do select, só que como
+// número. Sem valor válido, usa o mês atual.
+export function mesAjusteDigitado() {
+  const v = Math.floor(Number(document.getElementById("remanejamentoMeses")?.value));
+  return v >= 1 && v <= 12 ? v : new Date().getMonth() + 1;
+}
+
+// Mês de referência do formulário: digitado no modo ajuste, selecionado no normal.
+export function mesRemanejamentoAtual() {
+  return state.remanejamentoAjusteAtivo ? mesAjusteDigitado() : mesRemanejamentoSelecionado();
+}
+
+// Nº de meses base: do mês de referência até dezembro (mesma regra do servidor:
+// 13 - mês). No remanejamento normal vale igual para os dois lados.
 export function mesesRemanejamentoSelecionado() {
-  return Math.max(1, 13 - mesRemanejamentoSelecionado());
+  return Math.max(1, 13 - mesRemanejamentoAtual());
+}
+
+// Nº de meses de cada lado:
+//   • remanejamento normal -> 13 - mês nos dois lados;
+//   • ajuste pontual -> reduzido = 13 - o número digitado; acrescentado = o número
+//     digitado puro.
+export function mesesRemanejamentoPorTipo(tipo) {
+  const meses = mesesRemanejamentoSelecionado();
+  if (!state.remanejamentoAjusteAtivo || tipo === "reduzido") return meses;
+  return Math.max(1, 13 - meses);
 }
 
 export function criarLinhaRemanejamento(tipo, valores) {
@@ -837,7 +879,7 @@ export function criarLinhaRemanejamento(tipo, valores) {
     cargo: valores?.cargo || "",
     quantidade: Number(valores?.quantidade || 1),
     vagasOciosas: Number(valores?.vagasOciosas || 0),
-    meses: mesesRemanejamentoSelecionado(),
+    meses: mesesRemanejamentoPorTipo(tipo),
     salarioBase: Number(valores?.salarioBase || 0),
     insalubridadePericulosidade: Number(valores?.insalubridadePericulosidade || 0),
     gratificacaoRt: Number(valores?.gratificacaoRt || 0),
@@ -848,11 +890,11 @@ export function criarLinhaRemanejamento(tipo, valores) {
   };
 }
 
-// Mês alterado: recalcula os meses de todas as linhas (reduzido/acrescentado) e
-// atualiza o resumo/impacto do período.
-export function alterarMesRemanejamento() {
-  const meses = mesesRemanejamentoSelecionado();
+// Mês alterado (select do remanejamento normal ou campo digitado do ajuste):
+// recalcula os meses de todas as linhas e atualiza o resumo/impacto do período.
+export function alterarMesesRemanejamento() {
   ["reduzido", "acrescentado"].forEach(tipo => {
+    const meses = mesesRemanejamentoPorTipo(tipo);
     (state.remanejamentoLinhas[tipo] || []).forEach(linha => { linha.meses = meses; });
     renderLinhasRemanejamento(tipo);
   });
@@ -934,7 +976,9 @@ export function renderLinhasRemanejamento(tipo) {
           <tr${classeLinha}>
             <td>${selectHtml}${infoOciosas}</td>
             <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" data-input="campo-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}" data-campo="quantidade"></td>
-            <td><span class="remMesesValor" title="Meses do mês atual até dezembro (calculado automaticamente).">${escapeHtml(row.meses)}</span></td>
+            <td><span class="remMesesValor" title="${!state.remanejamentoAjusteAtivo || tipo === "reduzido"
+      ? "Meses do mês informado até dezembro (13 - mês, calculado automaticamente)."
+      : "No ajuste, o acrescentado usa o número digitado no campo do mês."}">${escapeHtml(row.meses)}</span></td>
             <td><strong>${formatCurrency(total.total)}</strong></td>
             <td><button type="button" class="remDeleteBtn" data-click="remover-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}">🗑</button></td>
           </tr>
@@ -1037,7 +1081,12 @@ export function atualizarResumoRemanejamentoPainel() {
   setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
   setText("remImpactoMensal2", formatCurrency(impactoMensal));
   setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
-  setText("remImpactoPeriodoMeses", String(mesesRemanejamentoSelecionado()));
+  // No ajuste os dois lados têm períodos diferentes, então o rótulo mostra os dois.
+  const mesesRed = mesesRemanejamentoPorTipo("reduzido");
+  const mesesAdd = mesesRemanejamentoPorTipo("acrescentado");
+  setText("remImpactoPeriodoMeses", mesesRed === mesesAdd
+    ? `${mesesRed} meses`
+    : `${mesesRed} meses reduzido / ${mesesAdd} acrescentado`);
 
   setText("remSalarioRed", formatCurrency(red.salarioBase));
   setText("remSalarioAdd", formatCurrency(add.salarioBase));
@@ -1078,6 +1127,13 @@ export function atualizarResumoRemanejamentoPainel() {
 export function limparFormularioRemanejamento() {
   // Limpar também cancela qualquer liberação pontual de PSS concedida pelo super admin.
   state.remanejamentoPssLiberadoDsei = null;
+
+  // Mês e Nº de meses voltam ao padrão ANTES das linhas: é deles que sai o período de
+  // cada uma (ver mesesRemanejamentoPorTipo).
+  setValue("remanejamentoMes", String(new Date().getMonth() + 1));
+  sincronizarSelectPesquisavel(document.getElementById("remanejamentoMes"));
+  setValue("remanejamentoMeses", String(new Date().getMonth() + 1));
+
   state.remanejamentoLinhas = {
     reduzido: [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })],
     acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })]
@@ -1085,8 +1141,6 @@ export function limparFormularioRemanejamento() {
 
   setValue("remanejamentoProcessoSei", "");
   setValue("remObservacao", "");
-  // Padrão: mês atual (mesmo cálculo já definido).
-  setValue("remanejamentoMes", String(new Date().getMonth() + 1));
 
   // Limpar também encerra o modo de edição (remanejamento normal e ajuste), se ativo.
   state.remanejamentoEditandoId = null;
@@ -1301,6 +1355,14 @@ export function aplicarModoAjusteRemanejamento(ativo) {
       : "Salvar Remanejamento";
   }
 
+  // Troca o campo do mês (select <-> digitado) e recalcula os meses das linhas com a
+  // regra do modo que passou a valer.
+  aplicarCamposMesesRemanejamento();
+  ["reduzido", "acrescentado"].forEach(tipo => {
+    const meses = mesesRemanejamentoPorTipo(tipo);
+    (state.remanejamentoLinhas[tipo] || []).forEach(linha => { linha.meses = meses; });
+  });
+
   // Opções/avisos das grades dependem do modo — re-renderiza e recalcula o resumo.
   renderLinhasRemanejamento("reduzido");
   renderLinhasRemanejamento("acrescentado");
@@ -1338,7 +1400,7 @@ export async function salvarAjusteRemanejamentoPainel() {
   formData.append("idDseiCasai", idDseiCasai);
   formData.append("processoSei", processoSei);
   formData.append("observacao", observacao);
-  formData.append("mes", String(mesRemanejamentoSelecionado()));
+  formData.append("mes", String(mesAjusteDigitado()));
   formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
   formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
   if (anexo) formData.append("anexo", anexo);
@@ -1393,18 +1455,17 @@ export async function editarAjusteRemanejamentoPainel(idProcesso) {
   aplicarModoEdicaoRemanejamento(false);
   state.remanejamentoAjusteEditandoId = dados.idProcesso;
 
-  // DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo/meses).
+  // DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo/meses). No
+  // ajuste o mês vai no campo digitado (mesmo valor do select do remanejamento normal).
   const dseis = montarOpcoesDseiRemanejamento();
   preencherSelectRemanejamento("remanejamentoDsei", dseis, item => item.label);
   setValue("remanejamentoDsei", String(dados.idDseiCasai || ""));
   sincronizarSelectPesquisavel(document.getElementById("remanejamentoDsei"));
 
-  const mesEl = document.getElementById("remanejamentoMes");
-  if (mesEl) {
-    mesEl.value = String(dados.mes || (new Date().getMonth() + 1));
-    mesEl.dataset.tocado = "1";
-    tornarSelectPesquisavel(mesEl, { placeholder: "Pesquise o mês…" });
-    sincronizarSelectPesquisavel(mesEl);
+  const mesesEl = document.getElementById("remanejamentoMeses");
+  if (mesesEl) {
+    mesesEl.value = String(dados.mes || (new Date().getMonth() + 1));
+    mesesEl.dataset.tocado = "1";
   }
 
   state.remanejamentoLinhas.reduzido = (dados.reduzidos || []).map(item => construirLinhaEdicaoRemanejamento("reduzido", item));

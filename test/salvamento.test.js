@@ -141,6 +141,45 @@ test("remanejamento: grava metadados do anexo quando há arquivo", async () => {
   assert.equal(proc.params[7], 3);
 });
 
+test("remanejamento normal: N_MESES = 13 - mês e os DOIS lados usam esse período", async () => {
+  const conn = fakeConn({
+    custos: [CUSTO(10, 1000), CUSTO(20, 400)],
+    ociosas: [{ id_cargo_funcao: 10, vagas_ociosas: 5 }],
+    insertId: 9
+  });
+
+  const res = await salvarRemanejamento(conn, {
+    idDseiCasai: "1",
+    processoSei: "SEI-1",
+    mes: 4, // 13 - 4 = 9 meses nos dois lados
+    linhasReduzido: JSON.stringify([{ idCargoFuncao: 10, quantidade: 1 }]),
+    linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }])
+  }, null);
+
+  const proc = conn.calls.execute.find(c => /PROCESSO_REMANEJAMENTO/.test(c.sql));
+  assert.equal(proc.params[3], 9);
+  assert.equal(res.impactoMensal, 400 - 1000);
+  assert.equal(res.impactoPeriodo, (400 - 1000) * 9);
+});
+
+test("ajuste pontual: N_MESES = 13 - mês digitado (o acrescentado usa o próprio número)", async () => {
+  // params do INSERT do processo: [processoSei, observacao, criadoPor, N_MESES, ...].
+  const nMeses = async body => {
+    const conn = fakeConn({ insertId: 1 });
+    await salvarAjuste(conn, {
+      idDseiCasai: "1", linhasReduzido: "[]",
+      linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }]),
+      ...body
+    }, null);
+    return conn.calls.execute.find(c => /TP_AJUSTE/.test(c.sql)).params[3];
+  };
+
+  // Digitou 4 -> reduzido = 9 meses (gravado em N_MESES); acrescentado = 13 - 9 = 4.
+  assert.equal(await nMeses({ mes: 4 }), 9);
+  assert.equal(await nMeses({ mes: 12 }), 1);
+  assert.equal(await nMeses({ mes: 0 }), mesesAteFimDoAno(), "fora de 1..12 cai no padrão");
+});
+
 test("remanejamento: impacto financeiro positivo é bloqueado e nada é gravado", async () => {
   const conn = fakeConn({
     custos: [CUSTO(10, 100), CUSTO(20, 1000)], // reduz barato, acrescenta caro -> impacto +
