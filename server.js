@@ -7,7 +7,7 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const { DASH_CONFIG, resolverPortaAplicacao } = require("./lib/config");
-const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, garantirColunaAjusteRemanejamento, garantirColunaTpAjusteRemanejamento, salvarAjusteRemanejamentoComConn, atualizarAjusteRemanejamentoComConn, getAjustesRemanejamentoData, excluirAjusteRemanejamentoComConn, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
+const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, garantirColunaAjusteRemanejamento, garantirColunaTpAjusteRemanejamento, garantirColunasCustoGeralVaga, salvarAjusteRemanejamentoComConn, atualizarAjusteRemanejamentoComConn, getAjustesRemanejamentoData, excluirAjusteRemanejamentoComConn, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
 const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
@@ -1571,6 +1571,10 @@ if (require.main === module) {
 
   garantirColunaTpAjusteRemanejamento().catch(err => {
     console.error("Não foi possível garantir a coluna TP_AJUSTE do processo de remanejamento:", err && err.message ? err.message : err);
+  });
+
+  garantirColunasCustoGeralVaga().catch(err => {
+    console.error("Não foi possível garantir as colunas de valores em CUSTO_GERAL_VAGA:", err && err.message ? err.message : err);
   });
 
   garantirTabelaSolicitacoesAcesso().catch(err => {

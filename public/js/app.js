@@ -376,7 +376,11 @@ function renderResumoAlertasKpi(indicadores) {
   }]);
 }
 
-export async function recarregarTodosOsDados(botao) {
+// Recarrega tudo o que depende do monitoramento (Vagas, Alertas, Visão Geral e
+// remanejamento). `cacheJaInvalidado` poupa o POST /api/cache/clear quando quem chama
+// acabou de gravar por uma rota que já invalida o cache no servidor
+// (limparCacheDashboard) — caso de remanejamento/ajuste pontual.
+export async function recarregarTodosOsDados(botao, { cacheJaInvalidado = false } = {}) {
   const btn = botao || document.getElementById("refreshBtn");
   if (btn) {
     btn.disabled = true;
@@ -385,7 +389,7 @@ export async function recarregarTodosOsDados(botao) {
 
   try {
     // Garante leitura fresca do banco (monitoramento, vagas ociosas, lista, etc.).
-    await apiPost("/api/cache/clear", {}).catch(() => { });
+    if (!cacheJaInvalidado) await apiPost("/api/cache/clear", {}).catch(() => { });
 
     if (podeVerModulo("visaoGeral")) {
       const resumo = await apiGet("/api/dashboard/resumo").catch(() => null);
@@ -394,12 +398,14 @@ export async function recarregarTodosOsDados(botao) {
 
     // Força o recarregamento das páginas que o usuário tem permissão de ver
     // (os loaders de Vagas/Alertas já se autoguardam; o backend bloqueia o resto).
-    carregarVagasEmSegundoPlano(true);
-    carregarAlertasEmSegundoPlano(true);
-    if (podeVerModulo("remanejamento")) {
-      carregarRemanejamentoListaEmSegundoPlano(true);
-      carregarRemanejamentoCadastroEmSegundoPlano(true);
-    }
+    // Espera as cargas: quem chama depois de gravar (remanejamento/ajuste) só deve
+    // avisar "salvo" quando as tabelas já refletirem o novo dado.
+    await Promise.all([
+      carregarVagasEmSegundoPlano(true),
+      carregarAlertasEmSegundoPlano(true),
+      carregarRemanejamentoListaEmSegundoPlano(true),
+      carregarRemanejamentoCadastroEmSegundoPlano(true)
+    ]);
   } catch (error) {
     console.error("Falha ao atualizar os dados do painel:", error);
   } finally {
@@ -445,14 +451,28 @@ export function garantirCarregamentoPagina(view) {
 // (pageLoadingState), cache por página (pageLoadState) e tratamento de erro.
 // `antes()` roda antes do fetch; `aoCarregar(payload)` define o estado e
 // renderiza (já com pageLoadState[chave] = true); `aoFalhar(error)` é opcional.
+// Promessa da carga em andamento por página: permite ESPERAR o carregamento (ver
+// recarregarTodosOsDados) e enfileirar um `forcar` que chegue durante outra carga.
+const cargasEmVoo = {};
+
 function carregarPaginaEmSegundoPlano({ chave, endpoint, forcar, antes, aoCarregar, aoFalhar, mensagemErro }) {
-  if (pageLoadingState[chave]) return;
-  if (pageLoadState[chave] && !forcar) return;
+  // Já há uma carga em andamento. Sem `forcar`, basta aproveitá-la; com `forcar`
+  // (dado acabou de mudar no banco), a carga em voo pode ter lido dados ANTIGOS —
+  // então enfileira uma nova ao final dela em vez de descartar o pedido.
+  if (pageLoadingState[chave]) {
+    const emVoo = cargasEmVoo[chave] || Promise.resolve();
+    if (!forcar) return emVoo;
+    const encadeada = emVoo
+      .catch(() => { })
+      .then(() => carregarPaginaEmSegundoPlano({ chave, endpoint, forcar, antes, aoCarregar, aoFalhar, mensagemErro }));
+    return encadeada;
+  }
+  if (pageLoadState[chave] && !forcar) return Promise.resolve();
   pageLoadingState[chave] = true;
 
   if (antes) antes();
 
-  apiGet(endpoint)
+  const promessa = apiGet(endpoint)
     .then(payload => {
       pageLoadingState[chave] = false;
       pageLoadState[chave] = true;
@@ -462,12 +482,18 @@ function carregarPaginaEmSegundoPlano({ chave, endpoint, forcar, antes, aoCarreg
       pageLoadingState[chave] = false;
       console.error(mensagemErro, error);
       if (aoFalhar) aoFalhar(error);
+    })
+    .finally(() => {
+      if (cargasEmVoo[chave] === promessa) delete cargasEmVoo[chave];
     });
+
+  cargasEmVoo[chave] = promessa;
+  return promessa;
 }
 
 export function carregarVagasEmSegundoPlano(forcar) {
-  if (!podeVerModulo("vagas")) return; // sem acesso à aba Vagas: backend bloqueia o GET
-  carregarPaginaEmSegundoPlano({
+  if (!podeVerModulo("vagas")) return Promise.resolve(); // sem acesso à aba Vagas: backend bloqueia o GET
+  return carregarPaginaEmSegundoPlano({
     chave: "vagas",
     endpoint: "/api/vagas",
     forcar,
@@ -499,14 +525,14 @@ export function carregarVagasEmSegundoPlano(forcar) {
 }
 
 export function carregarAlertasEmSegundoPlano(forcar) {
-  if (!podeVerModulo("alertas")) return; // sem acesso à aba Alertas: backend bloqueia o GET
+  if (!podeVerModulo("alertas")) return Promise.resolve(); // sem acesso à aba Alertas: backend bloqueia o GET
 
   // Alertas usam a MESMA base de monitoramento que Vagas. Se o usuário tem acesso
   // a Vagas, reaproveita state.vagasBaseRows e busca SÓ as observações (endpoint
   // leve) — evita transferir a base inteira uma 2ª vez. Sem acesso a Vagas (a base
   // não vem de lá e o GET /api/vagas daria 403), baixa a base completa por /api/alertas.
   if (podeVerModulo("vagas")) {
-    carregarPaginaEmSegundoPlano({
+    return carregarPaginaEmSegundoPlano({
       chave: "alertas",
       endpoint: "/api/alertas/observacoes",
       forcar,
@@ -523,10 +549,9 @@ export function carregarAlertasEmSegundoPlano(forcar) {
       },
       aoFalhar: renderAlertasErro
     });
-    return;
   }
 
-  carregarPaginaEmSegundoPlano({
+  return carregarPaginaEmSegundoPlano({
     chave: "alertas",
     endpoint: "/api/alertas",
     forcar,
@@ -542,8 +567,8 @@ export function carregarAlertasEmSegundoPlano(forcar) {
 }
 
 export function carregarRemanejamentoListaEmSegundoPlano(forcar) {
-  if (!podeVerModulo("remanejamento")) return; // sem acesso: backend bloqueia o GET
-  carregarPaginaEmSegundoPlano({
+  if (!podeVerModulo("remanejamento")) return Promise.resolve(); // sem acesso: backend bloqueia o GET
+  return carregarPaginaEmSegundoPlano({
     chave: "remanejamentoLista",
     endpoint: "/api/remanejamento/lista",
     forcar,
@@ -557,8 +582,8 @@ export function carregarRemanejamentoListaEmSegundoPlano(forcar) {
 }
 
 export function carregarRemanejamentoCadastroEmSegundoPlano(forcar) {
-  if (!podeVerModulo("remanejamento")) return; // sem acesso: backend bloqueia o GET
-  carregarPaginaEmSegundoPlano({
+  if (!podeVerModulo("remanejamento")) return Promise.resolve(); // sem acesso: backend bloqueia o GET
+  return carregarPaginaEmSegundoPlano({
     chave: "remanejamentoCadastro",
     endpoint: "/api/remanejamento/cadastro",
     forcar,
