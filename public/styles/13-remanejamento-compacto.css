@@ -74,7 +74,7 @@
   outline: none;
 }
 
-/* Explicação do Nº de meses (reduzido = digitado, acrescentado = 13 - digitado). */
+/* Explicação do Nº de meses (reduzido = 12 - digitado, acrescentado = digitado). */
 .remMesHint {
   display: block;
   margin-top: 4px;

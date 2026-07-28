@@ -162,7 +162,7 @@ test("remanejamento normal: N_MESES = 13 - mês e os DOIS lados usam esse perío
   assert.equal(res.impactoPeriodo, (400 - 1000) * 9);
 });
 
-test("ajuste pontual: N_MESES = 13 - mês digitado (o acrescentado usa o próprio número)", async () => {
+test("ajuste pontual: N_MESES = 12 - mês digitado (o acrescentado usa o próprio número)", async () => {
   // params do INSERT do processo: [processoSei, observacao, criadoPor, N_MESES, ...].
   const nMeses = async body => {
     const conn = fakeConn({ insertId: 1 });
@@ -174,10 +174,14 @@ test("ajuste pontual: N_MESES = 13 - mês digitado (o acrescentado usa o própri
     return conn.calls.execute.find(c => /TP_AJUSTE/.test(c.sql)).params[3];
   };
 
-  // Digitou 4 -> reduzido = 9 meses (gravado em N_MESES); acrescentado = 13 - 9 = 4.
-  assert.equal(await nMeses({ mes: 4 }), 9);
-  assert.equal(await nMeses({ mes: 12 }), 1);
-  assert.equal(await nMeses({ mes: 0 }), mesesAteFimDoAno(), "fora de 1..12 cai no padrão");
+  // Digitou 4 -> reduzido = 8 meses (gravado em N_MESES); acrescentado = 12 - 8 = 4.
+  assert.equal(await nMeses({ mes: 4 }), 8);
+  assert.equal(await nMeses({ mes: 11 }), 1);
+  assert.equal(
+    await nMeses({ mes: 0 }),
+    Math.max(1, 12 - (new Date().getMonth() + 1)),
+    "fora de 1..12 cai no padrão (base 12 do mês atual)"
+  );
 });
 
 test("remanejamento: impacto financeiro positivo é bloqueado e nada é gravado", async () => {

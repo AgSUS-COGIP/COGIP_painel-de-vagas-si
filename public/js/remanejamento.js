@@ -856,20 +856,26 @@ export function mesRemanejamentoAtual() {
   return state.remanejamentoAjusteAtivo ? mesAjusteDigitado() : mesRemanejamentoSelecionado();
 }
 
-// Nº de meses base: do mês de referência até dezembro (mesma regra do servidor:
-// 13 - mês). No remanejamento normal vale igual para os dois lados.
+// Base do Nº de meses (mesma regra do servidor): 13 no remanejamento normal (do mês
+// escolhido até dezembro) e 12 no ajuste pontual.
+function baseMesesRemanejamento() {
+  return state.remanejamentoAjusteAtivo ? 12 : 13;
+}
+
+// Nº de meses base: base - mês de referência. No remanejamento normal vale igual para
+// os dois lados.
 export function mesesRemanejamentoSelecionado() {
-  return Math.max(1, 13 - mesRemanejamentoAtual());
+  return Math.max(1, baseMesesRemanejamento() - mesRemanejamentoAtual());
 }
 
 // Nº de meses de cada lado:
 //   • remanejamento normal -> 13 - mês nos dois lados;
-//   • ajuste pontual -> reduzido = 13 - o número digitado; acrescentado = o número
-//     digitado puro.
+//   • ajuste pontual -> reduzido = 12 - o número digitado; acrescentado = o número
+//     digitado puro (o complemento na base 12).
 export function mesesRemanejamentoPorTipo(tipo) {
   const meses = mesesRemanejamentoSelecionado();
   if (!state.remanejamentoAjusteAtivo || tipo === "reduzido") return meses;
-  return Math.max(1, 13 - meses);
+  return Math.max(1, 12 - meses);
 }
 
 export function criarLinhaRemanejamento(tipo, valores) {
@@ -976,9 +982,11 @@ export function renderLinhasRemanejamento(tipo) {
           <tr${classeLinha}>
             <td>${selectHtml}${infoOciosas}</td>
             <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" data-input="campo-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}" data-campo="quantidade"></td>
-            <td><span class="remMesesValor" title="${!state.remanejamentoAjusteAtivo || tipo === "reduzido"
+            <td><span class="remMesesValor" title="${!state.remanejamentoAjusteAtivo
       ? "Meses do mês informado até dezembro (13 - mês, calculado automaticamente)."
-      : "No ajuste, o acrescentado usa o número digitado no campo do mês."}">${escapeHtml(row.meses)}</span></td>
+      : tipo === "reduzido"
+        ? "No ajuste, o reduzido usa 12 - o número digitado no campo do mês."
+        : "No ajuste, o acrescentado usa o número digitado no campo do mês."}">${escapeHtml(row.meses)}</span></td>
             <td><strong>${formatCurrency(total.total)}</strong></td>
             <td><button type="button" class="remDeleteBtn" data-click="remover-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}">🗑</button></td>
           </tr>
