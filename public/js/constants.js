@@ -15,6 +15,27 @@ export const REMANEJAMENTO_EMPTY_OPTION = { value: "", label: "Selecione" };
 // Duração padrão (em meses) de uma nova linha de remanejamento até o usuário ajustar.
 export const REMANEJAMENTO_MESES_PADRAO = 6;
 
+// Componentes do valor mensal de uma vaga (CUSTO_GERAL_VAGA), na MESMA ordem do
+// backend (COMPONENTES_CUSTO_VAGA em lib/sql.js). Governam o "Resumo dos Valores
+// (Mensal)", o detalhe do remanejamento e a soma do mensal de cada linha.
+//   campo    -> nome do campo vindo da API
+//   rotulo   -> texto exibido
+//   idResumo -> sufixo dos ids da tabela de resumo (remXxxRed/Add/Impacto)
+//   rotuloCurto -> cabeçalho na tabela de detalhe (mais estreita)
+export const REMANEJAMENTO_COMPONENTES_CUSTO = [
+  { campo: "salarioBase", rotulo: "Salários", idResumo: "Salario", rotuloCurto: "Salário" },
+  { campo: "insalubridadePericulosidade", rotulo: "Insalubridade/Periculosidade", idResumo: "Insal", rotuloCurto: "Insal./Peric." },
+  { campo: "gratificacaoRt", rotulo: "Gratificação RT", idResumo: "Rt", rotuloCurto: "Grat. RT" },
+  { campo: "adicionalNoturno", rotulo: "Adicional Noturno", idResumo: "Noturno", rotuloCurto: "Noturno" },
+  { campo: "encargos", rotulo: "Encargos", idResumo: "Encargo", rotuloCurto: "Encargos" },
+  { campo: "provisoes", rotulo: "Provisões", idResumo: "Provisao", rotuloCurto: "Provisões" },
+  { campo: "valeAlimentacao", rotulo: "Vale Alimentação", idResumo: "Vale", rotuloCurto: "Vale Alim." },
+  { campo: "abonoEmergencial", rotulo: "Abono Emergencial", idResumo: "Abono", rotuloCurto: "Abono Emerg." },
+  { campo: "trabalhoEmCampo", rotulo: "Trabalho em Campo", idResumo: "Campo", rotuloCurto: "Trab. Campo" },
+  { campo: "captacaoMedica", rotulo: "Captação Médica", idResumo: "Captacao", rotuloCurto: "Capt. Médica" },
+  { campo: "auxilioAreaRemota", rotulo: "Auxílio de Área Remota", idResumo: "Remota", rotuloCurto: "Aux. Área Remota" }
+];
+
 // Níveis de permissão POR MÓDULO (não há mais nível global). São apenas dicas de
 // UI no front; o backend reaplica a regra por módulo a cada requisição.
 //   1 = Leitor   2 = Editor   3 = Administrador (no módulo "solicitacoes" = super admin)

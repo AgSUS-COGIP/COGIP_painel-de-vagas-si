@@ -2,7 +2,7 @@ import { idSeguroAlerta } from "./alertas.js";
 import { nivelModulo } from "./permissoes.js";
 import { apiGet } from "./api.js";
 import { carregarRemanejamentoListaEmSegundoPlano, recarregarTodosOsDados } from "./app.js";
-import { NIVEL, REMANEJAMENTO_EMPTY_OPTION, REMANEJAMENTO_MESES_PADRAO } from "./constants.js";
+import { NIVEL, REMANEJAMENTO_COMPONENTES_CUSTO, REMANEJAMENTO_EMPTY_OPTION, REMANEJAMENTO_MESES_PADRAO } from "./constants.js";
 import { abrirAviso, abrirModal, mostrarCarregando, ocultarCarregando } from "./modal.js";
 import { obterBloqueiosRemanejamentoPSS } from "./processos-seletivos.js";
 import { detalhesRemanejamentoCache, pageLoadState } from "./runtime.js";
@@ -455,18 +455,15 @@ export async function alternarDetalheRemanejamento(idProcesso) {
 }
 
 export function renderTabelaDetalheRemanejamento(titulo, itens) {
+  // Colunas: Cargo, Qtd., Meses + um componente de custo por coluna + Mensal e Período.
+  const totalColunas = 3 + REMANEJAMENTO_COMPONENTES_CUSTO.length + 2;
+
   const linhas = (itens || []).map(item => `
         <tr>
           <td>${escapeHtml(item.cargo || "-")}</td>
           <td>${formatNumber(item.quantidade)}</td>
           <td>${formatNumber(item.meses)}</td>
-          <td>${formatCurrency(item.salario)}</td>
-          <td>${formatCurrency(item.insalubridade)}</td>
-          <td>${formatCurrency(item.gratificacaoRt)}</td>
-          <td>${formatCurrency(item.noturno)}</td>
-          <td>${formatCurrency(item.encargos)}</td>
-          <td>${formatCurrency(item.provisoes)}</td>
-          <td>${formatCurrency(item.valeAlimentacao)}</td>
+          ${REMANEJAMENTO_COMPONENTES_CUSTO.map(c => `<td>${formatCurrency(item[c.campo])}</td>`).join("")}
           <td>${formatCurrency(item.mensal)}</td>
           <td>${formatCurrency(item.periodo)}</td>
         </tr>
@@ -481,13 +478,14 @@ export function renderTabelaDetalheRemanejamento(titulo, itens) {
           <table class="remTable remDetalheTable">
             <thead>
               <tr>
-                <th>Cargo</th><th>Qtd.</th><th>Meses</th><th>Salário</th><th>Insal./Peric.</th>
-                <th>Grat. RT</th><th>Noturno</th><th>Encargos</th><th>Provisões</th><th>Vale Alim.</th><th>Mensal</th><th>Período</th>
+                <th>Cargo</th><th>Qtd.</th><th>Meses</th>
+                ${REMANEJAMENTO_COMPONENTES_CUSTO.map(c => `<th>${escapeHtml(c.rotuloCurto)}</th>`).join("")}
+                <th>Mensal</th><th>Período</th>
               </tr>
             </thead>
-            <tbody>${linhas || '<tr><td colspan="12">Sem itens.</td></tr>'}</tbody>
+            <tbody>${linhas || `<tr><td colspan="${totalColunas}">Sem itens.</td></tr>`}</tbody>
             <tfoot>
-              <tr><td colspan="10">TOTAL</td><td>${formatCurrency(totalMensal)}</td><td>${formatCurrency(totalPeriodo)}</td></tr>
+              <tr><td colspan="${totalColunas - 2}">TOTAL</td><td>${formatCurrency(totalMensal)}</td><td>${formatCurrency(totalPeriodo)}</td></tr>
             </tfoot>
           </table>
         </div>
@@ -573,6 +571,14 @@ export async function editarRemanejamentoPainel(idProcesso) {
 
 // Monta uma linha do formulário a partir de { idCargoFuncao, quantidade } salvos,
 // buscando os custos no cadastro do DSEI já selecionado.
+// Copia para a linha os componentes de custo do cadastro do cargo (CUSTO_GERAL_VAGA).
+// Um cargo sem custo cadastrado zera todos — o mensal fica 0, como antes.
+function aplicarCustosCadastroNaLinha(linha, cadastro) {
+  REMANEJAMENTO_COMPONENTES_CUSTO.forEach(c => {
+    linha[c.campo] = Number(cadastro?.[c.campo] || 0);
+  });
+}
+
 function construirLinhaEdicaoRemanejamento(tipo, item) {
   const linha = criarLinhaRemanejamento(tipo, { quantidade: item.quantidade });
   const cadastro = obterCadastroCargoRemanejamento(item.idCargoFuncao);
@@ -584,13 +590,7 @@ function construirLinhaEdicaoRemanejamento(tipo, item) {
   linha.vagasOciosas = tipo === "reduzido"
     ? baseOciosas + Math.max(0, Number(item.quantidade || 0))
     : baseOciosas;
-  linha.salarioBase = Number(cadastro?.salarioBase || 0);
-  linha.insalubridadePericulosidade = Number(cadastro?.insalubridadePericulosidade || 0);
-  linha.gratificacaoRt = Number(cadastro?.gratificacaoRt || 0);
-  linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
-  linha.encargos = Number(cadastro?.encargos || 0);
-  linha.provisoes = Number(cadastro?.provisoes || 0);
-  linha.valeAlimentacao = Number(cadastro?.valeAlimentacao || 0);
+  aplicarCustosCadastroNaLinha(linha, cadastro);
   linha.quantidade = Math.max(1, Number(item.quantidade || 1));
   return linha;
 }
@@ -635,8 +635,9 @@ export async function excluirRemanejamentoPainel(idProcesso) {
 
     delete detalhesRemanejamentoCache[idProcesso];
     // Atualiza todos os dados afetados pela exclusão (vagas ociosas voltam ao saldo,
-    // monitoramento, alertas, visão geral e a própria lista).
-    await recarregarTodosOsDados();
+    // monitoramento, alertas, visão geral e a própria lista). A rota DELETE já
+    // invalidou o cache no servidor — daí cacheJaInvalidado.
+    await recarregarTodosOsDados(null, { cacheJaInvalidado: true });
     ocultarCarregando();
     await abrirAviso({ titulo: "Remanejamento excluído", msg: "Remanejamento excluído com sucesso." });
   } catch (error) {
@@ -806,6 +807,13 @@ export function inicializarFormularioRemanejamento(resetar) {
     sincronizarSelectPesquisavel(mesEl);
   }
 
+  // Padrão do Nº de meses do ajuste = meses decorridos no ano (o mês atual).
+  const mesesEl = document.getElementById("remanejamentoMeses");
+  if (mesesEl && (resetar || !(Number(mesesEl.value) >= 1 && Number(mesesEl.value) <= 12) || !mesesEl.dataset.tocado)) {
+    mesesEl.value = String(new Date().getMonth() + 1);
+    mesesEl.dataset.tocado = "1";
+  }
+
   if (resetar || !state.remanejamentoLinhas.reduzido.length) {
     state.remanejamentoLinhas.reduzido = [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })];
   }
@@ -819,23 +827,56 @@ export function inicializarFormularioRemanejamento(resetar) {
   atualizarResumoRemanejamentoPainel();
 }
 
-// Mês escolhido no formulário (1..12). Sem seleção válida, usa o mês atual.
+// Mostra o campo de período conforme o modo: "Mês do remanejamento" (select) no
+// remanejamento normal e "Nº de meses do ajuste" (digitado) no modo ajustes pontuais.
+// Ambos só aparecem para o Administrador do módulo (nível 3) — ver auth.js.
+export function aplicarCamposMesesRemanejamento() {
+  const podeEscolher = !!state.remanejamentoPodeEscolherMeses;
+  const ajuste = !!state.remanejamentoAjusteAtivo;
+  const mesWrap = document.getElementById("remMesWrap");
+  const mesesWrap = document.getElementById("remMesesWrap");
+  if (mesWrap) mesWrap.style.display = podeEscolher && !ajuste ? "" : "none";
+  if (mesesWrap) mesesWrap.style.display = podeEscolher && ajuste ? "" : "none";
+}
+
+// Mês escolhido no select (1..12). Sem seleção válida, usa o mês atual.
 export function mesRemanejamentoSelecionado() {
   const v = Number(document.getElementById("remanejamentoMes")?.value);
   return v >= 1 && v <= 12 ? v : new Date().getMonth() + 1;
 }
 
-// Quantidade de meses digitada no modo AJUSTE (1..12). Sem valor válido, usa 1.
-export function mesesAjusteInformado() {
-  const q = Number(document.getElementById("remanejamentoMesesAjuste")?.value);
-  return (q >= 1 && q <= 12) ? Math.round(q) : 1;
+// Mês digitado no modo ajustes pontuais (1..12) — mesmo papel do select, só que como
+// número. Sem valor válido, usa o mês atual.
+export function mesAjusteDigitado() {
+  const v = Math.floor(Number(document.getElementById("remanejamentoMeses")?.value));
+  return v >= 1 && v <= 12 ? v : new Date().getMonth() + 1;
 }
 
-// Meses que alimentam o custo do período. No modo ajuste é a quantidade digitada
-// diretamente; no remanejamento normal, do mês escolhido até dezembro (13 - mês).
+// Mês de referência do formulário: digitado no modo ajuste, selecionado no normal.
+export function mesRemanejamentoAtual() {
+  return state.remanejamentoAjusteAtivo ? mesAjusteDigitado() : mesRemanejamentoSelecionado();
+}
+
+// Base do Nº de meses (mesma regra do servidor): 13 no remanejamento normal (do mês
+// escolhido até dezembro) e 12 no ajuste pontual.
+function baseMesesRemanejamento() {
+  return state.remanejamentoAjusteAtivo ? 12 : 13;
+}
+
+// Nº de meses base: base - mês de referência. No remanejamento normal vale igual para
+// os dois lados.
 export function mesesRemanejamentoSelecionado() {
-  if (state.remanejamentoAjusteAtivo) return mesesAjusteInformado();
-  return Math.max(1, 13 - mesRemanejamentoSelecionado());
+  return Math.max(1, baseMesesRemanejamento() - mesRemanejamentoAtual());
+}
+
+// Nº de meses de cada lado:
+//   • remanejamento normal -> 13 - mês nos dois lados;
+//   • ajuste pontual -> reduzido = 12 - o número digitado; acrescentado = o número
+//     digitado puro (o complemento na base 12).
+export function mesesRemanejamentoPorTipo(tipo) {
+  const meses = mesesRemanejamentoSelecionado();
+  if (!state.remanejamentoAjusteAtivo || tipo === "reduzido") return meses;
+  return Math.max(1, 12 - meses);
 }
 
 export function criarLinhaRemanejamento(tipo, valores) {
@@ -845,22 +886,16 @@ export function criarLinhaRemanejamento(tipo, valores) {
     cargo: valores?.cargo || "",
     quantidade: Number(valores?.quantidade || 1),
     vagasOciosas: Number(valores?.vagasOciosas || 0),
-    meses: mesesRemanejamentoSelecionado(),
-    salarioBase: Number(valores?.salarioBase || 0),
-    insalubridadePericulosidade: Number(valores?.insalubridadePericulosidade || 0),
-    gratificacaoRt: Number(valores?.gratificacaoRt || 0),
-    adicionalNoturno: Number(valores?.adicionalNoturno || 0),
-    encargos: Number(valores?.encargos || 0),
-    provisoes: Number(valores?.provisoes || 0),
-    valeAlimentacao: Number(valores?.valeAlimentacao || 0)
+    meses: mesesRemanejamentoPorTipo(tipo),
+    ...Object.fromEntries(REMANEJAMENTO_COMPONENTES_CUSTO.map(c => [c.campo, Number(valores?.[c.campo] || 0)]))
   };
 }
 
-// Mês alterado: recalcula os meses de todas as linhas (reduzido/acrescentado) e
-// atualiza o resumo/impacto do período.
-export function alterarMesRemanejamento() {
-  const meses = mesesRemanejamentoSelecionado();
+// Mês alterado (select do remanejamento normal ou campo digitado do ajuste):
+// recalcula os meses de todas as linhas e atualiza o resumo/impacto do período.
+export function alterarMesesRemanejamento() {
   ["reduzido", "acrescentado"].forEach(tipo => {
+    const meses = mesesRemanejamentoPorTipo(tipo);
     (state.remanejamentoLinhas[tipo] || []).forEach(linha => { linha.meses = meses; });
     renderLinhasRemanejamento(tipo);
   });
@@ -894,14 +929,8 @@ export function atualizarCampoLinhaRemanejamento(tipo, id, campo, valor) {
     linha.idCargoFuncao = valor;
     linha.cargo = cadastro?.cargo || "";
     linha.vagasOciosas = Number(cadastro?.vagasOciosas || 0);
-    linha.salarioBase = Number(cadastro?.salarioBase || 0);
-    linha.insalubridadePericulosidade = Number(cadastro?.insalubridadePericulosidade || 0);
-    linha.gratificacaoRt = Number(cadastro?.gratificacaoRt || 0);
-    linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
-    linha.encargos = Number(cadastro?.encargos || 0);
-    linha.provisoes = Number(cadastro?.provisoes || 0);
-    linha.valeAlimentacao = Number(cadastro?.valeAlimentacao || 0);
-  } else if (["quantidade", "meses", "salarioBase", "insalubridadePericulosidade", "gratificacaoRt", "adicionalNoturno", "encargos", "provisoes", "valeAlimentacao"].includes(campo)) {
+    aplicarCustosCadastroNaLinha(linha, cadastro);
+  } else if (["quantidade", "meses", ...REMANEJAMENTO_COMPONENTES_CUSTO.map(c => c.campo)].includes(campo)) {
     linha[campo] = Number(valor || 0);
   } else {
     linha[campo] = valor;
@@ -942,7 +971,11 @@ export function renderLinhasRemanejamento(tipo) {
           <tr${classeLinha}>
             <td>${selectHtml}${infoOciosas}</td>
             <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" data-input="campo-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}" data-campo="quantidade"></td>
-            <td><span class="remMesesValor" title="Meses do mês atual até dezembro (calculado automaticamente).">${escapeHtml(row.meses)}</span></td>
+            <td><span class="remMesesValor" title="${!state.remanejamentoAjusteAtivo
+      ? "Meses do mês informado até dezembro (13 - mês, calculado automaticamente)."
+      : tipo === "reduzido"
+        ? "No ajuste, o reduzido usa 12 - o número digitado no campo do mês."
+        : "No ajuste, o acrescentado usa o número digitado no campo do mês."}">${escapeHtml(row.meses)}</span></td>
             <td><strong>${formatCurrency(total.total)}</strong></td>
             <td><button type="button" class="remDeleteBtn" data-click="remover-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}">🗑</button></td>
           </tr>
@@ -970,61 +1003,52 @@ export function validarOciosasReduzidoCliente() {
     .map(item => `${item.cargo}: ${item.ociosas} vaga(s) ociosa(s), solicitado ${item.solicitado}`);
 }
 
+// Soma dos componentes de custo de uma linha (já multiplicados pela quantidade).
+function mensalLinhaRemanejamento(row, quantidade) {
+  return REMANEJAMENTO_COMPONENTES_CUSTO
+    .reduce((soma, c) => soma + Number(row[c.campo] || 0) * quantidade, 0);
+}
+
 export function calcularTotalLinhaRemanejamento(row) {
   const quantidade = Math.max(0, Number(row.quantidade || 0));
   const meses = Math.max(1, Number(row.meses || 1));
-  const salarioBase = Number(row.salarioBase || 0) * quantidade;
-  const insalubridadePericulosidade = Number(row.insalubridadePericulosidade || 0) * quantidade;
-  const gratificacaoRt = Number(row.gratificacaoRt || 0) * quantidade;
-  const adicionalNoturno = Number(row.adicionalNoturno || 0) * quantidade;
-  const encargos = Number(row.encargos || 0) * quantidade;
-  const provisoes = Number(row.provisoes || 0) * quantidade;
-  const valeAlimentacao = Number(row.valeAlimentacao || 0) * quantidade;
-  const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes + valeAlimentacao;
+  const mensal = mensalLinhaRemanejamento(row, quantidade);
   return { mensal, total: mensal * meses };
 }
 
 export function coletarLinhasRemanejamento(tipo) {
+  const componentesNumericos = item => Object.fromEntries(
+    REMANEJAMENTO_COMPONENTES_CUSTO.map(c => [c.campo, Number(item[c.campo] || 0)])
+  );
+
   return (state.remanejamentoLinhas[tipo] || [])
     .map(item => ({
       ...item,
       idCargoFuncao: Number(item.idCargoFuncao || 0),
       quantidade: Number(item.quantidade || 0),
       meses: Math.max(1, Number(item.meses || 1)),
-      salarioBase: Number(item.salarioBase || 0),
-      insalubridadePericulosidade: Number(item.insalubridadePericulosidade || 0),
-      gratificacaoRt: Number(item.gratificacaoRt || 0),
-      adicionalNoturno: Number(item.adicionalNoturno || 0),
-      encargos: Number(item.encargos || 0),
-      provisoes: Number(item.provisoes || 0),
-      valeAlimentacao: Number(item.valeAlimentacao || 0)
+      ...componentesNumericos(item)
     }))
-    .filter(item => item.idCargoFuncao || item.quantidade || item.salarioBase || item.encargos || item.provisoes || item.valeAlimentacao);
+    // Mantém a linha se tiver cargo/quantidade ou qualquer componente de custo preenchido.
+    .filter(item => item.idCargoFuncao || item.quantidade
+      || REMANEJAMENTO_COMPONENTES_CUSTO.some(c => Number(item[c.campo] || 0)));
 }
 
 export function calcularResumoLinhasRemanejamento(items) {
+  const zerado = { mensal: 0, total: 0 };
+  REMANEJAMENTO_COMPONENTES_CUSTO.forEach(c => { zerado[c.campo] = 0; });
+
   return (items || []).reduce((acc, item) => {
     const quantidade = Number(item.quantidade || 0);
     const meses = Math.max(1, Number(item.meses || 1));
-    const salarioBase = Number(item.salarioBase || 0) * quantidade;
-    const insalubridadePericulosidade = Number(item.insalubridadePericulosidade || 0) * quantidade;
-    const gratificacaoRt = Number(item.gratificacaoRt || 0) * quantidade;
-    const adicionalNoturno = Number(item.adicionalNoturno || 0) * quantidade;
-    const encargos = Number(item.encargos || 0) * quantidade;
-    const provisoes = Number(item.provisoes || 0) * quantidade;
-    const valeAlimentacao = Number(item.valeAlimentacao || 0) * quantidade;
-    const mensal = salarioBase + insalubridadePericulosidade + gratificacaoRt + adicionalNoturno + encargos + provisoes + valeAlimentacao;
-    acc.salarioBase += salarioBase;
-    acc.insalubridadePericulosidade += insalubridadePericulosidade;
-    acc.gratificacaoRt += gratificacaoRt;
-    acc.adicionalNoturno += adicionalNoturno;
-    acc.encargos += encargos;
-    acc.provisoes += provisoes;
-    acc.valeAlimentacao += valeAlimentacao;
+    REMANEJAMENTO_COMPONENTES_CUSTO.forEach(c => {
+      acc[c.campo] += Number(item[c.campo] || 0) * quantidade;
+    });
+    const mensal = mensalLinhaRemanejamento(item, quantidade);
     acc.mensal += mensal;
     acc.total += mensal * meses;
     return acc;
-  }, { salarioBase: 0, insalubridadePericulosidade: 0, gratificacaoRt: 0, adicionalNoturno: 0, encargos: 0, provisoes: 0, valeAlimentacao: 0, mensal: 0, total: 0 });
+  }, zerado);
 }
 
 export function atualizarResumoRemanejamentoPainel() {
@@ -1045,29 +1069,21 @@ export function atualizarResumoRemanejamentoPainel() {
   setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
   setText("remImpactoMensal2", formatCurrency(impactoMensal));
   setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
-  setText("remImpactoPeriodoMeses", String(mesesRemanejamentoSelecionado()));
+  // No ajuste os dois lados têm períodos diferentes, então o rótulo mostra os dois.
+  const mesesRed = mesesRemanejamentoPorTipo("reduzido");
+  const mesesAdd = mesesRemanejamentoPorTipo("acrescentado");
+  setText("remImpactoPeriodoMeses", mesesRed === mesesAdd
+    ? `${mesesRed} meses`
+    : `${mesesRed} meses reduzido / ${mesesAdd} acrescentado`);
 
-  setText("remSalarioRed", formatCurrency(red.salarioBase));
-  setText("remSalarioAdd", formatCurrency(add.salarioBase));
-  setText("remSalarioImpacto", formatCurrency(add.salarioBase - red.salarioBase));
-  setText("remInsalRed", formatCurrency(red.insalubridadePericulosidade));
-  setText("remInsalAdd", formatCurrency(add.insalubridadePericulosidade));
-  setText("remInsalImpacto", formatCurrency(add.insalubridadePericulosidade - red.insalubridadePericulosidade));
-  setText("remRtRed", formatCurrency(red.gratificacaoRt));
-  setText("remRtAdd", formatCurrency(add.gratificacaoRt));
-  setText("remRtImpacto", formatCurrency(add.gratificacaoRt - red.gratificacaoRt));
-  setText("remNoturnoRed", formatCurrency(red.adicionalNoturno));
-  setText("remNoturnoAdd", formatCurrency(add.adicionalNoturno));
-  setText("remNoturnoImpacto", formatCurrency(add.adicionalNoturno - red.adicionalNoturno));
-  setText("remEncargoRed", formatCurrency(red.encargos));
-  setText("remEncargoAdd", formatCurrency(add.encargos));
-  setText("remEncargoImpacto", formatCurrency(add.encargos - red.encargos));
-  setText("remProvisaoRed", formatCurrency(red.provisoes));
-  setText("remProvisaoAdd", formatCurrency(add.provisoes));
-  setText("remProvisaoImpacto", formatCurrency(add.provisoes - red.provisoes));
-  setText("remValeRed", formatCurrency(red.valeAlimentacao));
-  setText("remValeAdd", formatCurrency(add.valeAlimentacao));
-  setText("remValeImpacto", formatCurrency(add.valeAlimentacao - red.valeAlimentacao));
+  // Uma linha do "Resumo dos Valores (Mensal)" por componente de custo.
+  REMANEJAMENTO_COMPONENTES_CUSTO.forEach(c => {
+    const valorRed = Number(red[c.campo] || 0);
+    const valorAdd = Number(add[c.campo] || 0);
+    setText(`rem${c.idResumo}Red`, formatCurrency(valorRed));
+    setText(`rem${c.idResumo}Add`, formatCurrency(valorAdd));
+    setText(`rem${c.idResumo}Impacto`, formatCurrency(valorAdd - valorRed));
+  });
   setText("remResumoTotalRed", formatCurrency(red.mensal));
   setText("remResumoTotalAdd", formatCurrency(add.mensal));
   setText("remResumoTotalImpacto", formatCurrency(impactoMensal));
@@ -1086,6 +1102,13 @@ export function atualizarResumoRemanejamentoPainel() {
 export function limparFormularioRemanejamento() {
   // Limpar também cancela qualquer liberação pontual de PSS concedida pelo super admin.
   state.remanejamentoPssLiberadoDsei = null;
+
+  // Mês e Nº de meses voltam ao padrão ANTES das linhas: é deles que sai o período de
+  // cada uma (ver mesesRemanejamentoPorTipo).
+  setValue("remanejamentoMes", String(new Date().getMonth() + 1));
+  sincronizarSelectPesquisavel(document.getElementById("remanejamentoMes"));
+  setValue("remanejamentoMeses", String(new Date().getMonth() + 1));
+
   state.remanejamentoLinhas = {
     reduzido: [criarLinhaRemanejamento("reduzido", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })],
     acrescentado: [criarLinhaRemanejamento("acrescentado", { quantidade: 1, meses: REMANEJAMENTO_MESES_PADRAO })]
@@ -1093,8 +1116,6 @@ export function limparFormularioRemanejamento() {
 
   setValue("remanejamentoProcessoSei", "");
   setValue("remObservacao", "");
-  // Padrão: mês atual (mesmo cálculo já definido).
-  setValue("remanejamentoMes", String(new Date().getMonth() + 1));
 
   // Limpar também encerra o modo de edição (remanejamento normal e ajuste), se ativo.
   state.remanejamentoEditandoId = null;
@@ -1224,8 +1245,9 @@ async function enviarRemanejamento({ idDseiCasai, processoSei, observacao, anexo
     aplicarModoEdicaoRemanejamento(false);
     limparFormularioRemanejamento();
     // Atualiza todos os dados afetados: lista de remanejamentos, vagas ociosas do
-    // formulário, monitoramento, alertas e visão geral.
-    await recarregarTodosOsDados();
+    // formulário, monitoramento, alertas e visão geral. A rota de gravação já
+    // invalidou o cache no servidor — daí cacheJaInvalidado.
+    await recarregarTodosOsDados(null, { cacheJaInvalidado: true });
     ocultarCarregando();
     await abrirAviso({
       titulo: editandoId ? "Remanejamento atualizado" : "Remanejamento salvo",
@@ -1316,6 +1338,14 @@ export function aplicarModoAjusteRemanejamento(ativo) {
       : "Salvar Remanejamento";
   }
 
+  // Troca o campo do mês (select <-> digitado) e recalcula os meses das linhas com a
+  // regra do modo que passou a valer.
+  aplicarCamposMesesRemanejamento();
+  ["reduzido", "acrescentado"].forEach(tipo => {
+    const meses = mesesRemanejamentoPorTipo(tipo);
+    (state.remanejamentoLinhas[tipo] || []).forEach(linha => { linha.meses = meses; });
+  });
+
   // Opções/avisos das grades dependem do modo — re-renderiza e recalcula o resumo.
   renderLinhasRemanejamento("reduzido");
   renderLinhasRemanejamento("acrescentado");
@@ -1353,8 +1383,7 @@ export async function salvarAjusteRemanejamentoPainel() {
   formData.append("idDseiCasai", idDseiCasai);
   formData.append("processoSei", processoSei);
   formData.append("observacao", observacao);
-  formData.append("mes", String(mesRemanejamentoSelecionado()));
-  formData.append("meses", String(mesesAjusteInformado()));
+  formData.append("mes", String(mesAjusteDigitado()));
   formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
   formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
   if (anexo) formData.append("anexo", anexo);
@@ -1373,8 +1402,9 @@ export async function salvarAjusteRemanejamentoPainel() {
     state.remanejamentoAjusteEditandoId = null;
     limparFormularioRemanejamento();
     aplicarModoAjusteRemanejamento(state.remanejamentoAjusteAtivo);
-    // Atualiza vagas ociosas/monitoramento/lista afetados pelo ajuste.
-    await recarregarTodosOsDados();
+    // Atualiza vagas ociosas/monitoramento/lista afetados pelo ajuste (a rota do
+    // ajuste já invalidou o cache no servidor).
+    await recarregarTodosOsDados(null, { cacheJaInvalidado: true });
     ocultarCarregando();
     await abrirAviso({
       titulo: editandoId ? "Ajuste atualizado" : "Ajuste salvo",
@@ -1409,18 +1439,17 @@ export async function editarAjusteRemanejamentoPainel(idProcesso) {
   aplicarModoEdicaoRemanejamento(false);
   state.remanejamentoAjusteEditandoId = dados.idProcesso;
 
-  // DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo/meses).
+  // DSEI e mês precisam vir antes das linhas (afetam cadastro do cargo/meses). No
+  // ajuste o mês vai no campo digitado (mesmo valor do select do remanejamento normal).
   const dseis = montarOpcoesDseiRemanejamento();
   preencherSelectRemanejamento("remanejamentoDsei", dseis, item => item.label);
   setValue("remanejamentoDsei", String(dados.idDseiCasai || ""));
   sincronizarSelectPesquisavel(document.getElementById("remanejamentoDsei"));
 
-  const mesEl = document.getElementById("remanejamentoMes");
-  if (mesEl) {
-    mesEl.value = String(dados.mes || (new Date().getMonth() + 1));
-    mesEl.dataset.tocado = "1";
-    tornarSelectPesquisavel(mesEl, { placeholder: "Pesquise o mês…" });
-    sincronizarSelectPesquisavel(mesEl);
+  const mesesEl = document.getElementById("remanejamentoMeses");
+  if (mesesEl) {
+    mesesEl.value = String(dados.mes || (new Date().getMonth() + 1));
+    mesesEl.dataset.tocado = "1";
   }
 
   // Quantidade de meses do ajuste (N_MESES gravado) para o campo do modo ajuste.
@@ -1579,8 +1608,9 @@ export async function excluirAjusteRemanejamentoPainel(idProcesso) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
 
-    // Vagas ociosas/monitoramento voltam ao saldo anterior.
-    await recarregarTodosOsDados();
+    // Vagas ociosas/monitoramento voltam ao saldo anterior (a rota DELETE do ajuste
+    // já invalidou o cache no servidor).
+    await recarregarTodosOsDados(null, { cacheJaInvalidado: true });
     ocultarCarregando();
     // Recarrega a janela para refletir a remoção (se ainda aberta).
     const modal = document.getElementById("remAjustesModal");

@@ -79,9 +79,29 @@ test("observação de alerta: sem chave é rejeitada e não grava nada", async (
 // ---------------------------------------------------------------------------
 // 2) Remanejamento (processo + movimentações)
 // ---------------------------------------------------------------------------
-const CUSTO = (id, salario) => ({
-  ID_VAGA: id, SALARIO_BASE: salario, INSALUBRIDADE_PERICULOSIDADE: 0,
-  GRATIFICACAO_RT: 0, NOTURNO: 0, ENCARGOS: 0, PROVISOES: 0
+// A query de custos soma os componentes no próprio SQL (ver somaMensalCustoSql) e
+// devolve só o mensal unitário da vaga — é essa a forma que a fixture imita.
+const CUSTO = (id, mensalUnitario) => ({ ID_VAGA: id, mensal_unitario: mensalUnitario });
+
+test("custo da vaga: o mensal soma TODOS os componentes, inclusive os 4 acrescentados", () => {
+  const { COMPONENTES_CUSTO_VAGA, COLUNAS_CUSTO_NOVAS, somaMensalCustoSql } = require("../lib/sql");
+  const soma = somaMensalCustoSql("c");
+
+  // Toda coluna da lista entra na soma do mensal (nada fica de fora silenciosamente).
+  COMPONENTES_CUSTO_VAGA.forEach(comp => {
+    assert.match(soma, new RegExp(`COALESCE\\(c\\.${comp.coluna},0\\)`), `${comp.coluna} fora da soma`);
+  });
+  // E as 4 colunas novas estão na lista, com alias e campo próprios.
+  COLUNAS_CUSTO_NOVAS.forEach(coluna => {
+    const comp = COMPONENTES_CUSTO_VAGA.find(c => c.coluna === coluna);
+    assert.ok(comp, `${coluna} ausente em COMPONENTES_CUSTO_VAGA`);
+    assert.ok(comp.aliasCadastro && comp.aliasDetalhe && comp.campo, `${coluna} sem aliases/campo`);
+  });
+  // Aliases e campos não podem colidir (dois componentes na mesma coluna do JSON).
+  ["aliasCadastro", "aliasDetalhe", "campo"].forEach(chave => {
+    const valores = COMPONENTES_CUSTO_VAGA.map(c => c[chave]);
+    assert.equal(new Set(valores).size, valores.length, `${chave} duplicado`);
+  });
 });
 
 test("remanejamento: grava o processo e uma movimentação por cargo (DECRESCIMO/ACRESCIMO)", async () => {
@@ -139,6 +159,49 @@ test("remanejamento: grava metadados do anexo quando há arquivo", async () => {
   assert.equal(proc.params[5], "oficio.pdf");
   assert.equal(proc.params[6], "application/pdf");
   assert.equal(proc.params[7], 3);
+});
+
+test("remanejamento normal: N_MESES = 13 - mês e os DOIS lados usam esse período", async () => {
+  const conn = fakeConn({
+    custos: [CUSTO(10, 1000), CUSTO(20, 400)],
+    ociosas: [{ id_cargo_funcao: 10, vagas_ociosas: 5 }],
+    insertId: 9
+  });
+
+  const res = await salvarRemanejamento(conn, {
+    idDseiCasai: "1",
+    processoSei: "SEI-1",
+    mes: 4, // 13 - 4 = 9 meses nos dois lados
+    linhasReduzido: JSON.stringify([{ idCargoFuncao: 10, quantidade: 1 }]),
+    linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }])
+  }, null);
+
+  const proc = conn.calls.execute.find(c => /PROCESSO_REMANEJAMENTO/.test(c.sql));
+  assert.equal(proc.params[3], 9);
+  assert.equal(res.impactoMensal, 400 - 1000);
+  assert.equal(res.impactoPeriodo, (400 - 1000) * 9);
+});
+
+test("ajuste pontual: N_MESES = 12 - mês digitado (o acrescentado usa o próprio número)", async () => {
+  // params do INSERT do processo: [processoSei, observacao, criadoPor, N_MESES, ...].
+  const nMeses = async body => {
+    const conn = fakeConn({ insertId: 1 });
+    await salvarAjuste(conn, {
+      idDseiCasai: "1", linhasReduzido: "[]",
+      linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }]),
+      ...body
+    }, null);
+    return conn.calls.execute.find(c => /TP_AJUSTE/.test(c.sql)).params[3];
+  };
+
+  // Digitou 4 -> reduzido = 8 meses (gravado em N_MESES); acrescentado = 12 - 8 = 4.
+  assert.equal(await nMeses({ mes: 4 }), 8);
+  assert.equal(await nMeses({ mes: 11 }), 1);
+  assert.equal(
+    await nMeses({ mes: 0 }),
+    Math.max(1, 12 - (new Date().getMonth() + 1)),
+    "fora de 1..12 cai no padrão (base 12 do mês atual)"
+  );
 });
 
 test("remanejamento: impacto financeiro positivo é bloqueado e nada é gravado", async () => {
