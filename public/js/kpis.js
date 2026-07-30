@@ -15,6 +15,15 @@ export function calcularIndicadores(data) {
   const contratados = deveUsarIndicadoresResumoBase() && state.indicadoresResumoBase
     ? Number(state.indicadoresResumoBase.contratados || 0)
     : contratadosCalculados;
+  // Admissões programadas (data de admissão futura): mesma fonte que `contratados`
+  // (base do servidor sem filtro, ou soma das linhas filtradas).
+  const admissaoProgramadaCalculada = soma(data, "admissaoProgramada");
+  const admissaoProgramada = deveUsarIndicadoresResumoBase() && state.indicadoresResumoBase
+    ? Number(state.indicadoresResumoBase.admissaoProgramada || 0)
+    : admissaoProgramadaCalculada;
+  // Valor SÓ do card "Trabalhadores Contratados": desconta as admissões programadas.
+  // `contratados` segue cheio para as contas derivadas (ociosas, % preenchimento…).
+  const contratadosCard = Math.max(0, contratados - admissaoProgramada);
   // Vagas ociosas (déficit operacional) = previstas - contratados + afastados.
   // Considera os negativos (excedente) abatendo — vale para todos os KPIs.
   const vagasOciosas = vagasPrevistas - contratados + afastados;
@@ -31,6 +40,8 @@ export function calcularIndicadores(data) {
   return {
     vagasPrevistas,
     contratados,
+    admissaoProgramada,
+    contratadosCard,
     afastados,
     substituicoes,
     temporarios,
@@ -52,7 +63,12 @@ export function renderKpis(data) {
 
 export function preencherKpiBloco(prefixo, indicadores) {
   setText(`${prefixo}VagasPrevistas`, formatNumber(indicadores.vagasPrevistas));
-  setText(`${prefixo}Contratados`, formatNumber(indicadores.contratados));
+  // Card "Trabalhadores Contratados": usa o valor já sem admissões programadas
+  // (contratadosCard). Fallback para `contratados` mantém compatibilidade caso o
+  // indicador venha de uma fonte antiga sem o campo.
+  setText(`${prefixo}Contratados`, formatNumber(
+    indicadores.contratadosCard != null ? indicadores.contratadosCard : indicadores.contratados
+  ));
   setText(`${prefixo}Ociosas`, formatNumber(indicadores.vagasOciosas));
   setText(`${prefixo}PreenchidasPerc`, formatPercent(indicadores.vagasPreenchidasPerc));
   setText(`${prefixo}PreenchidasSub`, `${formatNumber(indicadores.vagasPreenchidas)} de ${formatNumber(indicadores.vagasPrevistas)} vagas preenchidas`);

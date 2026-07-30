@@ -402,6 +402,65 @@
   box-shadow: 0 12px 20px rgba(0, 43, 93, .26);
 }
 
+/* -------------------------------------------------------------------
+   Selo "Admissão Programada" na coluna Total de Trabalhadores
+   -------------------------------------------------------------------
+   A célula (classe colTotalTrab, aplicada pelo Tabulator) vira o contexto de
+   posicionamento; o selo laranja fica no canto superior direito e mostra a
+   QUANTIDADE de admissões programadas daquela linha. Só aparece quando há
+   admissão programada (o formatador injeta o selo). O card "Trabalhadores
+   Contratados" já desconta essas admissões — o selo avisa que elas seguem
+   contadas neste total. O detalhe completo vai no tooltip (.admProgTip). */
+.tabArrWrap .tabulator .tabulator-cell.colTotalTrab { position: relative; overflow: visible; }
+/* O span interno NÃO é posicionado de propósito: assim o selo (absolute) se
+   ancora no canto da CÉLULA (td .colTotalTrab), não ao lado do número. */
+.celAdmProgBadge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 16px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #f59e0b;                  /* laranja */
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .22);
+  pointer-events: none;
+}
+
+/* Balão (tooltip) do Tabulator para a coluna. Ele é anexado ao <body>, fora do
+   .tabArrWrap; como esta camada (tabela-arrastavel) vem depois de tabulator-base,
+   estes ajustes vencem o tema base sem !important. */
+.tabulator-tooltip {
+  max-width: 260px;
+  padding: 9px 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, .18);
+}
+.admProgTip { display: flex; flex-direction: column; gap: 3px; }
+.admProgTip strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #b45309;                       /* laranja escuro */
+}
+.admProgTip strong::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: #f59e0b;                   /* quadradinho laranja = mesmo do selo */
+  flex: 0 0 auto;
+}
+.admProgTip span { font-size: 11px; color: #475569; line-height: 1.4; }
+
 /* ---------- Dropdown do editor `list` (ex.: colunas Tipo/Status dos Aprovados) ----------
    O Tabulator anexa o menu ao <body> dentro de .tabulator-popup-container (FORA do
    .tabArrWrap), por isso os seletores são globais. Ficam na camada tabela-arrastavel,
