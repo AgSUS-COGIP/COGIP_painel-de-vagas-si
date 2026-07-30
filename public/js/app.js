@@ -211,6 +211,9 @@ function renderResumoKpis(indicadores) {
   preencherKpiBloco("kpi", {
     vagasPrevistas: Number(indicadores.vagasPrevistas || 0),
     contratados: Number(indicadores.contratados || 0),
+    // Card de contratados já sem as admissões programadas (fallback ao total cheio).
+    contratadosCard: Number(indicadores.contratadosCard != null ? indicadores.contratadosCard : indicadores.contratados || 0),
+    admissaoProgramada: Number(indicadores.admissaoProgramada || 0),
     afastados: Number(indicadores.afastados || 0),
     substituicoes: Number(indicadores.substituicoes || 0),
     temporarios: Number(indicadores.temporarios || 0),
