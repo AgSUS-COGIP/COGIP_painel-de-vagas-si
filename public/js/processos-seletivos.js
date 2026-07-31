@@ -68,14 +68,17 @@ let wizardModo = "edital";  // "edital" (criar/editar) | "anexo" (só inserir an
 // ---------- Aprovados por vaga (protótipo em memória) ----------
 // dadosAprovados.get(editalId) = {
 //   configClassificacao: { mostrarPosicoes, intervaloCota } | null,
-//   aprovadosPorCargo: Map<cargoKey, Candidato[]>   // cargoKey = normChave(nomeCargo)
+//   aprovadosPorVaga: Map<vagaKey, Candidato[]>   // vagaKey = String(vagaId) = ID_VAGA_EDITAL
 // }
-// Candidato = { id, nome, nota:number|null, tipo, status, docDesistencia:{url,nome}|null }
+// A chave é o ID_VAGA_EDITAL (linha do quadro), NÃO o nome do cargo: o mesmo cargo
+// pode aparecer em várias lotações (uma linha de vaga_edital por lotação), e cada
+// linha tem sua própria fila de aprovados.
+// Candidato = { id, vagaId, nome, nota:number|null, tipo, status, docDesistencia:{url,nome}|null }
 // Tudo em memória: some ao recarregar (mesmo padrão de anexosExtraidos). Editais
 // criados na sessão (id "novo-*") só guardam aprovados enquanto a página viver.
 const dadosAprovados = new Map();
 const CONFIG_PADRAO = { mostrarPosicoes: true, intervaloCota: 0 };
-let vagaSelecionada = null;  // nome do cargo com o painel de aprovados aberto
+let vagaSelecionada = null;  // vagaKey (= ID_VAGA_EDITAL) da vaga com o painel aberto
 let cronoExpandido = false;  // widget "Etapa atual": true = mostra o cronograma completo
 let gradeAprovados = null;   // grade Tabulator dos aprovados (edição inline por célula)
 let gradeVagas = null;       // grade Tabulator do quadro de vagas (para atualizar sem reconstruir)
@@ -116,19 +119,11 @@ async function carregarDoBanco() {
     const cargos = e.cargos || [], cronograma = e.cronograma || [];
     if (cargos.length || cronograma.length) anexosExtraidos.set(e.id, { cargos, cronograma });
     (e.aprovados || []).forEach(a => {
-      aprovadosDoCargo(e.id, a.cargo).push({
+      aprovadosDaVaga(e.id, a.vagaId).push({
         id: a.id, vagaId: a.vagaId, nome: a.nome, nota: a.nota, tipo: a.tipo, status: a.status, docDesistencia: null
       });
     });
   });
-}
-
-// vagaId (DB) do cargo selecionado — necessário para persistir aprovados.
-function vagaIdDoCargo(editalId, nomeCargo) {
-  const extra = anexosExtraidos.get(editalId);
-  const chave = normChave(nomeCargo);
-  const c = extra && extra.cargos && extra.cargos.find(x => normChave(x.cargo) === chave);
-  return c ? c.vagaId : null;
 }
 
 // Recarrega do banco e re-renderiza tudo. Usado no init, ao abrir a aba e após
@@ -349,6 +344,23 @@ function normChave(s) {
     .toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+// Chave única de uma linha de vaga (vaga_edital): o ID_VAGA_EDITAL (vagaId). Assim
+// cargos repetidos em lotações diferentes viram vagas distintas. Como reserva
+// (linha ainda sem id — só durante a conferência), cai em cargo||lotação.
+function chaveVaga(c) {
+  if (!c) return "";
+  return c.vagaId !== undefined && c.vagaId !== null && c.vagaId !== ""
+    ? String(c.vagaId)
+    : `${c.cargo || ""}||${c.lotacao || ""}`;
+}
+
+// Cargo (linha de vaga) atualmente selecionado, localizado pela vagaKey. Fornece o
+// nome/lotação para o cabeçalho do painel de aprovados.
+function vagaSelecionadaObj(proc) {
+  if (!proc || !vagaSelecionada) return null;
+  return cargosDoEdital(proc).find(c => chaveVaga(c) === vagaSelecionada) || null;
+}
+
 function cargosDoEdital(proc) {
   if (!proc) return [];
   // Os cargos vêm do anexo (PDF) extraído para este edital.
@@ -368,7 +380,9 @@ function vagasImediatasEdital(proc) {
 // Colunas possíveis do quadro, na ordem de exibição. Só são renderizadas
 // as que tiverem ao menos um valor preenchido no edital (os editais variam:
 // alguns trazem só "Vagas", outros o detalhamento por cota).
+// Lotação vem logo após Cargo (coluna fixa): Cargo, Lotação, AC, PcD, Pretos/Pardos…
 const COLUNAS_VAGAS = [
+  { campo: "lotacao", rotulo: "Lotação" },
   { campo: "vagas", rotulo: "Vagas" },
   { campo: "ampla", rotulo: "Ampla Concorrência" },
   { campo: "pcd", rotulo: "PcD" },
@@ -376,8 +390,7 @@ const COLUNAS_VAGAS = [
   { campo: "indigenas", rotulo: "Indígenas" },
   { campo: "quilombolas", rotulo: "Quilombolas" },
   { campo: "ppiq", rotulo: "PPIQ" },
-  { campo: "total", rotulo: "Total" },
-  { campo: "lotacao", rotulo: "Lotação" }
+  { campo: "total", rotulo: "Total" }
 ];
 
 // Considera "vazio" células em branco ou com travessão.
@@ -453,9 +466,10 @@ function montarQuadroVagas(proc) {
   const temLotacao = cargos.some(c => String(c.lotacao || "").trim());
   // Filtro por lotação (menu). "" = Todos (sem filtro).
   if (lotacaoFiltro) cargos = cargos.filter(c => String(c.lotacao || "").trim() === lotacaoFiltro);
-  // Chave estável (cargo|lotação): o mesmo cargo pode aparecer em várias lotações,
-  // então "cargo" sozinho não serve de índice único na grade.
-  cargos = cargos.map(c => ({ ...c, _key: `${c.cargo || ""}||${c.lotacao || ""}` }));
+  // Chave estável = ID_VAGA_EDITAL (vagaId): o mesmo cargo pode aparecer em várias
+  // lotações, então "cargo" sozinho não serve de índice único na grade. É também a
+  // chave da fila de aprovados (uma por linha de vaga_edital).
+  cargos = cargos.map(c => ({ ...c, _key: chaveVaga(c) }));
   // A coluna Lotação some quando uma lotação específica está selecionada
   // (redundante) e quando o edital não tem lotação alguma.
   const colunas = COLUNAS_VAGAS.filter(c => {
@@ -465,7 +479,7 @@ function montarQuadroVagas(proc) {
   const ehNumerica = campo => campo !== "lotacao";
   const cols = [
     { title: "Cargo", field: "cargo", cssClass: "psCelNome", minWidth: 200, formatter: c => {
-        const aberto = !!vagaSelecionada && normChave(c.getValue()) === normChave(vagaSelecionada);
+        const aberto = !!vagaSelecionada && c.getRow().getData()._key === vagaSelecionada;
         return `${escapeHtml(c.getValue())} <i class="fa-solid fa-chevron-down psRowChevron ${aberto ? "is-aberto" : ""}" aria-hidden="true"></i>`;
       } },
     ...colunas.map(col => ({
@@ -482,16 +496,16 @@ function montarQuadroVagas(proc) {
     { title: "Cadastro Reserva Vigente", field: "reservaVigente", hozAlign: "center", minWidth: 70,
       // field só para localizar a célula em atualizações no lugar (o valor vem do
       // formatter, não dos dados). Ver atualizarAprovadoEmLinha.
-      formatter: c => String(filaDoCargo(proc.id, c.getRow().getData().cargo)) }
+      formatter: c => String(filaDaVaga(proc.id, c.getRow().getData().vagaId)) }
   ];
   gradeVagas = criarTabelaArrastavel({
     elemento: "psVagasTab",
     colunas: cols,
-    persistID: "psVagas",
+    persistID: "psVagasV2", // V2: descarta o layout salvo com a Lotação na última coluna
     indexField: "_key",
     movableColumns: false,
     movableRows: false,
-    aoClicarLinha: row => selecionarVaga(row.cargo),
+    aoClicarLinha: row => selecionarVaga(row._key),
     idSelecionado: () => vagaSelecionada,
     dados: cargos
   });
@@ -954,8 +968,9 @@ function coletarDadosEdital() {
     unidade: ($("psFormUnidade")?.value || "").trim(),
     uf: ($("psFormUf")?.value || "").trim().toUpperCase(),
     edital: ($("psFormEditalNum")?.value || "").trim(),
-    // Vagas previstas não vem do formulário: é derivada das vagas imediatas do
-    // quadro de vagas (e todo edital tem cadastro reserva).
+    // Vagas previstas = soma das vagas do quadro (vagas_edital), derivada no back.
+    // Todo edital tem cadastro reserva, então a flag "+ CR" é sempre verdadeira.
+    temCadastroReserva: true,
     dataInicio: $("psFormDataInicio")?.value || "",
     dataEncerramento: $("psFormDataFim")?.value || "",
     status: normalizarStatus($("psFormStatus")?.value || "Andamento"),
@@ -1157,28 +1172,30 @@ async function extrairDadosAnexo(arquivo) {
 // Aprovados por vaga (CRUD + classificação) — protótipo em memória
 // =========================================================
 
-// ---------- Acesso ao estado por edital/cargo ----------
+// ---------- Acesso ao estado por edital/vaga ----------
 function getDadosEdital(editalId) {
   let d = dadosAprovados.get(editalId);
   if (!d) {
-    d = { configClassificacao: null, aprovadosPorCargo: new Map() };
+    d = { configClassificacao: null, aprovadosPorVaga: new Map() };
     dadosAprovados.set(editalId, d);
   }
   return d;
 }
 
-// Lista (mutável) de aprovados de um cargo; cria sob demanda.
-function aprovadosDoCargo(editalId, nomeCargo) {
+// Lista (mutável) de aprovados de UMA vaga (linha de vaga_edital); cria sob demanda.
+// A chave é o ID_VAGA_EDITAL (vagaId), então cada lotação de um mesmo cargo tem a
+// sua própria fila.
+function aprovadosDaVaga(editalId, vagaId) {
   const d = getDadosEdital(editalId);
-  const chave = normChave(nomeCargo);
-  if (!d.aprovadosPorCargo.has(chave)) d.aprovadosPorCargo.set(chave, []);
-  return d.aprovadosPorCargo.get(chave);
+  const chave = String(vagaId ?? "");
+  if (!d.aprovadosPorVaga.has(chave)) d.aprovadosPorVaga.set(chave, []);
+  return d.aprovadosPorVaga.get(chave);
 }
 
 // Cadastro Reserva Vigente = aprovados ainda disponíveis na vaga. Quem já foi
 // contratado sai da reserva (não conta mais); os demais status permanecem.
-function filaDoCargo(editalId, nomeCargo) {
-  return aprovadosDoCargo(editalId, nomeCargo).filter(c => c.status !== "Contratado").length;
+function filaDaVaga(editalId, vagaId) {
+  return aprovadosDaVaga(editalId, vagaId).filter(c => c.status !== "Contratado").length;
 }
 
 // Total de aprovados vinculados a UMA vaga (por vagaId, todos os status) — mesmo
@@ -1186,9 +1203,7 @@ function filaDoCargo(editalId, nomeCargo) {
 function contarAprovadosVaga(editalId, vagaId) {
   const d = dadosAprovados.get(editalId);
   if (!d || !vagaId) return 0;
-  let n = 0;
-  d.aprovadosPorCargo.forEach(lista => lista.forEach(a => { if (String(a.vagaId) === String(vagaId)) n++; }));
-  return n;
+  return (d.aprovadosPorVaga.get(String(vagaId)) || []).length;
 }
 
 // "Aprovados" do edital = soma dos aprovados de todas as vagas (contagem real).
@@ -1196,7 +1211,7 @@ function totalAprovadosEdital(proc) {
   const d = proc && dadosAprovados.get(proc.id);
   if (!d) return 0;
   let total = 0;
-  d.aprovadosPorCargo.forEach(lista => { total += lista.length; });
+  d.aprovadosPorVaga.forEach(lista => { total += lista.length; });
   return total;
 }
 
@@ -1205,7 +1220,7 @@ function totalContratadosMarcados(proc) {
   const d = proc && dadosAprovados.get(proc.id);
   if (!d) return 0;
   let total = 0;
-  d.aprovadosPorCargo.forEach(lista => { total += lista.filter(c => c.status === "Contratado").length; });
+  d.aprovadosPorVaga.forEach(lista => { total += lista.filter(c => c.status === "Contratado").length; });
   return total;
 }
 
@@ -1289,13 +1304,22 @@ function fmtNota(n) {
 }
 
 // ---------- Painel "Aprovados para [vaga]" ----------
+// Rótulo da vaga selecionada: "Cargo — Lotação" (a lotação distingue vagas do mesmo
+// cargo). Sem lotação, mostra só o cargo.
+function rotuloVaga(vaga) {
+  if (!vaga) return "";
+  const lot = String(vaga.lotacao || "").trim();
+  return lot ? `${vaga.cargo || "—"} — ${lot}` : (vaga.cargo || "—");
+}
+
 function renderPainelAprovados(proc) {
   if (!proc || !vagaSelecionada) return "";
-  // Cargo selecionado sumiu (troca de fonte/anexo): não renderiza painel órfão.
-  if (!cargosDoEdital(proc).some(c => normChave(c.cargo) === normChave(vagaSelecionada))) return "";
+  // Vaga selecionada sumiu (troca de fonte/anexo): não renderiza painel órfão.
+  const vaga = vagaSelecionadaObj(proc);
+  if (!vaga) return "";
 
   const podeEditar = podeEditarProcessos();
-  const lista = aprovadosDoCargo(proc.id, vagaSelecionada);
+  const lista = aprovadosDaVaga(proc.id, vagaSelecionada);
   const config = getConfig(proc.id);
   const classificados = classificar(lista, config);
 
@@ -1319,7 +1343,7 @@ function renderPainelAprovados(proc) {
   return `
     <div class="psAprovadosPainel">
       <div class="psBlocoHead">
-        <h4 class="psBlocoTitulo">Aprovados para ${escapeHtml(vagaSelecionada)}</h4>
+        <h4 class="psBlocoTitulo">Aprovados para ${escapeHtml(rotuloVaga(vaga))}</h4>
         <span class="psBlocoMeta">${lista.length} aprovado(s)${regra}</span>
       </div>
       ${acoes}
@@ -1336,7 +1360,7 @@ function montarAprovados(proc) {
   if (!$("psAprovadosTab") || !proc || !vagaSelecionada) return;
   const podeEditar = podeEditarProcessos();
   const config = getConfig(proc.id);
-  const lista = aprovadosDoCargo(proc.id, vagaSelecionada);
+  const lista = aprovadosDaVaga(proc.id, vagaSelecionada);
   const classificados = classificar(lista, config);
   if (!classificados.length) return;
   const colPos = !!config.mostrarPosicoes;
@@ -1443,7 +1467,7 @@ function renderDetalheMantendoScroll() {
 // rolagem via renderDetalheMantendoScroll.
 function atualizarAprovadoEmLinha(focoId) {
   const proc = processos.find(p => p.id === processoExpandido);
-  const lista = (proc && vagaSelecionada) ? aprovadosDoCargo(proc.id, vagaSelecionada) : [];
+  const lista = (proc && vagaSelecionada) ? aprovadosDaVaga(proc.id, vagaSelecionada) : [];
   // Sem grade viva, ou a lista ficou vazia (o painel passa a mostrar a mensagem
   // "nenhum aprovado", que não é uma grade): precisa do render estrutural — feito
   // preservando a rolagem da página.
@@ -1464,7 +1488,7 @@ function atualizarAprovadoEmLinha(focoId) {
   try {
     gradeVagas?.tabela?.getRows().forEach(row => {
       const cell = row.getCell("reservaVigente");
-      if (cell) cell.getElement().textContent = String(filaDoCargo(proc.id, row.getData().cargo));
+      if (cell) cell.getElement().textContent = String(filaDaVaga(proc.id, row.getData().vagaId));
     });
   } catch { /* grade de vagas em (re)construção */ }
   const painel = $("psDetalhe");
@@ -1509,15 +1533,16 @@ function atualizarAprovadoEmLinha(focoId) {
 // tableResized → redraw…), estourando a pilha e travando a página. Como só mudam o
 // realce e o chevron (dependem de vagaSelecionada, não dos dados), basta alternar
 // as classes direto no DOM — sem redraw, sem resize, sem loop.
-function selecionarVaga(nomeCargo) {
-  vagaSelecionada = (normChave(vagaSelecionada) === normChave(nomeCargo)) ? null : nomeCargo;
+function selecionarVaga(vagaKey) {
+  const chave = String(vagaKey ?? "");
+  vagaSelecionada = vagaSelecionada === chave ? null : chave;
   const proc = processos.find(p => p.id === processoExpandido);
   const bloco = $("psVagasTab")?.closest(".psBloco");
   if (!proc || !gradeVagas?.tabela || !bloco) { renderDetalheMantendoScroll(); return; }
   gradeVagas.marcarSelecionada(); // realce da linha (só alterna classes)
   try {
     gradeVagas.tabela.getRows().forEach(row => {
-      const aberto = !!vagaSelecionada && normChave(row.getData().cargo) === normChave(vagaSelecionada);
+      const aberto = !!vagaSelecionada && row.getData()._key === vagaSelecionada;
       row.getElement().querySelector(".psRowChevron")?.classList.toggle("is-aberto", aberto);
     });
   } catch { /* grade em (re)construção */ }
@@ -1530,11 +1555,13 @@ function selecionarVaga(nomeCargo) {
 // ---------- Aprovados: inserção e edição inline (sem modal) ----------
 // "Adicionar aprovado" insere uma linha em branco na tabela e abre a edição do
 // Nome; os demais campos (Nota/Tipo/Status) são editáveis clicando na célula.
-async function adicionarAprovadoInline(cargoNome) {
-  if (!processoExpandido || !cargoNome || !podeEditarProcessos()) return;
-  const vagaId = vagaIdDoCargo(processoExpandido, cargoNome);
+async function adicionarAprovadoInline(vagaKey) {
+  if (!processoExpandido || !vagaKey || !podeEditarProcessos()) return;
+  const proc = processos.find(p => p.id === processoExpandido);
+  const vaga = proc ? cargosDoEdital(proc).find(c => chaveVaga(c) === String(vagaKey)) : null;
+  const vagaId = vaga?.vagaId;
   if (!vagaId) { psToast("Cadastre o quadro de vagas (anexo) antes de adicionar aprovados."); return; }
-  vagaSelecionada = cargoNome; // garante o painel da vaga aberto
+  vagaSelecionada = String(vagaKey); // garante o painel da vaga aberto
   let novoId;
   try {
     const r = await psApi("POST", `/api/processos-seletivos/vagas/${encodeURIComponent(vagaId)}/aprovados`,
@@ -1544,8 +1571,8 @@ async function adicionarAprovadoInline(cargoNome) {
     psToast(e.message || "Não foi possível adicionar o aprovado.");
     return;
   }
-  aprovadosDoCargo(processoExpandido, cargoNome).push(
-    { id: novoId, nome: "", nota: null, tipo: "AMPLA_CONCORRENCIA", status: "Aguardando", docDesistencia: null });
+  aprovadosDaVaga(processoExpandido, vagaId).push(
+    { id: novoId, vagaId, nome: "", nota: null, tipo: "AMPLA_CONCORRENCIA", status: "Aguardando", docDesistencia: null });
   // Insere a linha no lugar e abre a edição do Nome, sem reconstruir o painel
   // (preserva a rolagem — sem "pulo"). Se for o 1º aprovado da vaga, a própria
   // função cai no render estrutural para criar a tabela.
@@ -1562,7 +1589,7 @@ function persistirAprovado(cand) {
 // Writeback de uma célula editada para o candidato real (na lista da vaga) + persiste.
 function editarCampoAprovado(candId, campo, valor) {
   if (!processoExpandido || !vagaSelecionada) return;
-  const cand = aprovadosDoCargo(processoExpandido, vagaSelecionada).find(c => c.id === candId);
+  const cand = aprovadosDaVaga(processoExpandido, vagaSelecionada).find(c => c.id === candId);
   if (!cand) return;
   if (campo === "nome") {
     cand.nome = String(valor ?? "").trim();
@@ -1589,7 +1616,7 @@ function editarCampoAprovado(candId, campo, valor) {
 // arquivo na hora. Object URL em memória (protótipo, não é revogado).
 function anexarDocDesistencia(candId) {
   if (!processoExpandido || !vagaSelecionada || !podeEditarProcessos()) return;
-  const cand = aprovadosDoCargo(processoExpandido, vagaSelecionada).find(c => c.id === candId);
+  const cand = aprovadosDaVaga(processoExpandido, vagaSelecionada).find(c => c.id === candId);
   if (!cand) return;
   const input = document.createElement("input");
   input.type = "file";
@@ -1606,7 +1633,7 @@ function anexarDocDesistencia(candId) {
 
 async function excluirAprovado(candId) {
   if (!processoExpandido || !vagaSelecionada || !podeEditarProcessos()) return;
-  const lista = aprovadosDoCargo(processoExpandido, vagaSelecionada);
+  const lista = aprovadosDaVaga(processoExpandido, vagaSelecionada);
   const cand = lista.find(c => c.id === candId);
   if (!cand) return;
   const r = await abrirModal({
