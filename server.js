@@ -7,7 +7,7 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const { DASH_CONFIG, resolverPortaAplicacao } = require("./lib/config");
-const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, garantirColunaAjusteRemanejamento, garantirColunaTpAjusteRemanejamento, salvarAjusteRemanejamentoComConn, atualizarAjusteRemanejamentoComConn, getAjustesRemanejamentoData, excluirAjusteRemanejamentoComConn, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
+const { getRemanejamentoListaData, getRemanejamentoCadastroData, getRemanejamentoDetalheData, getRemanejamentoEdicaoData, salvarRemanejamentoComConn, atualizarRemanejamentoComConn, excluirRemanejamentoComConn, garantirEscopoProcessoComConn, garantirTabelaMovimentacaoRemanejamento, garantirColunaMesesRemanejamento, garantirColunaAjusteRemanejamento, garantirColunaTpAjusteRemanejamento, garantirColunasCustoGeralVaga, salvarAjusteRemanejamentoComConn, atualizarAjusteRemanejamentoComConn, getAjustesRemanejamentoData, excluirAjusteRemanejamentoComConn, normalizarLinhasRemanejamentoServidor, calcularResumoLinhasServidor, mapearCargoParaPrevistas } = require("./lib/remanejamento");
 const { getDashboardData, getDashboardResumoData, getDashboardApoioData, getVagasData, getAlertasData, getAlertasObservacoesMap, salvarObservacaoAlertaComConn, garantirTabelaAlertasObservacoes } = require("./lib/dashboard");
 const { getCrachaData, garantirEscopoMatriculaComConn, garantirEscopoMatriculasComConn, salvarControleComConn, atualizarStatusCrachaComConn, atualizarStatusLoteComConn, atualizarLoteComConn, importarCrachasComConn, reverterControleComConn, reverterLoteComConn, garantirTabelaCrachasControle, decodificarImagemDataUrl, salvarFotoCrachaComConn, obterFotoCrachaComConn, removerFotoCrachaComConn } = require("./lib/cracha");
 const { limparValorDash, converterNumeroDash, mesesAteFimDoAno } = require("./lib/utils");
@@ -23,7 +23,7 @@ const {
   listarEditaisComConn, criarEditalComConn, atualizarEditalComConn, excluirEditalComConn,
   substituirAnexoComConn, substituirVagasComConn, removerAnexoComConn, criarAprovadoComConn, atualizarAprovadoComConn, excluirAprovadoComConn
 } = require("./lib/processos-seletivos");
-const { getMapaDseisData, getRedeCnes } = require("./lib/mapa-dseis");
+const { getMapaDseisData, getRedeCnes, getDadosIndigenas } = require("./lib/mapa-dseis");
 const { getFeriasData } = require("./lib/ferias");
 const { getEscalaData, garantirTabelaEscala, salvarEscalaComConn, removerEscalaComConn, garantirEscopoMatriculaEscalaComConn } = require("./lib/escala");
 const { garantirTabelaFeedbackAssistente, salvarFeedbackComConn } = require("./lib/feedback");
@@ -291,7 +291,12 @@ app.post("/api/feedback", apiLimiter, express.json(), autenticarMiddleware, asyn
 
 // ---- Dashboard Saúde Indígena (nativo) ----
 app.get("/api/saude-indigena", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
-  res.json(await getSaudeIndigenaData(req.usuario.escopo));
+  // CPF é dado sensível: só quem é administrador NESTA aba (nível >= NIVEL_ADMIN
+  // no módulo painelSaudeIndigena) recebe a coluna. Os demais recebem sem CPF.
+  const nivelAba = Number((req.permissoesMapa || {})["painelSaudeIndigena"] || 0);
+  const incluirCpf = nivelAba >= DASH_CONFIG.NIVEL_ADMIN;
+  res.set("Cache-Control", "no-store"); // resposta pode conter CPF: não cachear no navegador
+  res.json(await getSaudeIndigenaData(req.usuario.escopo, incluirCpf));
 }));
 
 // ---- Mapa dos DSEIs (VW_SAUDE_INDIGENA + TB_LOTACAO_OVERRIDE) ----
@@ -303,6 +308,12 @@ app.get("/api/mapa-dseis", apiLimiter, autenticarFrescoMiddleware, exigirPermiss
 // Rede CNES (estabelecimentos por DSEI: lat/lng + município), para os mapas.
 app.get("/api/mapa-dseis/rede", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
   res.json(getRedeCnes());
+}));
+
+// Base territorial indígena por DSEI (população indígena, terras e aldeias),
+// pré-agregada em mock/dados_indigenas.json. Estático e leve — cache em memória.
+app.get("/api/mapa-dseis/territorio", apiLimiter, autenticarFrescoMiddleware, exigirPermissaoModuloMiddleware("painelSaudeIndigena", DASH_CONFIG.NIVEL_ACESSO_APROVADO), asyncHandler(async (req, res) => {
+  res.json(getDadosIndigenas());
 }));
 
 // ---- Gestão de Férias (análise — somente leitura) ----
@@ -1571,6 +1582,10 @@ if (require.main === module) {
 
   garantirColunaTpAjusteRemanejamento().catch(err => {
     console.error("Não foi possível garantir a coluna TP_AJUSTE do processo de remanejamento:", err && err.message ? err.message : err);
+  });
+
+  garantirColunasCustoGeralVaga().catch(err => {
+    console.error("Não foi possível garantir as colunas de valores em CUSTO_GERAL_VAGA:", err && err.message ? err.message : err);
   });
 
   garantirTabelaSolicitacoesAcesso().catch(err => {

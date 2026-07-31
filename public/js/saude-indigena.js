@@ -63,6 +63,7 @@ const chartsSI = {};
 const combos = {};          // id -> instância de combobox pesquisável
 const exportGraficos = {};  // canvasId -> { colLabel, nome, pares } para exportar cada gráfico
 let gradeSI = null;         // grade Tabulator da tabela geral (só colunas + sort nativo)
+let podeVerCpf = false;     // true só p/ admin da aba: mostra/exporta a coluna CPF
 
 // Granularidade dos gráficos de movimentação (admissões/desligamentos): ano | mes | dia.
 let granAdmissao = "ano";
@@ -201,7 +202,7 @@ function garantirDadosSI() {
   if (!promessaCargaSI) {
     carregando = true;
     promessaCargaSI = apiGet("/api/saude-indigena")
-      .then(payload => { dados = decodificar(payload); carregado = true; return true; })
+      .then(payload => { podeVerCpf = !!payload.incluiCpf; dados = decodificar(payload); carregado = true; return true; })
       .catch(e => {
         console.warn("[saude-indigena] falha ao carregar a base:", e && e.message ? e.message : e);
         promessaCargaSI = null; // libera nova tentativa ao reabrir a aba
@@ -238,6 +239,9 @@ export function prefetchSaudeIndigena() {
   garantirDadosSI();
 }
 
+// Data de hoje (local) em ISO YYYY-MM-DD, para detectar admissões futuras.
+const HOJE_ISO = new Date().toLocaleDateString("en-CA");
+
 function decodificar(payload) {
   const fields = payload.fields || [];
   const rawFields = payload.rawFields || [];
@@ -256,6 +260,8 @@ function decodificar(payload) {
     o.ativo = o.vinculo === "Ativo";
     o.indigena = (o.raca || "").toUpperCase() === "INDIGENA";
     o.substituicao = (o.tipoAdmissao === "SUBSTITUIÇÃO") ? (o.statusSubstituicao || "") : "";
+    // Admissão programada: data de admissão no futuro (comparação por data ISO).
+    o.admissaoProgramada = !!(o.dataAdmissao && String(o.dataAdmissao).slice(0, 10) > HOJE_ISO);
     // Campo derivado p/ a coluna "Data Afastamento / Desligamento": ISO (ordena
     // cronologicamente no Tabulator) e formatado por fData() só na exibição.
     o._dataAfast = o.dataDesligamento || o.situacaoDataInicio || "";
@@ -566,11 +572,13 @@ function setText(id, v) { const el = $(id); if (el) el.textContent = v; }
 
 function renderKpis(rows) {
   const total = rows.length;
-  const ativos = rows.filter(r => r.ativo).length;
+  // Ativos NÃO inclui admissões programadas (quem ainda vai começar).
+  const ativos = rows.filter(r => r.ativo && !r.admissaoProgramada).length;
   const indigenas = rows.filter(r => r.indigena).length;
   // Afastados: desconsidera Atestado, Afastamento com remuneração e Licença Paternidade.
   const afastados = rows.filter(r => r.emAfastamento && !afastamentoExcluido(r.situacao)).length;
   const ferias = rows.filter(r => r.emFerias).length;
+  const admProgramadas = rows.filter(r => r.admissaoProgramada).length;
   const desligados = rows.filter(r => !r.ativo).length;
   const porAtuacao = v => rows.filter(r => r.tipoAtuacao === v).length;
 
@@ -589,6 +597,7 @@ function renderKpis(rows) {
   setText("siKpiIndigenasPct", total ? `${formatPercent(indigenas / total * 100)} do total` : "—");
   setText("siKpiAfastados", formatNumber(afastados));
   setText("siKpiFerias", formatNumber(ferias));
+  setText("siKpiAdmProg", formatNumber(admProgramadas));
 }
 
 function renderResumo(rows) {
@@ -638,8 +647,29 @@ const SI_COLS = [
   { title: "Data Afastamento / Desligamento", field: "_dataAfast", minWidth: 170, formatter: c => cel(fData(c.getValue())) },
   { title: "Término Afastamento", field: "situacaoDataFim", minWidth: 140, formatter: c => cel(fData(c.getValue())) },
   { title: "Local de Trabalho", field: "localTrabalho", cssClass: "siTdLocal", minWidth: 150, formatter: c => cel(c.getValue()) },
+  { title: "Lotação", field: "lotacao", cssClass: "siTdLocal", minWidth: 150, formatter: c => cel(c.getValue() === "—" ? "" : c.getValue()) },
   { title: "Centro de Custo", field: "centroCusto", cssClass: "siTdLocal", minWidth: 150, formatter: c => cel(c.getValue()) }
 ];
+
+// Formata o CPF no padrão 000.000.000-00 (todos os dígitos visíveis). Recompõe
+// zeros à esquerda que a base possa ter perdido; valor não-numérico sai cru.
+function formatarCpf(v) {
+  let d = String(v == null ? "" : v).replace(/\D/g, "");
+  if (!d) return v || "";
+  if (d.length < 11) d = d.padStart(11, "0");
+  return d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : String(v);
+}
+const COL_CPF = { title: "CPF", field: "cpf", minWidth: 130, formatter: c => cel(formatarCpf(c.getValue())) };
+
+// Colunas da tabela: insere a coluna CPF logo após "Data de Nascimento" só quando
+// o usuário é administrador da aba (podeVerCpf). Caso contrário, sem CPF.
+function colunasTabela() {
+  if (!podeVerCpf) return SI_COLS;
+  const i = SI_COLS.findIndex(c => c.field === "dataNascimento");
+  const cols = SI_COLS.slice();
+  cols.splice(i + 1, 0, COL_CPF);
+  return cols;
+}
 
 function renderTabela(rows) {
   const total = formatNumber(rows.length);
@@ -649,8 +679,10 @@ function renderTabela(rows) {
   if (!gradeSI) {
     gradeSI = criarTabelaArrastavel({
       elemento: "siTabelaBody",
-      colunas: SI_COLS,
-      persistID: "siTrabalhadores",
+      colunas: colunasTabela(),
+      // Layout de colunas separado para admin (com CPF): evita que um layout
+      // salvo antes — sem a coluna CPF — esconda a coluna nova.
+      persistID: podeVerCpf ? "siTrabalhadoresAdm" : "siTrabalhadores",
       indexField: "registro",
       movableRows: false,
       headerSort: true,
@@ -674,17 +706,22 @@ function exportarExcel() {
   const rows = aplicarFiltros();
   if (!rows.length) { abrirAviso({ titulo: "Exportação", msg: "Nenhum trabalhador para exportar com os filtros atuais.", perigo: true }); return; }
 
-  const headers = ["Registro", "Nome", "Data de Nascimento", "Sexo", "Admissão", "Tipo Admissão",
+  // Cabeçalho: CPF só entra para administrador da aba (logo após Data de Nascimento).
+  const headers = ["Registro", "Nome", "Data de Nascimento"];
+  if (podeVerCpf) headers.push("CPF");
+  headers.push("Sexo", "Admissão", "Tipo Admissão",
     "Substituição / Data Fim", "Cargo", "Situação", "Tipo de Desligamento",
-    "Data Afastamento / Desligamento", "Término Afastamento", "Local de Trabalho", "Centro de Custo"];
+    "Data Afastamento / Desligamento", "Término Afastamento", "Local de Trabalho", "Lotação", "Centro de Custo");
 
   const linhas = [headers];
   rows.forEach(r => {
-    linhas.push([
-      r.registro, r.nome, fData(r.dataNascimento), r.sexo, fData(r.dataAdmissao), r.tipoAdmissao,
+    const linha = [r.registro, r.nome, fData(r.dataNascimento)];
+    if (podeVerCpf) linha.push(formatarCpf(r.cpf));
+    linha.push(r.sexo, fData(r.dataAdmissao), r.tipoAdmissao,
       r.substituicao, r.cargo, r.situacao, (r.tipoDesligamento === "—" ? "" : r.tipoDesligamento),
-      fData(r.dataDesligamento || r.situacaoDataInicio), fData(r.situacaoDataFim), r.localTrabalho, r.centroCusto
-    ]);
+      fData(r.dataDesligamento || r.situacaoDataInicio), fData(r.situacaoDataFim), r.localTrabalho,
+      (r.lotacao === "—" ? "" : r.lotacao), r.centroCusto);
+    linhas.push(linha);
   });
 
   const csv = "\uFEFF" + linhas.map(l => l.map(valorCsv).join(";")).join("\r\n");
@@ -698,20 +735,43 @@ function exportarAtivosDsei() {
   const rows = aplicarFiltros().filter(r => r.ativo);
   if (!rows.length) { abrirAviso({ titulo: "Exporta\u00E7\u00E3o", msg: "Nenhum trabalhador ativo para exportar com os filtros atuais.", perigo: true }); return; }
 
-  const headers = ["Nome", "Admiss\u00E3o", "Cargo", "Situa\u00E7\u00E3o", "Data Afastamento / Desligamento", "T\u00E9rmino Afastamento"];
+  // CPF s\u00F3 entra para administrador da aba (logo ap\u00F3s o Nome).
+  const headers = ["Nome"];
+  if (podeVerCpf) headers.push("CPF");
+  headers.push("Admiss\u00E3o", "Cargo", "Situa\u00E7\u00E3o", "Data Afastamento / Desligamento", "T\u00E9rmino Afastamento");
   const linhas = [headers];
   rows.forEach(r => {
-    linhas.push([
-      r.nome, fData(r.dataAdmissao), r.cargo, r.situacao,
-      fData(r.dataDesligamento || r.situacaoDataInicio), fData(r.situacaoDataFim)
-    ]);
+    const linha = [r.nome];
+    if (podeVerCpf) linha.push(formatarCpf(r.cpf));
+    linha.push(fData(r.dataAdmissao), r.cargo, r.situacao,
+      fData(r.dataDesligamento || r.situacaoDataInicio), fData(r.situacaoDataFim));
+    linhas.push(linha);
   });
   baixarCsv(linhas, "trabalhadores_ativos_dsei.csv");
 }
 
+// Cor do selo por TIPO de situação. Desligamentos (qualquer tipo) = vermelho;
+// os demais tipos ativos ganham cores próprias (Normal verde, Férias azul,
+// Atestado âmbar, doença roxo, maternidade rosa, suspensão cinza, etc.).
+function classeSituacao(situacao, ativo) {
+  if (!ativo) return "is-deslig";
+  const s = (situacao || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  if (/deslig|rescis|demiss/.test(s)) return "is-deslig";
+  if (/ferias/.test(s)) return "is-ferias";
+  if (/atestado/.test(s)) return "is-atestado";
+  if (/maternidade|paternidade|licenca/.test(s)) return "is-maternidade";
+  if (/doenca|auxilio|acidente|inss|beneficio/.test(s)) return "is-doenca";
+  if (/suspens/.test(s)) return "is-suspensao";
+  if (/afastament/.test(s)) return "is-afast";
+  if (/normal|ativ|trabalhando/.test(s)) return "is-normal";
+  return "is-outros";
+}
 function badgeSituacao(r) {
-  const cls = r.ativo ? "is-ativo" : "is-deslig";
-  return `<span class="siBadge ${cls}">${escapeHtml(r.situacao || "—")}</span>`;
+  // Trabalhador com admissão futura aparece como "Admissão Programada" (não "Normal").
+  if (r.ativo && r.admissaoProgramada) {
+    return `<span class="siBadge is-admprog">Admissão Programada</span>`;
+  }
+  return `<span class="siBadge ${classeSituacao(r.situacao, r.ativo)}">${escapeHtml(r.situacao || "—")}</span>`;
 }
 
 // ---------- Helpers de gráfico (Chart.js, isolados) ----------

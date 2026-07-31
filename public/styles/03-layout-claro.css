@@ -37,6 +37,97 @@
       letter-spacing: -1.6px;
     }
 
+    /* =========================================================
+       MARCA DO CABEÇALHO — título "SIGEPSI" grande e estilizado
+       ========================================================= */
+
+    /* container-type liga o container query: o cqw abaixo mede ESTE bloco (a coluna
+       esquerda do .top), não a janela. Assim o título acompanha a largura que a barra
+       de filtros deixa livre, em vez de invadi-la. */
+    .topBrand {
+      container-type: inline-size;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* O seletor precisa de 3 classes para vencer `body.modoPainelFixo .titleBig`
+       (38px, em 15-painel-fixo-visao-geral.css), que é a regra do modo painel fixo da
+       Visão Geral e senão prenderia o título no tamanho antigo. */
+    .topBrand .titleBig.topBrandTitulo {
+      position: relative;
+      margin-top: 0;
+      /* Caixa do tamanho do texto (não do bloco): é dela que o brilho abaixo tira a
+         largura — como bloco, a luz se esticaria pelo cabeçalho inteiro. */
+      width: fit-content;
+      max-width: 100%;
+      /* ~21cqw é o que faz as 7 letras encostarem nas bordas do bloco. Piso de 30px
+         para o mobile, teto de 116px para não estourar em ultrawide. A linha em vw
+         é fallback para navegador sem container queries. */
+      font-size: clamp(30px, 8.6vw, 116px);
+      font-size: clamp(30px, 21cqw, 116px);
+      line-height: .92;
+      letter-spacing: -.03em;
+      white-space: nowrap;
+      padding-bottom: .12em;
+
+      /* Branco sólido, com sombra curta para o texto descolar do azul do cabeçalho. */
+      color: #fff;
+      text-shadow:
+        0 2px 2px rgba(0, 24, 54, .38),
+        0 10px 26px rgba(0, 20, 48, .32);
+    }
+
+    /* Fora da Visão Geral (.view-scroll marca todas as outras abas) a barra de filtros
+       fica oculta, então o bloco do título passa a ocupar a largura inteira do
+       cabeçalho e o cqw acima o deixaria enorme. Aqui ele vai à metade — o brilho
+       usa unidades em, então acompanha sozinho. */
+    .main.view-scroll .topBrand .titleBig.topBrandTitulo {
+      font-size: clamp(24px, 4.3vw, 58px);
+      font-size: clamp(24px, 10.5cqw, 58px);
+    }
+
+    /* Brilho azul-claro sob o título: núcleo fino e luminoso (::after) somado a um
+       halo largo e difuso (::before), os dois esmaecendo nas pontas. Ambos são
+       decorativos e não capturam clique. */
+    .topBrandTitulo::before,
+    .topBrandTitulo::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      pointer-events: none;
+    }
+
+    /* Halo difuso — a "névoa" de luz que abre para os lados. */
+    .topBrandTitulo::before {
+      left: 6%;
+      right: -4%;
+      height: .3em;
+      background: radial-gradient(ellipse at 52% 100%,
+          rgba(120, 205, 255, .75) 0%,
+          rgba(70, 165, 245, .34) 42%,
+          rgba(40, 130, 220, 0) 72%);
+      filter: blur(6px);
+    }
+
+    /* Núcleo do brilho — a linha clara logo abaixo das letras. */
+    .topBrandTitulo::after {
+      left: 12%;
+      right: 4%;
+      height: .045em;
+      border-radius: 99px;
+      background: linear-gradient(90deg,
+          rgba(150, 220, 255, 0) 0%,
+          rgba(215, 240, 255, .95) 34%,
+          rgba(255, 255, 255, 1) 56%,
+          rgba(170, 225, 255, .6) 82%,
+          rgba(150, 220, 255, 0) 100%);
+      box-shadow: 0 0 .22em .06em rgba(125, 205, 255, .55);
+      filter: blur(.6px);
+    }
+
     .subtitle {
       max-width: 680px;
       font-size: 13px;

@@ -1256,33 +1256,37 @@ function compararBase(a, b) {
 // Cotista = qualquer tipo diferente de Ampla Concorrência.
 const ehCota = c => !!c.tipo && c.tipo !== "AMPLA_CONCORRENCIA";
 
-// Classifica por nota. Com intervaloCota X > 0, a cada X de ampla concorrência
-// colocados a próxima posição é reservada ao melhor cotista (qualquer tipo de
-// cota) disponível — ele "fura" a ordem por nota. Sem cotista, cai
-// para o próximo por nota sem consumir a reserva. Retorna [{candidato,posicao,reservado}].
+// Classifica por nota. Com intervaloCota X > 0, a cada X posições de ampla
+// concorrência a próxima é reservada ao melhor cotista ainda não classificado.
+// Regra essencial: as posições de ampla concorrência são disputadas por TODOS,
+// cotistas incluídos — quem tem nota para entrar pela ampla entra por ela e NÃO
+// desce para esperar a vaga reservada (o cotista em 1º lugar continua em 1º).
+// A reserva serve apenas para chamar cotistas que não alcançaram a nota da ampla.
+// Sem cotista disponível, a posição reservada é preenchida pelo próximo por nota
+// e a reserva permanece pendente. Retorna [{candidato,posicao,reservado}].
 function classificar(candidatos, config) {
   const ordenados = [...candidatos].sort(compararBase);
   const X = Number(config.intervaloCota) || 0;
   if (X <= 0) {
     return ordenados.map((c, i) => ({ candidato: c, posicao: i + 1, reservado: false }));
   }
-  const normais = ordenados.filter(c => !ehCota(c));
-  const cotas = ordenados.filter(ehCota);
+  const pendentes = [...ordenados];
   const resultado = [];
-  let iN = 0, iC = 0, contNormais = 0, posicao = 0;
-  while (iN < normais.length || iC < cotas.length) {
-    if (contNormais >= X && iC < cotas.length) {
-      resultado.push({ candidato: cotas[iC++], posicao: ++posicao, reservado: true });
-      contNormais = 0;
-      continue;
+  let contAmpla = 0, posicao = 0;
+  while (pendentes.length) {
+    // Posição reservada: melhor cotista da fila restante (ele "fura" a ordem por
+    // nota apenas aqui). Não zera a reserva se não houver cotista sobrando.
+    if (contAmpla >= X) {
+      const iCota = pendentes.findIndex(ehCota);
+      if (iCota >= 0) {
+        resultado.push({ candidato: pendentes.splice(iCota, 1)[0], posicao: ++posicao, reservado: true });
+        contAmpla = 0;
+        continue;
+      }
     }
-    if (iN < normais.length) {
-      resultado.push({ candidato: normais[iN++], posicao: ++posicao, reservado: false });
-      contNormais += 1;
-      continue;
-    }
-    // Acabaram os normais: escoa os cotistas restantes na ordem base (sem reserva).
-    resultado.push({ candidato: cotas[iC++], posicao: ++posicao, reservado: false });
+    // Posição de ampla concorrência: vai o melhor por nota, cotista ou não.
+    resultado.push({ candidato: pendentes.shift(), posicao: ++posicao, reservado: false });
+    contAmpla += 1;
   }
   return resultado;
 }

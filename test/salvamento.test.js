@@ -79,9 +79,29 @@ test("observação de alerta: sem chave é rejeitada e não grava nada", async (
 // ---------------------------------------------------------------------------
 // 2) Remanejamento (processo + movimentações)
 // ---------------------------------------------------------------------------
-const CUSTO = (id, salario) => ({
-  ID_VAGA: id, SALARIO_BASE: salario, INSALUBRIDADE_PERICULOSIDADE: 0,
-  GRATIFICACAO_RT: 0, NOTURNO: 0, ENCARGOS: 0, PROVISOES: 0
+// A query de custos soma os componentes no próprio SQL (ver somaMensalCustoSql) e
+// devolve só o mensal unitário da vaga — é essa a forma que a fixture imita.
+const CUSTO = (id, mensalUnitario) => ({ ID_VAGA: id, mensal_unitario: mensalUnitario });
+
+test("custo da vaga: o mensal soma TODOS os componentes, inclusive os 4 acrescentados", () => {
+  const { COMPONENTES_CUSTO_VAGA, COLUNAS_CUSTO_NOVAS, somaMensalCustoSql } = require("../lib/sql");
+  const soma = somaMensalCustoSql("c");
+
+  // Toda coluna da lista entra na soma do mensal (nada fica de fora silenciosamente).
+  COMPONENTES_CUSTO_VAGA.forEach(comp => {
+    assert.match(soma, new RegExp(`COALESCE\\(c\\.${comp.coluna},0\\)`), `${comp.coluna} fora da soma`);
+  });
+  // E as 4 colunas novas estão na lista, com alias e campo próprios.
+  COLUNAS_CUSTO_NOVAS.forEach(coluna => {
+    const comp = COMPONENTES_CUSTO_VAGA.find(c => c.coluna === coluna);
+    assert.ok(comp, `${coluna} ausente em COMPONENTES_CUSTO_VAGA`);
+    assert.ok(comp.aliasCadastro && comp.aliasDetalhe && comp.campo, `${coluna} sem aliases/campo`);
+  });
+  // Aliases e campos não podem colidir (dois componentes na mesma coluna do JSON).
+  ["aliasCadastro", "aliasDetalhe", "campo"].forEach(chave => {
+    const valores = COMPONENTES_CUSTO_VAGA.map(c => c[chave]);
+    assert.equal(new Set(valores).size, valores.length, `${chave} duplicado`);
+  });
 });
 
 test("remanejamento: grava o processo e uma movimentação por cargo (DECRESCIMO/ACRESCIMO)", async () => {

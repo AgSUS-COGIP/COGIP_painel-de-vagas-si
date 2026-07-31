@@ -293,6 +293,7 @@ export function configurarDelegacaoEventos() {
       case "toggle-ajuste-rem": alternarModoAjusteRemanejamento(); break;
       case "abrir-ajustes-rem": abrirJanelaAjustesRemanejamento(); break;
       case "fechar-ajustes-rem": fecharJanelaAjustesRemanejamento(); break;
+      case "detalhe-ajuste-rem": alternarDetalheAjusteRemanejamento(d.id); break;
       case "editar-ajuste-rem": editarAjusteRemanejamentoPainel(d.id); break;
       case "excluir-ajuste-rem": excluirAjusteRemanejamentoPainel(d.id); break;
     }

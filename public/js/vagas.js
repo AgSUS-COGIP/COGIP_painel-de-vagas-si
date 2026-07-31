@@ -48,6 +48,34 @@ function colVagas(title, field, sortKey, formatter, extra) {
 }
 
 const fmtNumCel = c => formatNumber(c.getValue());
+// Coluna "Total de Trabalhadores": mostra o total cheio (inclui admissões
+// programadas) e, quando houver admissão programada na linha, um selo laranja no
+// canto da célula com a QUANTIDADE. O card "Trabalhadores Contratados" já desconta
+// essas admissões; o selo (+ tooltip, ver tooltipAdmProg) avisa que elas seguem
+// contadas AQUI, no total.
+const fmtTotalTrabCel = c => {
+  const valor = formatNumber(c.getValue());
+  const prog = Number((c.getRow().getData() || {}).admissaoProgramada || 0);
+  if (prog <= 0) return valor;
+  return `<span class="celTotalTrab">${valor}` +
+    `<span class="celAdmProgBadge" aria-label="Admissão programada: ${prog}">${formatNumber(prog)}</span></span>`;
+};
+
+// Tooltip (balão do Tabulator, anexado ao body — não é cortado pela tabela) da
+// coluna Total de Trabalhadores: só aparece quando há admissão programada na linha.
+// Monta via DOM (sem HTML cru) para deixar o número em destaque.
+function tooltipAdmProg(e, cell) {
+  const prog = Number((cell.getRow().getData() || {}).admissaoProgramada || 0);
+  if (prog <= 0) return false; // sem admissão programada → sem tooltip
+  const box = document.createElement("div");
+  box.className = "admProgTip";
+  const titulo = document.createElement("strong");
+  titulo.textContent = `Admissão Programada: ${formatNumber(prog)}`;
+  const nota = document.createElement("span");
+  nota.textContent = "Já contam neste Total de Trabalhadores, mas ficam de fora do card “Trabalhadores Contratados” (ainda não iniciaram).";
+  box.append(titulo, nota);
+  return box;
+}
 const fmtPctCel = c => formatPercent(c.getValue());
 const fmtTextoCel = c => escapeHtml(c.getValue() == null ? "" : String(c.getValue()));
 // Vagas Ociosas pode ser negativa (déficit) → realce vermelho como antes.
@@ -77,7 +105,7 @@ function colunasVagasMain(view) {
     cols.push(colVagas(tituloPrimeira(), "label", "label", fmtTextoCel, { cssClass: "vagasTextoCol", minWidth: 180 }));
   }
   cols.push(num("Vagas previstas", "quantitativoPlano"));
-  cols.push(num("Total de Trabalhadores", "totalTrabalhadores"));
+  cols.push(colVagas("Total de Trabalhadores", "totalTrabalhadores", "totalTrabalhadores", fmtTotalTrabCel, { hozAlign: "center", minWidth: 90, cssClass: "colTotalTrab", tooltip: tooltipAdmProg }));
   cols.push(num("Afastados", "afastados"));
   cols.push(colVagas("Vagas Ociosas (Déficit Operacional)", "ociosas", "ociosas", fmtOciosasCel, { hozAlign: "center", minWidth: 120, cssClass: "colOciosas" }));
   cols.push(num("Trabalhadores Normais", "contratadosNormal"));
@@ -345,6 +373,7 @@ export function montarVagasAgrupadas(rows, campo, labelCampo) {
         labelCampo,
         quantitativoPlano: 0,
         totalTrabalhadores: 0,
+        admissaoProgramada: 0,
         afastados: 0,
         ociosas: 0,
         contratadosNormal: 0,
@@ -362,6 +391,7 @@ export function montarVagasAgrupadas(rows, campo, labelCampo) {
     const item = mapa.get(label);
     item.quantitativoPlano += Number(row.quantitativoPlano || 0);
     item.totalTrabalhadores += Number(row.totalTrabalhadores || 0);
+    item.admissaoProgramada += Number(row.admissaoProgramada || 0);
     item.afastados += Number(row.afastados || 0);
     item.ociosas += Number(row.ociosas || 0);
     item.contratadosNormal += Number(row.contratadosNormal || 0);
@@ -422,6 +452,7 @@ export function renderVagasTable(rows) {
   Object.assign(totalLinha, {
     quantitativoPlano: totalRow.quantitativoPlano,
     totalTrabalhadores: totalRow.totalTrabalhadores,
+    admissaoProgramada: totalRow.admissaoProgramada,
     afastados: totalRow.afastados,
     ociosas: totalRow.ociosas,
     contratadosNormal: totalRow.contratadosNormal,
@@ -439,6 +470,7 @@ export function calcularTotalVagasTabela(linhas) {
   const total = linhas.reduce((acc, row) => {
     acc.quantitativoPlano += Number(row.quantitativoPlano || 0);
     acc.totalTrabalhadores += Number(row.totalTrabalhadores || 0);
+    acc.admissaoProgramada += Number(row.admissaoProgramada || 0);
     acc.afastados += Number(row.afastados || 0);
     acc.ociosas += Number(row.ociosas || 0);
     acc.contratadosNormal += Number(row.contratadosNormal || 0);
@@ -448,6 +480,7 @@ export function calcularTotalVagasTabela(linhas) {
   }, {
     quantitativoPlano: 0,
     totalTrabalhadores: 0,
+    admissaoProgramada: 0,
     afastados: 0,
     ociosas: 0,
     contratadosNormal: 0,
