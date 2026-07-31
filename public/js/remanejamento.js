@@ -879,6 +879,17 @@ export function mesesRemanejamentoPorTipo(tipo) {
   return Math.max(1, 12 - meses);
 }
 
+// Meses que valem para o registro. No remanejamento normal vêm do mês escolhido;
+// no modo ajuste o admin digita o valor em cada linha — usa-se o maior deles, que
+// é o que vai para N_MESES (o banco guarda um único período por processo).
+export function mesesEfetivosRemanejamento() {
+  if (!state.remanejamentoAjusteAtivo) return mesesRemanejamentoSelecionado();
+  const valores = ["reduzido", "acrescentado"]
+    .flatMap(tipo => state.remanejamentoLinhas[tipo] || [])
+    .map(linha => Math.max(1, Math.min(12, Number(linha.meses) || 1)));
+  return valores.length ? Math.max(...valores) : mesesRemanejamentoSelecionado();
+}
+
 export function criarLinhaRemanejamento(tipo, valores) {
   return {
     id: `${tipo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -930,8 +941,18 @@ export function atualizarCampoLinhaRemanejamento(tipo, id, campo, valor) {
     linha.idCargoFuncao = valor;
     linha.cargo = cadastro?.cargo || "";
     linha.vagasOciosas = Number(cadastro?.vagasOciosas || 0);
-    aplicarCustosCadastroNaLinha(linha, cadastro);
-  } else if (["quantidade", "meses", ...REMANEJAMENTO_COMPONENTES_CUSTO.map(c => c.campo)].includes(campo)) {
+    linha.salarioBase = Number(cadastro?.salarioBase || 0);
+    linha.insalubridadePericulosidade = Number(cadastro?.insalubridadePericulosidade || 0);
+    linha.gratificacaoRt = Number(cadastro?.gratificacaoRt || 0);
+    linha.adicionalNoturno = Number(cadastro?.adicionalNoturno || 0);
+    linha.encargos = Number(cadastro?.encargos || 0);
+    linha.provisoes = Number(cadastro?.provisoes || 0);
+    linha.valeAlimentacao = Number(cadastro?.valeAlimentacao || 0);
+  } else if (campo === "meses") {
+    // Nº de Meses é derivado (do mês, ou do "Nº de meses do ajuste") — nunca por
+    // linha. Ignora a escrita: nem o ajuste pontual edita esse valor individualmente.
+    return;
+  } else if (["quantidade", "salarioBase", "insalubridadePericulosidade", "gratificacaoRt", "adicionalNoturno", "encargos", "provisoes", "valeAlimentacao"].includes(campo)) {
     linha[campo] = Number(valor || 0);
   } else {
     linha[campo] = valor;
@@ -945,6 +966,7 @@ export function renderLinhasRemanejamento(tipo) {
   const body = document.getElementById(tipo === "reduzido" ? "remReduzidoBody" : "remAcrescentadoBody");
   if (!body) return;
 
+  const foco = capturarFocoLinhasRemanejamento(body);
   const rows = state.remanejamentoLinhas[tipo] || [];
   const opcoesCargo = montarOpcoesCargosRemanejamento(tipo);
   const optionsHtml = ['<option value="">Selecione</option>'].concat(opcoesCargo.map(opt => `<option value="${escapeAttr(opt.value)}">${escapeHtml(opt.label)}</option>`)).join("");
@@ -972,11 +994,7 @@ export function renderLinhasRemanejamento(tipo) {
           <tr${classeLinha}>
             <td>${selectHtml}${infoOciosas}</td>
             <td><input type="number" min="0" step="1" value="${escapeAttr(row.quantidade)}" data-input="campo-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}" data-campo="quantidade"></td>
-            <td><span class="remMesesValor" title="${!state.remanejamentoAjusteAtivo
-      ? "Meses do mês informado até dezembro (13 - mês, calculado automaticamente)."
-      : tipo === "reduzido"
-        ? "No ajuste, o reduzido usa 12 - o número digitado no campo do mês."
-        : "No ajuste, o acrescentado usa o número digitado no campo do mês."}">${escapeHtml(row.meses)}</span></td>
+            <td>${mesesCelulaHtml(tipo, row)}</td>
             <td><strong>${formatCurrency(total.total)}</strong></td>
             <td><button type="button" class="remDeleteBtn" data-click="remover-linha-rem" data-tipo="${escapeAttr(tipo)}" data-id="${escapeAttr(row.id)}">🗑</button></td>
           </tr>
@@ -986,6 +1004,40 @@ export function renderLinhasRemanejamento(tipo) {
   // Torna os selects de cargo pesquisáveis (recriados a cada render do corpo).
   body.querySelectorAll('select[data-change="campo-linha-rem"]').forEach(sel =>
     tornarSelectPesquisavel(sel, { placeholder: "Pesquise o cargo…" }));
+
+  restaurarFocoLinhasRemanejamento(body, foco);
+}
+
+// "Nº de Meses" da linha: SEMPRE calculado, nunca digitável por linha. No
+// remanejamento normal é 13 - mês nos dois lados; no ajuste pontual sai do
+// "Nº de meses do ajuste" (reduzido = 12 - o valor; acrescentado = o valor),
+// que é o único campo que o admin edita — assim os dois lados não divergem.
+function mesesCelulaHtml(tipo, row) {
+  const dica = state.remanejamentoAjusteAtivo
+    ? `Calculado a partir do “Nº de meses do ajuste” (${tipo === "reduzido" ? "12 menos o valor informado" : "o valor informado"}).`
+    : "Meses do mês atual até dezembro (calculado automaticamente).";
+  return `<span class="remMesesValor" title="${escapeAttr(dica)}">${escapeHtml(row.meses)}</span>`;
+}
+
+// O corpo da tabela é reconstruído a cada tecla (innerHTML), o que tiraria o foco
+// do campo em edição. Guarda/repõe o campo focado e a posição do cursor.
+function capturarFocoLinhasRemanejamento(body) {
+  const ativo = document.activeElement;
+  if (!ativo || !body.contains(ativo) || !ativo.dataset?.campo) return null;
+  return {
+    id: ativo.dataset.id,
+    campo: ativo.dataset.campo,
+    inicio: ativo.selectionStart,
+    fim: ativo.selectionEnd
+  };
+}
+
+function restaurarFocoLinhasRemanejamento(body, foco) {
+  if (!foco) return;
+  const alvo = body.querySelector(`input[data-id="${CSS.escape(foco.id)}"][data-campo="${CSS.escape(foco.campo)}"]`);
+  if (!alvo) return;
+  alvo.focus();
+  try { alvo.setSelectionRange(foco.inicio, foco.fim); } catch { /* input number pode não suportar seleção */ }
 }
 
 export function validarOciosasReduzidoCliente() {
@@ -1070,12 +1122,7 @@ export function atualizarResumoRemanejamentoPainel() {
   setText("remTotalAcrescentadoMensal", formatCurrency(add.mensal));
   setText("remImpactoMensal2", formatCurrency(impactoMensal));
   setText("remImpactoPeriodo2", formatCurrency(impactoPeriodo));
-  // No ajuste os dois lados têm períodos diferentes, então o rótulo mostra os dois.
-  const mesesRed = mesesRemanejamentoPorTipo("reduzido");
-  const mesesAdd = mesesRemanejamentoPorTipo("acrescentado");
-  setText("remImpactoPeriodoMeses", mesesRed === mesesAdd
-    ? `${mesesRed} meses`
-    : `${mesesRed} meses reduzido / ${mesesAdd} acrescentado`);
+  setText("remImpactoPeriodoMeses", String(mesesEfetivosRemanejamento()));
 
   // Uma linha do "Resumo dos Valores (Mensal)" por componente de custo.
   REMANEJAMENTO_COMPONENTES_CUSTO.forEach(c => {
@@ -1384,7 +1431,10 @@ export async function salvarAjusteRemanejamentoPainel() {
   formData.append("idDseiCasai", idDseiCasai);
   formData.append("processoSei", processoSei);
   formData.append("observacao", observacao);
-  formData.append("mes", String(mesAjusteDigitado()));
+  formData.append("mes", String(mesRemanejamentoSelecionado()));
+  // No ajuste o Nº de Meses é digitado por linha; o processo guarda um período só,
+  // então vai o maior valor informado (o servidor prioriza "meses" sobre "mes").
+  formData.append("meses", String(mesesEfetivosRemanejamento()));
   formData.append("linhasReduzido", JSON.stringify(linhasReduzido));
   formData.append("linhasAcrescentado", JSON.stringify(linhasAcrescentado));
   if (anexo) formData.append("anexo", anexo);

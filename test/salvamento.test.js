@@ -291,6 +291,24 @@ test("ajuste pontual: aceita só acréscimo (sem redução) e só decréscimo (s
   assert.equal(mDec[0].params[3], "DECRESCIMO");
 });
 
+test("ajuste pontual: N_MESES vem do 'meses' digitado (só cai no mês quando ausente/inválido)", async () => {
+  // params do INSERT do processo: [processoSei, observacao, criadoPor, N_MESES, ...].
+  const nMeses = async body => {
+    const conn = fakeConn({ insertId: 1 });
+    await salvarAjuste(conn, {
+      idDseiCasai: "1", linhasReduzido: "[]",
+      linhasAcrescentado: JSON.stringify([{ idCargoFuncao: 20, quantidade: 1 }]),
+      ...body
+    }, null);
+    return conn.calls.execute.find(c => /TP_AJUSTE/.test(c.sql)).params[3];
+  };
+
+  assert.equal(await nMeses({ mes: 1, meses: 4 }), 4, "'meses' digitado tem prioridade sobre o mês");
+  assert.equal(await nMeses({ mes: 6 }), 7, "sem 'meses', usa 13 - mês");
+  assert.equal(await nMeses({ mes: 6, meses: 0 }), 7, "'meses' fora de 1..12 é ignorado");
+  assert.equal(await nMeses({ mes: 6, meses: 13 }), 7);
+});
+
 test("ajuste pontual: sem DSEI ou sem nenhuma linha é rejeitado (nada é gravado)", async () => {
   const semDsei = fakeConn();
   await assert.rejects(() => salvarAjuste(semDsei, {
