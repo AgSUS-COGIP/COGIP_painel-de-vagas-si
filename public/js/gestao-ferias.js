@@ -192,6 +192,21 @@ function diasPeriodo(ini, fim) {
   const d = diasEntre(ini, fim);
   return d === null ? 0 : d + 1; // inclusivo (corridos)
 }
+// Anos COMPLETOS entre a admissão e uma data (aniversários de admissão já feitos).
+// Base para derivar o período aquisitivo (CLT: cada ciclo = 12 meses de trabalho).
+function anosCompletos(admissaoISO, dISO) {
+  const [ay, am, ad] = String(admissaoISO).slice(0, 10).split("-").map(Number);
+  const [dy, dm, dd] = String(dISO).slice(0, 10).split("-").map(Number);
+  if (!ay || !dy) return 0;
+  let anos = dy - ay;
+  if (dm < am || (dm === am && dd < ad)) anos--; // ainda não fez aniversário de admissão neste ano
+  return anos;
+}
+function menosUmDia(iso) {
+  const [a, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  if (!a) return "";
+  return new Date(Date.UTC(a, m - 1, d - 1)).toISOString().slice(0, 10);
+}
 
 // ---------- Carregamento ----------
 async function carregar() {
@@ -228,6 +243,9 @@ function decodificar(payload) {
     const o = {};
     fields.forEach((f, i) => { o[f] = dim[f][r[i]]; });
     rawFields.forEach((f, j) => { o[f] = r[base + j]; });
+    // Lista de períodos de férias (cada um com status). Proteção caso um payload
+    // antigo (cache) ainda não traga o campo: assume lista vazia.
+    o.feriasLista = Array.isArray(o.feriasLista) ? o.feriasLista : [];
     return o;
   });
   return { rows, hoje: payload.hoje, atualizadoEm: payload.atualizadoEm };
@@ -256,13 +274,21 @@ function render() {
   if (!carregado || !dados) return;
   const rows = aplicarFiltros();
 
-  // KPIs
+  // Lista de PERÍODOS de férias (uma entrada por registro de férias) que alimenta
+  // APENAS os cards de férias (Em gozo/Programadas/Concluídas contam registros).
+  // A Consulta Geral usa outra visão (por período aquisitivo, ver renderConsulta).
+  const periodos = listaPeriodosFiltrada();
+
+  // KPIs de PESSOAS (1 por trabalhador).
   const cont = st => rows.filter(r => r.status === st).length;
   setText("gfKpiAtivos", formatNumber(rows.length));
-  setText("gfKpiGozo", formatNumber(cont("Em gozo")));
-  setText("gfKpiProgramadas", formatNumber(cont("Programadas")));
-  setText("gfKpiConcluidas", formatNumber(cont("Concluídas")));
   setText("gfKpiSemProg", formatNumber(cont("Sem programação")));
+
+  // KPIs de FÉRIAS: contam PERÍODOS — uma pessoa com 2 férias concluídas conta 2.
+  const contPer = st => periodos.filter(l => l.status === st).length;
+  setText("gfKpiGozo", formatNumber(contPer("Em gozo")));
+  setText("gfKpiProgramadas", formatNumber(contPer("Programadas")));
+  setText("gfKpiConcluidas", formatNumber(contPer("Concluídas")));
   const aler = b => rows.filter(r => r.alerta === b).length;
   setText("gfKpiA180", formatNumber(aler("Menos de 180 dias")));
   setText("gfKpiA90", formatNumber(aler("Menos de 90 dias")));
@@ -270,14 +296,14 @@ function render() {
 
   setText("gfAtualizado", dados.atualizadoEm ? new Date(dados.atualizadoEm).toLocaleDateString("pt-BR") : "—");
 
-  // Mini-cards de alerta (faixas).
+  // Mini-cards da seção "Alertas de Dobra" (faixas de prazo).
   setText("gfAlA30", formatNumber(aler("Menos de 30 dias")));
   setText("gfAlA90", formatNumber(aler("Menos de 90 dias")));
   setText("gfAlA180", formatNumber(aler("Menos de 180 dias")));
 
   renderResumoFiltro(rows);
   renderAlertas(rows);
-  renderConsulta(rows);
+  renderConsulta(); // tabela por período aquisitivo (base própria)
   renderPedido();
   renderCoape();
   atualizarAcessoCoape();
@@ -288,11 +314,13 @@ function renderResumoFiltro(rows) {
   const arr = (nome, lista) => { if (lista.length) p.push(lista.length <= 2 ? lista.join(", ") : `${lista.length} ${nome}`); };
   arr("nomes", filtros.nome); arr("matrículas", filtros.matricula); arr("DSEIs/CASAIs", filtros.centro);
   arr("cargos", filtros.cargo); arr("situações", filtros.situacao); arr("tipos de admissão", filtros.tipoAdm);
-  arr("status", filtros.status); arr("alertas", filtros.alerta);
+  arr("situações de férias", filtros.status); arr("alertas", filtros.alerta);
   setText("gfResumoFiltro", `${formatNumber(rows.length)} trabalhadores · ${p.length ? p.join(" · ") : "Todos os ativos"}`);
 }
 
-// Filtra os trabalhadores ativos conforme os filtros selecionados (multi-seleção).
+// Filtra os trabalhadores conforme os filtros de PESSOA (multi-seleção). O filtro
+// "Status das Férias" NÃO entra aqui: ele é a situação do período aquisitivo e
+// recorta somente a Consulta (ver linhasConsulta), não os KPIs/pessoas.
 function aplicarFiltros() {
   const f = filtros;
   return dados.rows.filter(r =>
@@ -302,7 +330,6 @@ function aplicarFiltros() {
     (!f.cargo.length || f.cargo.includes(r.cargo)) &&
     (!f.situacao.length || f.situacao.includes(r.situacaoFuncional)) &&
     (!f.tipoAdm.length || f.tipoAdm.includes(r.tipoAdmissao)) &&
-    (!f.status.length || f.status.includes(r.status)) &&
     (!f.alerta.length || f.alerta.includes(r.alerta)));
 }
 
@@ -368,8 +395,11 @@ function preencherFiltros() {
   combos.gfFCargo?.setOptions(comTotal(unicos("cargo"), contagem("cargo")));
   combos.gfFSituacao?.setOptions(comTotal(unicos("situacaoFuncional"), contagem("situacaoFuncional")));
   combos.gfFTipoAdm?.setOptions(comTotal(unicos("tipoAdmissao"), contagem("tipoAdmissao")));
-  const cStatus = contagem("status");
-  combos.gfFStatus?.setOptions(comTotal(["Em gozo", "Programadas", "Concluídas", "Sem programação"], cStatus));
+  // Status das Férias = SITUAÇÃO do período aquisitivo (igual à coluna Situação da
+  // Consulta). A contagem é por ciclo (1 por período aquisitivo).
+  const ciclos = montarAquisitivos(rows).filter(l => l._mostraResumo);
+  const contSit = c => ciclos.filter(l => l._situacaoCategoria === c).length;
+  combos.gfFStatus?.setOptions(SIT_ORDEM.map(c => ({ value: c, label: `${c} (${formatNumber(contSit(c))})` })));
   const cAlerta = contagem("alerta");
   combos.gfFAlerta?.setOptions(comTotal(["Menos de 30 dias", "Menos de 90 dias", "Menos de 180 dias"], cAlerta));
 
@@ -400,33 +430,204 @@ function limparFiltros() {
 // mais preciso paginar por rolagem manual. Sem persistência de ordem de linhas
 // (lista grande/dinâmica); colunas continuam reordenáveis/persistidas.
 let gfGradeConsulta = null;
+// Badge da coluna Pendente (saldo do CICLO). Repetido em cada linha do ciclo como
+// contexto — não é um valor por registro (dias/abono é que são por registro).
+function badgePendente(r) {
+  if (r._pendente == null) return "—"; // ciclo ainda não elegível: sem saldo devido
+  const cls = r._pendente === 0 ? "is-gozo" : (r._situacaoClasse === "is-red" ? "is-red" : "is-orange");
+  return `<span class="gfDays ${cls}">${formatNumber(r._pendente)}</span>`;
+}
 const GF_COLS_CONSULTA = [
   { title: "Matrícula", field: "matricula" },
   { title: "DSEI/CASAI", field: "centro" },
   { title: "Trabalhador", field: "nome" },
   { title: "Cargo", field: "cargo" },
   { title: "Admissão", field: "admissao", formatter: c => fData(c.getValue()) },
-  { title: "Status", field: "status", formatter: c => badgeStatus(c.getValue()) },
   {
-    title: "Período de Férias", field: "periodoIni",
-    formatter: c => {
-      const r = c.getData();
-      return (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "—";
-    }
+    title: "Período Aquisitivo", field: "_aqIni",
+    formatter: c => { const r = c.getData(); return r._aqIni ? `${fData(r._aqIni)} a ${fData(r._aqFim)}` : "—"; }
+  },
+  { title: "Período de Férias", field: "_feriasDatas", formatter: c => escapeHtml(c.getValue() || "—") },
+  {
+    title: "Dias de Férias", field: "_dias", hozAlign: "center", headerHozAlign: "center",
+    // Dias DAQUELE período de férias (por registro) — somam certo, sem duplicar.
+    formatter: c => formatNumber(c.getValue() || 0)
+  },
+  {
+    title: "Abono Pecuniário", field: "_abono", hozAlign: "center", headerHozAlign: "center",
+    // Abono é POR REGISTRO de férias — fica na linha da férias correspondente.
+    formatter: c => formatNumber(c.getValue() || 0)
+  },
+  {
+    title: "Pendente", field: "_pendente", hozAlign: "center", headerHozAlign: "center",
+    formatter: c => badgePendente(c.getData())
+  },
+  {
+    title: "Prazo-limite de gozo", field: "_prazo",
+    formatter: c => { const r = c.getData(); return r._prazo ? fData(r._prazo) : "—"; }
+  },
+  {
+    title: "Situação", field: "_situacao",
+    // Situação é do CICLO e aparece em TODAS as linhas do período aquisitivo.
+    formatter: c => { const r = c.getData(); return `<span class="gfBadge ${r._situacaoClasse || "is-sem"}">${escapeHtml(r._situacao || "—")}</span>`; }
   },
 ];
 
-function renderConsulta(rows) {
+// "Explode" a lista por TRABALHADOR em uma lista por REGISTRO de férias (cada
+// período de férias vira uma entrada, com o status daquele período). Alimenta
+// APENAS os cards do Panorama (Em gozo/Programadas/Concluídas contam registros).
+function explodirFerias(rows) {
+  const out = [];
+  (rows || dados.rows).forEach(r => {
+    let periodos = Array.isArray(r.feriasLista) ? r.feriasLista : [];
+    // Fallback p/ payload antigo em cache (sem feriasLista): usa o período principal.
+    if (!periodos.length && r.periodoIni && r.periodoFim) {
+      periodos = [{ ini: r.periodoIni, fim: r.periodoFim, status: r.status }];
+    }
+    if (!periodos.length) { out.push({ ...r, status: r.status }); return; }
+    periodos.forEach(p => out.push({ ...r, status: p.status }));
+  });
+  return out;
+}
+// Registros de férias já com os filtros de pessoa (não sofre o filtro de situação,
+// que recorta só a Consulta). Base dos cards do Panorama.
+function listaPeriodosFiltrada() {
+  return explodirFerias(aplicarFiltros());
+}
+
+// Monta a Consulta Geral por PERÍODO AQUISITIVO (uma linha por ciclo de cada
+// trabalhador). Os ciclos são derivados da admissão (CLT); cada férias é encaixada
+// no ciclo pela data de início e soma dias + abono. pendente = 30 − dias − abono.
+const DIAS_DEVIDOS = CLT_FERIAS.TOTAL_DIAS; // 30 dias por ciclo
+// Rótulo da coluna Período de Férias, com marca de gozada/agendada/em gozo.
+function rotuloFeria(p) {
+  const base = `${fData(p.ini)}–${fData(p.fim)}`;
+  if (p.status === "Programadas") return `${base} (agendada)`;
+  if (p.status === "Em gozo") return `${base} (em gozo)`;
+  return base;
+}
+// Situação do ciclo → classe de cor do badge. As chaves são as CATEGORIAS estáveis,
+// também usadas como opções do filtro "Status das Férias" (igual à coluna Situação).
+const SIT_CLS = {
+  "Em gozo": "is-gozo",
+  "Programada": "is-programado",
+  "Concluído": "is-concluida",
+  "Faltam dias": "is-orange",
+  "Vencido / dobra": "is-red",
+  "Ainda não elegível para férias": "is-sem",
+};
+// Ordem das opções no filtro de situação.
+const SIT_ORDEM = ["Em gozo", "Programada", "Concluído", "Faltam dias", "Vencido / dobra", "Ainda não elegível para férias"];
+function montarAquisitivos(rows) {
+  const hoje = (dados && dados.hoje) || "";
+  const out = [];
+  (rows || dados.rows).forEach(r => {
+    const adm = String(r.admissao || "").slice(0, 10);
+    const periodos = Array.isArray(r.feriasLista) ? r.feriasLista : [];
+    if (!adm) {
+      // Sem admissão: não dá para derivar ciclos. Uma linha por férias (ou 1 vazia).
+      const itens = periodos.length ? periodos.slice().sort((x, y) => x.ini.localeCompare(y.ini)) : [null];
+      itens.forEach((p, idx) => out.push({
+        ...r, _key: `${r.matricula}#aq-na#${idx}`, _aqIni: "", _aqFim: "",
+        _feriasDatas: p ? rotuloFeria(p) : "—",
+        _dias: p ? diasPeriodo(p.ini, p.fim) : 0, _abono: p ? Number(p.abono || 0) : 0,
+        _pendente: null, _prazo: "",
+        _situacao: "Admissão não informada", _situacaoClasse: "is-sem", _situacaoCategoria: "Ainda não elegível para férias",
+        _mostraResumo: idx === 0, _ordAq: 0, _ordFeria: idx
+      }));
+      return;
+    }
+    const anosHoje = anosCompletos(adm, hoje);
+    // Agrupa as férias por ciclo: k = max(0, anosCompletos(adm, início) − 1).
+    const buckets = new Map();
+    const garante = k => { if (!buckets.has(k)) buckets.set(k, { dias: 0, abono: 0, itens: [], gozo: false, prog: false }); return buckets.get(k); };
+    let maxK = Math.max(0, anosHoje);
+    periodos.forEach(p => {
+      const k = Math.max(0, anosCompletos(adm, p.ini) - 1);
+      maxK = Math.max(maxK, k);
+      const b = garante(k);
+      b.dias += diasPeriodo(p.ini, p.fim);   // total do ciclo (só para pendente/situação)
+      b.abono += Number(p.abono || 0);        // idem
+      b.itens.push(p);
+      if (p.status === "Em gozo") b.gozo = true;
+      if (p.status === "Programadas") b.prog = true;
+    });
+    for (let k = 0; k <= maxK; k++) {
+      const b = buckets.get(k) || { dias: 0, abono: 0, itens: [], gozo: false, prog: false };
+      const aqIni = somarMeses(adm, k * 12);
+      const aqFim = menosUmDia(somarMeses(adm, (k + 1) * 12));
+      const prazo = somarMeses(adm, (k + 2) * 12); // fim do período concessivo (dobra)
+      const emCurso = k >= anosHoje;               // direito ainda não adquirido
+      const resolvido = b.dias + b.abono;          // total do ciclo (gozados + agendados + abono)
+      const pendente = emCurso ? null : Math.max(0, DIAS_DEVIDOS - resolvido);
+      // Categoria estável do ciclo — é o que a coluna Situação mostra e o que o
+      // filtro usa. Separa "tem direito mas nada quitado" (Faltam dias) de "ainda
+      // não tem direito" (Ainda não elegível para férias, = ciclo em curso).
+      let cat;
+      if (b.gozo) cat = "Em gozo";
+      else if (emCurso) cat = b.itens.length ? "Programada" : "Ainda não elegível para férias";
+      else if (pendente === 0) cat = b.prog ? "Programada" : "Concluído";
+      else if (hoje > prazo) cat = "Vencido / dobra";
+      else cat = "Faltam dias";
+      const cls = SIT_CLS[cat];
+      const sit = cat === "Faltam dias" ? `Faltam ${pendente} dia(s)` : cat;
+
+      // UMA LINHA POR FÉRIAS do ciclo. Dias e Abono são POR REGISTRO (a férias
+      // daquela linha) — somam certo e não duplicam. Os campos do ciclo (pendente/
+      // prazo/situação) aparecem em todas as linhas do ciclo como contexto.
+      // _mostraResumo (1ª linha) serve só para CONTAR ciclos (rodapé/filtro).
+      // Ciclo sem férias vira uma linha "vazia" (período "—", 0 dias).
+      const itens = b.itens.slice().sort((x, y) => x.ini.localeCompare(y.ini));
+      const linhas = itens.length ? itens : [null];
+      linhas.forEach((p, idx) => out.push({
+        ...r, _key: `${r.matricula}#aq${k}#${idx}`,
+        _aqIni: aqIni, _aqFim: aqFim,
+        _feriasDatas: p ? rotuloFeria(p) : "—",
+        _dias: p ? diasPeriodo(p.ini, p.fim) : 0,   // dias DAQUELA férias (por registro)
+        _abono: p ? Number(p.abono || 0) : 0,        // abono DAQUELA férias (por registro)
+        _pendente: pendente, _prazo: prazo,
+        _situacao: sit, _situacaoClasse: cls, _situacaoCategoria: cat,
+        _mostraResumo: idx === 0, _ordAq: k, _ordFeria: idx
+      }));
+    }
+  });
+  // Ordena por trabalhador, ciclo e, dentro do ciclo, por data da férias (extrato).
+  out.sort((a, b) =>
+    String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR")
+    || a._ordAq - b._ordAq || a._ordFeria - b._ordFeria);
+  return out;
+}
+
+// Aplica o filtro de SITUAÇÃO (o "Situação das Férias") sobre a lista de ciclos.
+// Como a situação vale para o ciclo inteiro, mantém/remove ciclos completos.
+function filtrarPorSituacao(ciclos) {
+  return filtros.status.length ? ciclos.filter(l => filtros.status.includes(l._situacaoCategoria)) : ciclos;
+}
+// Linhas da Consulta já filtradas (usada pela exportação; a tela reaproveita os
+// ciclos montados no render()).
+function linhasConsulta() {
+  return filtrarPorSituacao(montarAquisitivos(aplicarFiltros()));
+}
+
+function renderConsulta() {
   if (!$("gfConsTab")) return;
-  const lista = rows || dados.rows;
-  setText("gfConsCount", `${formatNumber(lista.length)} trabalhadores`);
-  setText("gfConsRegistros", lista.length ? `${formatNumber(lista.length)} trabalhadores` : "Nenhum registro");
+  const linhas = linhasConsulta();
+  const trabs = new Set(linhas.map(l => String(l.matricula)));
+  const resumos = linhas.filter(l => l._mostraResumo);       // 1 por período aquisitivo
+  const vencidos = resumos.filter(l => l._situacaoClasse === "is-red").length;
+  setText("gfConsCount", `${formatNumber(trabs.size)} trabalhadores`);
+  setText("gfConsRegistros", linhas.length
+    ? `${formatNumber(resumos.length)} período(s) aquisitivo(s)${vencidos ? ` · ${formatNumber(vencidos)} vencido(s)` : ""}`
+    : "Nenhum registro");
   if (!gfGradeConsulta) gfGradeConsulta = criarTabelaArrastavel({
     elemento: "gfConsTab", colunas: GF_COLS_CONSULTA,
-    persistID: "gfConsulta", indexField: "matricula", alturaFixa: true,
+    // v3: chave nova (títulos mudaram; o Tabulator persiste o título no layout).
+    // movableRows off: a tabela agrupa férias por ciclo, então a ordem é fixa
+    // (senão o resumo do ciclo, que sai só na 1ª linha, se descolaria das demais).
+    persistID: "gfConsultaAqV3", indexField: "_key", alturaFixa: true, movableRows: false,
     vazio: "Nenhum trabalhador para os filtros selecionados.",
   });
-  gfGradeConsulta?.render(lista);
+  gfGradeConsulta?.render(linhas);
 }
 
 // ---------- Fluxo: escritório registra ----------
@@ -767,13 +968,20 @@ function baixarCsv(linhas, nome) {
   baixarArquivoCsv(csv, nome);
 }
 function exportarConsulta() {
-  const lista = aplicarFiltros();
+  // Exporta exatamente o que a Consulta mostra (mesmos filtros, inclusive Status).
+  const lista = linhasConsulta();
   if (!lista.length) { gfToast("Nada para exportar com os filtros atuais.", "erro"); return; }
-  const cab = ["Matrícula", "Trabalhador", "Cargo", "DSEI/CASAI", "Admissão", "Status", "Período de Férias", "Prazo-limite"];
+  const cab = ["Matrícula", "Trabalhador", "Cargo", "Admissão", "DSEI/CASAI", "Período Aquisitivo",
+    "Período de Férias", "Dias de Férias", "Abono Pecuniário", "Pendente", "Prazo-limite de gozo", "Situação"];
   const linhas = [cab].concat(lista.map(r => [
-    r.matricula, r.nome, r.cargo, r.centro, fData(r.admissao), r.status,
-    (r.periodoIni && r.periodoFim) ? `${fData(r.periodoIni)} a ${fData(r.periodoFim)}` : "",
-    r.status === "Sem programação" ? fData(r.limiteGozo) : ""
+    r.matricula, r.nome, r.cargo, fData(r.admissao), r.centro,
+    r._aqIni ? `${fData(r._aqIni)} a ${fData(r._aqFim)}` : "",
+    r._feriasDatas === "—" ? "" : r._feriasDatas,
+    r._dias,                                     // dias por registro (somam)
+    r._abono,                                    // abono por registro (somam)
+    r._pendente == null ? "" : r._pendente,      // saldo do ciclo (contexto por linha)
+    r._prazo ? fData(r._prazo) : "",
+    r._situacao
   ]));
   baixarCsv(linhas, "consulta_ferias.csv");
 }
