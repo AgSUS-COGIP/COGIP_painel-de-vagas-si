@@ -1,1 +1,0 @@
-- [Nova aba/módulo de permissão](novo-modulo-permissao.md) — onde registrar um módulo novo para aparecer na matriz de Perfis de Acesso
