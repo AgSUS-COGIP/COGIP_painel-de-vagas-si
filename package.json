@@ -1,0 +1,10 @@
+{
+  "name": "cogip-painel-vagas-si-redirect",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Redireciona o endereço antigo do painel para https://sigepsi.agenciasus.org.br/",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  }
+}
