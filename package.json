@@ -1,26 +1,10 @@
 {
-  "name": "painel-vagas-saude-indigena",
-  "version": "1.0.0",
+  "name": "cogip-painel-vagas-si-redirect",
+  "version": "2.0.0",
   "private": true,
-  "main": "server.js",
-  "engines": {
-    "node": "24.x"
-  },
+  "description": "Redireciona o endereço antigo do painel para https://sigepsi-hom.agenciasus.org.br/",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "check": "node --check server.js && node -e \"const cp=require('child_process'),fs=require('fs');['lib','public/js'].forEach(d=>fs.readdirSync(d).filter(f=>f.endsWith('.js')).forEach(f=>cp.execSync('node --check '+d+'/'+f)))\" && node scripts/verificar-css.js && node --no-warnings scripts/verificar-modulos.js",
-    "test": "node --test"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "express-rate-limit": "^8.5.2",
-    "google-auth-library": "^10.7.0",
-    "jsonwebtoken": "^9.0.3",
-    "multer": "^2.1.1",
-    "mysql2": "^3.15.1",
-    "pg": "^8.22.0"
+    "start": "node index.js"
   }
 }

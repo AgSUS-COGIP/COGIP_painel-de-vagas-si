@@ -1,11 +1,5 @@
-#windows
-desktop.ini
-
-# Dependências
-node_modules/
-
-# Variáveis de ambiente
 .env
-
-.claude/
-CLAUDE.md
+.env.*
+node_modules/
+.vercel
+__pycache__/
