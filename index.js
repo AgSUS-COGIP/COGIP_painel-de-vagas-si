@@ -9,7 +9,7 @@
 //      próprio servidor responde 307 para o novo endereço.
 const http = require("http");
 
-const DESTINO = "https://sigepsi.agenciasus.org.br/";
+const DESTINO = "https://sigepsi-hom.agenciasus.org.br/";
 const porta = process.env.PORT || 3000;
 
 http
