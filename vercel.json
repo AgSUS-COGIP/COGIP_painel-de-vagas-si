@@ -3,7 +3,7 @@
   "redirects": [
     {
       "source": "/(.*)",
-      "destination": "https://sigepsi-hom.agenciasus.org.br/",
+      "destination": "https://sigepsi.agenciasus.org.br/",
       "permanent": false
     }
   ]

@@ -4,7 +4,7 @@ Este projeto foi **migrado para outro ambiente** e não é mais mantido aqui.
 
 ## Novo endereço
 
-> **https://sigepsi-hom.agenciasus.org.br/**
+> **https://sigepsi.agenciasus.org.br/**
 
 Este repositório contém apenas o redirecionamento do domínio antigo da Vercel
 para o novo endereço. Não há mais aplicação, banco de dados nem API aqui.
